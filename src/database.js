@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 let db = null;
 let isFallback = false;
@@ -33,115 +34,63 @@ async function initDB() {
         authToken
       });
 
-      // 1. Create transactions table
+      // 1. Create streamers table (Consolidated settings)
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS streamers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          beam_api_key TEXT NOT NULL,
+          beam_merchant_id TEXT NOT NULL,
+          discord_webhook_url TEXT,
+          overlay_token TEXT NOT NULL,
+          is_active INTEGER DEFAULT 1,
+          
+          -- Overlay Settings
+          duration INTEGER DEFAULT 8,
+          soundEnabled INTEGER DEFAULT 1,
+          soundChoice TEXT DEFAULT 'chime',
+          soundVolume REAL DEFAULT 0.5,
+          ttsEnabled INTEGER DEFAULT 0,
+          ttsVolume REAL DEFAULT 0.8,
+          ttsRate REAL DEFAULT 1.0,
+          ttsLanguage TEXT DEFAULT 'th-TH',
+          ttsVoice TEXT DEFAULT 'default',
+          profanityFilterEnabled INTEGER DEFAULT 1,
+          profanityWords TEXT,
+          profanityReplaceStyle TEXT DEFAULT 'asterisks',
+          messageTemplate TEXT DEFAULT '{donor} ได้บริจาค {amount} บาท! 🎉',
+          showDonorMessage INTEGER DEFAULT 1,
+          minAmount REAL DEFAULT 1,
+          theme TEXT DEFAULT 'glassmorphism',
+          animation TEXT DEFAULT 'slide-down',
+          fontFamily TEXT DEFAULT 'Noto Sans Thai',
+          primaryColor TEXT DEFAULT '#667eea',
+          secondaryColor TEXT DEFAULT '#764ba2',
+          backgroundColor TEXT DEFAULT 'rgba(255, 255, 255, 0.1)',
+          textColor TEXT DEFAULT '#ffffff',
+          borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.25)',
+          particleCount INTEGER DEFAULT 15,
+          fontSize INTEGER DEFAULT 32,
+          
+          -- Custom assets
+          alert_sound_url TEXT
+        )
+      `);
+
+      // 2. Create transactions table (Simplified)
       await db.execute(`
         CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY,
+          streamer_username TEXT NOT NULL,
+          donor_name TEXT DEFAULT 'Anonymous',
           amount REAL NOT NULL,
-          donor TEXT DEFAULT 'Anonymous',
           message TEXT DEFAULT '',
-          status TEXT DEFAULT 'pending',
-          paymentUrl TEXT,
-          raw_response TEXT,
-          raw_webhook TEXT,
-          createdAt TEXT,
-          updatedAt TEXT,
-          paidAt TEXT
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (streamer_username) REFERENCES streamers(username)
         )
       `);
 
-      // 2. Create settings table
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS settings (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        )
-      `);
-
-      console.log('✅ Turso Database tables verified.');
-
-      // 3. Auto Migration of Legacy JSON files (If Turso is empty and local files/backups exist)
-      const DB_DIR = path.join(__dirname, '../data');
-      const LEGACY_DB_FILE = path.join(DB_DIR, 'transactions.json');
-      const LEGACY_SETTINGS_FILE = path.join(DB_DIR, 'overlay-settings.json');
-
-      const txCountRes = await db.execute('SELECT count(*) as count FROM transactions');
-      const settingsCountRes = await db.execute("SELECT count(*) as count FROM settings WHERE key = 'overlay_settings'");
-      
-      const isTxEmpty = txCountRes.rows[0].count === 0;
-      const isSettingsEmpty = settingsCountRes.rows[0].count === 0;
-
-      let txFileToMigrate = null;
-      if (fs.existsSync(LEGACY_DB_FILE)) txFileToMigrate = LEGACY_DB_FILE;
-      else if (fs.existsSync(LEGACY_DB_FILE + '.bak')) txFileToMigrate = LEGACY_DB_FILE + '.bak';
-
-      let settingsFileToMigrate = null;
-      if (fs.existsSync(LEGACY_SETTINGS_FILE)) settingsFileToMigrate = LEGACY_SETTINGS_FILE;
-      else if (fs.existsSync(LEGACY_SETTINGS_FILE + '.bak')) settingsFileToMigrate = LEGACY_SETTINGS_FILE + '.bak';
-
-// Migrate Transactions if Turso is empty
-      if (isTxEmpty && txFileToMigrate) {
-        console.log(`📦 Legacy transactions file found (${path.basename(txFileToMigrate)}). Migrating to Turso DB...`);
-        const fileContent = fs.readFileSync(txFileToMigrate, 'utf8');
-        const legacyTx = JSON.parse(fileContent);
-        
-        if (Array.isArray(legacyTx)) {
-          for (const tx of legacyTx) {
-            const rawResponse = tx.raw_response ? JSON.stringify(tx.raw_response) : null;
-            const rawWebhook = tx.raw_webhook ? JSON.stringify(tx.raw_webhook) : null;
-            
-            await db.execute({
-              sql: `INSERT OR IGNORE INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              args: [
-                tx.id,
-                tx.amount || 0,
-                tx.donor || 'Anonymous',
-                tx.message || '',
-                tx.status || 'pending',
-                tx.paymentUrl || null,
-                rawResponse,
-                rawWebhook,
-                tx.createdAt || new Date().toISOString(),
-                tx.updatedAt || new Date().toISOString(),
-                tx.paidAt || null
-              ]
-            });
-          }
-          console.log(`✅ Successfully migrated ${legacyTx.length} legacy transactions to Turso.`);
-        }
-        
-        if (txFileToMigrate === LEGACY_DB_FILE) {
-          try {
-            fs.renameSync(LEGACY_DB_FILE, LEGACY_DB_FILE + '.bak');
-            console.log(`📁 Renamed legacy transactions.json to transactions.json.bak`);
-          } catch (e) {}
-        }
-      }
-
-
-      // Migrate Settings if Turso is empty
-      if (isSettingsEmpty && settingsFileToMigrate) {
-        console.log(`📦 Legacy settings file found (${path.basename(settingsFileToMigrate)}). Migrating to Turso DB...`);
-        const settingsContent = fs.readFileSync(settingsFileToMigrate, 'utf8');
-        const legacySettings = JSON.parse(settingsContent);
-        
-        await db.execute({
-          sql: `INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`,
-          args: ['overlay_settings', JSON.stringify(legacySettings)]
-        });
-        
-        console.log('✅ Successfully migrated settings to Turso.');
-        
-        if (settingsFileToMigrate === LEGACY_SETTINGS_FILE) {
-          try {
-            fs.renameSync(LEGACY_SETTINGS_FILE, LEGACY_SETTINGS_FILE + '.bak');
-            console.log(`📁 Renamed legacy overlay-settings.json to overlay-settings.json.bak`);
-          } catch (e) {}
-        }
-      }
-
-      isInitialized = true;
+      console.log('✅ Turso Database tables verified (New Structure).');
     } catch (err) {
       console.warn('⚠️ Warning: Cannot connect to Turso database. Falling back to in-memory database.');
       console.warn('Error details:', err.message);
@@ -207,20 +156,32 @@ function useInMemoryFallback(reason) {
 }
 
 /**
- * Fetch all transactions ordered by creation date descending.
+ * Fetch transactions ordered by creation date descending.
+ * Optional: filter by streamer_username.
  */
-async function getTransactions() {
+async function getTransactions(username = null) {
   await ensureConnected();
   if (isFallback) {
-    return [...memoryTransactions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    let txs = [...memoryTransactions];
+    if (username) {
+      txs = txs.filter(t => t.streamer_username === username);
+    }
+    return txs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
   if (!db) return [];
-  const result = await db.execute('SELECT * FROM transactions ORDER BY createdAt DESC');
-  return result.rows.map(row => ({
-    ...row,
-    raw_response: row.raw_response ? JSON.parse(row.raw_response) : null,
-    raw_webhook: row.raw_webhook ? JSON.parse(row.raw_webhook) : null
-  }));
+  
+  let sql = 'SELECT * FROM transactions';
+  let args = [];
+  
+  if (username) {
+    sql += ' WHERE streamer_username = ?';
+    args.push(username);
+  }
+  
+  sql += ' ORDER BY created_at DESC';
+  
+  const result = await db.execute({ sql, args });
+  return result.rows;
 }
 
 /**
@@ -265,108 +226,166 @@ async function saveTransaction(data) {
     } else {
       updatedTx = {
         id: data.id,
+        streamer_username: data.streamer_username,
+        donor_name: data.donor || data.donor_name || 'Anonymous',
         amount: data.amount || 0,
-        donor: data.donor || 'Anonymous',
         message: data.message || '',
-        status: data.status || 'pending',
-        paymentUrl: data.paymentUrl || null,
-        raw_response: data.raw_response || null,
-        raw_webhook: data.raw_webhook || null,
-        createdAt: data.createdAt || now,
-        updatedAt: now,
-        paidAt: data.paidAt || null
+        created_at: data.created_at || now
       };
       memoryTransactions.push(updatedTx);
     }
- 
+  
     try {
       const DB_DIR = path.join(__dirname, '../data');
       fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
     } catch (e) {}
- 
+  
     return updatedTx;
   }
 
   if (!db) throw new Error('Database not initialized');
-  const selectResult = await db.execute({
-    sql: 'SELECT * FROM transactions WHERE id = ?',
-    args: [data.id]
-  });
-  const existing = selectResult.rows[0];
-  const now = new Date().toISOString();
   
-  if (existing) {
-    let rawResponse = existing.raw_response;
-    if (data.raw_response !== undefined) {
-      rawResponse = data.raw_response ? JSON.stringify(data.raw_response) : null;
-    }
-    let rawWebhook = existing.raw_webhook;
-    if (data.raw_webhook !== undefined) {
-      rawWebhook = data.raw_webhook ? JSON.stringify(data.raw_webhook) : null;
-    }
-    
-    await db.execute({
-      sql: `UPDATE transactions 
-            SET amount = ?, donor = ?, message = ?, status = ?, paymentUrl = ?, raw_response = ?, raw_webhook = ?, updatedAt = ?, paidAt = ?
-            WHERE id = ?`,
-      args: [
-        data.amount !== undefined ? data.amount : existing.amount,
-        data.donor !== undefined ? data.donor : existing.donor,
-        data.message !== undefined ? data.message : existing.message,
-        data.status !== undefined ? data.status : existing.status,
-        data.paymentUrl !== undefined ? data.paymentUrl : existing.paymentUrl,
-        rawResponse,
-        rawWebhook,
-        now,
-        data.paidAt !== undefined ? data.paidAt : existing.paidAt,
-        data.id
-      ]
-    });
-    
-    return {
-      ...existing,
-      ...data,
-      raw_response: rawResponse ? JSON.parse(rawResponse) : null,
-      raw_webhook: rawWebhook ? JSON.parse(rawWebhook) : null,
-      updatedAt: now
-    };
-  } else {
-    const rawResponse = data.raw_response ? JSON.stringify(data.raw_response) : null;
-    const rawWebhook = data.raw_webhook ? JSON.stringify(data.raw_webhook) : null;
-    const createdAt = data.createdAt || now;
-    
-    await db.execute({
-      sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        data.id,
-        data.amount || 0,
-        data.donor || 'Anonymous',
-        data.message || '',
-        data.status || 'pending',
-        data.paymentUrl || null,
-        rawResponse,
-        rawWebhook,
-        createdAt,
-        now,
-        data.paidAt || null
-      ]
-    });
-    
-    return {
-      id: data.id,
-      amount: data.amount || 0,
-      donor: data.donor || 'Anonymous',
-      message: data.message || '',
-      status: data.status || 'pending',
-      paymentUrl: data.paymentUrl || null,
-      raw_response: data.raw_response || null,
-      raw_webhook: data.raw_webhook || null,
-      createdAt,
-      updatedAt: now,
-      paidAt: data.paidAt || null
-    };
+  const now = new Date().toISOString();
+  await db.execute({
+    sql: `INSERT INTO transactions (id, streamer_username, donor_name, amount, message, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            donor_name = excluded.donor_name,
+            amount = excluded.amount,
+            message = excluded.message,
+            created_at = excluded.created_at`,
+    args: [
+      data.id,
+      data.streamer_username,
+      data.donor || data.donor_name || 'Anonymous',
+      data.amount || 0,
+      data.message || '',
+      data.created_at || now
+    ]
+  });
+  
+  return data;
+}
+
+/**
+ * Fetch streamer details by username.
+ */
+async function getStreamer(username) {
+  await ensureConnected();
+  if (!db) return null;
+  const result = await db.execute({
+    sql: 'SELECT * FROM streamers WHERE username = ?',
+    args: [username]
+  });
+  return result.rows[0] || null;
+}
+
+/**
+ * Save or update streamer details.
+ */
+async function saveStreamer(data) {
+  await ensureConnected();
+  if (isFallback) {
+    console.warn('⚠️ saveStreamer called in Fallback mode. Data is not persisted.');
+    return data;
   }
+  if (!db) throw new Error('Database not initialized');
+
+  // Generate overlay token as requested
+  const overlayToken = data.overlay_token || `ready1`;
+  
+  // 1. Try to get existing streamer to avoid NOT NULL constraints on INSERT
+  const existing = await getStreamer(data.username);
+  
+  const finalData = {
+    ...existing,
+    ...data,
+    overlay_token: overlayToken
+  };
+
+  // Ensure required fields are present (especially for new streamers)
+  if (!finalData.beam_api_key || !finalData.beam_merchant_id) {
+    if (!existing) {
+      throw new Error('Missing required credentials (beam_api_key or beam_merchant_id) for new streamer.');
+    }
+  }
+
+  await db.execute({
+    sql: `INSERT INTO streamers (username, beam_api_key, beam_merchant_id, discord_webhook_url, overlay_token, is_active, 
+          duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
+          profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, showDonorMessage, minAmount, 
+          theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
+          alert_sound_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(username) DO UPDATE SET
+            beam_api_key = COALESCE(excluded.beam_api_key, streamers.beam_api_key),
+            beam_merchant_id = COALESCE(excluded.beam_merchant_id, streamers.beam_merchant_id),
+            discord_webhook_url = COALESCE(excluded.discord_webhook_url, streamers.discord_webhook_url),
+            overlay_token = excluded.overlay_token,
+            is_active = COALESCE(excluded.is_active, streamers.is_active),
+            duration = COALESCE(excluded.duration, streamers.duration),
+            soundEnabled = COALESCE(excluded.soundEnabled, streamers.soundEnabled),
+            soundChoice = COALESCE(excluded.soundChoice, streamers.soundChoice),
+            soundVolume = COALESCE(excluded.soundVolume, streamers.soundVolume),
+            ttsEnabled = COALESCE(excluded.ttsEnabled, streamers.ttsEnabled),
+            ttsVolume = COALESCE(excluded.ttsVolume, streamers.ttsVolume),
+            ttsRate = COALESCE(excluded.ttsRate, streamers.ttsRate),
+            ttsLanguage = COALESCE(excluded.ttsLanguage, streamers.ttsLanguage),
+            ttsVoice = COALESCE(excluded.ttsVoice, streamers.ttsVoice),
+            profanityFilterEnabled = COALESCE(excluded.profanityFilterEnabled, streamers.profanityFilterEnabled),
+            profanityWords = COALESCE(excluded.profanityWords, streamers.profanityWords),
+            profanityReplaceStyle = COALESCE(excluded.profanityReplaceStyle, streamers.profanityReplaceStyle),
+            messageTemplate = COALESCE(excluded.messageTemplate, streamers.messageTemplate),
+            showDonorMessage = COALESCE(excluded.showDonorMessage, streamers.showDonorMessage),
+            minAmount = COALESCE(excluded.minAmount, streamers.minAmount),
+            theme = COALESCE(excluded.theme, streamers.theme),
+            animation = COALESCE(excluded.animation, streamers.animation),
+            fontFamily = COALESCE(excluded.fontFamily, streamers.fontFamily),
+            primaryColor = COALESCE(excluded.primaryColor, streamers.primaryColor),
+            secondaryColor = COALESCE(excluded.secondaryColor, streamers.secondaryColor),
+            backgroundColor = COALESCE(excluded.backgroundColor, streamers.backgroundColor),
+            textColor = COALESCE(excluded.textColor, streamers.textColor),
+            borderColor = COALESCE(excluded.borderColor, streamers.borderColor),
+            particleCount = COALESCE(excluded.particleCount, streamers.particleCount),
+            fontSize = COALESCE(excluded.fontSize, streamers.fontSize),
+            alert_sound_url = COALESCE(excluded.alert_sound_url, streamers.alert_sound_url)`,
+    args: [
+      finalData.username,
+      finalData.beam_api_key || null,
+      finalData.beam_merchant_id || null,
+      finalData.discord_webhook_url || null,
+      overlayToken,
+      finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
+      finalData.duration !== undefined ? finalData.duration : null,
+      finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
+      finalData.soundChoice || null,
+      finalData.soundVolume !== undefined ? finalData.soundVolume : null,
+      finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : null,
+      finalData.ttsVolume !== undefined ? finalData.ttsVolume : null,
+      finalData.ttsRate !== undefined ? finalData.ttsRate : null,
+      finalData.ttsLanguage || null,
+      finalData.ttsVoice || null,
+      finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
+      finalData.profanityWords || null,
+      finalData.profanityReplaceStyle || null,
+      finalData.messageTemplate || null,
+      finalData.showDonorMessage !== undefined ? (finalData.showDonorMessage ? 1 : 0) : null,
+      finalData.minAmount !== undefined ? finalData.minAmount : null,
+      finalData.theme || null,
+      finalData.animation || null,
+      finalData.fontFamily || null,
+      finalData.primaryColor || null,
+      finalData.secondaryColor || null,
+      finalData.backgroundColor || null,
+      finalData.textColor || null,
+      finalData.borderColor || null,
+      finalData.particleCount !== undefined ? finalData.particleCount : null,
+      finalData.fontSize !== undefined ? finalData.fontSize : null,
+      finalData.alert_sound_url || null
+    ]
+  });
+  
+  return { ...finalData, overlay_token: overlayToken };
 }
 
 /**
@@ -435,6 +454,6 @@ module.exports = {
   getTransactions,
   getTransactionById,
   saveTransaction,
-  getSettings,
-  saveSettings
+  getStreamer,
+  saveStreamer
 };

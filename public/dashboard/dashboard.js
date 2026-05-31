@@ -103,7 +103,11 @@ document.querySelectorAll('.menu-item').forEach(item => {
 // ========== Fetch & Compute Data ==========
 async function fetchTransactions() {
   try {
-    const response = await fetch('/api/transactions');
+    const pathParts = window.location.pathname.split('/');
+    const username = pathParts[1];
+    if (!username) throw new Error('Username not found in URL');
+
+    const response = await fetch(`/api/transactions/${username}`);
     if (response.ok) {
       allTransactions = await response.json();
       // เรียงจากใหม่ไปเก่า
@@ -112,9 +116,16 @@ async function fetchTransactions() {
       calculateStats(allTransactions);
       renderRecentTransactions(allTransactions);
       renderFullTransactions(allTransactions);
+    } else {
+      throw new Error(`Server responded with ${response.status}`);
     }
   } catch (err) {
     console.error('Error fetching transactions:', err);
+    // Clear loading state by rendering empty data on error
+    allTransactions = [];
+    calculateStats(allTransactions);
+    renderRecentTransactions(allTransactions);
+    renderFullTransactions(allTransactions);
   }
 }
 
