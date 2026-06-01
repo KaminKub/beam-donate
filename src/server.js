@@ -283,14 +283,35 @@ function ensureUserOwner(req, res, next) {
   res.redirect('/login');
 }
 
-app.get('/api/alerts/stream', (req, res) => {
+app.get('/api/alerts/stream', async (req, res) => {
   const token = req.query.token;
-  const isValidToken = token && token === process.env.OVERLAY_TOKEN;
+  let authenticatedUser = null;
+
+  if (token) {
+    try {
+      // Look up the user by their unique overlay_token in the DB
+      const result = await db.execute({
+        sql: 'SELECT username FROM streamers WHERE overlay_token = ?',
+        args: [token]
+      });
+      if (result.rows.length > 0) {
+        authenticatedUser = result.rows[0].username;
+      }
+    } catch (err) {
+      console.error('Token lookup error:', err);
+    }
+  }
+
+  const isValidToken = !!authenticatedUser;
   if (isValidToken) isOverlayActive = true;
+
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' });
-  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Overlay connected' })}\n\n`);
-  sseClients.push({ res, validated: isValidToken });
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: `Overlay connected as ${authenticatedUser || 'Unknown'}` })}\n\n`);
+  
+  sseClients.push({ res, validated: isValidToken, username: authenticatedUser });
+  
   const keepAlive = setInterval(() => { res.write(`: keep-alive\n\n`); }, 30000);
+  
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
@@ -416,8 +437,20 @@ function ensureAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
-app.get('/api/overlay/token', ensureAuthenticated, (req, res) => {
-  res.json({ token: process.env.OVERLAY_TOKEN });
+app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
+  try {
+    const user = req.user;
+    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    const streamer = await db.getStreamer(twitchName);
+    
+    if (streamer && streamer.overlay_token) {
+      res.json({ token: streamer.overlay_token });
+    } else {
+      res.status(404).json({ error: 'Token not found for this user' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // -----------------------------------------------------------------

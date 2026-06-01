@@ -279,13 +279,19 @@ body {
   justify-content: center;
 }
 
-.icon-emoji {
+.icon-img {
   width: 140%;
   height: 140%;
   border-radius: 30%;
   object-fit: contain;
   z-index: 5;
   animation: fadeInOnly 0.5s ease-out forwards;
+}
+
+.icon-emoji {
+  font-size: 36px;
+  z-index: 2;
+  animation: iconBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
 }
 
 .icon-ring {
@@ -311,7 +317,7 @@ body {
 }
 
 .donor-name {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 600;
 }
 

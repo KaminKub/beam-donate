@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 
 let db = null;
 let isFallback = false;
@@ -34,7 +33,7 @@ async function initDB() {
         authToken
       });
 
-      // 1. Create streamers table (Consolidated settings)
+      // 1. Create/Update streamers table (Consolidated settings)
       await db.execute(`
         CREATE TABLE IF NOT EXISTS streamers (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,12 +44,13 @@ async function initDB() {
           overlay_token TEXT NOT NULL,
           is_active INTEGER DEFAULT 1,
           
-          -- Overlay Settings
+          -- Overlay Settings (Flattened)
           duration INTEGER DEFAULT 8,
           soundEnabled INTEGER DEFAULT 1,
           soundChoice TEXT DEFAULT 'chime',
           soundVolume REAL DEFAULT 0.5,
           ttsEnabled INTEGER DEFAULT 0,
+          ttsReadDonor INTEGER DEFAULT 1,
           ttsVolume REAL DEFAULT 0.8,
           ttsRate REAL DEFAULT 1.0,
           ttsLanguage TEXT DEFAULT 'th-TH',
@@ -59,6 +59,8 @@ async function initDB() {
           profanityWords TEXT,
           profanityReplaceStyle TEXT DEFAULT 'asterisks',
           messageTemplate TEXT DEFAULT '{donor} ได้บริจาค {amount} บาท! 🎉',
+          amountSuffix TEXT DEFAULT 'บาท',
+          showLabel INTEGER DEFAULT 1,
           showDonorMessage INTEGER DEFAULT 1,
           minAmount REAL DEFAULT 1,
           theme TEXT DEFAULT 'glassmorphism',
@@ -71,38 +73,125 @@ async function initDB() {
           borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.25)',
           particleCount INTEGER DEFAULT 15,
           fontSize INTEGER DEFAULT 32,
-          
-          -- Custom assets
           alert_sound_url TEXT
         )
       `);
 
-      // 2. Create transactions table (Simplified)
+      // 2. Create/Update transactions table (Original Structure)
       await db.execute(`
         CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY,
-          streamer_username TEXT NOT NULL,
-          donor_name TEXT DEFAULT 'Anonymous',
           amount REAL NOT NULL,
+          donor TEXT DEFAULT 'Anonymous',
           message TEXT DEFAULT '',
-          created_at TEXT NOT NULL,
-          FOREIGN KEY (streamer_username) REFERENCES streamers(username)
+          status TEXT DEFAULT 'pending',
+          paymentUrl TEXT,
+          raw_response TEXT,
+          raw_webhook TEXT,
+          createdAt TEXT,
+          updatedAt TEXT,
+          paidAt TEXT,
+          streamer_username TEXT REFERENCES streamers(username)
         )
       `);
 
-      console.log('✅ Turso Database tables verified (New Structure).');
+      // --- Migration Phase ---
+      
+      // A. Fix transaction column names if they are in snake_case (legacy from some versions)
+      const txColumns = await db.execute('PRAGMA table_info(transactions)');
+      const columns = txColumns.rows.map(r => r.name);
+      
+      if (columns.includes('created_at')) {
+        console.log('🛠️ Migrating transactions: renaming created_at -> createdAt');
+        await db.execute('ALTER TABLE transactions RENAME COLUMN created_at TO createdAt');
+      }
+       if (columns.includes('donor_name')) {
+         console.log('🛠️ Migrating transactions: renaming donor_name -> donor');
+         await db.execute('ALTER TABLE transactions RENAME COLUMN donor_name TO donor');
+       }
+
+       // C. Ensure new overlay settings columns exist in streamers table
+       const streamerColumnsRes = await db.execute('PRAGMA table_info(streamers)');
+       const streamerCols = streamerColumnsRes.rows.map(r => r.name);
+       
+       const requiredCols = [
+         { name: 'ttsReadDonor', type: 'INTEGER DEFAULT 1' },
+         { name: 'amountSuffix', type: "TEXT DEFAULT 'บาท'" },
+         { name: 'showLabel', type: 'INTEGER DEFAULT 1' }
+       ];
+
+       for (const col of requiredCols) {
+         if (!streamerCols.includes(col.name)) {
+           console.log(`🛠️ Migrating streamers: adding column ${col.name}`);
+           await db.execute(`ALTER TABLE streamers ADD COLUMN ${col.name} ${col.type}`);
+         }
+       }
+
+
+      // B. Migrate legacy global settings to streamers (if settings table exists)
+      try {
+        const settingsCheck = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'");
+        if (settingsCheck.rows.length > 0) {
+          console.log('📦 Found legacy settings table. Migrating to streamers...');
+          const settingsRes = await db.execute("SELECT value FROM settings WHERE key = 'overlay_settings'");
+          if (settingsRes.rows.length > 0) {
+            const globalSettings = JSON.parse(settingsRes.rows[0].value);
+            
+            // Update all existing streamers with these global settings as a base
+            const streamers = await db.execute('SELECT username FROM streamers');
+            for (const streamer of streamers.rows) {
+              const username = streamer.username;
+              
+              // We only update if the value is provided in globalSettings
+              const updates = [];
+              const args = [];
+              
+              // Only update columns that actually exist in the streamers table
+              const streamerColumns = await db.execute('PRAGMA table_info(streamers)');
+              const existingCols = streamerColumns.rows.map(r => r.name);
+              
+              Object.entries(globalSettings).forEach(([key, value]) => {
+                if (existingCols.includes(key)) {
+                  updates.push(`${key} = ?`);
+                  args.push(typeof value === 'boolean' ? (value ? 1 : 0) : value);
+                }
+              });
+              
+              if (updates.length > 0) {
+                args.push(username);
+                await db.execute({
+                  sql: `UPDATE streamers SET ${updates.join(', ')} WHERE username = ?`,
+                  args: args
+                });
+              }
+            }
+            console.log('✅ Global settings migrated to streamers.');
+          }
+          // Optionally drop the settings table now that it's migrated
+          // await db.execute('DROP TABLE settings'); 
+          // We keep it for a while or just ignore it. To be clean, let's drop it.
+          await db.execute('DROP TABLE settings');
+          console.log('🗑️ Legacy settings table removed.');
+        }
+      } catch (e) {
+        console.warn('⚠️ Settings migration failed or not needed:', e.message);
+      }
+
+      console.log('✅ Turso Database schema verified and migrated.');
+
     } catch (err) {
       console.warn('⚠️ Warning: Cannot connect to Turso database. Falling back to in-memory database.');
       console.warn('Error details:', err.message);
       useInMemoryFallback(err.message);
     }
+    isInitialized = true;
   })();
 
   return initPromise;
 }
 
 /**
- * Wait until database initialization finishes to avoid query race conditions during hot-reload.
+ * Wait until database initialization finishes.
  */
 async function ensureConnected() {
   if (!isInitialized) {
@@ -115,11 +204,11 @@ async function ensureConnected() {
 }
 
 /**
- * Fallback to in-memory lists when Turso DB is offline or environment variables are missing.
+ * Fallback to in-memory storage.
  */
 function useInMemoryFallback(reason) {
   isFallback = true;
-  isInitialized = true; // Mark as initialized so fallback operations can execute immediately
+  isInitialized = true;
   console.log(`💡 Switched to In-Memory Fallback storage. Reason: ${reason}`);
 
   const DB_DIR = path.join(__dirname, '../data');
@@ -132,7 +221,6 @@ function useInMemoryFallback(reason) {
     path.join(DB_DIR, 'overlay-settings.json.bak')
   ];
 
-  // Try to load any readable transactions
   for (const file of filesToTryTx) {
     try {
       if (fs.existsSync(file)) {
@@ -143,7 +231,6 @@ function useInMemoryFallback(reason) {
     } catch (e) {}
   }
 
-  // Try to load any readable settings
   for (const file of filesToTrySettings) {
     try {
       if (fs.existsSync(file)) {
@@ -157,7 +244,6 @@ function useInMemoryFallback(reason) {
 
 /**
  * Fetch transactions ordered by creation date descending.
- * Optional: filter by streamer_username.
  */
 async function getTransactions(username = null) {
   await ensureConnected();
@@ -166,7 +252,7 @@ async function getTransactions(username = null) {
     if (username) {
       txs = txs.filter(t => t.streamer_username === username);
     }
-    return txs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return txs.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
   }
   if (!db) return [];
   
@@ -178,10 +264,14 @@ async function getTransactions(username = null) {
     args.push(username);
   }
   
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY createdAt DESC';
   
   const result = await db.execute({ sql, args });
-  return result.rows;
+  return result.rows.map(row => ({
+    ...row,
+    raw_response: row.raw_response ? JSON.parse(row.raw_response) : null,
+    raw_webhook: row.raw_webhook ? JSON.parse(row.raw_webhook) : null
+  }));
 }
 
 /**
@@ -210,6 +300,7 @@ async function getTransactionById(id) {
  * Merge and save/update a transaction.
  */
 async function saveTransaction(data) {
+
   await ensureConnected();
   if (isFallback) {
     const existingIndex = memoryTransactions.findIndex(t => t.id === data.id);
@@ -227,11 +318,12 @@ async function saveTransaction(data) {
       updatedTx = {
         id: data.id,
         streamer_username: data.streamer_username,
-        donor_name: data.donor || data.donor_name || 'Anonymous',
+        donor: data.donor || data.donor_name || 'Anonymous',
         amount: data.amount || 0,
         message: data.message || '',
-        created_at: data.created_at || now
+        createdAt: data.createdAt || data.created_at || now
       };
+
       memoryTransactions.push(updatedTx);
     }
   
@@ -246,21 +338,36 @@ async function saveTransaction(data) {
   if (!db) throw new Error('Database not initialized');
   
   const now = new Date().toISOString();
+  const rawResponse = data.raw_response ? (typeof data.raw_response === 'string' ? data.raw_response : JSON.stringify(data.raw_response)) : null;
+  const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
+
   await db.execute({
-    sql: `INSERT INTO transactions (id, streamer_username, donor_name, amount, message, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
-            donor_name = excluded.donor_name,
             amount = excluded.amount,
+            donor = excluded.donor,
             message = excluded.message,
-            created_at = excluded.created_at`,
+            status = excluded.status,
+            paymentUrl = excluded.paymentUrl,
+            raw_response = excluded.raw_response,
+            raw_webhook = excluded.raw_webhook,
+            updatedAt = excluded.updatedAt,
+            paidAt = excluded.paidAt,
+            streamer_username = excluded.streamer_username`,
     args: [
       data.id,
-      data.streamer_username,
-      data.donor || data.donor_name || 'Anonymous',
       data.amount || 0,
+      data.donor || data.donor_name || 'Anonymous',
       data.message || '',
-      data.created_at || now
+      data.status || 'pending',
+      data.paymentUrl || null,
+      rawResponse,
+      rawWebhook,
+      data.createdAt || now,
+      now,
+      data.paidAt || null,
+      data.streamer_username || null
     ]
   });
   
@@ -290,11 +397,8 @@ async function saveStreamer(data) {
     return data;
   }
   if (!db) throw new Error('Database not initialized');
-
-  // Generate overlay token as requested
-  const overlayToken = data.overlay_token || `ready1`;
   
-  // 1. Try to get existing streamer to avoid NOT NULL constraints on INSERT
+  const overlayToken = data.overlay_token || `ready1`;
   const existing = await getStreamer(data.username);
   
   const finalData = {
@@ -303,119 +407,121 @@ async function saveStreamer(data) {
     overlay_token: overlayToken
   };
 
-  // Ensure required fields are present (especially for new streamers)
   if (!finalData.beam_api_key || !finalData.beam_merchant_id) {
     if (!existing) {
       throw new Error('Missing required credentials (beam_api_key or beam_merchant_id) for new streamer.');
     }
   }
 
-  await db.execute({
-    sql: `INSERT INTO streamers (username, beam_api_key, beam_merchant_id, discord_webhook_url, overlay_token, is_active, 
-          duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
-          profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, showDonorMessage, minAmount, 
-          theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
-          alert_sound_url)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(username) DO UPDATE SET
-            beam_api_key = COALESCE(excluded.beam_api_key, streamers.beam_api_key),
-            beam_merchant_id = COALESCE(excluded.beam_merchant_id, streamers.beam_merchant_id),
-            discord_webhook_url = COALESCE(excluded.discord_webhook_url, streamers.discord_webhook_url),
-            overlay_token = excluded.overlay_token,
-            is_active = COALESCE(excluded.is_active, streamers.is_active),
-            duration = COALESCE(excluded.duration, streamers.duration),
-            soundEnabled = COALESCE(excluded.soundEnabled, streamers.soundEnabled),
-            soundChoice = COALESCE(excluded.soundChoice, streamers.soundChoice),
-            soundVolume = COALESCE(excluded.soundVolume, streamers.soundVolume),
-            ttsEnabled = COALESCE(excluded.ttsEnabled, streamers.ttsEnabled),
-            ttsVolume = COALESCE(excluded.ttsVolume, streamers.ttsVolume),
-            ttsRate = COALESCE(excluded.ttsRate, streamers.ttsRate),
-            ttsLanguage = COALESCE(excluded.ttsLanguage, streamers.ttsLanguage),
-            ttsVoice = COALESCE(excluded.ttsVoice, streamers.ttsVoice),
-            profanityFilterEnabled = COALESCE(excluded.profanityFilterEnabled, streamers.profanityFilterEnabled),
-            profanityWords = COALESCE(excluded.profanityWords, streamers.profanityWords),
-            profanityReplaceStyle = COALESCE(excluded.profanityReplaceStyle, streamers.profanityReplaceStyle),
-            messageTemplate = COALESCE(excluded.messageTemplate, streamers.messageTemplate),
-            showDonorMessage = COALESCE(excluded.showDonorMessage, streamers.showDonorMessage),
-            minAmount = COALESCE(excluded.minAmount, streamers.minAmount),
-            theme = COALESCE(excluded.theme, streamers.theme),
-            animation = COALESCE(excluded.animation, streamers.animation),
-            fontFamily = COALESCE(excluded.fontFamily, streamers.fontFamily),
-            primaryColor = COALESCE(excluded.primaryColor, streamers.primaryColor),
-            secondaryColor = COALESCE(excluded.secondaryColor, streamers.secondaryColor),
-            backgroundColor = COALESCE(excluded.backgroundColor, streamers.backgroundColor),
-            textColor = COALESCE(excluded.textColor, streamers.textColor),
-            borderColor = COALESCE(excluded.borderColor, streamers.borderColor),
-            particleCount = COALESCE(excluded.particleCount, streamers.particleCount),
-            fontSize = COALESCE(excluded.fontSize, streamers.fontSize),
-            alert_sound_url = COALESCE(excluded.alert_sound_url, streamers.alert_sound_url)`,
-    args: [
-      finalData.username,
-      finalData.beam_api_key || null,
-      finalData.beam_merchant_id || null,
-      finalData.discord_webhook_url || null,
-      overlayToken,
-      finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
-      finalData.duration !== undefined ? finalData.duration : null,
-      finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
-      finalData.soundChoice || null,
-      finalData.soundVolume !== undefined ? finalData.soundVolume : null,
-      finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : null,
-      finalData.ttsVolume !== undefined ? finalData.ttsVolume : null,
-      finalData.ttsRate !== undefined ? finalData.ttsRate : null,
-      finalData.ttsLanguage || null,
-      finalData.ttsVoice || null,
-      finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
-      finalData.profanityWords || null,
-      finalData.profanityReplaceStyle || null,
-      finalData.messageTemplate || null,
-      finalData.showDonorMessage !== undefined ? (finalData.showDonorMessage ? 1 : 0) : null,
-      finalData.minAmount !== undefined ? finalData.minAmount : null,
-      finalData.theme || null,
-      finalData.animation || null,
-      finalData.fontFamily || null,
-      finalData.primaryColor || null,
-      finalData.secondaryColor || null,
-      finalData.backgroundColor || null,
-      finalData.textColor || null,
-      finalData.borderColor || null,
-      finalData.particleCount !== undefined ? finalData.particleCount : null,
-      finalData.fontSize !== undefined ? finalData.fontSize : null,
-      finalData.alert_sound_url || null
-    ]
-  });
+   await db.execute({
+     sql: `INSERT INTO streamers (username, beam_api_key, beam_merchant_id, discord_webhook_url, overlay_token, is_active, 
+           duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
+           profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
+           theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
+           alert_sound_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(username) DO UPDATE SET
+             beam_api_key = COALESCE(excluded.beam_api_key, streamers.beam_api_key),
+             beam_merchant_id = COALESCE(excluded.beam_merchant_id, streamers.beam_merchant_id),
+             discord_webhook_url = COALESCE(excluded.discord_webhook_url, streamers.discord_webhook_url),
+             overlay_token = excluded.overlay_token,
+             is_active = COALESCE(excluded.is_active, streamers.is_active),
+             duration = COALESCE(excluded.duration, streamers.duration),
+             soundEnabled = COALESCE(excluded.soundEnabled, streamers.soundEnabled),
+             soundChoice = COALESCE(excluded.soundChoice, streamers.soundChoice),
+             soundVolume = COALESCE(excluded.soundVolume, streamers.soundVolume),
+             ttsEnabled = COALESCE(excluded.ttsEnabled, streamers.ttsEnabled),
+             ttsReadDonor = COALESCE(excluded.ttsReadDonor, streamers.ttsReadDonor),
+             ttsVolume = COALESCE(excluded.ttsVolume, streamers.ttsVolume),
+             ttsRate = COALESCE(excluded.ttsRate, streamers.ttsRate),
+             ttsLanguage = COALESCE(excluded.ttsLanguage, streamers.ttsLanguage),
+             ttsVoice = COALESCE(excluded.ttsVoice, streamers.ttsVoice),
+             profanityFilterEnabled = COALESCE(excluded.profanityFilterEnabled, streamers.profanityFilterEnabled),
+             profanityWords = COALESCE(excluded.profanityWords, streamers.profanityWords),
+             profanityReplaceStyle = COALESCE(excluded.profanityReplaceStyle, streamers.profanityReplaceStyle),
+             messageTemplate = COALESCE(excluded.messageTemplate, streamers.messageTemplate),
+             amountSuffix = COALESCE(excluded.amountSuffix, streamers.amountSuffix),
+             showLabel = COALESCE(excluded.showLabel, streamers.showLabel),
+             showDonorMessage = COALESCE(excluded.showDonorMessage, streamers.showDonorMessage),
+             minAmount = COALESCE(excluded.minAmount, streamers.minAmount),
+             theme = COALESCE(excluded.theme, streamers.theme),
+             animation = COALESCE(excluded.animation, streamers.animation),
+             fontFamily = COALESCE(excluded.fontFamily, streamers.fontFamily),
+             primaryColor = COALESCE(excluded.primaryColor, streamers.primaryColor),
+             secondaryColor = COALESCE(excluded.secondaryColor, streamers.secondaryColor),
+             backgroundColor = COALESCE(excluded.backgroundColor, streamers.backgroundColor),
+             textColor = COALESCE(excluded.textColor, streamers.textColor),
+             borderColor = COALESCE(excluded.borderColor, streamers.borderColor),
+             particleCount = COALESCE(excluded.particleCount, streamers.particleCount),
+             fontSize = COALESCE(excluded.fontSize, streamers.fontSize),
+             alert_sound_url = COALESCE(excluded.alert_sound_url, streamers.alert_sound_url)`,
+     args: [
+       finalData.username,
+       finalData.beam_api_key || null,
+       finalData.beam_merchant_id || null,
+       finalData.discord_webhook_url || null,
+       overlayToken,
+       finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
+       finalData.duration !== undefined ? finalData.duration : null,
+       finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
+       finalData.soundChoice || null,
+       finalData.soundVolume !== undefined ? finalData.soundVolume : null,
+       finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : null,
+       finalData.ttsReadDonor !== undefined ? (finalData.ttsReadDonor ? 1 : 0) : null,
+       finalData.ttsVolume !== undefined ? finalData.ttsVolume : null,
+       finalData.ttsRate !== undefined ? finalData.ttsRate : null,
+       finalData.ttsLanguage || null,
+       finalData.ttsVoice || null,
+       finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
+       finalData.profanityWords || null,
+       finalData.profanityReplaceStyle || null,
+       finalData.messageTemplate || null,
+       finalData.amountSuffix || null,
+       finalData.showLabel !== undefined ? (finalData.showLabel ? 1 : 0) : null,
+       finalData.showDonorMessage !== undefined ? (finalData.showDonorMessage ? 1 : 0) : null,
+       finalData.minAmount !== undefined ? finalData.minAmount : null,
+       finalData.theme || null,
+       finalData.animation || null,
+       finalData.fontFamily || null,
+       finalData.primaryColor || null,
+       finalData.secondaryColor || null,
+       finalData.backgroundColor || null,
+       finalData.textColor || null,
+       finalData.borderColor || null,
+       finalData.particleCount !== undefined ? finalData.particleCount : null,
+       finalData.fontSize !== undefined ? finalData.fontSize : null,
+       finalData.alert_sound_url || null
+     ]
+   });
+
   
   return { ...finalData, overlay_token: overlayToken };
 }
 
 /**
- * Fetch overlay settings from database or return default.
+ * Fetch overlay settings for a specific user.
+ * If not found or user not in DB, returns defaultSettings.
  */
-async function getSettings(defaultSettings) {
+async function getSettings(username, defaultSettings) {
   await ensureConnected();
   if (isFallback) {
+    // For fallback, we still use memorySettings as a global fallback
     return memorySettings ? { ...defaultSettings, ...memorySettings } : defaultSettings;
   }
-  if (!db) return defaultSettings;
-  const result = await db.execute({
-    sql: 'SELECT value FROM settings WHERE key = ?',
-    args: ['overlay_settings']
-  });
-  const row = result.rows[0];
-  if (!row) {
-    return defaultSettings;
-  }
-  try {
-    return { ...defaultSettings, ...JSON.parse(row.value) };
-  } catch (e) {
-    return defaultSettings;
-  }
+  if (!db || !username) return defaultSettings;
+
+  const streamer = await getStreamer(username);
+  if (!streamer) return defaultSettings;
+
+  // Since all settings are now columns in the streamer record, 
+  // we can just return the streamer record merged with defaults.
+  return { ...defaultSettings, ...streamer };
 }
 
 /**
- * Save overlay settings.
+ * Save overlay settings for a specific user.
  */
-async function saveSettings(settings) {
+async function saveSettings(username, settings) {
   await ensureConnected();
   if (isFallback) {
     memorySettings = settings;
@@ -426,27 +532,16 @@ async function saveSettings(settings) {
     return settings;
   }
 
-  if (!db) throw new Error('Database not initialized');
-  const valueStr = JSON.stringify(settings);
-  const checkResult = await db.execute({
-    sql: 'SELECT 1 FROM settings WHERE key = ?',
-    args: ['overlay_settings']
+  if (!db || !username) throw new Error('Database not initialized or username missing');
+
+  const streamer = await getStreamer(username);
+  if (!streamer) throw new Error('Streamer not found');
+
+  // We use saveStreamer to update the settings columns
+  return await saveStreamer({
+    ...streamer,
+    ...settings
   });
-  const existing = checkResult.rows[0];
-  
-  if (existing) {
-    await db.execute({
-      sql: 'UPDATE settings SET value = ? WHERE key = ?',
-      args: [valueStr, 'overlay_settings']
-    });
-  } else {
-    await db.execute({
-      sql: 'INSERT INTO settings (key, value) VALUES (?, ?)',
-      args: ['overlay_settings', valueStr]
-    });
-  }
-  
-  return settings;
 }
 
 module.exports = {
@@ -454,6 +549,8 @@ module.exports = {
   getTransactions,
   getTransactionById,
   saveTransaction,
+  getSettings,
+  saveSettings,
   getStreamer,
   saveStreamer
 };

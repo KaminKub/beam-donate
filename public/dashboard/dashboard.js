@@ -583,38 +583,53 @@ function escapeHtml(str) {
 }
 
 // ========== Boot Sequence ==========
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Extract username from URL
+  const pathParts = window.location.pathname.split('/');
+  const username = pathParts[1];
+
+  if (username) {
+    // Update Donation Page links to use the username
+    // Target all links that refer to the donation page (home)
+    document.querySelectorAll('a').forEach(link => {
+      if (link.getAttribute('href') === '/' || link.textContent.includes('หน้าบริจาค')) {
+        link.href = `/${username}`;
+      }
+    });
+  }
+
   // Sync the current host domain and Token into copy OBS box
   const baseUrl = window.location.origin;
-  updateObsUrlWithToken(baseUrl);
-
+  updateObsUrlWithToken(baseUrl, username);
+  
   fetchTransactions();
   loadOverlaySettings();
   
   // Check Overlay Status
   updateOverlayStatus();
   setInterval(updateOverlayStatus, 5000); // Check every 5 seconds
-
+  
   // Auto refresh table statistics every 20 seconds silently
   setInterval(fetchTransactions, 20000);
 });
 
-async function updateObsUrlWithToken(baseUrl) {
+async function updateObsUrlWithToken(baseUrl, username) {
   const urlInput = document.getElementById('obsOverlayUrl');
   if (!urlInput) return;
-
+  
   try {
     const response = await fetch('/api/overlay/token');
     if (response.ok) {
       const { token } = await response.json();
-      urlInput.value = `${baseUrl}/overlay?token=${token}`;
+      // Use the per-user overlay path: /username/overlay
+      urlInput.value = `${baseUrl}/${username}/overlay?token=${token}`;
     } else {
-      // Fallback to plain URL if token fetch fails
-      urlInput.value = `${baseUrl}/overlay`;
+      // Fallback to plain URL
+      urlInput.value = `${baseUrl}/${username}/overlay`;
     }
   } catch (err) {
     console.error('Failed to fetch overlay token:', err);
-    urlInput.value = `${baseUrl}/overlay`;
+    urlInput.value = `${baseUrl}/${username}/overlay`;
   }
 }
 
@@ -640,3 +655,4 @@ async function updateOverlayStatus() {
     console.error('Failed to fetch overlay status:', err);
   }
 }
+
