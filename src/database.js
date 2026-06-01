@@ -374,8 +374,20 @@ async function saveTransaction(data) {
   return data;
 }
 
+async function getStreamerByToken(token) {
+  await ensureConnected();
+  if (isFallback) return null;
+  if (!db) return null;
+  const result = await db.execute({
+    sql: 'SELECT * FROM streamers WHERE overlay_token = ?',
+    args: [token]
+  });
+  return result.rows[0] || null;
+}
+
 /**
  * Fetch streamer details by username.
+
  */
 async function getStreamer(username) {
   await ensureConnected();

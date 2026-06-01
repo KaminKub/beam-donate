@@ -365,18 +365,31 @@ app.post('/api/transactions/:id/status', async (req, res) => {
   }
 });
 
-app.get('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
+app.get('/api/overlay/settings', async (req, res) => {
   try {
-    const user = req.user;
-    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const streamer = await db.getStreamer(twitchName);
-    
-    if (!streamer) {
-      return res.status(404).json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' });
+    let username = null;
+
+    if (req.isAuthenticated()) {
+      const user = req.user;
+      username = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    } else {
+      const token = req.query.token;
+      if (token) {
+        const streamer = await db.getStreamerByToken(token);
+        if (streamer) {
+          username = streamer.username;
+        }
+      }
     }
-    
-    res.json(streamer);
+
+    if (!username) {
+      return res.status(401).json({ error: 'Unauthorized: Please log in or provide a valid token' });
+    }
+
+    const settings = await db.getSettings(username, defaultSettings);
+    res.json(settings);
   } catch (err) {
+    console.error('Get settings error:', err);
     res.status(500).json({ error: 'ไม่สามารถดึงการตั้งค่าได้' });
   }
 });

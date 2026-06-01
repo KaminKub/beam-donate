@@ -39,7 +39,11 @@ const MAX_RECONNECT_DELAY = 30000;
 // ========== Initialize & Load Settings ==========
 async function loadInitialSettings() {
   try {
-    const res = await fetch('/api/overlay/settings');
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const settingsUrl = token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings';
+    
+    const res = await fetch(settingsUrl);
     if (res.ok) {
       const settings = await res.json();
       console.log('📋 Loaded overlay settings from server:', settings);
