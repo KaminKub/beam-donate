@@ -78,8 +78,10 @@ function switchTab(tabId) {
   const titles = {
     'dashboard': { title: 'Dashboard Overview', subtitle: 'ภาพรวมยอดบริจาคและสถิติระบบ' },
     'transactions': { title: 'Donation History', subtitle: 'ประวัติธุรกรรมและการจำลองส่ง Alert' },
-    'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของ OBS Stream' }
+    'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของ OBS Stream' },
+    'page-customization': { title: 'Page Customization', subtitle: 'ปรับแต่งหน้าโดเนท โปรไฟล์ และลิงก์โซเชียลมีเดีย' }
   };
+
 
   if (titles[tabId]) {
     document.getElementById('tabTitle').textContent = titles[tabId].title;
@@ -582,12 +584,109 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-// ========== Boot Sequence ==========
-document.addEventListener('DOMContentLoaded', async () => {
+// ========== Page Customization Management ==========
+async function loadPageSettings() {
+  try {
+    const pathParts = window.location.pathname.split('/');
+    const username = pathParts[1];
+    if (!username) return;
+
+    const response = await fetch(`/api/page/${username}/settings`);
+    if (response.ok) {
+      const s = await response.json();
+      
+      // Map to inputs
+      document.getElementById('inputPageTitle').value = s.pageTitle;
+      document.getElementById('inputPageSubtitle').value = s.pageSubtitle;
+      document.getElementById('inputThankYouHeader').value = s.thankYouHeader;
+      document.getElementById('inputThankYouSubtitle').value = s.thankYouSubtitle;
+      
+      // Socials
+      document.getElementById('socialTwitch').value = s.socials.twitch || '';
+      document.getElementById('socialYoutube').value = s.socials.youtube || '';
+      document.getElementById('socialTiktok').value = s.socials.tiktok || '';
+      document.getElementById('socialFacebook').value = s.socials.facebook || '';
+      document.getElementById('socialX').value = s.socials.x || '';
+      document.getElementById('socialDiscord').value = s.socials.discord || '';
+      document.getElementById('socialInstagram').value = s.socials.instagram || '';
+      
+      // Profile
+      document.getElementById('profilePreview').src = s.profileImage;
+      document.getElementById('profileImageValue').value = s.profileImageValue || '';
+      
+      updatePagePreview();
+    }
+  } catch (err) {
+    console.error('Failed to load page settings:', err);
+  }
+}
+
+async function savePageSettings(e) {
+  e.preventDefault();
+  
+  const payload = {
+    page_title: document.getElementById('inputPageTitle').value,
+    page_subtitle: document.getElementById('inputPageSubtitle').value,
+    thank_you_header: document.getElementById('inputThankYouHeader').value,
+    thank_you_subtitle: document.getElementById('inputThankYouSubtitle').value,
+    social_twitch: document.getElementById('socialTwitch').value,
+    social_youtube: document.getElementById('socialYoutube').value,
+    social_tiktok: document.getElementById('socialTiktok').value,
+    social_facebook: document.getElementById('socialFacebook').value,
+    social_x: document.getElementById('socialX').value,
+    social_discord: document.getElementById('socialDiscord').value,
+    social_instagram: document.getElementById('socialInstagram').value,
+    profile_image_source: 'custom', // Always set to custom now
+    profile_image_value: document.getElementById('profileImageValue').value,
+  };
+  
+  try {
+    const res = await fetch('/api/page/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      alert('💾 บันทึกการปรับแต่งหน้าเว็บสำเร็จ!');
+      updatePagePreview();
+    }
+  } catch (err) {
+    alert('❌ ไม่สามารถบันทึกการตั้งค่าได้');
+  }
+}
+
+function updatePagePreview() {
+  const pathParts = window.location.pathname.split('/');
+  const username = pathParts[1];
+  if (username) {
+    document.getElementById('pagePreviewIframe').src = `/${username}`;
+  }
+}
+
+// Profile Edit Handlers
+document.getElementById('btnChangeProfile').onclick = () => {
+  const container = document.getElementById('profileSourceContainer');
+  container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+};
+
+document.getElementById('btnApplyProfile').onclick = async () => {
+  const value = document.getElementById('profileImageValue').value;
+  
+  let previewUrl = '/avatar.jpg';
+  if (value) {
+    previewUrl = value;
+  }
+  
+  document.getElementById('profilePreview').src = previewUrl;
+};
+
+document.getElementById('btnReloadPagePreview').onclick = updatePagePreview;
+document.getElementById('pageSettingsForm').onsubmit = savePageSettings;
+document.addEventListener('DOMContentLoaded', () => {
   // Extract username from URL
   const pathParts = window.location.pathname.split('/');
   const username = pathParts[1];
-
+  
   if (username) {
     // Update Donation Page links to use the username
     // Target all links that refer to the donation page (home)
@@ -597,13 +696,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
+  
   // Sync the current host domain and Token into copy OBS box
   const baseUrl = window.location.origin;
   updateObsUrlWithToken(baseUrl, username);
   
   fetchTransactions();
   loadOverlaySettings();
+  loadPageSettings();
   
   // Check Overlay Status
   updateOverlayStatus();
@@ -621,15 +721,16 @@ async function updateObsUrlWithToken(baseUrl, username) {
     const response = await fetch('/api/overlay/token');
     if (response.ok) {
       const { token } = await response.json();
-      // Use the per-user overlay path: /username/overlay
+      // บังคับให้มี token เสมอ เพื่อป้องกันการสุ่มหายบน Vercel
       urlInput.value = `${baseUrl}/${username}/overlay?token=${token}`;
     } else {
-      // Fallback to plain URL
-      urlInput.value = `${baseUrl}/${username}/overlay`;
+      // หาก API token มีปัญหา ให้ใช้ token เริ่มต้น (แต่ยังระบุโครงสร้างให้ชัดเจน)
+      urlInput.value = `${baseUrl}/${username}/overlay?token=ready1`;
+      console.warn('Could not fetch overlay token, using fallback token');
     }
   } catch (err) {
     console.error('Failed to fetch overlay token:', err);
-    urlInput.value = `${baseUrl}/${username}/overlay`;
+    urlInput.value = `${baseUrl}/${username}/overlay?token=ready1`;
   }
 }
 

@@ -5,6 +5,17 @@ let pollInterval = null;
 const POLLING_TIMEOUT = 600000; // 10 minutes
 let pollingStartTime = null;
 
+// Social icons map
+const SOCIAL_ICONS = {
+  twitch: 'fa-twitch',
+  youtube: 'fa-youtube',
+  tiktok: 'fa-tiktok',
+  facebook: 'fa-facebook',
+  x: 'fa-x-twitter',
+  discord: 'fa-discord',
+  instagram: 'fa-instagram'
+};
+
 // Elements
 const stepAmount = document.getElementById('step-amount');
 const stepQR = document.getElementById('step-qr');
@@ -18,6 +29,59 @@ const qrLoading = document.getElementById('qrLoading');
 const qrImage = document.getElementById('qrImage');
 const displayAmount = document.getElementById('displayAmount');
 const paymentStatus = document.getElementById('paymentStatus');
+
+// Dynamic Page Elements
+const pageTitle = document.getElementById('pageTitle');
+const pageSubtitle = document.getElementById('pageSubtitle');
+const pageSubtitle2 = document.getElementById('pageSubtitle2');
+const profileImage = document.getElementById('profileImage');
+const socialLinksContainer = document.getElementById('socialLinks');
+
+async function loadPageContent() {
+  const username = window.location.pathname.split('/')[1];
+  if (!username) return;
+
+  try {
+    const response = await fetch(`/api/page/${username}/settings`);
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Update texts
+      pageTitle.textContent = data.pageTitle;
+      pageSubtitle.textContent = data.pageSubtitle;
+      // Since the template has 2 subtitle lines, we'll split the subtitle by newline if available, or just use the first one
+      const subtitles = data.pageSubtitle.split('\n');
+      pageSubtitle.textContent = subtitles[0];
+      pageSubtitle2.textContent = subtitles[1] || '';
+      
+      // Update profile image
+      // Always show the profile image; use /avatar.jpg as default if missing or explicitly set to it
+      profileImage.src = data.profileImage || '/avatar.jpg';
+      profileImage.style.display = 'block';
+      
+      // Update social links
+      renderSocialLinks(data.socials);
+    }
+  } catch (error) {
+    console.error('Error loading page content:', error);
+  }
+}
+
+function renderSocialLinks(socials) {
+  socialLinksContainer.innerHTML = '';
+  
+  Object.entries(socials).forEach(([platform, url]) => {
+    if (url) {
+      const iconClass = SOCIAL_ICONS[platform] || 'fa-link';
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.className = `social-btn ${platform}`;
+      a.innerHTML = `<i class="fa-brands ${iconClass}"></i>`;
+      socialLinksContainer.appendChild(a);
+    }
+  });
+}
 
 // Amount button click
 amountBtns.forEach(btn => {
@@ -51,6 +115,13 @@ function updateDonateButton() {
 btnDonate.addEventListener('click', async () => {
   if (selectedAmount < 1) return;
 
+  // Get username from URL (e.g., /username)
+  const username = window.location.pathname.split('/')[1];
+  if (!username) {
+    alert('ไม่พบชื่อผู้รับบริจาคใน URL');
+    return;
+  }
+
   // Show loading state
   btnDonate.disabled = true;
   btnDonate.textContent = 'กำลังดำเนินการ...';
@@ -61,6 +132,7 @@ btnDonate.addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        username,
         amount: selectedAmount,
         name: donorNameInput.value,
         message: donorMessageInput.value
@@ -184,6 +256,7 @@ async function updateStatus() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadPageContent();
   updateStatus();
   const statusBtn = document.getElementById('statusBtn');
   if (statusBtn) {

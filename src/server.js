@@ -48,13 +48,15 @@ const defaultSettings = {
 
 // ========== SSE Alert System ==========
 let sseClients = [];
-let isOverlayActive = false;
 
-function broadcastAlert(alertData) {
+function broadcastAlert(username, alertData) {
   const data = JSON.stringify(alertData);
-  console.log(`📢 Broadcasting alert to ${sseClients.length} client(s):`, alertData.donor || 'System Update', alertData.amount || '');
+  console.log(`📢 Broadcasting alert to ${username}'s client(s):`, alertData.donor || 'System Update', alertData.amount || '');
+  
   sseClients.forEach(client => {
-    client.res.write(`data: ${data}\n\n`);
+    if (client.username === username) {
+      client.res.write(`data: ${data}\n\n`);
+    }
   });
 }
 
@@ -171,12 +173,20 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API: สร้าง Donation (Payment Link)
 app.post('/api/create-charge', async (req, res) => {
   try {
-    const { amount, name, message } = req.body;
+    const { amount, name, message, username } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
+    if (!username) return res.status(400).json({ error: 'ไม่ระบุชื่อผู้รับบริจาค' });
+
+    const streamer = await db.getDecryptedStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
+
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
-    const redirectUrl = `${protocol}://${host}/thank-you`;
+    const redirectUrl = `${protocol}://${host}/thank-you?username=${username}`;
+    
     const charge = await beam.createPaymentLink({
+      merchantId: streamer.beam_merchant_id,
+      apiKey: streamer.beam_api_key,
       amount: Math.round(amount * 100),
       currency: 'THB',
       description: message || `Donation from ${name || 'Anonymous'}`,
@@ -190,7 +200,8 @@ app.post('/api/create-charge', async (req, res) => {
       message: message,
       status: 'pending',
       paymentUrl: charge.url,
-      raw_response: charge
+      raw_response: charge,
+      streamer_username: username
     });
     res.json({ success: true, paymentUrl: charge.url });
   } catch (error) {
@@ -201,7 +212,17 @@ app.post('/api/create-charge', async (req, res) => {
 
 app.get('/api/charge/:id', async (req, res) => {
   try {
-    const charge = await beam.getCharge(req.params.id);
+    const tx = await db.getTransactionById(req.params.id);
+    if (!tx || !tx.streamer_username) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลธุรกรรม หรือไม่ทราบผู้รับ' });
+    }
+
+    const streamer = await db.getDecryptedStreamer(tx.streamer_username);
+    if (!streamer) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลผู้รับบริจาค' });
+    }
+
+    const charge = await beam.getCharge(streamer.beam_merchant_id, streamer.beam_api_key, req.params.id);
     res.json({ id: charge.id, status: charge.status, amount: charge.amount / 100, paid: charge.status === 'successful' });
   } catch (error) {
     res.status(500).json({ error: 'ไม่สามารถเช็คสถานะได้' });
@@ -239,7 +260,9 @@ app.post('/webhook', async (req, res) => {
         raw_webhook: event
       });
       const txDetails = (await db.getTransactionById(targetId)) || {};
-      broadcastAlert({
+      
+      // Targeted Broadcast: Send only to the streamer who received the money
+      broadcastAlert(txDetails.streamer_username, {
         type: 'donation',
         donor: txDetails.donor || 'Anonymous',
         amount: amount || txDetails.amount || 0,
@@ -286,41 +309,47 @@ function ensureUserOwner(req, res, next) {
 app.get('/api/alerts/stream', async (req, res) => {
   const token = req.query.token;
   let authenticatedUser = null;
+  let authMethod = null;
 
   if (token) {
     try {
       // Look up the user by their unique overlay_token in the DB
-      const result = await db.execute({
-        sql: 'SELECT username FROM streamers WHERE overlay_token = ?',
-        args: [token]
-      });
-      if (result.rows.length > 0) {
-        authenticatedUser = result.rows[0].username;
+      const streamer = await db.getStreamerByToken(token);
+      if (streamer) {
+        authenticatedUser = streamer.username;
+        authMethod = 'token';
       }
     } catch (err) {
       console.error('Token lookup error:', err);
     }
+  } else if (req.isAuthenticated()) {
+    // Fallback to session authentication if no token is provided (e.g., opening in browser while logged in)
+    const user = req.user;
+    authenticatedUser = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    authMethod = 'session';
   }
 
-  const isValidToken = !!authenticatedUser;
-  if (isValidToken) isOverlayActive = true;
-
+  const isValidToken = authMethod === 'token';
+  
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' });
   res.write(`data: ${JSON.stringify({ type: 'connected', message: `Overlay connected as ${authenticatedUser || 'Unknown'}` })}\n\n`);
   
-  sseClients.push({ res, validated: isValidToken, username: authenticatedUser });
+  sseClients.push({ res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod });
   
   const keepAlive = setInterval(() => { res.write(`: keep-alive\n\n`); }, 30000);
   
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
-    isOverlayActive = sseClients.some(client => client.validated);
   });
 });
 
-app.get('/api/overlay/status', (req, res) => {
-  res.json({ active: isOverlayActive });
+app.get('/api/overlay/status', ensureAuthenticated, (req, res) => {
+  const user = req.user;
+  const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+  
+  const isActive = sseClients.some(client => client.username === twitchName && client.authMethod === 'token');
+  res.json({ active: isActive });
 });
 
 app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => {
@@ -350,7 +379,8 @@ app.post('/api/transactions/:id/status', async (req, res) => {
     if (!tx) return res.status(404).json({ error: 'ไม่พบธุรกรรม' });
     const updatedTx = await db.saveTransaction({ id, status });
     if (status === 'successful') {
-      broadcastAlert({
+      const txDetails = await db.getTransactionById(id);
+      broadcastAlert(txDetails.streamer_username, {
         type: 'donation',
         donor: updatedTx.donor || 'Anonymous',
         amount: updatedTx.amount || 0,
@@ -404,11 +434,61 @@ app.post('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
       ...req.body
     });
     
-    broadcastAlert({ type: 'settings_update', settings: updatedStreamer });
+    broadcastAlert(twitchName, { type: 'settings_update', settings: updatedStreamer });
     res.json({ success: true, settings: updatedStreamer });
   } catch (error) {
     console.error('Save settings error:', error);
     res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าได้' });
+  }
+});
+
+app.get('/api/page/:username/settings', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งานรายนี้ในระบบ' });
+
+    const profileImg = await db.resolveProfileImage(streamer);
+
+    res.json({
+      username: streamer.username,
+      profileImage: profileImg,
+      profileImageSource: streamer.profile_image_source || 'twitch',
+      profileImageValue: streamer.profile_image_value || '',
+      pageTitle: streamer.page_title || `เลี้ยงกาแฟ ${streamer.username}`,
+      pageSubtitle: streamer.page_subtitle || 'ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨',
+      thankYouHeader: streamer.thank_you_header || 'ขอบคุณสำหรับการสนับสนุน!',
+      thankYouSubtitle: streamer.thank_you_subtitle || 'การสนับสนุนของคุณช่วยให้เราพัฒนาคอนเทนต์ต่อไปได้',
+      socials: {
+        twitch: streamer.social_twitch,
+        youtube: streamer.social_youtube,
+        tiktok: streamer.social_tiktok,
+        facebook: streamer.social_facebook,
+        x: streamer.social_x,
+        discord: streamer.social_discord,
+        instagram: streamer.social_instagram,
+      }
+    });
+  } catch (err) {
+    console.error('Get page settings error:', err);
+    res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลการตั้งค่าหน้าเว็บได้' });
+  }
+});
+
+app.post('/api/page/settings', ensureAuthenticated, async (req, res) => {
+  try {
+    const user = req.user;
+    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    
+    const updatedStreamer = await db.saveStreamer({
+      username: twitchName,
+      ...req.body
+    });
+    
+    res.json({ success: true, settings: updatedStreamer });
+  } catch (error) {
+    console.error('Save page settings error:', error);
+    res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าหน้าเว็บได้' });
   }
 });
 
@@ -432,8 +512,11 @@ app.get('/api/tts', (req, res) => {
   }
 });
 
-app.post('/api/alerts/test', (req, res) => {
+app.post('/api/alerts/test', ensureAuthenticated, (req, res) => {
   const { donor, amount, message } = req.body;
+  const user = req.user;
+  const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+
   const alertData = {
     type: 'donation',
     donor: donor || 'ผู้ทดสอบ',
@@ -441,8 +524,9 @@ app.post('/api/alerts/test', (req, res) => {
     message: message || 'นี่คือ test alert 🎉',
     timestamp: new Date().toISOString()
   };
-  broadcastAlert(alertData);
-  res.json({ success: true, alert: alertData, clients: sseClients.length });
+  
+  broadcastAlert(twitchName, alertData);
+  res.json({ success: true, alert: alertData });
 });
 
 function ensureAuthenticated(req, res, next) {

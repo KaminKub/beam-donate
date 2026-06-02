@@ -21,17 +21,18 @@
 
       <nav class="sidebar-menu">
         <button class="menu-item active" data-tab="dashboard">
-          <span class="icon">📊</span> Dashboard Overview
+          <span class="icon">📊</span> ภาพรวม Dashboard
         </button>
         <button class="menu-item" data-tab="transactions">
-          <span class="icon">💸</span> Donation History
+          <span class="icon">💸</span> ประวัติโดเนท
         </button>
         <button class="menu-item" data-tab="overlay-config">
-          <span class="icon">🎨</span> Overlay Settings
+          <span class="icon">🔔</span> ปรับแต่งวิดเจ็ต
         </button>
-        <a href="/" target="_blank" class="menu-item" style="text-decoration: none; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; border-radius: 0;">
-          <span class="icon">🔗</span> หน้าบริจาค (Donation Page)
-        </a>
+        <button class="menu-item" data-tab="page-customization">
+          <span class="icon">🎨</span> แต่งหน้าโดเนท
+        </button>
+      </nav>
       </nav>
 
        <div class="sidebar-footer">
@@ -51,7 +52,7 @@
           <p id="tabSubtitle">ภาพรวมยอดบริจาคและสถิติระบบ</p>
         </div>
         <div class="header-right" style="display: flex; gap: 10px;">
-          <a href="/" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 เปิดหน้าบริจาค</a>
+          <a href="/" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
           <button class="btn btn-primary" id="btnQuickTestAlert">⚡ ยิง Quick Alert</button>
         </div>
       </header>
@@ -129,9 +130,9 @@
 
             <!-- OBS Setup Card -->
             <div class="dashboard-card card-small">
-              <div class="card-header">
-                <h3>🎬 เชื่อมต่อกับ OBS Studio</h3>
-              </div>
+               <div class="card-header">
+                 <h3>🎬 เชื่อมต่อกับโปรแกรมสตรีม</h3>
+               </div>
               <div class="obs-setup-box">
                 <p>คัดลอก URL ด้านล่างไปใส่ใน **Browser Source** ของ OBS เพื่อเปิดใช้ระบบ Alert บริจาคเด้งขึ้นไลฟ์สด:</p>
                 <div class="copy-url-group">
@@ -196,6 +197,123 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: PAGE CUSTOMIZATION -->
+        <section id="tab-page-customization" class="tab-content">
+          <div class="settings-grid">
+            <div class="settings-panel-scroll">
+              <form id="pageSettingsForm">
+                
+                <!-- Card: Profile Customization -->
+                <div class="dashboard-card settings-card">
+                  <div class="settings-card-header">
+                    <h4>🖼️ ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
+                  </div>
+                  <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
+                    <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
+                      <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px;" alt="Profile Preview">
+                      <button type="button" id="btnChangeProfile" class="btn-edit-avatar" title="เปลี่ยนรูปโปรไฟล์">
+                        ✏️
+                      </button>
+                    </div>
+                    
+<div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
+  <div class="form-group">
+    <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
+    <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+  </div>
+  <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
+</div>
+                  </div>
+                </div>
+
+                <!-- Card: Page Texts -->
+                <div class="dashboard-card settings-card">
+                  <div class="settings-card-header">
+                    <h4>📝 ข้อความหน้าโดเนท (Page Content)</h4>
+                  </div>
+                  <div class="form-group">
+                    <label for="inputPageTitle">ชื่อหน้าโดเนท (Page Title)</label>
+                    <input type="text" id="inputPageTitle" class="form-control" placeholder="เช่น เลี้ยงกาแฟ KaminKub">
+                  </div>
+                  <div class="form-group">
+                    <label for="inputPageSubtitle">ข้อความแนะนำตัว (Subtitle)</label>
+                    <textarea id="inputPageSubtitle" class="form-control" rows="2" placeholder="เช่น ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨"></textarea>
+                  </div>
+                </div>
+
+                <!-- Card: Thank You Message -->
+                <div class="dashboard-card settings-card">
+                  <div class="settings-card-header">
+                    <h4>🙏 ข้อความขอบคุณ (Thank You Message)</h4>
+                  </div>
+                  <div class="form-group">
+                    <label for="inputThankYouHeader">หัวข้อขอบคุณ (Header)</label>
+                    <input type="text" id="inputThankYouHeader" class="form-control" placeholder="เช่น ขอบคุณที่สนับสนุน!">
+                  </div>
+                  <div class="form-group">
+                    <label for="inputThankYouSubtitle">ข้อความขอบคุณ (Subtitle)</label>
+                    <textarea id="inputThankYouSubtitle" class="form-control" rows="2" placeholder="เช่น การสนับสนุนของคุณช่วยให้เราพัฒนาคอนเทนต์ต่อไปได้"></textarea>
+                  </div>
+                </div>
+
+                <!-- Card: Social Media Links -->
+                <div class="dashboard-card settings-card">
+                  <div class="settings-card-header">
+                    <h4>🔗 ลิงก์โซเชียลมีเดีย (Social Links)</h4>
+                  </div>
+                  <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div class="form-group">
+                      <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
+                      <input type="text" id="socialTwitch" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialYoutube"><i class="fa-brands fa-youtube"></i> YouTube</label>
+                      <input type="text" id="socialYoutube" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialTiktok"><i class="fa-brands fa-tiktok"></i> TikTok</label>
+                      <input type="text" id="socialTiktok" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialFacebook"><i class="fa-brands fa-facebook"></i> Facebook</label>
+                      <input type="text" id="socialFacebook" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialX"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</label>
+                      <input type="text" id="socialX" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialDiscord"><i class="fa-brands fa-discord"></i> Discord</label>
+                      <input type="text" id="socialDiscord" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                    <div class="form-group">
+                      <label for="socialInstagram"><i class="fa-brands fa-instagram"></i> Instagram</label>
+                      <input type="text" id="socialInstagram" class="form-control" placeholder="URL หรือ Username">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary btn-large">💾 บันทึกการปรับแต่งหน้าเว็บ</button>
+                </div>
+              </form>
+            </div>
+            <div class="settings-preview-panel">
+              <div class="dashboard-card preview-card">
+                <div class="preview-header">
+                  <h3>🖼️ พรีวิวหน้าโดเนท (Page Preview)</h3>
+                </div>
+                <div class="preview-iframe-wrapper">
+                  <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
+                </div>
+                <div class="preview-controls">
+                  <button class="btn btn-secondary" id="btnReloadPagePreview">🔄 โหลดตัวอย่างใหม่</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>

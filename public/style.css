@@ -203,7 +203,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 6px 9px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -223,6 +223,8 @@ body {
 .social-btn.discord { background: rgba(88, 101, 242, 0.4); border-color: rgba(88, 101, 242, 0.6); }
 .social-btn.facebook { background: rgba(24, 119, 242, 0.4); border-color: rgba(24, 119, 242, 0.6); }
 .social-btn.tiktok { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
+.social-btn.x { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
+.social-btn.instagram { background: linear-gradient(45deg, rgba(225, 48, 100, 0.4), rgba(131, 56, 236, 0.4)); border-color: rgba(225, 48, 100, 0.6); }
 
 .social-btn:hover {
   transform: translateY(-3px);

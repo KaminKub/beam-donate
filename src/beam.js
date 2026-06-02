@@ -5,38 +5,44 @@ const BASE_URL = BEAM_ENV === 'production'
   ? 'https://api.beamcheckout.com'
   : 'https://playground.api.beamcheckout.com';
 
-const MERCHANT_ID = process.env.BEAM_MERCHANT_ID;
-const API_KEY = process.env.BEAM_API_KEY;
-
-// สร้าง Basic Auth header (MerchantID : APIKey)
-const getAuthHeader = () => {
-  if (!MERCHANT_ID || !API_KEY) {
-    console.error('❌ Missing Beam Credentials: Check .env file');
+/**
+ * สร้าง Basic Auth header (MerchantID : APIKey)
+ */
+const getAuthHeader = (merchantId, apiKey) => {
+  if (!merchantId || !apiKey) {
+    console.error('❌ Missing Beam Credentials');
+    return '';
   }
-  const credentials = Buffer.from(`${MERCHANT_ID}:${API_KEY}`).toString('base64');
+  const credentials = Buffer.from(`${merchantId}:${apiKey}`).toString('base64');
   return `Basic ${credentials}`;
 };
 
-// สร้าง Axios instance
-const beamApi = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': getAuthHeader()
-  }
-});
+/**
+ * สร้าง Axios instance สำหรับ request เฉพาะครั้ง
+ */
+const getBeamClient = (merchantId, apiKey) => {
+  return axios.create({
+    baseURL: BASE_URL,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': getAuthHeader(merchantId, apiKey)
+    }
+  });
+};
 
 /**
  * สร้าง PromptPay Charge
  * @param {Object} options
+ * @param {string} options.merchantId - Merchant ID ของ User
+ * @param {string} options.apiKey - API Key ของ User
  * @param {number} options.amount - จำนวนเงิน (satang)
  * @param {string} options.currency - สกุลเงิน (THB)
  * @param {string} options.description - คำอธิบาย
  * @param {Object} options.metadata - ข้อมูลเพิ่มเติม
  */
-async function createPromptPayCharge({ amount, currency = 'THB', description, metadata = {} }) {
-  // ลอง URL แบบไม่มี version?
-  const response = await beamApi.post('/api/charges', {
+async function createPromptPayCharge({ merchantId, apiKey, amount, currency = 'THB', description, metadata = {} }) {
+  const client = getBeamClient(merchantId, apiKey);
+  const response = await client.post('/api/charges', {
     amount,
     currency,
     description,
@@ -50,18 +56,20 @@ async function createPromptPayCharge({ amount, currency = 'THB', description, me
   return response.data;
 }
 
-// ... (existing code for createPromptPayCharge kept but unused) ...
-
 /**
- * สร้าง Payment Link (ตามเอกสารล่าสุด)
+ * สร้าง Payment Link
  * @param {Object} options
+ * @param {string} options.merchantId - Merchant ID ของ User
+ * @param {string} options.apiKey - API Key ของ User
  */
-async function createPaymentLink({ amount, currency = 'THB', description, referenceId, redirectUrl }) {
+async function createPaymentLink({ merchantId, apiKey, amount, currency = 'THB', description, referenceId, redirectUrl }) {
+  const client = getBeamClient(merchantId, apiKey);
+  
   // Beam กำหนดขั้นต่ำบัตรเครดิต 200 บาท (20000 satang)
   const CARD_MIN_AMOUNT = 20000;
   const isCardEnabled = amount >= CARD_MIN_AMOUNT;
 
-  const response = await beamApi.post('/api/v1/payment-links', {
+  const response = await client.post('/api/v1/payment-links', {
     order: {
       currency,
       netAmount: amount, // หน่วย satang
@@ -82,24 +90,28 @@ async function createPaymentLink({ amount, currency = 'THB', description, refere
 
 /**
  * ดึงข้อมูล Charge
+ * @param {string} merchantId
+ * @param {string} apiKey
  * @param {string} chargeId 
  */
-async function getCharge(chargeId) {
-  const response = await beamApi.get(`/api/v1/charges/${chargeId}`);
+async function getCharge(merchantId, apiKey, chargeId) {
+  const client = getBeamClient(merchantId, apiKey);
+  const response = await client.get(`/api/v1/charges/${chargeId}`);
   return response.data;
 }
 
 /**
  * ดึงรายการ Charges
+ * @param {string} merchantId
+ * @param {string} apiKey
  * @param {Object} options
- * @param {number} options.limit
- * @param {string} options.starting_after
  */
-async function listCharges({ limit = 10, starting_after } = {}) {
+async function listCharges(merchantId, apiKey, { limit = 10, starting_after } = {}) {
+  const client = getBeamClient(merchantId, apiKey);
   const params = { limit };
   if (starting_after) params.starting_after = starting_after;
 
-  const response = await beamApi.get('/api/v1/charges', { params });
+  const response = await client.get('/api/v1/charges', { params });
   return response.data;
 }
 
