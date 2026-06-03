@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌸 Stream Donation Admin Panel</title>
+  <title>🌸 Stream Donation Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard/admin.css">
 </head>
@@ -11,11 +11,12 @@
   <div class="admin-wrapper">
     <!-- Sidebar Navigation -->
     <aside class="admin-sidebar">
+      <h2><a href="http://localhost:3000/"><span class="highlight-amount">TipKub</span></a></h2>
       <div class="brand">
         <div class="brand-logo">😺</div>
         <div class="brand-text">
           <h2>Stream Donation</h2>
-          <span>Admin Controls</span>
+          <span>Dashboard Controls</span>
         </div>
       </div>
 
@@ -31,6 +32,9 @@
         </button>
         <button class="menu-item" data-tab="page-customization">
           <span class="icon">🎨</span> แต่งหน้าโดเนท
+        </button>
+        <button class="menu-item" data-tab="payment-setup" disabled>
+           <span class="icon">🏦</span> ตั้งค่ารับเงิน (เร็วๆนี้)
         </button>
       </nav>
       </nav>
@@ -213,20 +217,28 @@
                     <h4>🖼️ ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
                   </div>
                   <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
-                    <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
-                      <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px;" alt="Profile Preview">
-                      <button type="button" id="btnChangeProfile" class="btn-edit-avatar" title="เปลี่ยนรูปโปรไฟล์">
-                        ✏️
-                      </button>
-                    </div>
-                    
-<div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
-  <div class="form-group">
-    <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
-    <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
-  </div>
-  <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
-</div>
+                     <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
+                       <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px; border-radius: 50%;" alt="Profile Preview">
+                       <button type="button" id="btnChangeProfile" class="btn-edit-avatar" title="เปลี่ยนรูปโปรไฟล์">
+                         ✏️
+                       </button>
+                     </div>
+
+                     <div class="form-group" style="width: 100%; max-width: 300px;">
+                       <label for="profileGlowColor">สีเรืองแสงรอบโปรไฟล์</label>
+                       <div class="color-input-wrapper" style="display: flex; gap: 10px; align-items: left;">
+                         <input type="color" id="profileGlowColor" style="width: 40px; height: 40px; border: none; cursor: pointer;">
+                         <input type="text" id="txtProfileGlowColor" class="form-control" style="flex: 1;" placeholder="#00ff0e">
+                       </div>
+                     </div>
+                     
+                      <div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
+                        <div class="form-group">
+                          <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
+                          <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+                        </div>
+                        <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
+                      </div>
                   </div>
                 </div>
 
@@ -265,34 +277,43 @@
                   <div class="settings-card-header">
                     <h4>🔗 ลิงก์โซเชียลมีเดีย (Social Links)</h4>
                   </div>
-                  <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <div class="form-group">
-                      <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
-                      <input type="text" id="socialTwitch" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialYoutube"><i class="fa-brands fa-youtube"></i> YouTube</label>
-                      <input type="text" id="socialYoutube" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialTiktok"><i class="fa-brands fa-tiktok"></i> TikTok</label>
-                      <input type="text" id="socialTiktok" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialFacebook"><i class="fa-brands fa-facebook"></i> Facebook</label>
-                      <input type="text" id="socialFacebook" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialX"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</label>
-                      <input type="text" id="socialX" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialDiscord"><i class="fa-brands fa-discord"></i> Discord</label>
-                      <input type="text" id="socialDiscord" class="form-control" placeholder="URL หรือ Username">
-                    </div>
-                    <div class="form-group">
-                      <label for="socialInstagram"><i class="fa-brands fa-instagram"></i> Instagram</label>
-                      <input type="text" id="socialInstagram" class="form-control" placeholder="URL หรือ Username">
+                     <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                       <div class="form-group">
+                         <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
+                         <input type="text" id="socialTwitch" class="form-control" placeholder="https://twitch.tv/user">
+                         <span class="error-message" id="err-socialTwitch" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialYoutube"><i class="fa-brands fa-youtube"></i> YouTube</label>
+                         <input type="text" id="socialYoutube" class="form-control" placeholder="https://youtube.com/@user">
+                         <span class="error-message" id="err-socialYoutube" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialTiktok"><i class="fa-brands fa-tiktok"></i> TikTok</label>
+                         <input type="text" id="socialTiktok" class="form-control" placeholder="https://tiktok.com/@user">
+                         <span class="error-message" id="err-socialTiktok" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialFacebook"><i class="fa-brands fa-facebook"></i> Facebook</label>
+                         <input type="text" id="socialFacebook" class="form-control" placeholder="https://facebook.com/user">
+                         <span class="error-message" id="err-socialFacebook" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialX"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</label>
+                         <input type="text" id="socialX" class="form-control" placeholder="https://x.com/@user">
+                         <span class="error-message" id="err-socialX" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialDiscord"><i class="fa-brands fa-discord"></i> Discord</label>
+                         <input type="text" id="socialDiscord" class="form-control" placeholder="https://discord.com/xxx">
+                         <span class="error-message" id="err-socialDiscord" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                       <div class="form-group">
+                         <label for="socialInstagram"><i class="fa-brands fa-instagram"></i> Instagram</label>
+                         <input type="text" id="socialInstagram" class="form-control" placeholder="https://instagram.com/user">
+                         <span class="error-message" id="err-socialInstagram" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                       </div>
+                     </div>
                     </div>
                   </div>
                 </div>

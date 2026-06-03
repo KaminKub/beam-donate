@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบไม่สำเร็จ - TipKub</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #667eea;
+      --secondary: #764ba2;
+      --bg: #0f172a;
+      --text: #ffffff;
+      --glass: rgba(255, 255, 255, 0.1);
+    }
+    body {
+      margin: 0;
+      font-family: 'Kanit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .bg-orbs {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(80px);
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.5;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary); top: -10%; left: -10%; }
+    .orb-2 { width: 400px; height: 400px; background: var(--secondary); bottom: -10%; right: -10%; }
+    .orb-3 { width: 300px; height: 300px; background: #ef4444; top: 40%; left: 40%; opacity: 0.3; }
+
+    .error-container {
+      text-align: center;
+      width: fit-content;
+      padding: 3rem 2rem;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .error-icon {
+      font-size: 4rem;
+      color: #ef4444;
+      margin-bottom: 1.5rem;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.2s;
+      opacity: 0;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      background: linear-gradient(to right, #fff, #fca5a5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.4s;
+      opacity: 0;
+    }
+    p {
+      font-size: 1.2rem;
+      color: #94a3b8;
+      margin-bottom: 2.5rem;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.6s;
+      opacity: 0;
+    }
+    .cta-group {
+      display: flex;
+      justify-content: center;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.8s;
+      opacity: 0;
+    }
+    .btn {
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border: none;
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 25px rgba(102, 126, 234, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="error-container">
+    <div class="error-icon">
+      <i class="fa-solid fa-circle-exclamation"></i>
+    </div>
+    <h1>เข้าสู่ระบบไม่สำเร็จ</h1>
+    <p>เกิดข้อผิดพลาดในการเชื่อมต่อบัญชีของคุณ<br>กรุณาลองใหม่อีกครั้ง หรือตรวจสอบการตั้งค่า</p>
+    <div class="cta-group">
+      <a href="/" class="btn btn-primary">
+        <i class="fa-solid fa-house"></i> กลับหน้าหลัก
+      </a>
+    </div>
+  </div>
+</body>
+</html>

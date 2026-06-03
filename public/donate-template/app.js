@@ -54,12 +54,16 @@ async function loadPageContent() {
       pageSubtitle.textContent = subtitles[0];
       pageSubtitle2.textContent = subtitles[1] || '';
       
-      // Update profile image
-      // Always show the profile image; use /avatar.jpg as default if missing or explicitly set to it
-      profileImage.src = data.profileImage || '/avatar.jpg';
-      profileImage.style.display = 'block';
-      
-      // Update social links
+       // Update profile image
+       profileImage.src = data.profileImage || '/avatar.jpg';
+       profileImage.style.display = 'block';
+       
+       // Set glow color CSS variable
+       if (data.profileGlowColor) {
+         document.documentElement.style.setProperty('--avatar-glow-color', data.profileGlowColor);
+       }
+       
+       // Update social links
       renderSocialLinks(data.socials);
     }
   } catch (error) {

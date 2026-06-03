@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตั้งค่าบัญชี - TipKub</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #667eea;
+      --secondary: #764ba2;
+      --bg: #0f172a;
+      --text: #ffffff;
+      --glass: rgba(255, 255, 255, 0.1);
+      --accent: #a5b4fc;
+    }
+    body {
+      margin: 0;
+      font-family: 'Kanit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .bg-orbs {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(80px);
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.5;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary); top: -10%; left: -10%; }
+    .orb-2 { width: 400px; height: 400px; background: var(--secondary); bottom: -10%; right: -10%; }
+    .orb-3 { width: 300px; height: 300px; background: #3b82f6; top: 40%; left: 40%; }
+
+    .setup-container {
+      text-align: center;
+      width: 90%;
+      max-width: 500px;
+      padding: 3rem 2rem;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      z-index: 1;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .profile-section {
+      margin-bottom: 2rem;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.2s;
+      opacity: 0;
+    }
+    .profile-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 3px solid var(--primary);
+      margin-bottom: 1rem;
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+    }
+    h2 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(to right, #fff, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 2rem;
+    }
+
+    .url-input-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 0.5rem 1rem;
+      margin-bottom: 2rem;
+      transition: all 0.3s ease;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.4s;
+      opacity: 0;
+    }
+    .url-input-group:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+    }
+    .url-prefix {
+      color: #64748b;
+      font-size: 1.1rem;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .url-input {
+      background: transparent;
+      border: none;
+      color: white;
+      font-family: 'Kanit', sans-serif;
+      font-size: 1.1rem;
+      padding: 0.5rem;
+      width: 100%;
+      outline: none;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1.1rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      font-weight: 600;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.6s;
+      opacity: 0;
+    }
+    .btn-submit:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Success Popup */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .popup {
+      background: var(--bg);
+      padding: 3rem 2rem;
+      border-radius: 30px;
+      text-align: center;
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+      transform: scale(0.5);
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .popup.show {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .popup h3 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: white;
+    }
+    .popup p {
+      color: #94a3b8;
+      margin-bottom: 2rem;
+    }
+
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 480px) {
+      .setup-container {
+        padding: 2rem 1rem;
+      }
+      h2 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="setup-container">
+    <div class="profile-section">
+      <img src="/avatar.jpg" id="profile-img" class="profile-img" alt="Profile">
+      <h2 id="twitch-name">ยินดีต้อนรับ!</h2>
+      <p class="subtitle">กำหนดชื่อ URL หน้าโดเนทของคุณ</p>
+    </div>
+
+    <div class="url-input-group">
+      <span class="url-prefix">tipkub.me/</span>
+      <input type="text" id="username-input" class="url-input" placeholder="username" spellcheck="false">
+    </div>
+
+    <button id="submit-btn" class="btn-submit">
+      <span id="btn-text">สร้างหน้าโดเนทของฉัน</span>
+      <div id="spinner" class="loading-spinner"></div>
+    </button>
+  </div>
+
+  <div id="success-overlay" class="overlay">
+    <div id="success-popup" class="popup">
+      <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+      <h3>อูวววห์!</h3>
+      <p id="success-msg">Username ของคุณมีหน้า TipKub แล้ว!</p>
+      <a href="/dashboard" id="dashboard-link" class="btn-submit" style="text-decoration: none; width: auto; padding: 1rem 2rem; margin: 0 auto;">
+        เข้าสู่ Dashboard
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const profileImg = document.getElementById('profile-img');
+    const twitchName = document.getElementById('twitch-name');
+    const usernameInput = document.getElementById('username-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = document.getElementById('btn-text');
+    const spinner = document.getElementById('spinner');
+    const successOverlay = document.getElementById('success-overlay');
+    const successPopup = document.getElementById('success-popup');
+    const successMsg = document.getElementById('success-msg');
+
+    async function init() {
+      try {
+        const res = await fetch('/api/register/pending');
+        if (!res.ok) window.location.href = '/login';
+        
+        const data = await res.json();
+        profileImg.src = data.profileImage;
+        twitchName.textContent = data.twitchName;
+        usernameInput.value = data.twitchName.toLowerCase().replace(/\s+/g, '');
+      } catch (e) {
+        window.location.href = '/login';
+      }
+    }
+
+    submitBtn.onclick = async () => {
+      const username = usernameInput.value.trim().toLowerCase();
+      if (!username) return alert('กรุณากรอก Username');
+
+      submitBtn.disabled = true;
+      btnText.style.display = 'none';
+      spinner.style.display = 'block';
+
+      try {
+        const res = await fetch('/api/register/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          successMsg.textContent = \`อูวววห์ \${data.username} มีหน้า TipKub แล้ว!\`;
+          successOverlay.style.display = 'flex';
+          setTimeout(() => {
+            successPopup.classList.add('show');
+          }, 10);
+          
+          // Update dashboard link to user's specific dashboard
+          document.getElementById('dashboard-link').href = \`/\${data.username}/dashboard\`;
+        } else {
+          alert(data.error || 'เกิดข้อผิดพลาด');
+          submitBtn.disabled = false;
+          btnText.style.display = 'block';
+          spinner.style.display = 'none';
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        submitBtn.disabled = false;
+        btnText.style.display = 'block';
+        spinner.style.display = 'none';
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>

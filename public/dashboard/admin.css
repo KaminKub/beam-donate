@@ -34,7 +34,25 @@ body {
   display: flex;
   min-height: 100vh;
 }
-
+.highlight-amount {
+  background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  width: fit-content;
+  animation: shineText 3s linear infinite;
+  line-height: 1;
+  font-family: 'Kanit', sans-serif;
+}
+@keyframes shineText {
+  0% { background-position: 200% center; }
+  100% { background-position: 0% center; }
+}
 /* ========== Sidebar Styling ========== */
 .admin-sidebar {
   width: 280px;
@@ -990,6 +1008,27 @@ label {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ========== Error Styling ========== */
+.input-error {
+  border-color: var(--failed) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.error-message {
+  color: var(--failed);
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 4px;
+  display: block;
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 
 @media (max-width: 768px) {

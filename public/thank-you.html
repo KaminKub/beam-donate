@@ -17,10 +17,10 @@
 
   <div class="container">
     <div class="card glass-card thank-you">
-      <div class="icon glowing-heart">💝</div>
+      <img id="profileImage" class="glowing-avatar" alt="Profile" style="display: none;">
       <h1 id="thankYouHeader">ขอบคุณมากครับ!</h1>
       <p id="thankYouSubtitle" class="subtitle">สำหรับการสนับสนุนของคุณ<br>ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨</p>
-      <a href="/" class="btn-primary" style="text-decoration: none; display: block; text-align: center;">กลับหน้าหลัก</a>
+      <a href="#" id="btnBackHome" class="btn-primary" style="text-decoration: none; display: block; text-align: center;">กลับหน้าหลัก</a>
     </div>
   </div>
   <script>
@@ -29,13 +29,26 @@
       const username = params.get('username');
       if (!username) return;
 
+      // Handle Back to Home redirect
+      const btnBackHome = document.getElementById('btnBackHome');
+      if (btnBackHome) {
+        btnBackHome.href = `/${username}`;
+      }
+
       try {
         const response = await fetch(`/api/page/${username}/settings`);
-        if (response.ok) {
-          const data = await response.json();
-          document.getElementById('thankYouHeader').textContent = data.thankYouHeader || 'ขอบคุณมากครับ!';
-          document.getElementById('thankYouSubtitle').textContent = data.thankYouSubtitle || 'สำหรับการสนับสนุนของคุณ ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨';
-        }
+         if (response.ok) {
+           const data = await response.json();
+           
+           const profileImg = document.getElementById('profileImage');
+           if (profileImg && data.profileImage) {
+             profileImg.src = data.profileImage;
+             profileImg.style.display = 'block';
+           }
+
+           document.getElementById('thankYouHeader').textContent = data.thankYouHeader || 'ขอบคุณมากครับ!';
+           document.getElementById('thankYouSubtitle').textContent = data.thankYouSubtitle || 'สำหรับการสนับสนุนของคุณ ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨';
+         }
       } catch (error) {
         console.error('Error loading thank you settings:', error);
       }

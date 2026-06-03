@@ -4,69 +4,140 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌸 Login - Stream Donation Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Noto+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
   <style>
     body {
-      font-family: 'Kanit', 'Noto Sans Thai', sans-serif;
-      background: #0f0f19;
+      margin: 0;
+      font-family: 'Kanit', sans-serif;
+      background: #0f172a;
       color: #ffffff;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .bg-orbs {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(80px);
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.5;
+    }
+    .orb-1 { width: 400px; height: 400px; background: #667eea; top: -10%; left: -10%; }
+    .orb-2 { width: 400px; height: 400px; background: #764ba2; bottom: -10%; right: -10%; }
+    .orb-3 { width: 300px; height: 300px; background: #3b82f6; top: 40%; left: 40%; }
+
+    .login-container {
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      z-index: 1;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
     .login-card {
       background: rgba(255, 255, 255, 0.05);
-      padding: 2rem;
-      border-radius: 20px;
+      padding: 3rem 2rem;
+      border-radius: 24px;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      text-align: center;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      max-width: 400px;
-      width: 90%;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease;
+    }
+    .login-card:hover {
+      transform: translateY(-5px);
+    }
+    .login-card h2 {
+      margin: 0 0 1rem 0;
+      font-size: 2.5rem;
     }
     .login-card h1 {
-      margin-bottom: 1rem;
+      margin: 0 0 0.5rem 0;
       font-size: 1.5rem;
+      font-weight: 500;
+      color: #ffffff;
     }
     .login-card p {
-      color: #a0a0b8;
-      margin-bottom: 2rem;
+      color: #94a3b8;
+      margin-bottom: 2.5rem;
+      font-size: 1.1rem;
       line-height: 1.5;
     }
     .btn-twitch {
-      background: #6441a5;
+      background: linear-gradient(135deg, #6441a5, #7d5bbe);
       color: white;
       text-decoration: none;
-      padding: 12px 24px;
-      border-radius: 10px;
+      padding: 14px 28px;
+      border-radius: 12px;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      transition: background 0.3s;
+      justify-content: center;
+      gap: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 10px 20px rgba(100, 65, 165, 0.3);
+      font-size: 1.1rem;
     }
     .btn-twitch:hover {
-      background: #7d5bbe;
+      transform: translateY(-3px);
+      box-shadow: 0 15px 25px rgba(100, 65, 165, 0.4);
+      filter: brightness(1.1);
     }
-    .logo {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+    .highlight-amount {
+      background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+      width: fit-content;
+      animation: shineText 3s linear infinite;
+      line-height: 1;
+    }
+    @keyframes shineText {
+      0% { background-position: 200% center; }
+      100% { background-position: 0% center; }
+    }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo">😺</div>
-    <h1>Dashboard Access</h1>
-    <p>เข้าสู่ระบบเพื่อจัดการหน้า DashBoard</p>
-    <a href="/auth/twitch" class="social-btn twitch btn-twitch">
-      <i class="fa-brands fa-twitch"></i>
-      <span>Login with Twitch</span>
-    </a>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="login-container">
+    <div class="login-card">
+      <h2><a href="/" style="text-decoration: none; font-size: larger;"><span class="highlight-amount">TipKub</span></a></h2>
+      <h1>Dashboard Access</h1>
+      <p>เข้าสู่ระบบเพื่อจัดการหน้า DashBoard</p>
+      <a href="/auth/twitch" class="btn-twitch">
+        <i class="fa-brands fa-twitch"></i>
+        <span>Login with Twitch</span>
+      </a>
+    </div>
   </div>
 </body>
 </html>

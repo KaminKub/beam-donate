@@ -129,20 +129,107 @@ app.get('/login', (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  res.send('<h1>Register Page</h1><p>Registration is coming soon!</p><a href="/">Back to Home</a>');
+  res.redirect('/auth/twitch');
+});
+
+app.get('/register/setup', (req, res) => {
+  if (!req.session.pendingUser) return res.redirect('/login');
+  res.sendFile(path.join(__dirname, '../public/register-setup.html'));
+});
+
+app.get('/api/register/pending', (req, res) => {
+  if (!req.session.pendingUser) return res.status(401).json({ error: 'Unauthorized' });
+  res.json(req.session.pendingUser);
+});
+
+app.post('/api/register/complete', async (req, res) => {
+  if (!req.session.pendingUser) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username is required' });
+
+  const normalizedUsername = username.toLowerCase().trim();
+  if (!normalizedUsername || normalizedUsername.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+  }
+
+  try {
+    const existingUser = await db.getStreamer(normalizedUsername);
+    if (existingUser) {
+      return res.status(400).json({ error: 'This username is already taken' });
+    }
+
+    const pending = req.session.pendingUser;
+    
+    // Create the new streamer record
+    // For new users, we generate a random overlay token and set default credentials 
+    // Since we don't have beam keys yet, we'll allow them to be null or placeholders
+    // and they can update them in the dashboard.
+    const newUser = await db.saveStreamer({
+      twitch_id: pending.twitchId,
+      username: normalizedUsername,
+      beam_api_key: 'pending',
+      beam_merchant_id: 'pending',
+      overlay_token: crypto.randomBytes(16).toString('hex'),
+      is_active: 1
+    });
+
+    // Clear pending session and log user in (simulated)
+    delete req.session.pendingUser;
+    req.user = newUser; 
+
+    res.json({ success: true, username: normalizedUsername });
+  } catch (err) {
+    console.error('Registration completion error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.get('/auth/twitch', passport.authenticate('twitch'));
 
 app.get('/auth/twitch/callback', 
   passport.authenticate('twitch', { failureRedirect: '/login-failed' }),
-  (req, res) => {
-    res.redirect('/admin');
+  async (req, res) => {
+    const user = req.user;
+    const twitchId = user.id;
+    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+
+    try {
+      // 1. Try finding by Twitch ID first
+      let existingUser = await db.getStreamerByTwitchId(twitchId);
+      
+      // 2. If not found by ID, try finding by Username (Linking existing accounts)
+      if (!existingUser) {
+        existingUser = await db.getStreamer(twitchName);
+        if (existingUser) {
+          console.log(`🔗 Linking existing account for ${twitchName} with Twitch ID ${twitchId}`);
+          await db.saveStreamer({
+            ...existingUser,
+            twitch_id: twitchId
+          });
+        }
+      }
+
+      if (existingUser) {
+        return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+      } else {
+        // Store temporary info in session for the setup page
+        req.session.pendingUser = {
+          twitchId: twitchId,
+          twitchName: twitchName,
+          profileImage: user._json?.profile_image_url || '/avatar.jpg'
+        };
+        return res.redirect('/register/setup');
+      }
+    } catch (err) {
+      console.error('Callback error:', err);
+      res.redirect('/login-failed');
+    }
   }
 );
 
 app.get('/login-failed', (req, res) => {
-  res.send('Authentication failed. Please try again.');
+  res.sendFile(path.join(__dirname, '../public/login-failed.html'));
 });
 
 app.get('/thank-you', (req, res) => {
@@ -157,12 +244,17 @@ app.get('/alert-test', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/alert-test.html'));
 });
 
-app.get('/admin', (req, res) => {
+app.get('/admin', async (req, res) => {
   if (req.isAuthenticated()) {
     const user = req.user;
-    const twitchName = user.username || user.nickname || user.display_name || (user._json && user._json.display_name);
-    if (twitchName) {
-      return res.redirect(`/${twitchName.toLowerCase()}/dashboard`);
+    const twitchId = user.id;
+    try {
+      const streamer = await db.getStreamerByTwitchId(twitchId);
+      if (streamer) {
+        return res.redirect(`/${streamer.username.toLowerCase()}/dashboard`);
+      }
+    } catch (err) {
+      console.error('Admin redirect error:', err);
     }
   }
   res.redirect('/login');
@@ -295,12 +387,19 @@ async function validateUsername(req, res, next) {
   }
 }
 
-function ensureUserOwner(req, res, next) {
+async function ensureUserOwner(req, res, next) {
   if (req.isAuthenticated()) {
     const { username } = req.params;
     const user = req.user;
-    const twitchName = user.username || user.nickname || user.display_name || (user._json && user._json.display_name);
-    if (twitchName && username && twitchName.toLowerCase() === username.toLowerCase()) return next();
+    const twitchId = user.id;
+    try {
+      const streamer = await db.getStreamerByTwitchId(twitchId);
+      if (streamer && streamer.username.toLowerCase() === username.toLowerCase()) {
+        return next();
+      }
+    } catch (err) {
+      console.error('Ownership check error:', err);
+    }
     return res.status(403).send('Forbidden: คุณไม่มีสิทธิ์จัดการหน้า Dashboard ของผู้อื่น');
   }
   res.redirect('/login');
@@ -420,6 +519,14 @@ app.get('/api/overlay/settings', async (req, res) => {
     res.json(settings);
   } catch (err) {
     console.error('Get settings error:', err);
+    
+    if (err.message && (err.message.includes('502') || err.message.includes('SERVER_ERROR'))) {
+      return res.status(502).json({ 
+        error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว', 
+        details: 'เซิร์ฟเวอร์ไม่ตอบสนอง กรุณาลองใหม่อีกครั้ง' 
+      });
+    }
+    
     res.status(500).json({ error: 'ไม่สามารถดึงการตั้งค่าได้' });
   }
 });
@@ -428,8 +535,10 @@ app.post('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
     const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    const twitchId = user.id;
     
     const updatedStreamer = await db.saveStreamer({
+      twitch_id: twitchId,
       username: twitchName,
       ...req.body
     });
@@ -455,6 +564,7 @@ app.get('/api/page/:username/settings', async (req, res) => {
       profileImage: profileImg,
       profileImageSource: streamer.profile_image_source || 'twitch',
       profileImageValue: streamer.profile_image_value || '',
+      profileGlowColor: streamer.profile_glow_color || '#00ff0e',
       pageTitle: streamer.page_title || `เลี้ยงกาแฟ ${streamer.username}`,
       pageSubtitle: streamer.page_subtitle || 'ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨',
       thankYouHeader: streamer.thank_you_header || 'ขอบคุณสำหรับการสนับสนุน!',
@@ -471,6 +581,15 @@ app.get('/api/page/:username/settings', async (req, res) => {
     });
   } catch (err) {
     console.error('Get page settings error:', err);
+    
+    // Handle Libsql / Turso 502 or connection errors specifically
+    if (err.message && (err.message.includes('502') || err.message.includes('SERVER_ERROR'))) {
+      return res.status(502).json({ 
+        error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว (Bad Gateway)', 
+        details: 'เซิร์ฟเวอร์ Turso ไม่ตอบสนอง กรุณารอซักครู่แล้วรีเฟรชหน้าเว็บอีกครั้ง' 
+      });
+    }
+    
     res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลการตั้งค่าหน้าเว็บได้' });
   }
 });
@@ -479,8 +598,10 @@ app.post('/api/page/settings', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
     const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    const twitchId = user.id;
     
     const updatedStreamer = await db.saveStreamer({
+      twitch_id: twitchId,
       username: twitchName,
       ...req.body
     });
@@ -546,6 +667,10 @@ app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
       res.status(404).json({ error: 'Token not found for this user' });
     }
   } catch (err) {
+    console.error('Get token error:', err);
+    if (err.message && (err.message.includes('502') || err.message.includes('SERVER_ERROR'))) {
+      return res.status(502).json({ error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

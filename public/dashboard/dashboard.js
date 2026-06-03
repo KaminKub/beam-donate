@@ -613,6 +613,8 @@ async function loadPageSettings() {
       // Profile
       document.getElementById('profilePreview').src = s.profileImage;
       document.getElementById('profileImageValue').value = s.profileImageValue || '';
+      document.getElementById('profileGlowColor').value = s.profileGlowColor || '#00ff0e';
+      document.getElementById('txtProfileGlowColor').value = s.profileGlowColor || '#00ff0e';
       
       updatePagePreview();
     }
@@ -621,24 +623,59 @@ async function loadPageSettings() {
   }
 }
 
+// URL Validation Helper
+function validateUrl(url) {
+  if (!url) return true; // Allow empty links
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 async function savePageSettings(e) {
   e.preventDefault();
   
-  const payload = {
-    page_title: document.getElementById('inputPageTitle').value,
-    page_subtitle: document.getElementById('inputPageSubtitle').value,
-    thank_you_header: document.getElementById('inputThankYouHeader').value,
-    thank_you_subtitle: document.getElementById('inputThankYouSubtitle').value,
-    social_twitch: document.getElementById('socialTwitch').value,
-    social_youtube: document.getElementById('socialYoutube').value,
-    social_tiktok: document.getElementById('socialTiktok').value,
-    social_facebook: document.getElementById('socialFacebook').value,
-    social_x: document.getElementById('socialX').value,
-    social_discord: document.getElementById('socialDiscord').value,
-    social_instagram: document.getElementById('socialInstagram').value,
-    profile_image_source: 'custom', // Always set to custom now
-    profile_image_value: document.getElementById('profileImageValue').value,
-  };
+  // Validate Social Links
+  const socialInputs = [
+    'socialTwitch', 'socialYoutube', 'socialTiktok', 
+    'socialFacebook', 'socialX', 'socialDiscord', 'socialInstagram'
+  ];
+  
+  let hasError = false;
+  
+  socialInputs.forEach(id => {
+    const input = document.getElementById(id);
+    const errorSpan = document.getElementById(`err-${id}`);
+    const value = input.value.trim();
+    
+    if (!validateUrl(value)) {
+      input.classList.add('input-error');
+      errorSpan.style.display = 'block';
+      hasError = true;
+    } else {
+      input.classList.remove('input-error');
+      errorSpan.style.display = 'none';
+    }
+  });
+  
+  if (hasError) {
+    alert('❌ กรุณาตรวจสอบลิ้งค์โซเชียลมีเดีย ให้ขึ้นต้นด้วย https:// หรือ http://');
+    return;
+  }
+
+    const payload = {
+      page_title: document.getElementById('inputPageTitle').value,
+      page_subtitle: document.getElementById('inputPageSubtitle').value,
+      thank_you_header: document.getElementById('inputThankYouHeader').value,
+      thank_you_subtitle: document.getElementById('inputThankYouSubtitle').value,
+      social_twitch: document.getElementById('socialTwitch').value,
+      social_youtube: document.getElementById('socialYoutube').value,
+      social_tiktok: document.getElementById('socialTiktok').value,
+      social_facebook: document.getElementById('socialFacebook').value,
+      social_x: document.getElementById('socialX').value,
+      social_discord: document.getElementById('socialDiscord').value,
+      social_instagram: document.getElementById('socialInstagram').value,
+      profile_image_source: 'custom', // Always set to custom now
+      profile_image_value: document.getElementById('profileImageValue').value,
+      profile_glow_color: document.getElementById('profileGlowColor').value,
+    };
   
   try {
     const res = await fetch('/api/page/settings', {
@@ -654,6 +691,31 @@ async function savePageSettings(e) {
     alert('❌ ไม่สามารถบันทึกการตั้งค่าได้');
   }
 }
+
+// Add real-time validation listeners to social inputs
+document.addEventListener('DOMContentLoaded', () => {
+  const socialInputs = [
+    'socialTwitch', 'socialYoutube', 'socialTiktok', 
+    'socialFacebook', 'socialX', 'socialDiscord', 'socialInstagram'
+  ];
+  
+  socialInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', () => {
+        const errorSpan = document.getElementById(`err-${id}`);
+        const value = input.value.trim();
+        if (value && !validateUrl(value)) {
+          input.classList.add('input-error');
+          errorSpan.style.display = 'block';
+        } else {
+          input.classList.remove('input-error');
+          errorSpan.style.display = 'none';
+        }
+      });
+    }
+  });
+});
 
 function updatePagePreview() {
   const pathParts = window.location.pathname.split('/');
@@ -682,6 +744,17 @@ document.getElementById('btnApplyProfile').onclick = async () => {
 
 document.getElementById('btnReloadPagePreview').onclick = updatePagePreview;
 document.getElementById('pageSettingsForm').onsubmit = savePageSettings;
+
+// Glow color sync
+document.getElementById('profileGlowColor').oninput = (e) => {
+  document.getElementById('txtProfileGlowColor').value = e.target.value;
+};
+document.getElementById('txtProfileGlowColor').oninput = (e) => {
+  if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) {
+    document.getElementById('profileGlowColor').value = e.target.value;
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   // Extract username from URL
   const pathParts = window.location.pathname.split('/');
