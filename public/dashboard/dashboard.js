@@ -794,16 +794,16 @@ async function updateObsUrlWithToken(baseUrl, username) {
     const response = await fetch('/api/overlay/token');
     if (response.ok) {
       const { token } = await response.json();
-      // บังคับให้มี token เสมอ เพื่อป้องกันการสุ่มหายบน Vercel
+      // บังคับให้มี token เสมอ
       urlInput.value = `${baseUrl}/${username}/overlay?token=${token}`;
     } else {
-      // หาก API token มีปัญหา ให้ใช้ token เริ่มต้น (แต่ยังระบุโครงสร้างให้ชัดเจน)
-      urlInput.value = `${baseUrl}/${username}/overlay?token=ready1`;
-      console.warn('Could not fetch overlay token, using fallback token');
+      // หาก API token มีปัญหา ให้แจ้งเตือนผู้ใช้แทนการใช้ค่า Default
+      urlInput.value = `${baseUrl}/${username}/overlay`;
+      console.error('❌ Could not fetch overlay token. Please contact support.');
     }
   } catch (err) {
     console.error('Failed to fetch overlay token:', err);
-    urlInput.value = `${baseUrl}/${username}/overlay?token=ready1`;
+    urlInput.value = `${baseUrl}/${username}/overlay`;
   }
 }
 
