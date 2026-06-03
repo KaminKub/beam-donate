@@ -461,8 +461,8 @@ async function saveStreamer(data) {
   }
   if (!db) throw new Error('Database not initialized');
   
-  const overlayToken = data.overlay_token || `ready1`;
   const existing = await getStreamer(data.username);
+  const overlayToken = data.overlay_token || (existing ? existing.overlay_token : `ready1`);
   
   const finalData = {
     ...existing,
