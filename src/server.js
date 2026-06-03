@@ -39,11 +39,11 @@ const defaultSettings = {
   fontFamily: 'Noto Sans Thai',
   primaryColor: '#667eea',
   secondaryColor: '#764ba2',
-  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  backgroundColor: 'rgba(15, 15, 25, 0.88)',
   textColor: '#ffffff',
-  borderColor: 'rgba(255, 255, 255, 0.25)',
+  borderColor: 'rgba(255, 255, 255, 0.05)',
   particleCount: 15,
-  fontSize: 32
+  fontSize: 48
 };
 
 // ========== SSE Alert System ==========
@@ -143,55 +143,72 @@ app.get('/api/register/pending', (req, res) => {
 });
 
 app.post('/api/register/complete', async (req, res) => {
-  if (!req.session.pendingUser) return res.status(401).json({ error: 'Unauthorized' });
-
+  console.log('🛡️ [Register Complete] Request received');
+  
+  if (!req.session.pendingUser) {
+    console.error('❌ [Register Complete] Session missing pendingUser');
+    return res.status(401).json({ error: 'Session expired. Please log in again.' });
+  }
+  
   const { username } = req.body;
-  if (!username) return res.status(400).json({ error: 'Username is required' });
-
+  console.log(`📝 [Register Complete] Attempting to register username: ${username}`);
+  
+  if (!username) {
+    console.error('❌ [Register Complete] No username provided in body');
+    return res.status(400).json({ error: 'Username is required' });
+  }
+  
   const normalizedUsername = username.toLowerCase().trim();
   if (!normalizedUsername || normalizedUsername.length < 3) {
+    console.error(`❌ [Register Complete] Invalid username length: ${normalizedUsername}`);
     return res.status(400).json({ error: 'Username must be at least 3 characters long' });
   }
-
+  
   try {
+    console.log(`🔎 [Register Complete] Checking if ${normalizedUsername} exists...`);
     const existingUser = await db.getStreamer(normalizedUsername);
     if (existingUser) {
+      console.error(`❌ [Register Complete] Username ${normalizedUsername} already exists`);
       return res.status(400).json({ error: 'This username is already taken' });
     }
 
     const pending = req.session.pendingUser;
+    console.log(`💾 [Register Complete] Saving new user to DB...`, { twitchId: pending.twitchId });
     
-    // Create the new streamer record
-    // For new users, we generate a random overlay token and set default credentials 
-    // Since we don't have beam keys yet, we'll allow them to be null or placeholders
-    // and they can update them in the dashboard.
     const newUser = await db.saveStreamer({
       twitch_id: pending.twitchId,
       username: normalizedUsername,
-      beam_api_key: 'pending',
-      beam_merchant_id: 'pending',
       overlay_token: crypto.randomBytes(16).toString('hex'),
       is_active: 1
     });
-
-    // Clear pending session and log user in (simulated)
+    
+    console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
+    
+    // Clear pending session and properly log user in via Passport
     delete req.session.pendingUser;
-    req.user = newUser; 
-
-    res.json({ success: true, username: normalizedUsername });
+    
+    req.login(newUser, (err) => {
+      if (err) {
+        console.error('❌ [Register Complete] Passport login error:', err);
+        return res.status(500).json({ error: 'Failed to establish session' });
+      }
+      console.log(`🚀 [Register Complete] Session established for ${normalizedUsername}. Sending success response.`);
+      res.json({ success: true, username: normalizedUsername });
+    });
   } catch (err) {
-    console.error('Registration completion error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('💥 [Register Complete] CRITICAL ERROR during registration:', err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 
 app.get('/auth/twitch', passport.authenticate('twitch'));
 
+
 app.get('/auth/twitch/callback', 
   passport.authenticate('twitch', { failureRedirect: '/login-failed' }),
   async (req, res) => {
     const user = req.user;
-    const twitchId = user.id;
+    const twitchId = user.twitch_id || user.id;
     const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
 
     try {
@@ -210,9 +227,10 @@ app.get('/auth/twitch/callback',
         }
       }
 
-      if (existingUser) {
-        return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
-      } else {
+    if (existingUser) {
+      return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+    } else {
+
         // Store temporary info in session for the setup page
         req.session.pendingUser = {
           twitchId: twitchId,
@@ -247,7 +265,7 @@ app.get('/alert-test', (req, res) => {
 app.get('/admin', async (req, res) => {
   if (req.isAuthenticated()) {
     const user = req.user;
-    const twitchId = user.id;
+    const twitchId = user.twitch_id || user.id;
     try {
       const streamer = await db.getStreamerByTwitchId(twitchId);
       if (streamer) {
@@ -391,7 +409,15 @@ async function ensureUserOwner(req, res, next) {
   if (req.isAuthenticated()) {
     const { username } = req.params;
     const user = req.user;
-    const twitchId = user.id;
+    
+    // Handle both Twitch profile (user.id) and Streamer record (user.twitch_id)
+    const twitchId = user.twitch_id || user.id;
+    
+    if (!twitchId) {
+      console.error('❌ Ownership check failed: No Twitch ID found in user session');
+      return res.status(403).send('Forbidden: ไม่พบข้อมูลการยืนยันตัวตน');
+    }
+
     try {
       const streamer = await db.getStreamerByTwitchId(twitchId);
       if (streamer && streamer.username.toLowerCase() === username.toLowerCase()) {
@@ -535,7 +561,7 @@ app.post('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
     const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const twitchId = user.id;
+    const twitchId = user.twitch_id || user.id;
     
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
@@ -598,7 +624,7 @@ app.post('/api/page/settings', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
     const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const twitchId = user.id;
+    const twitchId = user.twitch_id || user.id;
     
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,

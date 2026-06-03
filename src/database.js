@@ -40,8 +40,6 @@ async function initDB() {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           twitch_id TEXT UNIQUE NOT NULL,
           username TEXT UNIQUE NOT NULL,
-          beam_api_key TEXT NOT NULL,
-          beam_merchant_id TEXT NOT NULL,
           discord_webhook_url TEXT,
           overlay_token TEXT NOT NULL,
           is_active INTEGER DEFAULT 1,
@@ -70,11 +68,11 @@ async function initDB() {
           fontFamily TEXT DEFAULT 'Noto Sans Thai',
           primaryColor TEXT DEFAULT '#667eea',
           secondaryColor TEXT DEFAULT '#764ba2',
-          backgroundColor TEXT DEFAULT 'rgba(255, 255, 255, 0.1)',
-          textColor TEXT DEFAULT '#ffffff',
-          borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.25)',
-          particleCount INTEGER DEFAULT 15,
-          fontSize INTEGER DEFAULT 32,
+           backgroundColor TEXT DEFAULT 'rgba(15, 15, 25, 0.88)',
+           textColor TEXT DEFAULT '#ffffff',
+           borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.05)',
+           particleCount INTEGER DEFAULT 15,
+           fontSize INTEGER DEFAULT 48,
           alert_sound_url TEXT,
 
           -- Page Customization
@@ -449,14 +447,6 @@ async function getStreamer(username) {
 
 async function getDecryptedStreamer(username) {
   const streamer = await getStreamer(username);
-  if (streamer) {
-    try {
-      streamer.beam_api_key = decrypt(streamer.beam_api_key);
-      streamer.beam_merchant_id = decrypt(streamer.beam_merchant_id);
-    } catch (e) {
-      console.error(`❌ Decryption error for user ${username}:`, e.message);
-    }
-  }
   return streamer;
 }
 
@@ -480,36 +470,24 @@ async function saveStreamer(data) {
     overlay_token: overlayToken
   };
   
-  if (!finalData.beam_api_key || !finalData.beam_merchant_id) {
-    if (!existing) {
-      throw new Error('Missing required credentials (beam_api_key or beam_merchant_id) for new streamer.');
-    }
-  }
-  
   // Only encrypt if the value is provided in the update data to avoid double encryption
-  if (data.beam_api_key) {
-    finalData.beam_api_key = encrypt(data.beam_api_key);
-  }
-  if (data.beam_merchant_id) {
-    finalData.beam_merchant_id = encrypt(data.beam_merchant_id);
-  }
+  // (Encryption removed as beam_api_key and beam_merchant_id are no longer used)
   
     await db.execute({
-      sql: `INSERT INTO streamers (twitch_id, username, beam_api_key, beam_merchant_id, discord_webhook_url, overlay_token, is_active, 
+      sql: `INSERT INTO streamers (twitch_id, username, discord_webhook_url, overlay_token, is_active, 
             duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
             profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
             theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
             alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
              social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram,
              profile_image_source, profile_image_value, profile_glow_color)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(username) DO UPDATE SET
                 twitch_id = excluded.twitch_id,
-                beam_api_key = COALESCE(excluded.beam_api_key, streamers.beam_api_key),
-                beam_merchant_id = COALESCE(excluded.beam_merchant_id, streamers.beam_merchant_id),
                discord_webhook_url = COALESCE(excluded.discord_webhook_url, streamers.discord_webhook_url),
                overlay_token = excluded.overlay_token,
                is_active = COALESCE(excluded.is_active, streamers.is_active),
+
                duration = COALESCE(excluded.duration, streamers.duration),
                soundEnabled = COALESCE(excluded.soundEnabled, streamers.soundEnabled),
                soundChoice = COALESCE(excluded.soundChoice, streamers.soundChoice),
@@ -554,12 +532,10 @@ async function saveStreamer(data) {
                profile_image_value = COALESCE(excluded.profile_image_value, streamers.profile_image_value),
                profile_glow_color = COALESCE(excluded.profile_glow_color, streamers.profile_glow_color)`,
             args: [
-             finalData.twitch_id,
-             finalData.username,
-             finalData.beam_api_key || null,
-             finalData.beam_merchant_id || null,
+             finalData.twitch_id || null,
+             finalData.username || null,
              finalData.discord_webhook_url || null,
-             overlayToken,
+             overlayToken || null,
              finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
              finalData.duration !== undefined ? finalData.duration : null,
              finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
@@ -665,7 +641,14 @@ async function getSettings(username, defaultSettings) {
   const streamer = await getStreamer(username);
   if (!streamer) return defaultSettings;
 
-  return { ...defaultSettings, ...streamer };
+  // Merge and filter out null values to ensure defaults are used
+  const merged = { ...defaultSettings };
+  for (const [key, value] of Object.entries(streamer)) {
+    if (value !== null) {
+      merged[key] = value;
+    }
+  }
+  return merged;
 }
 
 /**

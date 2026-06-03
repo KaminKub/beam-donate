@@ -229,10 +229,11 @@
       <input type="text" id="username-input" class="url-input" placeholder="username" spellcheck="false">
     </div>
 
-    <button id="submit-btn" class="btn-submit">
-      <span id="btn-text">สร้างหน้าโดเนทของฉัน</span>
-      <div id="spinner" class="loading-spinner"></div>
-    </button>
+     <button id="submit-btn" class="btn-submit">
+       <span id="btn-text">สร้างหน้าโดเนทของฉัน</span>
+       <div id="spinner" class="loading-spinner"></div>
+     </button>
+     <div id="status-msg" style="margin-top: 1rem; font-size: 0.9rem; color: #f87171; min-height: 1.2rem;"></div>
   </div>
 
   <div id="success-overlay" class="overlay">
@@ -272,12 +273,19 @@
     }
 
     submitBtn.onclick = async () => {
+      const statusMsg = document.getElementById('status-msg');
       const username = usernameInput.value.trim().toLowerCase();
-      if (!username) return alert('กรุณากรอก Username');
+      
+      if (!username) {
+        statusMsg.textContent = '❌ กรุณากรอก Username';
+        return;
+      }
 
       submitBtn.disabled = true;
       btnText.style.display = 'none';
       spinner.style.display = 'block';
+      statusMsg.textContent = 'กำลังสร้างหน้าโดเนทของคุณ...';
+      statusMsg.style.color = '#94a3b8';
 
       try {
         const res = await fetch('/api/register/complete', {
@@ -285,25 +293,30 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username })
         });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: `Server Error (${res.status})` }));
+          throw new Error(errorData.error || `Error ${res.status}`);
+        }
+
         const data = await res.json();
 
         if (data.success) {
-          successMsg.textContent = \`อูวววห์ \${data.username} มีหน้า TipKub แล้ว!\`;
+          successMsg.textContent = `อูวววห์ ${data.username} มีหน้า TipKub แล้ว!`;
           successOverlay.style.display = 'flex';
           setTimeout(() => {
             successPopup.classList.add('show');
           }, 10);
           
           // Update dashboard link to user's specific dashboard
-          document.getElementById('dashboard-link').href = \`/\${data.username}/dashboard\`;
+          document.getElementById('dashboard-link').href = `/${data.username}/dashboard`;
         } else {
-          alert(data.error || 'เกิดข้อผิดพลาด');
-          submitBtn.disabled = false;
-          btnText.style.display = 'block';
-          spinner.style.display = 'none';
+          throw new Error(data.error || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ');
         }
       } catch (e) {
-        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        console.error('Registration Error:', e);
+        statusMsg.textContent = `❌ ${e.message}`;
+        statusMsg.style.color = '#f87171';
         submitBtn.disabled = false;
         btnText.style.display = 'block';
         spinner.style.display = 'none';

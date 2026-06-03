@@ -36,10 +36,9 @@
         <button class="menu-item" data-tab="payment-setup" disabled>
            <span class="icon">🏦</span> ตั้งค่ารับเงิน (เร็วๆนี้)
         </button>
-      </nav>
-      </nav>
+       </nav>
 
-       <div class="sidebar-footer">
+        <div class="sidebar-footer">
          <p>Server Status: <span class="status-indicator online"></span> Online</p>
          <p>Overlay Status: <span id="overlayStatusIndicator" class="status-indicator offline"></span> <span id="overlayStatusText">ออฟไลน์</span></p>
          <span class="version">v1.1.0 (Live Stream alert)</span>
@@ -224,21 +223,21 @@
                        </button>
                      </div>
 
-                     <div class="form-group" style="width: 100%; max-width: 300px;">
-                       <label for="profileGlowColor">สีเรืองแสงรอบโปรไฟล์</label>
-                       <div class="color-input-wrapper" style="display: flex; gap: 10px; align-items: left;">
-                         <input type="color" id="profileGlowColor" style="width: 40px; height: 40px; border: none; cursor: pointer;">
-                         <input type="text" id="txtProfileGlowColor" class="form-control" style="flex: 1;" placeholder="#00ff0e">
-                       </div>
-                     </div>
-                     
-                      <div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
-                        <div class="form-group">
-                          <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
-                          <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+                      <div class="form-group" style="width: 100%; max-width: 300px;">
+                        <label for="profileGlowColor">สีเรืองแสงรอบโปรไฟล์</label>
+                        <div class="color-input-wrapper" style="display: flex; gap: 10px; align-items: left;">
+                          <input type="color" id="profileGlowColor" style="width: 40px; height: 40px; border: none; cursor: pointer;">
+                          <input type="text" id="txtProfileGlowColor" class="form-control" style="flex: 1;" placeholder="#00ff0e">
                         </div>
-                        <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
                       </div>
+                      
+                       <div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
+                         <div class="form-group">
+                           <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
+                           <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+                         </div>
+                         <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
+                       </div>
                   </div>
                 </div>
 
@@ -278,374 +277,372 @@
                     <h4>🔗 ลิงก์โซเชียลมีเดีย (Social Links)</h4>
                   </div>
                      <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                       <div class="form-group">
-                         <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
-                         <input type="text" id="socialTwitch" class="form-control" placeholder="https://twitch.tv/user">
-                         <span class="error-message" id="err-socialTwitch" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialYoutube"><i class="fa-brands fa-youtube"></i> YouTube</label>
-                         <input type="text" id="socialYoutube" class="form-control" placeholder="https://youtube.com/@user">
-                         <span class="error-message" id="err-socialYoutube" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialTiktok"><i class="fa-brands fa-tiktok"></i> TikTok</label>
-                         <input type="text" id="socialTiktok" class="form-control" placeholder="https://tiktok.com/@user">
-                         <span class="error-message" id="err-socialTiktok" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialFacebook"><i class="fa-brands fa-facebook"></i> Facebook</label>
-                         <input type="text" id="socialFacebook" class="form-control" placeholder="https://facebook.com/user">
-                         <span class="error-message" id="err-socialFacebook" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialX"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</label>
-                         <input type="text" id="socialX" class="form-control" placeholder="https://x.com/@user">
-                         <span class="error-message" id="err-socialX" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialDiscord"><i class="fa-brands fa-discord"></i> Discord</label>
-                         <input type="text" id="socialDiscord" class="form-control" placeholder="https://discord.com/xxx">
-                         <span class="error-message" id="err-socialDiscord" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                       <div class="form-group">
-                         <label for="socialInstagram"><i class="fa-brands fa-instagram"></i> Instagram</label>
-                         <input type="text" id="socialInstagram" class="form-control" placeholder="https://instagram.com/user">
-                         <span class="error-message" id="err-socialInstagram" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
-                       </div>
-                     </div>
+                      <div class="form-group">
+                        <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
+                        <input type="text" id="socialTwitch" class="form-control" placeholder="https://twitch.tv/user">
+                        <span class="error-message" id="err-socialTwitch" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialYoutube"><i class="fa-brands fa-youtube"></i> YouTube</label>
+                        <input type="text" id="socialYoutube" class="form-control" placeholder="https://youtube.com/@user">
+                        <span class="error-message" id="err-socialYoutube" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialTiktok"><i class="fa-brands fa-tiktok"></i> TikTok</label>
+                        <input type="text" id="socialTiktok" class="form-control" placeholder="https://tiktok.com/@user">
+                        <span class="error-message" id="err-socialTiktok" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialFacebook"><i class="fa-brands fa-facebook"></i> Facebook</label>
+                        <input type="text" id="socialFacebook" class="form-control" placeholder="https://facebook.com/user">
+                        <span class="error-message" id="err-socialFacebook" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialX"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</label>
+                        <input type="text" id="socialX" class="form-control" placeholder="https://x.com/@user">
+                        <span class="error-message" id="err-socialX" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialDiscord"><i class="fa-brands fa-discord"></i> Discord</label>
+                        <input type="text" id="socialDiscord" class="form-control" placeholder="https://discord.com/xxx">
+                        <span class="error-message" id="err-socialDiscord" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="socialInstagram"><i class="fa-brands fa-instagram"></i> Instagram</label>
+                        <input type="text" id="socialInstagram" class="form-control" placeholder="https://instagram.com/user">
+                        <span class="error-message" id="err-socialInstagram" style="display: none;">กรุณาระบุลิ้งค์ให้ถูกต้อง (ต้องขึ้นต้นด้วย https://)</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="settings-actions">
-                  <button type="submit" class="btn btn-primary btn-large">💾 บันทึกการปรับแต่งหน้าเว็บ</button>
-                </div>
-              </form>
-            </div>
-            <div class="settings-preview-panel">
-              <div class="dashboard-card preview-card">
-                <div class="preview-header">
-                  <h3>🖼️ พรีวิวหน้าโดเนท (Page Preview)</h3>
-                </div>
-                <div class="preview-iframe-wrapper">
-                  <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
-                </div>
-                <div class="preview-controls">
-                  <button class="btn btn-secondary" id="btnReloadPagePreview">🔄 โหลดตัวอย่างใหม่</button>
+                  <div class="settings-actions">
+                    <button type="submit" class="btn btn-primary btn-large">💾 บันทึกการปรับแต่งหน้าเว็บ</button>
+                  </div>
+                </form>
+              </div>
+              <div class="settings-preview-panel">
+                <div class="dashboard-card preview-card">
+                  <div class="preview-header">
+                    <h3>🖼️ พรีวิวหน้าโดเนท (Page Preview)</h3>
+                  </div>
+                  <div class="preview-iframe-wrapper">
+                    <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn btn-secondary" id="btnReloadPagePreview">🔄 โหลดตัวอย่างใหม่</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- SECTION: OVERLAY CONFIGURATOR -->
-        <section id="tab-overlay-config" class="tab-content">
-          <div class="settings-grid">
-            
-            <!-- Left Form Panels -->
-            <div class="settings-panel-scroll">
-              <form id="overlaySettingsForm">
-                
-                <!-- Card: Visual Settings -->
-                <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
-                    <h4>🎨 รูปแบบและธีมแสดงผล (Style & Themes)</h4>
-                  </div>
+          <!-- SECTION: OVERLAY CONFIGURATOR -->
+          <section id="tab-overlay-config" class="tab-content">
+            <div class="settings-grid">
+              
+              <!-- Left Form Panels -->
+              <div class="settings-panel-scroll">
+                <form id="overlaySettingsForm">
                   
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="themeSelect">ธีมการแสดงผล</label>
-                      <select id="themeSelect" class="form-select">
-                        <option value="glassmorphism">Glassmorphism (กระจกใสพรีเมียม)</option>
-                        <option value="cyberpunk">Cyberpunk Neon (สไตล์เกมเมอร์สะท้อนแสง)</option>
-                        <option value="minimal">Minimalist Clean (เรียบง่าย สบายตา)</option>
-                        <option value="custom">Custom Color (กำหนดสีเองตามต้องการ)</option>
-                        <option value="text-only">Text Only (เฉพาะข้อความ ไม่มีกล่อง)</option>
-                      </select>
+                  <!-- Card: Visual Settings -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header">
+                      <h4>🎨 รูปแบบและธีมแสดงผล (Style & Themes)</h4>
                     </div>
-
-                    <div class="form-group">
-                      <label for="fontSelect">แบบอักษร (Thai Font)</label>
-                      <select id="fontSelect" class="form-select">
-                        <option value="Noto Sans Thai">Noto Sans Thai (มาตรฐาน)</option>
-                        <option value="Kanit">Kanit (โมเดิร์น ยอดนิยม)</option>
-                        <option value="Mitr">Mitr (หัวกลม ทันสมัย)</option>
-                        <option value="Chakra Petch">Chakra Petch (เก๋ไก๋ ล้ำยุค)</option>
-                        <option value="Sarabun">Sarabun (เป็นทางการ)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <!-- Custom colors picker row (Visible always for flex but labeled custom) -->
-                  <div class="custom-colors-container" id="customColorsContainer">
-                    <h5 class="section-divider">ปรับแต่งสี (Custom Colors)</h5>
-                    <div class="color-picker-grid">
-                      <div class="color-picker-group">
-                        <label>สีหลัก (Primary)</label>
-                        <div class="color-input-wrapper">
-                          <input type="color" id="colorPrimary" value="#667eea">
-                          <input type="text" id="txtPrimary" class="hex-text" value="#667eea">
-                        </div>
-                      </div>
-                      <div class="color-picker-group">
-                        <label>สีรอง (Secondary)</label>
-                        <div class="color-input-wrapper">
-                          <input type="color" id="colorSecondary" value="#764ba2">
-                          <input type="text" id="txtSecondary" class="hex-text" value="#764ba2">
-                        </div>
-                      </div>
-                      <div class="color-picker-group">
-                        <label>สีตัวอักษร</label>
-                        <div class="color-input-wrapper">
-                          <input type="color" id="colorText" value="#ffffff">
-                          <input type="text" id="txtText" class="hex-text" value="#ffffff">
-                        </div>
-                      </div>
-                      <div class="color-picker-group">
-                        <label>สีพื้นหลัง</label>
-                        <div class="color-input-wrapper bg-picker">
-                          <input type="color" id="colorBg" value="#0f0f19">
-                          <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="animSelect">แอนิเมชันตอนแสดงผล</label>
-                      <select id="animSelect" class="form-select">
-                        <option value="slide-down">Slide In - เลื่อนลงมาจากด้านบน</option>
-                        <option value="slide-up">Slide In - เลื่อนขึ้นมาจากด้านล่าง</option>
-                        <option value="fade">Fade In - ค่อยๆ ปรากฏขึ้น</option>
-                        <option value="zoom">Zoom In - เด้งขยายออกมา</option>
-                      </select>
-                    </div>
-
-                    <div class="form-group">
-                      <label for="sliderDuration">ระยะเวลา Alert ค้างบนจอ (<span id="lblDuration">8</span> วินาที)</label>
-                      <input type="range" id="sliderDuration" class="form-range" min="2" max="20" step="1" value="8">
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="sliderParticles">เอฟเฟกต์ละอองวิบวับ (<span id="lblParticles">15</span> ชิ้น)</label>
-                      <input type="range" id="sliderParticles" class="form-range" min="0" max="30" step="1" value="15">
-                    </div>
-                    <div class="form-group">
-                      <label for="sliderFontSize">ขนาดตัวอักษร (<span id="lblFontSize">32</span>px)</label>
-                      <input type="range" id="sliderFontSize" class="form-range" min="16" max="72" step="1" value="32">
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card: Audio & TTS Settings -->
-                <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
-                    <h4>🔊 เสียงแจ้งเตือนและระบบอ่านข้อความ (Sound & TTS AI)</h4>
-                  </div>
-
-                  <div class="form-row flex-align-center">
-                    <div class="form-group">
-                      <div class="switch-group">
-                        <label class="switch">
-                          <input type="checkbox" id="chkSoundEnabled" checked>
-                          <span class="slider-switch"></span>
-                        </label>
-                        <span class="switch-label">เปิดเสียงเพลงแจ้งเตือน (Chime)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-row" id="soundVolumeSettingsRow">
-                    <div class="form-group">
-                      <label for="soundChoiceSelect">เลือกเสียงแจ้งเตือน</label>
-<select id="soundChoiceSelect" class="form-select">
-                         <option value="chime">Classic Chime (เสียงเคาะระฆังคู่ใสๆ)</option>
-                         <option value="retro">Retro Arcade (เสียงสล๊อตแมชชีน 8-bit)</option>
-                         <option value="modern">Modern Pad Synth (เสียงซินธ์อุ่นๆ ทันสมัย)</option>
-                         <option value="bell">Soft Bell Resonator (เสียงกระดิ่งคริสตัลคู่)</option>
-                         <option value="custom">Custom Sound (my-sound.mp3)</option>
-                       </select>
-                    </div>
-
-                    <div class="form-group">
-                      <label for="sliderSoundVolume">ความดังเสียงเตือน (<span id="lblSoundVolume">50</span>%)</label>
-                      <input type="range" id="sliderSoundVolume" class="form-range" min="0" max="1" step="0.05" value="0.5">
-                    </div>
-                  </div>
-
-                  <h5 class="section-divider">ระบบ AI อ่านออกเสียง (Text-to-Speech)</h5>
-<div class="form-row flex-align-center">
-  <div class="form-group">
-    <div class="switch-group">
-      <label class="switch">
-        <input type="checkbox" id="chkTtsEnabled">
-        <span class="slider-switch"></span>
-      </label>
-      <span class="switch-label">💡 เปิดอ่านข้อความบริจาคอัตโนมัติ (TTS)</span>
-    </div>
-  </div>
-  <div class="form-group">
-    <div class="switch-group">
-      <label class="switch">
-        <input type="checkbox" id="chkTtsReadDonor" checked>
-        <span class="slider-switch"></span>
-      </label>
-      <span class="switch-label">💡 เปิดอ่านชื่อผู้บริจาคและจำนวนบริจาค</span>
-    </div>
-  </div>
-</div>
-                  <div class="tts-sub-settings" id="ttsSubSettingsContainer">
+                    
                     <div class="form-row">
                       <div class="form-group">
-                        <label for="ttsVoiceSelect">เลือกเสียงพากย์ AI (Speech Voice)</label>
-                        <select id="ttsVoiceSelect" class="form-select">
-                          <option value="default">ใช้เสียงภาษาไทยเริ่มต้น (System Default - Google Cloud)</option>
-                          <option value="Premwadee">เสียงคุณเปรมวดี - Microsoft Premwadee (Premium Female)</option>
-                          <option value="Niwat">เสียงคุณนิวัต - Microsoft Niwat (Premium Male)</option>
-                          <option value="Achara">เสียงคุณอัจฉรา - Microsoft Achara (Premium Female)</option>
+                        <label for="themeSelect">ธีมการแสดงผล</label>
+                        <select id="themeSelect" class="form-select">
+                          <option value="glassmorphism">Glassmorphism (กระจกใสพรีเมียม)</option>
+                          <option value="cyberpunk">Cyberpunk Neon (สไตล์เกมเมอร์สะท้อนแสง)</option>
+                          <option value="minimal">Minimalist Clean (เรียบง่าย สบายตา)</option>
+                          <option value="custom">Custom Color (กำหนดสีเองตามต้องการ)</option>
+                          <option value="text-only">Text Only (เฉพาะข้อความ ไม่มีกล่อง)</option>
                         </select>
-                        <small class="form-hint" id="ttsVoiceHint" style="color:#a78bfa;">*เสียงพรีเมียม (Premwadee, Niwat, Achara) แนะนำให้รันบน Chrome/Edge บน Windows</small>
                       </div>
+
                       <div class="form-group">
-                        <label for="sliderTtsVolume">ความดังเสียงพูด (<span id="lblTtsVolume">80</span>%)</label>
-                        <input type="range" id="sliderTtsVolume" class="form-range" min="0.1" max="1" step="0.05" value="0.8">
-                      </div>
-                    </div>
-
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="sliderTtsRate">ความเร็วในการพูด (<span id="lblTtsRate">1.0</span>x)</label>
-                        <input type="range" id="sliderTtsRate" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card: Profanity Filter Settings -->
-                <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
-                    <h4>🤬 ระบบกรองคำหยาบคาย (Profanity Filter)</h4>
-                  </div>
-
-                  <div class="form-row flex-align-center">
-                    <div class="form-group">
-                      <div class="switch-group">
-                        <label class="switch">
-                          <input type="checkbox" id="chkProfanityFilterEnabled" checked>
-                          <span class="slider-switch"></span>
-                        </label>
-                        <span class="switch-label">เปิดใช้งานระบบกรองคำหยาบ (Anti-Troll)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tts-sub-settings" id="profanitySubSettingsContainer">
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="profanityReplaceStyleSelect">รูปแบบการเซนเซอร์คำ</label>
-                        <select id="profanityReplaceStyleSelect" class="form-select">
-                          <option value="asterisks">ใช้เครื่องหมายดอกจันเซนเซอร์คำหยาบ (เช่น ค***)</option>
-                          <option value="polite">แปลงเป็นคำน่ารักสุภาพแทน (เช่น รักนะ, สู้ๆ) 🌸</option>
-                          <option value="block">บล็อกข้อความนั้นทั้งหมด (แสดงข้อความถูกกรองโดยระบบ)</option>
+                        <label for="fontSelect">แบบอักษร (Thai Font)</label>
+                        <select id="fontSelect" class="form-select">
+                          <option value="Noto Sans Thai">Noto Sans Thai (มาตรฐาน)</option>
+                          <option value="Kanit">Kanit (โมเดิร์น ยอดนิยม)</option>
+                          <option value="Mitr">Mitr (หัวกลม ทันสมัย)</option>
+                          <option value="Chakra Petch">Chakra Petch (เก๋ไก๋ ล้ำยุค)</option>
+                          <option value="Sarabun">Sarabun (เป็นทางการ)</option>
                         </select>
                       </div>
                     </div>
 
+                    <!-- Custom colors picker row (Visible always for flex but labeled custom) -->
+                    <div class="custom-colors-container" id="customColorsContainer">
+                      <h5 class="section-divider">ปรับแต่งสี (Custom Colors)</h5>
+                      <div class="color-picker-grid">
+                        <div class="color-picker-group">
+                          <label>สีหลัก (Primary)</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="colorPrimary" value="#667eea">
+                            <input type="text" id="txtPrimary" class="hex-text" value="#667eea">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label>สีรอง (Secondary)</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="colorSecondary" value="#764ba2">
+                            <input type="text" id="txtSecondary" class="hex-text" value="#764ba2">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label>สีตัวอักษร</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="colorText" value="#ffffff">
+                            <input type="text" id="txtText" class="hex-text" value="#ffffff">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label>สีพื้นหลัง</label>
+                          <div class="color-input-wrapper bg-picker">
+                            <input type="color" id="colorBg" value="#0f0f19">
+                            <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="inputProfanityWords">รายการคำหยาบและคำที่ไม่เหมาะสม (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
-                        <textarea id="inputProfanityWords" class="form-control" rows="3" style="font-family: inherit; resize: vertical;"></textarea>
-                        <small class="form-hint">สามารถลบหรือเพิ่มคำหยาบเพิ่มเติมได้เอง หากคำใดตรงกับข้อความจะถูกกรองออกทันที</small>
+                      <div class="form-group">
+                        <label for="animSelect">แอนิเมชันตอนแสดงผล</label>
+                        <select id="animSelect" class="form-select">
+                          <option value="slide-down">Slide In - เลื่อนลงมาจากด้านบน</option>
+                          <option value="slide-up">Slide In - เลื่อนขึ้นมาจากด้านล่าง</option>
+                          <option value="fade">Fade In - ค่อยๆ ปรากฏขึ้น</option>
+                          <option value="zoom">Zoom In - เด้งขยายออกมา</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="sliderDuration">ระยะเวลา Alert ค้างบนจอ (<span id="lblDuration">8</span> วินาที)</label>
+                        <input type="range" id="sliderDuration" class="form-range" min="2" max="20" step="1" value="8">
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="sliderParticles">เอฟเฟกต์ละอองวิบวับ (<span id="lblParticles">15</span> ชิ้น)</label>
+                        <input type="range" id="sliderParticles" class="form-range" min="0" max="30" step="1" value="15">
+                      </div>
+                      <div class="form-group">
+                        <label for="sliderFontSize">ขนาดตัวอักษร (<span id="lblFontSize">32</span>px)</label>
+                        <input type="range" id="sliderFontSize" class="form-range" min="16" max="72" step="1" value="32">
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- Card: Message Settings -->
-                <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
-                    <h4>💬 ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group full-width">
-                      <label for="inputMessageTemplate">รูปแบบประโยคแจ้งเตือน (Template)</label>
-                      <input type="text" id="inputMessageTemplate" class="form-control" value="{donor} ได้บริจาค {amount} บาท! 🎉">
-                      <small class="form-hint">ใช้ <code>{donor}</code> แทนชื่อผู้บริจาค และ <code>{amount}</code> แทนจำนวนเงิน</small>
+                  <!-- Card: Audio & TTS Settings -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header">
+                      <h4>🔊 เสียงแจ้งเตือนและระบบอ่านข้อความ (Sound & TTS AI)</h4>
                     </div>
-                    <div class="form-group full-width">
-                      <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
-                      <input type="text" id="inputAmountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
-                      <small class="form-hint">ข้อความนี้จะปรากฏต่อท้ายจำนวนเงินในกล่องแจ้งเตือน (เช่น 100 บาท)</small>
-                    </div>
-                  </div>
 
                     <div class="form-row flex-align-center">
                       <div class="form-group">
                         <div class="switch-group">
                           <label class="switch">
-                            <input type="checkbox" id="chkShowLabel" checked>
+                            <input type="checkbox" id="chkSoundEnabled" checked>
                             <span class="slider-switch"></span>
                           </label>
-                          <span class="switch-label">แสดงป้าย "บริจาค" (Show Donate Label)</span>
+                          <span class="switch-label">เปิดเสียงเพลงแจ้งเตือน (Chime)</span>
                         </div>
                       </div>
                     </div>
+
+                    <div class="form-row" id="soundVolumeSettingsRow">
+                      <div class="form-group">
+                        <label for="soundChoiceSelect">เลือกเสียงแจ้งเตือน</label>
+ <select id="soundChoiceSelect" class="form-select">
+                          <option value="chime">Classic Chime (เสียงเคาะระฆังคู่ใสๆ)</option>
+                          <option value="retro">Retro Arcade (เสียงสล๊อตแมชชีน 8-bit)</option>
+                          <option value="modern">Modern Pad Synth (เสียงซินธ์อุ่นๆ ทันสมัย)</option>
+                          <option value="bell">Soft Bell Resonator (เสียงกระดิ่งคริสตัลคู่)</option>
+                          <option value="custom">Custom Sound (my-sound.mp3)</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="sliderSoundVolume">ความดังเสียงเตือน (<span id="lblSoundVolume">50</span>%)</label>
+                        <input type="range" id="sliderSoundVolume" class="form-range" min="0" max="1" step="0.05" value="0.5">
+                      </div>
+                    </div>
+
+                    <h5 class="section-divider">ระบบ AI อ่านออกเสียง (Text-to-Speech)</h5>
+ <div class="form-row flex-align-center">
+   <div class="form-group">
+     <div class="switch-group">
+       <label class="switch">
+         <input type="checkbox" id="chkTtsEnabled">
+         <span class="slider-switch"></span>
+       </label>
+       <span class="switch-label">💡 เปิดอ่านข้อความบริจาคอัตโนมัติ (TTS)</span>
+     </div>
+   </div>
+   <div class="form-group">
+     <div class="switch-group">
+       <label class="switch">
+         <input type="checkbox" id="chkTtsReadDonor" checked>
+         <span class="slider-switch"></span>
+       </label>
+       <span class="switch-label">💡 เปิดอ่านชื่อผู้บริจาคและจำนวนบริจาค</span>
+     </div>
+   </div>
+ </div>
+                    <div class="tts-sub-settings" id="ttsSubSettingsContainer">
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="ttsVoiceSelect">เลือกเสียงพากย์ AI (Speech Voice)</label>
+                          <select id="ttsVoiceSelect" class="form-select">
+                            <option value="default">ใช้เสียงภาษาไทยเริ่มต้น (System Default - Google Cloud)</option>
+                            <option value="Premwadee">เสียงคุณเปรมวดี - Microsoft Premwadee (Premium Female)</option>
+                            <option value="Niwat">เสียงคุณนิวัต - Microsoft Niwat (Premium Male)</option>
+                            <option value="Achara">เสียงคุณอัจฉรา - Microsoft Achara (Premium Female)</option>
+                          </select>
+                          <small class="form-hint" id="ttsVoiceHint" style="color:#a78bfa;">*เสียงพรีเมียม (Premwadee, Niwat, Achara) แนะนำให้รันบน Chrome/Edge บน Windows</small>
+                        </div>
+                        <div class="form-group">
+                          <label for="sliderTtsVolume">ความดังเสียงพูด (<span id="lblTtsVolume">80</span>%)</label>
+                          <input type="range" id="sliderTtsVolume" class="form-range" min="0.1" max="1" step="0.05" value="0.8">
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="sliderTtsRate">ความเร็วในการพูด (<span id="lblTtsRate">1.0</span>x)</label>
+                          <input type="range" id="sliderTtsRate" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card: Profanity Filter Settings -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header">
+                      <h4>🤬 ระบบกรองคำหยาบคาย (Profanity Filter)</h4>
+                    </div>
+
                     <div class="form-row flex-align-center">
                       <div class="form-group">
                         <div class="switch-group">
                           <label class="switch">
-                            <input type="checkbox" id="chkShowDonorMessage" checked>
+                            <input type="checkbox" id="chkProfanityFilterEnabled" checked>
                             <span class="slider-switch"></span>
                           </label>
-                          <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
+                          <span class="switch-label">เปิดใช้งานระบบกรองคำหยาบ (Anti-Troll)</span>
                         </div>
                       </div>
                     </div>
 
-                  <div class="form-row">
-                    <div class="form-group full-width">
-                      <label for="inputMinAmount">จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
-                      <input type="number" id="inputMinAmount" class="form-control" min="1" value="1">
-                      <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
+                    <div class="tts-sub-settings" id="profanitySubSettingsContainer">
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="profanityReplaceStyleSelect">รูปแบบการเซนเซอร์คำ</label>
+                          <select id="profanityReplaceStyleSelect" class="form-select">
+                            <option value="asterisks">ใช้เครื่องหมายดอกจันเซนเซอร์คำหยาบ (เช่น ค***)</option>
+                            <option value="polite">แปลงเป็นคำน่ารักสุภาพแทน (เช่น รักนะ, สู้ๆ) 🌸</option>
+                            <option value="block">บล็อกข้อความนั้นทั้งหมด (แสดงข้อความถูกกรองโดยระบบ)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="inputProfanityWords">รายการคำหยาบและคำที่ไม่เหมาะสม (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
+                          <textarea id="inputProfanityWords" class="form-control" rows="3" style="font-family: inherit; resize: vertical;"></textarea>
+                          <small class="form-hint">สามารถลบหรือเพิ่มคำหยาบเพิ่มเติมได้เอง หากคำใดตรงกับข้อความจะถูกกรองออกทันที</small>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- Actions block -->
-                <div class="settings-actions">
-                  <button type="submit" class="btn btn-primary btn-large">💾 บันทึกและซิงค์การตั้งค่า</button>
-                  <button type="button" class="btn btn-secondary btn-large" id="btnTestOverlayForm">🎉 ทดสอบยิง Alert (ด้วยค่าที่ตั้งไว้)</button>
-                </div>
+                  <!-- Card: Message Settings -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header">
+                      <h4>💬 ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
+                    </div>
 
-              </form>
-            </div>
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputMessageTemplate">รูปแบบประโยคแจ้งเตือน (Template)</label>
+                        <input type="text" id="inputMessageTemplate" class="form-control" value="{donor} ได้บริจาค {amount} บาท! 🎉">
+                        <small class="form-hint">ใช้ <code>{donor}</code> แทนชื่อผู้บริจาค และ <code>{amount}</code> แทนจำนวนเงิน</small>
+                      </div>
+                      <div class="form-group full-width">
+                        <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
+                        <input type="text" id="inputAmountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
+                        <small class="form-hint">ข้อความนี้จะปรากฏต่อท้ายจำนวนเงินในกล่องแจ้งเตือน (เช่น 100 บาท)</small>
+                      </div>
+                    </div>
 
-            <!-- Right Live Preview panel -->
-            <div class="settings-preview-panel">
-              <div class="dashboard-card preview-card">
-                <div class="preview-header">
-                  <h3>📺 หน้าจอจำลองสด (Live Overlay Preview)</h3>
-                  <span class="badge badge-success">SSE Connected</span>
-                </div>
-                <p class="preview-hint">เมื่อกด "ยิงทดสอบ Alert" ด้านซ้าย หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
-                <div class="preview-iframe-wrapper">
-                  <!-- Embed overlay path for interactive dynamic testing directly -->
-                  <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
-                </div>
-                <div class="preview-controls">
-                  <button class="btn btn-secondary" id="btnReloadPreview">🔄 โหลดตัวอย่างใหม่</button>
-                  <span class="text-muted" style="font-size: 12px;">หมายเหตุ: ในระบบจริง OBS จะมีพื้นหลังโปร่งใส</span>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkShowLabel" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">แสดงป้าย "บริจาค" (Show Donate Label)</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkShowDonorMessage" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
+                          </div>
+                        </div>
+                      </div>
+
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputMinAmount">จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
+                        <input type="number" id="inputMinAmount" class="form-control" min="1" value="1">
+                        <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Actions block -->
+                  <div class="settings-actions">
+                    <button type="submit" class="btn btn-primary btn-large">💾 บันทึกและซิงค์การตั้งค่า</button>
+                    <button type="button" class="btn btn-secondary btn-large" id="btnTestOverlayForm">🎉 ทดสอบยิง Alert (ด้วยค่าที่ตั้งไว้)</button>
+                  </div>
+
+                </form>
+              </div>
+
+              <!-- Right Live Preview panel -->
+              <div class="settings-preview-panel">
+                <div class="dashboard-card preview-card">
+                  <div class="preview-header">
+                    <h3>📺 หน้าจอจำลองสด (Live Overlay Preview)</h3>
+                    <span class="badge badge-success">SSE Connected</span>
+                  </div>
+                  <p class="preview-hint">เมื่อกด "ยิงทดสอบ Alert" ด้านซ้าย หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
+                  <div class="preview-iframe-wrapper">
+                    <!-- Embed overlay path for interactive dynamic testing directly -->
+                    <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn btn-secondary" id="btnReloadPreview">🔄 โหลดตัวอย่างใหม่</button>
+                    <span class="text-muted" style="font-size: 12px;">หมายเหตุ: ในระบบจริง OBS จะมีพื้นหลังโปร่งใส</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-          </div>
-        </section>
+            </div>
+          </section>
 
       </div>
     </main>

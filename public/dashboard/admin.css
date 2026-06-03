@@ -807,7 +807,12 @@ label {
 }
 
 .preview-card {
+  display: none;
   height: 100%;
+}
+
+.tab-content.active .preview-card {
+  display: block;
 }
 
 .preview-header {
