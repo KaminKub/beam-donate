@@ -54,8 +54,14 @@ async function initDB() {
   return initPromise;
 }
 
+function getDB() {
+  if (!db) throw new Error('Database not initialized');
+  return db;
+}
+
 /**
  * Database Migration Logic
+
  * This should be run once during deployment or manually, NOT on every request.
  */
 async function migrateDB() {
@@ -156,9 +162,17 @@ async function migrateDB() {
         paidAt TEXT,
         streamer_username TEXT REFERENCES streamers(username)
       )
+     `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        sid TEXT PRIMARY KEY,
+        session TEXT,
+        expires INTEGER
+      )
     `);
 
     // A. Fix transaction column names
+
     const txColumns = await db.execute('PRAGMA table_info(transactions)');
     const columns = txColumns.rows.map(r => r.name);
     
@@ -728,8 +742,10 @@ async function saveSettings(username, settings) {
 
 module.exports = {
   initDB,
+  getDB,
   migrateDB,
   getTransactions,
+
   getTransactionById,
   saveTransaction,
   getSettings,

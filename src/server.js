@@ -7,7 +7,9 @@ const fs = require('fs');
 const beam = require('./beam');
 const https = require('https');
 const session = require('express-session');
+const TursoStore = require('./sessionStore');
 const passport = require('passport');
+
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 
 const app = express();
@@ -81,6 +83,7 @@ app.use((req, res, next) => {
 });
 
 app.use(session({
+  store: new TursoStore(),
   secret: process.env.SESSION_SECRET || 'twitch-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -91,6 +94,7 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
 
 app.use(passport.initialize());
 app.use(passport.session());
