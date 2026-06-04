@@ -1,5 +1,5 @@
 const session = require('express-session');
-const { getDB } = require('./database');
+const { getDB, ensureConnected } = require('./database');
 
 class TursoStore extends session.Store {
   constructor() {
@@ -8,6 +8,7 @@ class TursoStore extends session.Store {
 
   async get(sid, callback) {
     try {
+      await ensureConnected();
       const db = getDB();
       const result = await db.execute({
         sql: 'SELECT session FROM sessions WHERE sid = ?',
@@ -25,6 +26,7 @@ class TursoStore extends session.Store {
 
   async set(sid, sessionData, callback) {
     try {
+      await ensureConnected();
       const db = getDB();
       const expires = this.ttl ? Date.now() + this.ttl : null;
       await db.execute({
@@ -39,6 +41,7 @@ class TursoStore extends session.Store {
 
   async destroy(sid, callback) {
     try {
+      await ensureConnected();
       const db = getDB();
       await db.execute({
         sql: 'DELETE FROM sessions WHERE sid = ?',

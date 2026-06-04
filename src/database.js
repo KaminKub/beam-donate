@@ -743,8 +743,10 @@ async function saveSettings(username, settings) {
 module.exports = {
   initDB,
   getDB,
+  ensureConnected,
   migrateDB,
   getTransactions,
+
 
   getTransactionById,
   saveTransaction,
