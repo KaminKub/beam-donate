@@ -76,8 +76,11 @@ app.use(cors());
 
 // SECURITY: Block direct access to /dashboard via express.static, but allow static assets
 app.use((req, res, next) => {
-  if (req.path.startsWith('/dashboard') && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
-    return res.redirect('/login');
+  if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
+    console.log(`🛡️ [Auth Check] Path: ${req.path} | SessionID: ${req.sessionID} | Authenticated: ${req.isAuthenticated()}`);
+    if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
+      return res.redirect('/login');
+    }
   }
   next();
 });
@@ -90,10 +93,12 @@ app.use(session({
   cookie: { 
     secure: process.env.NODE_ENV === 'production', 
     httpOnly: true, 
-    sameSite: 'Lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
+console.log(`🚀 Server started in ${process.env.NODE_ENV || 'development'} mode`);
 
 
 app.use(passport.initialize());

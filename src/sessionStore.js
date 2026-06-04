@@ -9,17 +9,21 @@ class TursoStore extends session.Store {
   async get(sid, callback) {
     try {
       await ensureConnected();
+      console.log(`🔍 [SessionStore] Fetching session for SID: ${sid}`);
       const db = getDB();
       const result = await db.execute({
         sql: 'SELECT session FROM sessions WHERE sid = ?',
         args: [sid]
       });
       if (result.rows.length === 0) {
+        console.log(`❌ [SessionStore] No session found in DB for SID: ${sid}`);
         return callback(null, null);
       }
+      console.log(`✅ [SessionStore] Session found in DB for SID: ${sid}`);
       const sessionData = JSON.parse(result.rows[0].session);
       callback(null, sessionData);
     } catch (err) {
+      console.error(`💥 [SessionStore] Error getting session ${sid}:`, err);
       callback(err);
     }
   }
