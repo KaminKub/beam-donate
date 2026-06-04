@@ -759,7 +759,26 @@ app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
 // -----------------------------------------------------------------
 
 app.get('/:username', validateUsername, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/donate-template/index.html'));
+  try {
+    const streamer = req.streamer;
+    const filePath = path.join(__dirname, '../public/donate-template/index.html');
+    let htmlContent = fs.readFileSync(filePath, 'utf8');
+ 
+    const ogTitle = `TipKub | ${streamer.page_title || streamer.username}`;
+    const ogDescription = streamer.page_subtitle || 'สนับสนุนสตรีมเมอร์ที่คุณรักผ่าน TipKub';
+    const ogImage = streamer.profile_image_value || '/avatar.jpg';
+ 
+    htmlContent = htmlContent
+      .replace(/{{username}}/g, streamer.username)
+      .replace(/{{og_title}}/g, ogTitle)
+      .replace(/{{og_description}}/g, ogDescription)
+      .replace(/{{og_image}}/g, ogImage);
+ 
+    res.send(htmlContent);
+  } catch (err) {
+    console.error('Error serving dynamic donation page:', err);
+    res.status(500).send('เกิดข้อผิดพลาดในการโหลดหน้าเว็บ');
+  }
 });
 
 app.get('/:username/dashboard', ensureUserOwner, (req, res) => {
