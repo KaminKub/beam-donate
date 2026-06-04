@@ -87,6 +87,30 @@ app.use(session({
   }
 }));
 
+// DIAGNOSTIC MIDDLEWARE: Check session store and DB connectivity
+app.use(async (req, res, next) => {
+  try {
+    const storeType = req.session.store ? req.session.store.constructor.name : 'Unknown';
+    const isNewSession = req.sessionID && !req.session.cookie; // Simplified check
+    
+    // Check DB connectivity
+    let dbStatus = 'Disconnected';
+    try {
+      const { getDB } = require('./database');
+      const db = getDB();
+      await db.execute('SELECT 1');
+      dbStatus = 'Connected';
+    } catch (e) {
+      dbStatus = `Error: ${e.message}`;
+    }
+
+    console.log(`🔍 [Diagnostic] Path: ${req.path} | Store: ${storeType} | DB: ${dbStatus} | SessionID: ${req.sessionID}`);
+  } catch (err) {
+    console.error('💥 [Diagnostic] Middleware error:', err);
+  }
+  next();
+});
+
 console.log(`🚀 Server started in ${process.env.NODE_ENV || 'development'} mode`);
 
 
