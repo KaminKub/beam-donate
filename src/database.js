@@ -33,187 +33,16 @@ async function initDB() {
         url,
         authToken
       });
-
-      // 1. Create/Update streamers table (Consolidated settings)
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS streamers (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          twitch_id TEXT UNIQUE NOT NULL,
-          username TEXT UNIQUE NOT NULL,
-          discord_webhook_url TEXT,
-          overlay_token TEXT NOT NULL,
-          is_active INTEGER DEFAULT 1,
-          
-          -- Overlay Settings (Flattened)
-          duration INTEGER DEFAULT 8,
-          soundEnabled INTEGER DEFAULT 1,
-          soundChoice TEXT DEFAULT 'chime',
-          soundVolume REAL DEFAULT 0.5,
-          ttsEnabled INTEGER DEFAULT 0,
-          ttsReadDonor INTEGER DEFAULT 1,
-          ttsVolume REAL DEFAULT 0.8,
-          ttsRate REAL DEFAULT 1.0,
-          ttsLanguage TEXT DEFAULT 'th-TH',
-          ttsVoice TEXT DEFAULT 'default',
-          profanityFilterEnabled INTEGER DEFAULT 1,
-          profanityWords TEXT,
-          profanityReplaceStyle TEXT DEFAULT 'asterisks',
-          messageTemplate TEXT DEFAULT '{donor} ได้บริจาค {amount} บาท! 🎉',
-          amountSuffix TEXT DEFAULT 'บาท',
-          showLabel INTEGER DEFAULT 1,
-          showDonorMessage INTEGER DEFAULT 1,
-          minAmount REAL DEFAULT 1,
-          theme TEXT DEFAULT 'glassmorphism',
-          animation TEXT DEFAULT 'slide-down',
-          fontFamily TEXT DEFAULT 'Noto Sans Thai',
-          primaryColor TEXT DEFAULT '#667eea',
-          secondaryColor TEXT DEFAULT '#764ba2',
-           backgroundColor TEXT DEFAULT 'rgba(15, 15, 25, 0.88)',
-           textColor TEXT DEFAULT '#ffffff',
-           borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.05)',
-           particleCount INTEGER DEFAULT 15,
-           fontSize INTEGER DEFAULT 48,
-          alert_sound_url TEXT,
-
-          -- Page Customization
-          page_title TEXT,
-          page_subtitle TEXT,
-          thank_you_header TEXT,
-          thank_you_subtitle TEXT,
-
-          -- Social Links
-          social_twitch TEXT,
-          social_youtube TEXT,
-          social_tiktok TEXT,
-          social_facebook TEXT,
-          social_x TEXT,
-          social_discord TEXT,
-          social_instagram TEXT,
-
-           -- Profile System
-           profile_image_source TEXT DEFAULT 'twitch',
-           profile_image_value TEXT,
-           profile_glow_color TEXT DEFAULT '#00ff0e'
-         )
-       `);
-
-      // 2. Create/Update transactions table (Original Structure)
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS transactions (
-          id TEXT PRIMARY KEY,
-          amount REAL NOT NULL,
-          donor TEXT DEFAULT 'Anonymous',
-          message TEXT DEFAULT '',
-          status TEXT DEFAULT 'pending',
-          paymentUrl TEXT,
-          raw_response TEXT,
-          raw_webhook TEXT,
-          createdAt TEXT,
-          updatedAt TEXT,
-          paidAt TEXT,
-          streamer_username TEXT REFERENCES streamers(username)
-        )
-      `);
-
-      // --- Migration Phase ---
       
-      // A. Fix transaction column names if they are in snake_case (legacy from some versions)
-      const txColumns = await db.execute('PRAGMA table_info(transactions)');
-      const columns = txColumns.rows.map(r => r.name);
-      
-      if (columns.includes('created_at')) {
-        console.log('🛠️ Migrating transactions: renaming created_at -> createdAt');
-        await db.execute('ALTER TABLE transactions RENAME COLUMN created_at TO createdAt');
-      }
-       if (columns.includes('donor_name')) {
-         console.log('🛠️ Migrating transactions: renaming donor_name -> donor');
-         await db.execute('ALTER TABLE transactions RENAME COLUMN donor_name TO donor');
-       }
-
-       // C. Ensure new overlay settings columns exist in streamers table
-       const streamerColumnsRes = await db.execute('PRAGMA table_info(streamers)');
-       const streamerCols = streamerColumnsRes.rows.map(r => r.name);
-       
-        const requiredCols = [
-          { name: 'twitch_id', type: 'TEXT' },
-          { name: 'ttsReadDonor', type: 'INTEGER DEFAULT 1' },
-          { name: 'amountSuffix', type: "TEXT DEFAULT 'บาท'" },
-          { name: 'showLabel', type: 'INTEGER DEFAULT 1' },
-          { name: 'page_title', type: 'TEXT' },
-          { name: 'page_subtitle', type: 'TEXT' },
-          { name: 'thank_you_header', type: 'TEXT' },
-          { name: 'thank_you_subtitle', type: 'TEXT' },
-          { name: 'social_twitch', type: 'TEXT' },
-          { name: 'social_youtube', type: 'TEXT' },
-          { name: 'social_tiktok', type: 'TEXT' },
-          { name: 'social_facebook', type: 'TEXT' },
-          { name: 'social_x', type: 'TEXT' },
-          { name: 'social_discord', type: 'TEXT' },
-          { name: 'social_instagram', type: 'TEXT' },
-          { name: 'profile_image_source', type: "TEXT DEFAULT 'twitch'" },
-          { name: 'profile_image_value', type: 'TEXT' },
-          { name: 'profile_glow_color', type: "TEXT DEFAULT '#00ff0e'" }
-        ];
-
-       for (const col of requiredCols) {
-         if (!streamerCols.includes(col.name)) {
-           console.log(`🛠️ Migrating streamers: adding column ${col.name}`);
-           await db.execute(`ALTER TABLE streamers ADD COLUMN ${col.name} ${col.type}`);
-         }
-       }
-
-
-      // B. Migrate legacy global settings to streamers (if settings table exists)
+      // Critical check: Ensure main table exists to prevent 503 on first deploy
       try {
-        const settingsCheck = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'");
-        if (settingsCheck.rows.length > 0) {
-          console.log('📦 Found legacy settings table. Migrating to streamers...');
-          const settingsRes = await db.execute("SELECT value FROM settings WHERE key = 'overlay_settings'");
-          if (settingsRes.rows.length > 0) {
-            const globalSettings = JSON.parse(settingsRes.rows[0].value);
-            
-            // Update all existing streamers with these global settings as a base
-            const streamers = await db.execute('SELECT username FROM streamers');
-            for (const streamer of streamers.rows) {
-              const username = streamer.username;
-              
-              // We only update if the value is provided in globalSettings
-              const updates = [];
-              const args = [];
-              
-              // Only update columns that actually exist in the streamers table
-              const streamerColumns = await db.execute('PRAGMA table_info(streamers)');
-              const existingCols = streamerColumns.rows.map(r => r.name);
-              
-              Object.entries(globalSettings).forEach(([key, value]) => {
-                if (existingCols.includes(key)) {
-                  updates.push(`${key} = ?`);
-                  args.push(typeof value === 'boolean' ? (value ? 1 : 0) : value);
-                }
-              });
-              
-              if (updates.length > 0) {
-                args.push(username);
-                await db.execute({
-                  sql: `UPDATE streamers SET ${updates.join(', ')} WHERE username = ?`,
-                  args: args
-                });
-              }
-            }
-            console.log('✅ Global settings migrated to streamers.');
-          }
-          // Optionally drop the settings table now that it's migrated
-          // await db.execute('DROP TABLE settings'); 
-          // We keep it for a while or just ignore it. To be clean, let's drop it.
-          await db.execute('DROP TABLE settings');
-          console.log('🗑️ Legacy settings table removed.');
-        }
+        await db.execute('SELECT 1 FROM streamers LIMIT 1');
       } catch (e) {
-        console.warn('⚠️ Settings migration failed or not needed:', e.message);
+        console.error('🚨 CRITICAL: Database tables are missing!');
+        console.error('👉 Please run "npm run migrate" to set up your database schema.');
       }
 
-      console.log('✅ Turso Database schema verified and migrated.');
-
+      console.log('✅ Turso Database client initialized.');
     } catch (err) {
       console.warn('⚠️ Warning: Cannot connect to Turso database. Falling back to in-memory database.');
       console.warn('Error details:', err.message);
@@ -223,6 +52,202 @@ async function initDB() {
   })();
 
   return initPromise;
+}
+
+/**
+ * Database Migration Logic
+ * This should be run once during deployment or manually, NOT on every request.
+ */
+async function migrateDB() {
+  await ensureConnected();
+  if (isFallback) {
+    console.warn('⚠️ migrateDB called in Fallback mode. Skipping migrations.');
+    return;
+  }
+  if (!db) throw new Error('Database not initialized');
+
+  console.log('🛠️ Starting Database Migration...');
+
+  try {
+    // Helper to prevent SQL injection for identifiers
+    const validateIdentifier = (name) => {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+        throw new Error(`Invalid identifier name: ${name}`);
+      }
+      return name;
+    };
+
+    // 1. Create/Update streamers table (Consolidated settings)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS streamers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        twitch_id TEXT UNIQUE NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        discord_webhook_url TEXT,
+        overlay_token TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        
+        -- Overlay Settings (Flattened)
+        duration INTEGER DEFAULT 8,
+        soundEnabled INTEGER DEFAULT 1,
+        soundChoice TEXT DEFAULT 'chime',
+        soundVolume REAL DEFAULT 0.5,
+        ttsEnabled INTEGER DEFAULT 0,
+        ttsReadDonor INTEGER DEFAULT 1,
+        ttsVolume REAL DEFAULT 0.8,
+        ttsRate REAL DEFAULT 1.0,
+        ttsLanguage TEXT DEFAULT 'th-TH',
+        ttsVoice TEXT DEFAULT 'default',
+        profanityFilterEnabled INTEGER DEFAULT 1,
+        profanityWords TEXT,
+        profanityReplaceStyle TEXT DEFAULT 'asterisks',
+        messageTemplate TEXT DEFAULT '{donor} ได้บริจาค {amount} บาท! 🎉',
+        amountSuffix TEXT DEFAULT 'บาท',
+        showLabel INTEGER DEFAULT 1,
+        showDonorMessage INTEGER DEFAULT 1,
+        minAmount REAL DEFAULT 1,
+        theme TEXT DEFAULT 'glassmorphism',
+        animation TEXT DEFAULT 'slide-down',
+        fontFamily TEXT DEFAULT 'Noto Sans Thai',
+        primaryColor TEXT DEFAULT '#667eea',
+        secondaryColor TEXT DEFAULT '#764ba2',
+        backgroundColor TEXT DEFAULT 'rgba(15, 15, 25, 0.88)',
+        textColor TEXT DEFAULT '#ffffff',
+        borderColor TEXT DEFAULT 'rgba(255, 255, 255, 0.05)',
+        particleCount INTEGER DEFAULT 15,
+        fontSize INTEGER DEFAULT 48,
+        alert_sound_url TEXT,
+
+        -- Page Customization
+        page_title TEXT,
+        page_subtitle TEXT,
+        thank_you_header TEXT,
+        thank_you_subtitle TEXT,
+
+        -- Social Links
+        social_twitch TEXT,
+        social_youtube TEXT,
+        social_tiktok TEXT,
+        social_facebook TEXT,
+        social_x TEXT,
+        social_discord TEXT,
+        social_instagram TEXT,
+
+        -- Profile System
+        profile_image_source TEXT DEFAULT 'twitch',
+        profile_image_value TEXT,
+        profile_glow_color TEXT DEFAULT '#00ff0e'
+      )
+    `);
+
+    // 2. Create/Update transactions table (Original Structure)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id TEXT PRIMARY KEY,
+        amount REAL NOT NULL,
+        donor TEXT DEFAULT 'Anonymous',
+        message TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        paymentUrl TEXT,
+        raw_response TEXT,
+        raw_webhook TEXT,
+        createdAt TEXT,
+        updatedAt TEXT,
+        paidAt TEXT,
+        streamer_username TEXT REFERENCES streamers(username)
+      )
+    `);
+
+    // A. Fix transaction column names
+    const txColumns = await db.execute('PRAGMA table_info(transactions)');
+    const columns = txColumns.rows.map(r => r.name);
+    
+    if (columns.includes('created_at')) {
+      console.log('🛠️ Migrating transactions: renaming created_at -> createdAt');
+      await db.execute('ALTER TABLE transactions RENAME COLUMN created_at TO createdAt');
+    }
+    if (columns.includes('donor_name')) {
+      console.log('🛠️ Migrating transactions: renaming donor_name -> donor');
+      await db.execute('ALTER TABLE transactions RENAME COLUMN donor_name TO donor');
+    }
+
+    // C. Ensure new overlay settings columns exist
+    const streamerColumnsRes = await db.execute('PRAGMA table_info(streamers)');
+    const streamerCols = streamerColumnsRes.rows.map(r => r.name);
+    
+    const requiredCols = [
+      { name: 'twitch_id', type: 'TEXT' },
+      { name: 'ttsReadDonor', type: 'INTEGER DEFAULT 1' },
+      { name: 'amountSuffix', type: "TEXT DEFAULT 'บาท'" },
+      { name: 'showLabel', type: 'INTEGER DEFAULT 1' },
+      { name: 'page_title', type: 'TEXT' },
+      { name: 'page_subtitle', type: 'TEXT' },
+      { name: 'thank_you_header', type: 'TEXT' },
+      { name: 'thank_you_subtitle', type: 'TEXT' },
+      { name: 'social_twitch', type: 'TEXT' },
+      { name: 'social_youtube', type: 'TEXT' },
+      { name: 'social_tiktok', type: 'TEXT' },
+      { name: 'social_facebook', type: 'TEXT' },
+      { name: 'social_x', type: 'TEXT' },
+      { name: 'social_discord', type: 'TEXT' },
+      { name: 'social_instagram', type: 'TEXT' },
+      { name: 'profile_image_source', type: "TEXT DEFAULT 'twitch'" },
+      { name: 'profile_image_value', type: 'TEXT' },
+      { name: 'profile_glow_color', type: "TEXT DEFAULT '#00ff0e'" }
+    ];
+
+    for (const col of requiredCols) {
+      if (!streamerCols.includes(col.name)) {
+        const safeName = validateIdentifier(col.name);
+        // We can't parameterize column names, but we've validated it's just alphanumeric
+        console.log(`🛠️ Migrating streamers: adding column ${safeName}`);
+        await db.execute(`ALTER TABLE streamers ADD COLUMN ${safeName} ${col.type}`);
+      }
+    }
+
+    // B. Migrate legacy global settings
+    try {
+      const settingsCheck = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'");
+      if (settingsCheck.rows.length > 0) {
+        console.log('📦 Found legacy settings table. Migrating to streamers...');
+        const settingsRes = await db.execute("SELECT value FROM settings WHERE key = 'overlay_settings'");
+        if (settingsRes.rows.length > 0) {
+          const globalSettings = JSON.parse(settingsRes.rows[0].value);
+          const streamers = await db.execute('SELECT username FROM streamers');
+          for (const streamer of streamers.rows) {
+            const username = streamer.username;
+            const updates = [];
+            const args = [];
+            const streamerColumns = await db.execute('PRAGMA table_info(streamers)');
+            const existingCols = streamerColumns.rows.map(r => r.name);
+            Object.entries(globalSettings).forEach(([key, value]) => {
+              if (existingCols.includes(key)) {
+                updates.push(`${key} = ?`);
+                args.push(typeof value === 'boolean' ? (value ? 1 : 0) : value);
+              }
+            });
+            if (updates.length > 0) {
+              args.push(username);
+              await db.execute({
+                sql: `UPDATE streamers SET ${updates.join(', ')} WHERE username = ?`,
+                args: args
+              });
+            }
+          }
+          console.log('✅ Global settings migrated to streamers.');
+        }
+        await db.execute('DROP TABLE settings');
+        console.log('🗑️ Legacy settings table removed.');
+      }
+    } catch (e) {
+      console.warn('⚠️ Settings migration failed or not needed:', e.message);
+    }
+
+    console.log('✅ Turso Database schema verified and migrated.');
+  } catch (err) {
+    console.error('💥 Migration failed:', err);
+    throw err;
+  }
 }
 
 /**
@@ -437,6 +462,13 @@ async function getStreamerByTwitchId(twitchId) {
  */
 async function getStreamer(username) {
   await ensureConnected();
+  if (isFallback) {
+    // If we have memorySettings, we might find the user there, 
+    // but usually streamers are the core users. 
+    // In current fallback, we don't have a memoryStreamers list.
+    // Let's implement a basic fallback for streamers if needed or return null.
+    return null; 
+  }
   if (!db) return null;
   const result = await db.execute({
     sql: 'SELECT * FROM streamers WHERE username = ?',
@@ -588,12 +620,21 @@ async function saveStreamer(data) {
 
 const axios = require('axios'); // Use axios for simpler API calls
 
-let profileImageCache = {};
+let twitchTokenCache = {
+  token: null,
+  expiresAt: 0
+};
 
 /**
- * Fetches a Twitch App Access Token using Client Credentials flow.
+ * Fetch a Twitch App Access Token using Client Credentials flow.
+ * Implements caching to avoid rate limits.
  */
 async function getTwitchAccessToken() {
+  const now = Date.now();
+  if (twitchTokenCache.token && twitchTokenCache.expiresAt > now) {
+    return twitchTokenCache.token;
+  }
+
   const clientId = process.env.TWITCH_CLIENT_ID;
   const clientSecret = process.env.TWITCH_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
@@ -606,7 +647,16 @@ async function getTwitchAccessToken() {
         grant_type: 'client_credentials'
       }
     });
-    return response.data.access_token;
+    
+    const token = response.data.access_token;
+    const expiresIn = response.data.expires_in || 3600;
+    
+    twitchTokenCache = {
+      token: token,
+      expiresAt: now + (expiresIn * 1000) - 60000 // Buffer of 1 minute
+    };
+    
+    return token;
   } catch (err) {
     console.error('❌ Error fetching Twitch access token:', err.message);
     return null;
@@ -678,6 +728,7 @@ async function saveSettings(username, settings) {
 
 module.exports = {
   initDB,
+  migrateDB,
   getTransactions,
   getTransactionById,
   saveTransaction,
