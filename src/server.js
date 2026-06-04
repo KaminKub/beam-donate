@@ -74,17 +74,6 @@ async function logTransaction(data) {
 // Middleware
 app.use(cors());
 
-// SECURITY: Block direct access to /dashboard via express.static, but allow static assets
-app.use((req, res, next) => {
-  if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
-    console.log(`🛡️ [Auth Check] Path: ${req.path} | SessionID: ${req.sessionID} | Authenticated: ${req.isAuthenticated()}`);
-    if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
-      return res.redirect('/login');
-    }
-  }
-  next();
-});
-
 app.use(session({
   store: new TursoStore(),
   secret: process.env.SESSION_SECRET || 'twitch-secret-key',
@@ -103,6 +92,17 @@ console.log(`🚀 Server started in ${process.env.NODE_ENV || 'development'} mod
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// SECURITY: Block direct access to /dashboard via express.static, but allow static assets
+app.use((req, res, next) => {
+  if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
+    console.log(`🛡️ [Auth Check] Path: ${req.path} | SessionID: ${req.sessionID} | Authenticated: ${req.isAuthenticated()}`);
+    if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
+      return res.redirect('/login');
+    }
+  }
+  next();
+});
 
 // Passport Twitch Strategy Configuration
 passport.use(new TwitchStrategy({
@@ -251,7 +251,14 @@ app.get('/auth/twitch/callback',
           twitchName: twitchName,
           profileImage: user._json?.profile_image_url || '/avatar.jpg'
         };
-        return res.redirect('/register/setup');
+        
+        // Force save session to DB before redirecting to prevent session loss on serverless environments
+        req.session.save((err) => {
+          if (err) {
+            console.error('❌ Session save error during registration:', err);
+          }
+          return res.redirect('/register/setup');
+        });
       }
     } catch (err) {
       console.error('Callback error:', err);
