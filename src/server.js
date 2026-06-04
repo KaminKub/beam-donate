@@ -13,6 +13,7 @@ const passport = require('passport');
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Setup SQLite Database (Turso Cloud)
