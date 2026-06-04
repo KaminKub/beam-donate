@@ -1,56 +1,9 @@
 // ========== DOM Elements & Global State ==========
 let allTransactions = [];
 let activeTab = 'dashboard';
-let savedVoiceName = 'default';
 
-// Populate dynamic speech voices dropdown (checks for Niwat, Premwadee, Achara support)
-function populateVoiceList() {
-  if (!('speechSynthesis' in window)) return;
-  
-  const voiceSelect = document.getElementById('ttsVoiceSelect');
-  if (!voiceSelect) return;
-  
-  const hint = document.getElementById('ttsVoiceHint');
-  const voices = window.speechSynthesis.getVoices();
-  
-  // Apply saved voice selection directly
-  if (savedVoiceName) {
-    voiceSelect.value = savedVoiceName;
-  }
-  
-  // ตรวจสอบว่ามีเสียงพรีเมียม 3 ตัวที่ระบุอยู่ในเครื่องนี้หรือไม่
-  const hasPremwadee = voices.some(v => v.name.toLowerCase().includes('premwadee'));
-  const hasNiwat = voices.some(v => v.name.toLowerCase().includes('niwat'));
-  const hasAchara = voices.some(v => v.name.toLowerCase().includes('achara'));
-  
-  if (hint) {
-    if (voices.length === 0) {
-      hint.textContent = '⚠️ กำลังตรวจสอบเสียงในเครื่อง... (โปรดรัน Chrome/Edge บน Windows เพื่อเสียงพรีเมียม)';
-      return;
-    }
-    
-    // แสดงสถานะเสียงอย่างสวยงาม
-    let statusText = 'เอนจินเครื่อง: ';
-    statusText += `เปรมวดี ${hasPremwadee ? '✅ พร้อมใช้' : '❌ ไม่มี'} | `;
-    statusText += `นิวัต ${hasNiwat ? '✅ พร้อมใช้' : '❌ ไม่มี'} | `;
-    statusText += `อัจฉรา ${hasAchara ? '✅ พร้อมใช้' : '❌ ไม่มี'}`;
-    
-    if (!hasPremwadee && !hasNiwat && !hasAchara) {
-      statusText += ' (ใช้เสียง Google Cloud ให้อัตโนมัติ 🌟)';
-    } else {
-      statusText += ' (เลือกใช้เสียงพรีเมียมที่มีเครื่องหมาย ✅ ได้เลย)';
-    }
-    
-    hint.textContent = statusText;
-  }
-}
 
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = populateVoiceList;
-  // Trigger loading after a short timeout in case it doesn't fire immediately
-  setTimeout(populateVoiceList, 400);
-}
+
 
 // ========== Navigation (Tab Switching) ==========
 function switchTab(tabId) {
@@ -345,8 +298,7 @@ async function loadOverlaySettings() {
       // TTS Checkboxes
       document.getElementById('chkTtsEnabled').checked = s.ttsEnabled;
       document.getElementById('chkTtsReadDonor').checked = s.ttsReadDonor !== undefined ? s.ttsReadDonor : true;
-      savedVoiceName = s.ttsVoice || 'default';
-      populateVoiceList(); // Re-populate with saved value
+
       document.getElementById('sliderTtsVolume').value = s.ttsVolume;
       document.getElementById('lblTtsVolume').textContent = Math.round(s.ttsVolume * 100);
       document.getElementById('sliderTtsRate').value = s.ttsRate;
@@ -356,13 +308,19 @@ async function loadOverlaySettings() {
       document.getElementById('inputMessageTemplate').value = s.messageTemplate;
       document.getElementById('inputAmountSuffix').value = s.amountSuffix || 'บาท';
       document.getElementById('chkShowLabel').checked = s.showLabel !== undefined ? s.showLabel : true;
-      document.getElementById('chkShowDonorMessage').checked = s.showDonorMessage;
-      document.getElementById('inputMinAmount').value = s.minAmount;
+       document.getElementById('chkShowDonorMessage').checked = s.showDonorMessage;
+       document.getElementById('inputMinAmount').value = s.minAmount;
+       
+       // Custom Visuals
+       document.getElementById('customImageMode').value = s.customImageMode || 'emoji';
+       document.getElementById('customImageValue').value = s.customImageValue || '🎁';
+       document.getElementById('customSoundUrl').value = s.customSoundUrl || '';
+       
+       // Profanity Filter
+       document.getElementById('chkProfanityFilterEnabled').checked = s.profanityFilterEnabled;
+       document.getElementById('profanityReplaceStyleSelect').value = s.profanityReplaceStyle || 'asterisks';
+       document.getElementById('inputProfanityWords').value = s.profanityWords || '';
 
-      // Profanity Filter
-      document.getElementById('chkProfanityFilterEnabled').checked = s.profanityFilterEnabled;
-      document.getElementById('profanityReplaceStyleSelect').value = s.profanityReplaceStyle || 'asterisks';
-      document.getElementById('inputProfanityWords').value = s.profanityWords || '';
 
       // Handle custom fields toggle on startup
       toggleCustomColors(s.theme);
@@ -421,11 +379,24 @@ function toggleProfanitySubSettings(enabled) {
 }
 
 // Watch Selectors
-document.getElementById('themeSelect').onchange = (e) => toggleCustomColors(e.target.value);
+document.getElementById('themeSelect').onchange = (e) => {
+  const theme = e.target.value;
+  toggleCustomColors(theme);
+  if (theme === 'text-only') {
+    document.getElementById('customImageMode').value = 'url';
+    document.getElementById('customImageMode').disabled = true;
+  } else {
+    document.getElementById('customImageMode').disabled = false;
+  }
+};
 document.getElementById('chkTtsEnabled').onchange = (e) => toggleTtsSubSettings(e.target.checked);
 document.getElementById('chkSoundEnabled').onchange = (e) => toggleAudioSettingsRow(e.target.checked);
 document.getElementById('chkProfanityFilterEnabled').onchange = (e) => toggleProfanitySubSettings(e.target.checked);
 
+document.getElementById('soundChoiceSelect').onchange = (e) => {
+  const container = document.getElementById('customSoundUrlContainer');
+  container.style.display = e.target.value === 'custom_url' ? 'block' : 'none';
+};
 // Color picker bindings (Hex inputs <-> Color box picker)
 const colorPickers = [
   { picker: 'colorPrimary', txt: 'txtPrimary' },
@@ -455,25 +426,29 @@ document.getElementById('overlaySettingsForm').onsubmit = async (e) => {
     fontFamily: document.getElementById('fontSelect').value,
     animation: document.getElementById('animSelect').value,
     duration: parseInt(document.getElementById('sliderDuration').value),
-    particleCount: parseInt(document.getElementById('sliderParticles').value),
-    fontSize: parseInt(document.getElementById('sliderFontSize').value) || 32,
-    
-    primaryColor: document.getElementById('txtPrimary').value,
+     particleCount: parseInt(document.getElementById('sliderParticles').value),
+     fontSize: parseInt(document.getElementById('sliderFontSize').value) || 32,
+     customImageMode: document.getElementById('customImageMode').value,
+     customImageValue: document.getElementById('customImageValue').value,
+     
+     primaryColor: document.getElementById('txtPrimary').value,
+
     secondaryColor: document.getElementById('txtSecondary').value,
     textColor: document.getElementById('txtText').value,
     backgroundColor: document.getElementById('txtBg').value,
     borderColor: hexToRgbA(document.getElementById('txtPrimary').value, 0.25),
     
-    soundEnabled: document.getElementById('chkSoundEnabled').checked,
-    soundChoice: document.getElementById('soundChoiceSelect').value,
-    soundVolume: parseFloat(document.getElementById('sliderSoundVolume').value),
-    
-    ttsEnabled: document.getElementById('chkTtsEnabled').checked,
-    ttsReadDonor: document.getElementById('chkTtsReadDonor').checked,
-    ttsLanguage: 'th-TH',
-    ttsVoice: document.getElementById('ttsVoiceSelect').value,
-    ttsVolume: parseFloat(document.getElementById('sliderTtsVolume').value),
-    ttsRate: parseFloat(document.getElementById('sliderTtsRate').value),
+     soundEnabled: document.getElementById('chkSoundEnabled').checked,
+     soundChoice: document.getElementById('soundChoiceSelect').value,
+     soundVolume: parseFloat(document.getElementById('sliderSoundVolume').value),
+     customSoundUrl: document.getElementById('customSoundUrl').value,
+     
+     ttsEnabled: document.getElementById('chkTtsEnabled').checked,
+     ttsReadDonor: document.getElementById('chkTtsReadDonor').checked,
+     ttsLanguage: 'th-TH',
+     ttsVolume: parseFloat(document.getElementById('sliderTtsVolume').value),
+     ttsRate: parseFloat(document.getElementById('sliderTtsRate').value),
+
 
     messageTemplate: document.getElementById('inputMessageTemplate').value,
     amountSuffix: document.getElementById('inputAmountSuffix').value,
@@ -613,8 +588,8 @@ async function loadPageSettings() {
       // Profile
       document.getElementById('profilePreview').src = s.profileImage;
       document.getElementById('profileImageValue').value = s.profileImageValue || '';
-      document.getElementById('profileGlowColor').value = s.profileGlowColor || '#00ff0e';
-      document.getElementById('txtProfileGlowColor').value = s.profileGlowColor || '#00ff0e';
+      document.getElementById('profileGlowColor').value = s.profileGlowColor || '#006605';
+      document.getElementById('txtProfileGlowColor').value = s.profileGlowColor || '#006605';
       
       updatePagePreview();
     }

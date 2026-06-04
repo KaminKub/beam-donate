@@ -30,7 +30,7 @@ const defaultSettings = {
   ttsVolume: 0.8,
   ttsRate: 1.0,
   ttsLanguage: 'th-TH',
-  ttsVoice: 'default',
+
   profanityFilterEnabled: true,
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks', // asterisks, polite, block
@@ -46,7 +46,10 @@ const defaultSettings = {
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
   particleCount: 15,
-  fontSize: 48
+  fontSize: 48,
+  customImageMode: 'emoji',
+  customImageValue: '💝',
+  customSoundUrl: ''
 };
 
 // ========== SSE Alert System ==========
@@ -88,30 +91,6 @@ app.use(session({
   }
 }));
 
-// DIAGNOSTIC MIDDLEWARE: Check session store and DB connectivity
-app.use(async (req, res, next) => {
-  try {
-    const storeType = req.session.store ? req.session.store.constructor.name : 'Unknown';
-    const isNewSession = req.sessionID && !req.session.cookie; // Simplified check
-    
-    // Check DB connectivity
-    let dbStatus = 'Disconnected';
-    try {
-      const { getDB } = require('./database');
-      const db = getDB();
-      await db.execute('SELECT 1');
-      dbStatus = 'Connected';
-    } catch (e) {
-      dbStatus = `Error: ${e.message}`;
-    }
-
-    console.log(`🔍 [Diagnostic] Path: ${req.path} | Store: ${storeType} | DB: ${dbStatus} | SessionID: ${req.sessionID}`);
-  } catch (err) {
-    console.error('💥 [Diagnostic] Middleware error:', err);
-  }
-  next();
-});
-
 console.log(`🚀 Server started in ${process.env.NODE_ENV || 'development'} mode`);
 
 
@@ -121,7 +100,6 @@ app.use(passport.session());
 // SECURITY: Block direct access to /dashboard via express.static, but allow static assets
 app.use((req, res, next) => {
   if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
-    console.log(`🛡️ [Auth Check] Path: ${req.path} | SessionID: ${req.sessionID} | Authenticated: ${req.isAuthenticated()}`);
     if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
       return res.redirect('/login');
     }
@@ -144,10 +122,32 @@ passport.use(new TwitchStrategy({
 passport.serializeUser((user, done) => {
   done(null, user);
 });
-
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
+ 
+passport.deserializeUser(async (obj, done) => {
+  try {
+    const twitchId = obj.twitch_id || obj.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (streamer) {
+      obj.username = streamer.username;
+    }
+    done(null, obj);
+  } catch (err) {
+    done(err);
+  }
 });
+
+// ========== Helper Functions ==========
+async function getActualUsername(user) {
+  if (!user) return null;
+  const twitchId = user.twitch_id || user.id;
+  try {
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (streamer) return streamer.username;
+  } catch (err) {
+    console.error('Error resolving actual username:', err);
+  }
+  return (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+}
 
 app.use(express.json({
   verify: (req, res, buf) => {
@@ -248,8 +248,8 @@ app.get('/auth/twitch/callback',
   async (req, res) => {
     const user = req.user;
     const twitchId = user.twitch_id || user.id;
-    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-
+    const twitchName = await getActualUsername(user);
+ 
     try {
       // 1. Try finding by Twitch ID first
       let existingUser = await db.getStreamerByTwitchId(twitchId);
@@ -501,8 +501,7 @@ app.get('/api/alerts/stream', async (req, res) => {
     }
   } else if (req.isAuthenticated()) {
     // Fallback to session authentication if no token is provided (e.g., opening in browser while logged in)
-    const user = req.user;
-    authenticatedUser = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+    authenticatedUser = await getActualUsername(req.user);
     authMethod = 'session';
   }
 
@@ -521,23 +520,26 @@ app.get('/api/alerts/stream', async (req, res) => {
   });
 });
 
-app.get('/api/overlay/status', ensureAuthenticated, (req, res) => {
-  const user = req.user;
-  const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-  
-  const isActive = sseClients.some(client => client.username === twitchName && client.authMethod === 'token');
-  res.json({ active: isActive });
+app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    
+    const isActive = sseClients.some(client => client.username === actualUsername && client.authMethod === 'token');
+    res.json({ active: isActive });
+  } catch (err) {
+    console.error('Get overlay status error:', err);
+    res.status(500).json({ error: 'ไม่สามารถตรวจสอบสถานะได้' });
+  }
 });
 
 app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => {
   const { username } = req.params;
-  const user = req.user;
-  const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+  const actualUsername = await getActualUsername(req.user);
   
-  if (twitchName !== username.toLowerCase()) {
+  if (actualUsername !== username.toLowerCase()) {
     return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์เข้าถึงข้อมูลของผู้อื่น' });
   }
-
+ 
   try {
     const txs = await db.getTransactions(username);
     res.json(txs);
@@ -575,10 +577,9 @@ app.post('/api/transactions/:id/status', async (req, res) => {
 app.get('/api/overlay/settings', async (req, res) => {
   try {
     let username = null;
-
+ 
     if (req.isAuthenticated()) {
-      const user = req.user;
-      username = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
+      username = await getActualUsername(req.user);
     } else {
       const token = req.query.token;
       if (token) {
@@ -588,11 +589,11 @@ app.get('/api/overlay/settings', async (req, res) => {
         }
       }
     }
-
+ 
     if (!username) {
       return res.status(401).json({ error: 'Unauthorized: Please log in or provide a valid token' });
     }
-
+ 
     const settings = await db.getSettings(username, defaultSettings);
     res.json(settings);
   } catch (err) {
@@ -611,17 +612,15 @@ app.get('/api/overlay/settings', async (req, res) => {
 
 app.post('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
   try {
-    const user = req.user;
-    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const twitchId = user.twitch_id || user.id;
+    const actualUsername = await getActualUsername(req.user);
+    const twitchId = req.user.twitch_id || req.user.id;
     
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
-      username: twitchName,
       ...req.body
     });
     
-    broadcastAlert(twitchName, { type: 'settings_update', settings: updatedStreamer });
+    broadcastAlert(actualUsername, { type: 'settings_update', settings: updatedStreamer });
     res.json({ success: true, settings: updatedStreamer });
   } catch (error) {
     console.error('Save settings error:', error);
@@ -642,7 +641,7 @@ app.get('/api/page/:username/settings', async (req, res) => {
       profileImage: profileImg,
       profileImageSource: streamer.profile_image_source || 'twitch',
       profileImageValue: streamer.profile_image_value || '',
-      profileGlowColor: streamer.profile_glow_color || '#00ff0e',
+      profileGlowColor: streamer.profile_glow_color || '#005704',
       pageTitle: streamer.page_title || `เลี้ยงกาแฟ ${streamer.username}`,
       pageSubtitle: streamer.page_subtitle || 'ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨',
       thankYouHeader: streamer.thank_you_header || 'ขอบคุณสำหรับการสนับสนุน!',
@@ -674,13 +673,10 @@ app.get('/api/page/:username/settings', async (req, res) => {
 
 app.post('/api/page/settings', ensureAuthenticated, async (req, res) => {
   try {
-    const user = req.user;
-    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const twitchId = user.twitch_id || user.id;
+    const twitchId = req.user.twitch_id || req.user.id;
     
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
-      username: twitchName,
       ...req.body
     });
     
@@ -711,21 +707,26 @@ app.get('/api/tts', (req, res) => {
   }
 });
 
-app.post('/api/alerts/test', ensureAuthenticated, (req, res) => {
+app.post('/api/alerts/test', ensureAuthenticated, async (req, res) => {
   const { donor, amount, message } = req.body;
-  const user = req.user;
-  const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-
-  const alertData = {
-    type: 'donation',
-    donor: donor || 'ผู้ทดสอบ',
-    amount: amount || 100,
-    message: message || 'นี่คือ test alert 🎉',
-    timestamp: new Date().toISOString()
-  };
   
-  broadcastAlert(twitchName, alertData);
-  res.json({ success: true, alert: alertData });
+  try {
+    const actualUsername = await getActualUsername(req.user);
+ 
+    const alertData = {
+      type: 'donation',
+      donor: donor || 'ผู้ทดสอบ',
+      amount: amount || 100,
+      message: message || 'นี่คือ test alert 🎉',
+      timestamp: new Date().toISOString()
+    };
+    
+    broadcastAlert(actualUsername, alertData);
+    res.json({ success: true, alert: alertData });
+  } catch (err) {
+    console.error('Test alert error:', err);
+    res.status(500).json({ error: 'ไม่สามารถส่ง Alert ทดสอบได้' });
+  }
 });
 
 function ensureAuthenticated(req, res, next) {
@@ -736,8 +737,8 @@ function ensureAuthenticated(req, res, next) {
 app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
-    const twitchName = (user.username || user.nickname || user.display_name || (user._json && user._json.display_name)).toLowerCase();
-    const streamer = await db.getStreamer(twitchName);
+    const twitchId = user.twitch_id || user.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
     
     if (streamer && streamer.overlay_token) {
       res.json({ token: streamer.overlay_token });

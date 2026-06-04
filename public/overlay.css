@@ -272,8 +272,8 @@ body {
 .alert-icon {
   position: relative;
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,9 +289,17 @@ body {
 }
 
 .icon-emoji {
-  font-size: 36px;
+  font-size: 48px;
   z-index: 2;
   animation: iconBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+.custom-alert-img {
+  width: 85px;
+  height: 85px;
+  object-fit: contain;
+  display: block;
+  border-radius: 20%;
 }
 
 .icon-ring {
@@ -514,6 +522,7 @@ body {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  overflow: visible !important;
 }
 
 .alert-box.theme-text-only .alert-content {
@@ -523,13 +532,29 @@ body {
   padding: 12px 0 !important;
   justify-content: center !important;
   text-align: center !important;
+  flex-direction: column !important;
+  gap: 10px !important;
 }
 
-.alert-box.theme-text-only .alert-icon,
 .alert-box.theme-text-only .alert-glow,
 .alert-box.theme-text-only .alert-progress {
   display: none !important;
 }
+
+.alert-box.theme-text-only .alert-icon {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 0 auto 10px auto !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.alert-box.theme-text-only .custom-alert-img {
+  width: 200px !important;
+  height: 200px !important;
+}
+
 
 .alert-box.theme-text-only .alert-info {
   display: flex !important;

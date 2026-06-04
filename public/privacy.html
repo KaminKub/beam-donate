@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - TipKub</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #667eea;
+      --secondary: #764ba2;
+      --bg: #0f172a;
+      --text: #ffffff;
+      --glass: rgba(255, 255, 255, 0.1);
+    }
+    body {
+      margin: 0;
+      font-family: 'Kanit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+      box-sizing: border-box;
+    }
+    .bg-orbs {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(80px);
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.5;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary); top: -10%; left: -10%; }
+    .orb-2 { width: 400px; height: 400px; background: var(--secondary); bottom: -10%; right: -10%; }
+    .orb-3 { width: 300px; height: 300px; background: #3b82f6; top: 40%; left: 40%; }
+
+    .policy-container {
+      max-width: 800px;
+      width: 100%;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 3rem;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      background: linear-gradient(to right, #fff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    h2 {
+      font-size: 1.5rem;
+      color: #a5b4fc;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--primary);
+      padding-left: 1rem;
+    }
+    p, li {
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+    ul {
+      padding-left: 1.5rem;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: white;
+      text-decoration: none;
+      margin-top: 2rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    .back-link:hover {
+      color: var(--primary);
+      transform: translateX(-5px);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="policy-container">
+    <h1>นโยบายความเป็นส่วนตัว</h1>
+    
+    <h2>1. ข้อมูลที่เราเก็บรวบรวม</h2>
+    <p>เพื่อการใช้งานแพลตฟอร์ม TipKub เรามีการเก็บรวบรวมข้อมูลที่จำเป็นดังนี้:</p>
+    <ul>
+      <li><strong>ข้อมูลจาก Twitch:</strong> เราใช้ระบบ OAuth ของ Twitch เพื่อยืนยันตัวตน โดยเก็บข้อมูลพื้นฐาน เช่น Twitch ID, ชื่อผู้ใช้งาน (Username) และรูปโปรไฟล์ เพื่อใช้ในการสร้างและจัดการหน้าโดเนทของคุณ</li>
+      <li><strong>ข้อมูลการตั้งค่า:</strong> ข้อมูลการปรับแต่งหน้าโดเนทที่คุณกำหนดเองใน Dashboard จะถูกบันทึกไว้ในฐานข้อมูลของเรา</li>
+    </ul>
+
+    <h2>2. การใช้คุกกี้ (Cookies)</h2>
+    <p>เราใช้คุกกี้ประเภท <strong>Strictly Necessary Cookies</strong> ซึ่งมีความจำเป็นอย่างยิ่งต่อการทำงานของเว็บไซต์:</p>
+    <ul>
+      <li>ใช้สำหรับรักษาเซสชัน (Session) การล็อกอินของคุณ เพื่อให้คุณสามารถจัดการหน้า Dashboard ได้อย่างต่อเนื่องโดยไม่ต้องล็อกอินใหม่ทุกครั้งที่เปลี่ยนหน้า</li>
+    </ul>
+
+    <h2>3. การรักษาความปลอดภัยและการแบ่งปันข้อมูล</h2>
+    <p>เราให้ความสำคัญกับความเป็นส่วนตัวของคุณอย่างสูงสุด:</p>
+    <ul>
+      <li>เรา<strong>ไม่มี</strong>การขายข้อมูลส่วนบุคคลของคุณให้กับบุคคลที่สาม</li>
+      <li>ข้อมูลการเชื่อมต่อ API ของบริการชำระเงินจะถูกเข้ารหัสและเก็บรักษาเป็นความลับและใช้เพื่อการประมวลผลยอดบริจาคเท่านั้น</li>
+    </ul>
+
+    <h2>4. การติดต่อ</h2>
+    <p>หากคุณมีข้อสงสัยเกี่ยวกับนโยบายความเป็นส่วนตัว สามารถติดต่อเจ้าของเว็บไซต์ได้ที่:</p>
+    <p><a href="https://www.openlink.co/kaminkub" target="_blank" style="color: var(--primary); text-decoration: none;">Kaminkub - OpenLink Profile</a></p>
+
+    <a href="/" class="back-link">
+      <i class="fa-solid fa-arrow-left"></i> กลับสู่หน้าหลัก
+    </a>
+  </div>
+</body>
+</html>

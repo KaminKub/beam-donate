@@ -24,7 +24,10 @@ let overlaySettings = {
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
   particleCount: 15,
-  fontSize: 48
+  fontSize: 48,
+  customImageMode: 'emoji',
+  customImageValue: '🎁',
+  customSoundUrl: ''
 };
 
 // ========== Queue System ==========
@@ -223,10 +226,32 @@ async function showAlert(data) {
   
     // Set content
     alertBox.querySelector('.donor-name').innerHTML = filteredHeader;
+    
+    // Handle Custom Icon/Image
+    const iconEmojiEl = alertBox.querySelector('.icon-emoji');
+    const iconContainer = alertBox.querySelector('.alert-icon');
+    const isTextOnly = alertBox.classList.contains('theme-text-only');
 
+    if (iconEmojiEl && iconContainer) {
+      if (overlaySettings.customImageMode === 'url' && overlaySettings.customImageValue) {
+        iconEmojiEl.innerHTML = `<img src="${overlaySettings.customImageValue}" class="custom-alert-img">`;
+        iconContainer.style.display = 'flex';
+      } else if (overlaySettings.customImageMode === 'emoji') {
+        iconEmojiEl.textContent = overlaySettings.customImageValue || '💝';
+        // In Text Only theme, emojis/text icons are hidden
+        iconContainer.style.display = isTextOnly ? 'none' : 'flex';
+      } else {
+        iconContainer.style.display = 'none';
+      }
+      
+      // Special case: hide if URL is empty but mode is url
+      if (overlaySettings.customImageMode === 'url' && !overlaySettings.customImageValue) {
+        iconContainer.style.display = 'none';
+      }
+    }
+    
+    // ซ่อนป้าย "บริจาค" ตามการตั้งค่า หรือหากในเทมเพลตข้อความหลักมีจำนวนเงินหรือคำว่าบริจาคอยู่แล้ว
 
-  
-  // ซ่อนป้าย "บริจาค" ตามการตั้งค่า หรือหากในเทมเพลตข้อความหลักมีจำนวนเงินหรือคำว่าบริจาคอยู่แล้ว
   const labelElement = alertBox.querySelector('.alert-label');
   if (labelElement) {
     const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : true;
@@ -337,9 +362,25 @@ async function playNotificationSound(soundChoice, volume) {
           resolve();
         });
       });
+    } 
+    else if (soundChoice === 'custom_url') {
+      return new Promise((resolve) => {
+        if (!overlaySettings.customSoundUrl) {
+          console.warn('Custom sound URL is empty');
+          return resolve();
+        }
+        const audio = new Audio(overlaySettings.customSoundUrl);
+        audio.volume = Number(volume) || 0.5;
+        audio.onended = resolve;
+        audio.play().catch(err => {
+          console.warn('Custom URL sound playback failed:', err);
+          resolve();
+        });
+      });
     }
-
+    
     if (soundChoice === 'chime') {
+
       // 3-note classic chime (D5 -> A5 -> D6)
       const notes = [
         { freq: 587.33, start: 0, duration: 0.15 },
@@ -438,86 +479,32 @@ async function playNotificationSound(soundChoice, volume) {
 // ========== Web Speech API (TTS) Speak Engine ==========
 function speakMessage(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voiceName = 'default') {
   try {
-    const voices = window.speechSynthesis.getVoices();
-    let voice = null;
+    // Force Google Cloud TTS via Local Server Proxy
+    const shortLang = lang.split('-')[0] || 'th';
+    const truncatedText = text.substring(0, 180);
+    const encodedText = encodeURIComponent(truncatedText);
+    const localTtsUrl = `/api/tts?lang=${shortLang}&text=${encodedText}`;
     
-    // 1. ถ้าผู้ใช้กำหนดให้ใช้เสียง เปรมวดี, นิวัฒน์, อัจฉรา (ไม่เป็น default) ให้ลองใช้เสียงพรีเมียมในเครื่องก่อน
-    if (voiceName && voiceName !== 'default') {
-      const targetName = voiceName.toLowerCase();
-      // ค้นหาเสียงที่มีคำว่า 'premwadee', 'niwat' หรือ 'achara' ในชื่อเสียงพูด
-      voice = voices.find(v => v.name.toLowerCase().includes(targetName));
-    }
+    console.log(`📣 Forcing Google Cloud TTS via proxy (${shortLang}):`, truncatedText);
     
-    if (voice) {
-      // เล่นด้วยเสียงพรีเมียม Edge TTS ที่ตรวจพบในเครื่อง
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-      utterance.volume = Number(volume) || 0.8;
-      utterance.rate = Number(rate) || 1.0;
-      
-      window.speechSynthesis.speak(utterance);
-      console.log('🗣️ Selected premium Edge TTS voice:', voice.name);
-    } else {
-      // 2. หากผู้ใช้เลือกเป็น default หรือไม่มีเสียงพรีเมียมตัวนั้นติดตั้งในระบบ (เช่น OBS)
-      // ให้สลับมาใช้ระบบ Local Server TTS Proxy (ภาษาไทยแท้ ทำงานได้ 100% ปราศจากปัญหา CORS/403)
-      const shortLang = lang.split('-')[0] || 'th';
-      const truncatedText = text.substring(0, 180);
-      const encodedText = encodeURIComponent(truncatedText);
-      const localTtsUrl = `/api/tts?lang=${shortLang}&text=${encodedText}`;
-      
-      console.log(`📣 No local premium voice found. Using local server TTS proxy (${shortLang}):`, truncatedText);
-      
-      const audio = new Audio(localTtsUrl);
-      audio.volume = Number(volume) || 0.8;
-      audio.defaultPlaybackRate = Number(rate) || 1.0;
-      audio.playbackRate = Number(rate) || 1.0;
-      
-      audio.play()
-        .then(() => {
-          console.log('🗣️ Local TTS Proxy playing successfully:', truncatedText);
-        })
-        .catch(err => {
-          console.warn('⚠️ TTS Proxy autoplay blocked or failed, playing with browser default speech:', err.message);
-          // Fallback สุดท้าย: เล่นด้วยเสียงสังเคราะห์ของระบบทั่วไป
-          playDefaultWebSpeech(text, lang, volume, rate);
-        });
-    }
+    const audio = new Audio(localTtsUrl);
+    audio.volume = Number(volume) || 0.8;
+    audio.defaultPlaybackRate = Number(rate) || 1.0;
+    audio.playbackRate = Number(rate) || 1.0;
+    
+    audio.play()
+      .then(() => {
+        console.log('🗣️ Google Cloud TTS playing successfully:', truncatedText);
+      })
+      .catch(err => {
+        console.warn('⚠️ TTS Proxy autoplay blocked or failed:', err.message);
+      });
   } catch (err) {
-    console.warn('⚠️ Speech engine error, playing with browser default speech:', err);
-    playDefaultWebSpeech(text, lang, volume, rate);
+    console.error('⚠️ TTS Engine critical error:', err);
   }
 }
 
-// ฟังก์ชันสำหรับเล่นเสียงพากย์ฉุกเฉิน (Fallback สุดท้าย)
-function playDefaultWebSpeech(text, lang, volume, rate) {
-  try {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.volume = Number(volume) || 0.8;
-    utterance.rate = Number(rate) || 1.0;
-    
-    // พยายามหาเสียงภาษาไทยทั่วไปในระบบถ้ามี
-    const voices = window.speechSynthesis.getVoices();
-    const targetLang = lang.toLowerCase().replace('_', '-');
-    let voice = voices.find(v => {
-      const voiceLang = v.lang.toLowerCase().replace('_', '-');
-      return voiceLang === targetLang || voiceLang.startsWith(targetLang);
-    });
-    
-    if (voice) {
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-    }
-    
-    window.speechSynthesis.speak(utterance);
-  } catch (e) {
-    console.error('Final fallback speaking failed:', e);
-  }
-}
+
 
 // ========== Particle Effects Generator ==========
 function spawnParticles(alertBox, particleCount = 12) {
@@ -560,14 +547,6 @@ function spawnParticles(alertBox, particleCount = 12) {
 
 // ========== Boot Sequence ==========
 window.addEventListener('DOMContentLoaded', async () => {
-  // Pre-fetch voices so TTS voice resolution works quickly on load
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.getVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-    }
-  }
-
   await loadInitialSettings();
   connectSSE();
 });
