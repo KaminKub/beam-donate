@@ -242,7 +242,13 @@ app.get('/auth/twitch/callback',
       }
 
     if (existingUser) {
-      return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+      // Force save session to DB before redirecting to prevent session loss on serverless environments
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Session save error during login:', err);
+        }
+        return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+      });
     } else {
 
         // Store temporary info in session for the setup page
