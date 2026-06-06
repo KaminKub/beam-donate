@@ -24,6 +24,7 @@
     "express": "^4.18.2",
     "express-session": "^1.18.0",
     "passport": "^0.7.0",
+    "passport-oauth2": "^1.8.0",
     "passport-twitch-new": "^0.0.3"
   }
 }

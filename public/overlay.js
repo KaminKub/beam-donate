@@ -46,11 +46,19 @@ async function loadInitialSettings() {
     const token = urlParams.get('token');
     const settingsUrl = token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings';
     
-    const res = await fetch(settingsUrl);
+    console.log(`📡 Attempting to load settings from: ${settingsUrl}`);
+    
+    const res = await fetch(settingsUrl).catch(err => {
+      console.error('❌ Fetch network error:', err);
+      throw err;
+    });
+
     if (res.ok) {
       const settings = await res.json();
       console.log('📋 Loaded overlay settings from server:', settings);
       applySettings(settings);
+    } else {
+      console.warn(`⚠️ Server responded with status: ${res.status} for ${settingsUrl}`);
     }
   } catch (err) {
     console.error('Failed to load initial settings, using defaults:', err);

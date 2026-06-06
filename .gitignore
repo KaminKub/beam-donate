@@ -5,5 +5,15 @@ node_modules/
 data/
 AGENTS.md
 VISION.md
-PENDING_FEATURES.md
+RECENT_WORK_LOG.md
 CHECKLIST.md
+WORKFLOW_GUIDELINES.md
+UI_UX_UPDATE_LOG.md
+dashboard-old.js
+index-Old.html
+database-old.js
+admin-old.css
+KaminKub_Checklist.md
+check_syntax.py
+backticks.txt
+database_dump.js

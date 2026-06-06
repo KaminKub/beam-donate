@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌸 Stream Donation Dashboard</title>
+  <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard/admin.css">
 </head>
@@ -11,10 +11,13 @@
   <div class="admin-wrapper">
     <!-- Sidebar Navigation -->
     <aside class="admin-sidebar">
-      <h2><a href="https://tipkub.me"><span class="highlight-amount">TipKub</span></a></h2>
-      <div class="brand">
-        <div class="brand-logo">😺</div>
-        <div class="brand-text">
+      <button id="btnCloseMobileMenu" class="btn-close-menu">✕</button>
+       <h2><a href="/"><span class="highlight-amount">TipKub</span></a></h2>
+       <div class="brand">
+         <div class="brand-logo">
+           <img id="brandLogoImg" src="/avatar.jpg" alt="Brand Logo">
+         </div>
+         <div class="brand-text">
           <h2>Stream Donation</h2>
           <span>Dashboard Controls</span>
         </div>
@@ -30,10 +33,14 @@
         <button class="menu-item" data-tab="overlay-config">
           <span class="icon">🔔</span> ปรับแต่งวิดเจ็ต
         </button>
-        <button class="menu-item" data-tab="page-customization">
-          <span class="icon">🎨</span> แต่งหน้าโดเนท
-        </button>
-        <button class="menu-item" data-tab="payment-setup" disabled>
+         <button class="menu-item" data-tab="page-customization">
+           <span class="icon">🎨</span> แต่งหน้าโดเนท
+         </button>
+         <button class="menu-item" data-tab="account">
+           <span class="icon">👤</span> บัญชีผู้ใช้
+         </button>
+         <button class="menu-item" data-tab="payment-setup" disabled>
+
            <span class="icon">🏦</span> ตั้งค่ารับเงิน (เร็วๆนี้)
         </button>
        </nav>
@@ -48,17 +55,26 @@
 
     <!-- Main Content Area -->
     <main class="admin-main">
-      <!-- Top header bar -->
-      <header class="main-header">
-        <div class="header-left">
-          <h1 id="tabTitle">Dashboard Overview</h1>
-          <p id="tabSubtitle">ภาพรวมยอดบริจาคและสถิติระบบ</p>
+      <!-- Sticky Header Group -->
+      <div class="header-sticky-group">
+        <header class="main-header">
+          <div class="header-left">
+            <button id="btnMobileMenu" class="btn-hamburger">☰</button>
+            <h1 id="tabTitle">Dashboard Overview</h1>
+            <p id="tabSubtitle">ภาพรวมยอดบริจาคและสถิติระบบ</p>
+          </div>
+           <div class="header-right" style="display: flex; gap: 10px;">
+             <a href="/" id="btnOpenDonateDesktop" target="_blank" class="btn btn-secondary desktop-only" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
+             <button class="btn btn-primary desktop-only" id="btnQuickTestAlert">⚡ ยิง Quick Alert</button>
+           </div>
+        </header>
+        
+        <!-- Mobile Quick Actions (Sticky below header) -->
+        <div class="mobile-quick-actions">
+          <a href="/" id="btnOpenDonateMobile" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
+          <button class="btn btn-primary" id="btnQuickTestAlertMobile">⚡ ยิง Quick Alert</button>
         </div>
-        <div class="header-right" style="display: flex; gap: 10px;">
-          <a href="/" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
-          <button class="btn btn-primary" id="btnQuickTestAlert">⚡ ยิง Quick Alert</button>
-        </div>
-      </header>
+      </div>
 
       <div class="content-container">
         
@@ -216,28 +232,27 @@
                     <h4>🖼️ ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
                   </div>
                   <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
-                     <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
-                       <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px; border-radius: 50%;" alt="Profile Preview">
-                       <button type="button" id="btnChangeProfile" class="btn-edit-avatar" title="เปลี่ยนรูปโปรไฟล์">
-                         ✏️
-                       </button>
-                     </div>
+                      <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
+                        <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px; border-radius: 50%;" alt="Profile Preview">
+                      </div>
+
 
                       <div class="form-group" style="width: 100%; max-width: 300px;">
                         <label for="profileGlowColor">สีเรืองแสงรอบโปรไฟล์</label>
-                        <div class="color-input-wrapper" style="display: flex; gap: 10px; align-items: left;">
-                          <input type="color" id="profileGlowColor" style="width: 40px; height: 40px; border: none; cursor: pointer;">
-                          <input type="text" id="txtProfileGlowColor" class="form-control" style="flex: 1;" placeholder="#006605">
-                        </div>
+                         <div class="color-input-wrapper" style="display: flex; flex-direction: row; gap: 10px; align-items: center;">
+                           <input type="color" id="profileGlowColor" style="width: 40px; height: 40px; border: none; cursor: pointer;">
+                           <input type="text" id="txtProfileGlowColor" class="form-control" style="flex: 1;" placeholder="#006605">
+                         </div>
                       </div>
                       
-                       <div id="profileSourceContainer" style="display: none; width: 100%; gap: 15px; flex-direction: column;">
-                         <div class="form-group">
-                           <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
-                           <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
-                         </div>
-                         <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
-                       </div>
+                       <div id="profileSourceContainer" style="display: flex; width: 100%; gap: 15px; flex-direction: column;">
+                          <div class="form-group">
+                            <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
+                            <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+                          </div>
+                          <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
+                        </div>
+
                   </div>
                 </div>
 
@@ -336,7 +351,38 @@
             </div>
           </section>
 
-          <!-- SECTION: OVERLAY CONFIGURATOR -->
+            </section>
+
+         <!-- SECTION: USER ACCOUNT -->
+          <section id="tab-account" class="tab-content">
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3>👤 บัญชีผู้ใช้ (Account Settings)</h3>
+              </div>
+              <div class="account-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; padding: 20px;">
+                <div class="info-group">
+                  <label class="text-muted">ชื่อผู้ใช้งาน (Username)</label>
+                  <p id="accUsername" style="font-size: 1.2rem; font-weight: 600;">กำลังโหลด...</p>
+                </div>
+                <div class="info-group">
+                  <label class="text-muted">การเชื่อมต่อบัญชี (Account Connections)</label>
+                  <div class="connection-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <div class="connection-row" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                      <div class="conn-platform" style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                        <i class="fa-brands fa-twitch" style="font-size: 1.2rem; color: #9146ff;"></i> Twitch
+                      </div>
+                      <button class="btn btn-secondary btn-conn" id="btnConnectTwitch">เชื่อมต่อ</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="account-actions" style="padding: 0 20px 20px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-danger" id="btnLogout">ออกจากระบบ</button>
+              </div>
+            </div>
+          </section>
+
+         <!-- SECTION: OVERLAY CONFIGURATOR -->
           <section id="tab-overlay-config" class="tab-content">
             <div class="settings-grid">
               
@@ -353,101 +399,105 @@
                     <div class="form-row">
                       <div class="form-group">
                         <label for="themeSelect">ธีมการแสดงผล</label>
-                        <select id="themeSelect" class="form-select">
-                          <option value="glassmorphism">Glassmorphism (กระจกใสพรีเมียม)</option>
-                          <option value="cyberpunk">Cyberpunk Neon (สไตล์เกมเมอร์สะท้อนแสง)</option>
-                          <option value="minimal">Minimalist Clean (เรียบง่าย สบายตา)</option>
-                          <option value="custom">Custom Color (กำหนดสีเองตามต้องการ)</option>
-                          <option value="text-only">Text Only (เฉพาะข้อความ ไม่มีกล่อง)</option>
-                        </select>
+<select id="themeSelect" name="theme" class="form-select">
+                           <option value="glassmorphism">Glassmorphism (กระจกใสพรีเมียม)</option>
+                           <option value="cyberpunk">Cyberpunk Neon (สไตล์เกมเมอร์สะท้อนแสง)</option>
+                           <option value="custom">Custom Color (กำหนดสีเองตามต้องการ)</option>
+                           <option value="text-only">Text Only (เฉพาะข้อความ ไม่มีกล่อง)</option>
+                         </select>
+
                       </div>
 
                        <div class="form-group">
                          <label for="fontSelect">แบบอักษร (Thai Font)</label>
-                         <select id="fontSelect" class="form-select">
-                           <option value="Noto Sans Thai">Noto Sans Thai (มาตรฐาน)</option>
-                           <option value="Kanit">Kanit (โมเดิร์น ยอดนิยม)</option>
-                           <option value="Mitr">Mitr (หัวกลม ทันสมัย)</option>
-                           <option value="Chakra Petch">Chakra Petch (เก๋ไก๋ ล้ำยุค)</option>
-                           <option value="Sarabun">Sarabun (เป็นทางการ)</option>
-                         </select>
+<select id="fontSelect" name="fontFamily" class="form-select">
+                            <option value="Noto Sans Thai">Noto Sans Thai (มาตรฐาน)</option>
+                            <option value="Kanit">Kanit (โมเดิร์น ยอดนิยม)</option>
+                            <option value="Mitr">Mitr (หัวกลม ทันสมัย)</option>
+                            <option value="Chakra Petch">Chakra Petch (เก๋ไก๋ ล้ำยุค)</option>
+                            <option value="Sarabun">Sarabun (เป็นทางการ)</option>
+                          </select>
+
                        </div>
                      </div>
 
                      <div class="form-row">
                        <div class="form-group">
                          <label for="customImageMode">โหมดรูปภาพ Alert</label>
-                         <select id="customImageMode" class="form-select">
-                           <option value="emoji">ใช้ Emoji (เริ่มต้น)</option>
-                           <option value="url">ใช้ URL รูปภาพภายนอก</option>
-                         </select>
+<select id="customImageMode" name="customImageMode" class="form-select">
+                            <option value="emoji">ใช้ Emoji (เริ่มต้น)</option>
+                            <option value="url">ใช้ URL รูปภาพภายนอก</option>
+                          </select>
+
                        </div>
                        <div class="form-group">
                          <label for="customImageValue">URL รูปภาพ / Emoji</label>
-                         <input type="text" id="customImageValue" class="form-control" placeholder="ใส่ URL หรือ Emoji เช่น 🎁">
+                         <input type="text" id="customImageValue" name="customImageValue" class="form-control" placeholder="ใส่ URL หรือ Emoji เช่น 🎁">
                        </div>
                      </div>
 
-                    <!-- Custom colors picker row (Visible always for flex but labeled custom) -->
-                    <div class="custom-colors-container" id="customColorsContainer">
-                      <h5 class="section-divider">ปรับแต่งสี (Custom Colors)</h5>
-                      <div class="color-picker-grid">
-                        <div class="color-picker-group">
-                          <label>สีหลัก (Primary)</label>
-                          <div class="color-input-wrapper">
-                            <input type="color" id="colorPrimary" value="#667eea">
-                            <input type="text" id="txtPrimary" class="hex-text" value="#667eea">
-                          </div>
-                        </div>
-                        <div class="color-picker-group">
-                          <label>สีรอง (Secondary)</label>
-                          <div class="color-input-wrapper">
-                            <input type="color" id="colorSecondary" value="#764ba2">
-                            <input type="text" id="txtSecondary" class="hex-text" value="#764ba2">
-                          </div>
-                        </div>
-                        <div class="color-picker-group">
-                          <label>สีตัวอักษร</label>
-                          <div class="color-input-wrapper">
-                            <input type="color" id="colorText" value="#ffffff">
-                            <input type="text" id="txtText" class="hex-text" value="#ffffff">
-                          </div>
-                        </div>
-                        <div class="color-picker-group">
-                          <label>สีพื้นหลัง</label>
-                          <div class="color-input-wrapper bg-picker">
-                            <input type="color" id="colorBg" value="#0f0f19">
-                            <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                     <!-- Custom colors picker row (Visible always for flex but labeled custom) -->
+                     <div class="custom-colors-container" id="customColorsContainer">
+                       <h5 class="section-divider">ปรับแต่งสี (Custom Colors)</h5>
+                       <div class="color-picker-grid">
+                         <div class="color-picker-group">
+                           <label>สีหลัก (Primary)</label>
+                           <div class="color-input-wrapper">
+                             <input type="color" id="colorPrimary" value="#667eea">
+                             <input type="text" id="txtPrimary" class="hex-text" value="#667eea">
+                           </div>
+                         </div>
+                         <div class="color-picker-group">
+                           <label>สีรอง (Secondary)</label>
+                           <div class="color-input-wrapper">
+                             <input type="color" id="colorSecondary" value="#764ba2">
+                             <input type="text" id="txtSecondary" class="hex-text" value="#764ba2">
+                           </div>
+                         </div>
+                         <div class="color-picker-group">
+                           <label>สีตัวอักษร</label>
+                           <div class="color-input-wrapper">
+                             <input type="color" id="colorText" value="#ffffff">
+                             <input type="text" id="txtText" class="hex-text" value="#ffffff">
+                           </div>
+                         </div>
+                         <div class="color-picker-group">
+                           <label>สีพื้นหลัง</label>
+                           <div class="color-input-wrapper bg-picker">
+                             <input type="color" id="colorBg" value="#0f0f19">
+                             <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+
 
                     <div class="form-row">
                       <div class="form-group">
                         <label for="animSelect">แอนิเมชันตอนแสดงผล</label>
-                        <select id="animSelect" class="form-select">
-                          <option value="slide-down">Slide In - เลื่อนลงมาจากด้านบน</option>
-                          <option value="slide-up">Slide In - เลื่อนขึ้นมาจากด้านล่าง</option>
-                          <option value="fade">Fade In - ค่อยๆ ปรากฏขึ้น</option>
-                          <option value="zoom">Zoom In - เด้งขยายออกมา</option>
-                        </select>
+<select id="animSelect" name="animation" class="form-select">
+                           <option value="slide-down">Slide In - เลื่อนลงมาจากด้านบน</option>
+                           <option value="slide-up">Slide In - เลื่อนขึ้นมาจากด้านล่าง</option>
+                           <option value="fade">Fade In - ค่อยๆ ปรากฏขึ้น</option>
+                           <option value="zoom">Zoom In - เด้งขยายออกมา</option>
+                         </select>
+
                       </div>
 
                       <div class="form-group">
                         <label for="sliderDuration">ระยะเวลา Alert ค้างบนจอ (<span id="lblDuration">8</span> วินาที)</label>
-                        <input type="range" id="sliderDuration" class="form-range" min="2" max="20" step="1" value="8">
+                        <input type="range" id="sliderDuration" name="duration" class="form-range" min="2" max="20" step="1" value="8">
                       </div>
                     </div>
 
                     <div class="form-row">
                       <div class="form-group">
                         <label for="sliderParticles">เอฟเฟกต์ละอองวิบวับ (<span id="lblParticles">15</span> ชิ้น)</label>
-                        <input type="range" id="sliderParticles" class="form-range" min="0" max="30" step="1" value="15">
+                        <input type="range" id="sliderParticles" name="particleCount" class="form-range" min="0" max="30" step="1" value="15">
                       </div>
                       <div class="form-group">
                         <label for="sliderFontSize">ขนาดตัวอักษร (<span id="lblFontSize">32</span>px)</label>
-                        <input type="range" id="sliderFontSize" class="form-range" min="16" max="72" step="1" value="32">
+                        <input type="range" id="sliderFontSize" name="fontSize" class="form-range" min="16" max="72" step="1" value="32">
                       </div>
                     </div>
                   </div>
@@ -462,7 +512,7 @@
                       <div class="form-group">
                         <div class="switch-group">
                           <label class="switch">
-                            <input type="checkbox" id="chkSoundEnabled" checked>
+                            <input type="checkbox" id="chkSoundEnabled" name="soundEnabled" checked>
                             <span class="slider-switch"></span>
                           </label>
                           <span class="switch-label">เปิดเสียงเพลงแจ้งเตือน (Chime)</span>
@@ -473,24 +523,25 @@
                     <div class="form-row" id="soundVolumeSettingsRow">
                       <div class="form-group">
                         <label for="soundChoiceSelect">เลือกเสียงแจ้งเตือน</label>
- <select id="soundChoiceSelect" class="form-select">
-                          <option value="chime">Classic Chime (เสียงเคาะระฆังคู่ใสๆ)</option>
-                          <option value="retro">Retro Arcade (เสียงสล๊อตแมชชีน 8-bit)</option>
-                          <option value="modern">Modern Pad Synth (เสียงซินธ์อุ่นๆ ทันสมัย)</option>
-                           <option value="bell">Soft Bell Resonator (เสียงกระดิ่งคริสตัลคู่)</option>
-                           <option value="custom">เสียงจั้มสแกร์</option>
-                           <option value="custom_url">เสียงแบบกำหนดเอง (ใส่ลิงก์ URL ภายนอก)</option>
-                         </select>
+<select id="soundChoiceSelect" name="soundChoice" class="form-select">
+                           <option value="chime">Classic Chime (เสียงเคาะระฆังคู่ใสๆ)</option>
+                           <option value="retro">Retro Arcade (เสียงสล๊อตแมชชีน 8-bit)</option>
+                           <option value="modern">Modern Pad Synth (เสียงซินธ์อุ่นๆ ทันสมัย)</option>
+                            <option value="bell">Soft Bell Resonator (เสียงกระดิ่งคริสตัลคู่)</option>
+                            <option value="custom">เสียงจั้มสแกร์</option>
+                            <option value="custom_url">เสียงแบบกำหนดเอง (ใส่ลิงก์ URL ภายนอก)</option>
+                          </select>
+
                        </div>
 
                        <div class="form-group" id="customSoundUrlContainer" style="display: none;">
                          <label for="customSoundUrl">URL เสียงแจ้งเตือน (Direct Link .mp3)</label>
-                         <input type="text" id="customSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
+                         <input type="text" id="customSoundUrl" name="customSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
                        </div>
 
                        <div class="form-group">
                          <label for="sliderSoundVolume">ความดังเสียงเตือน (<span id="lblSoundVolume">50</span>%)</label>
-                        <input type="range" id="sliderSoundVolume" class="form-range" min="0" max="1" step="0.05" value="0.5">
+                        <input type="range" id="sliderSoundVolume" name="soundVolume" class="form-range" min="0" max="1" step="0.05" value="0.5">
                       </div>
                     </div>
 
@@ -499,7 +550,7 @@
    <div class="form-group">
      <div class="switch-group">
        <label class="switch">
-         <input type="checkbox" id="chkTtsEnabled">
+         <input type="checkbox" id="chkTtsEnabled" name="ttsEnabled">
          <span class="slider-switch"></span>
        </label>
        <span class="switch-label">💡 เปิดอ่านข้อความบริจาคอัตโนมัติ (TTS)</span>
@@ -508,7 +559,7 @@
    <div class="form-group">
      <div class="switch-group">
        <label class="switch">
-         <input type="checkbox" id="chkTtsReadDonor" checked>
+         <input type="checkbox" id="chkTtsReadDonor" name="ttsReadDonor" checked>
          <span class="slider-switch"></span>
        </label>
        <span class="switch-label">💡 เปิดอ่านชื่อผู้บริจาคและจำนวนบริจาค</span>
@@ -520,14 +571,14 @@
 
                         <div class="form-group">
                           <label for="sliderTtsVolume">ความดังเสียงพูด (<span id="lblTtsVolume">80</span>%)</label>
-                          <input type="range" id="sliderTtsVolume" class="form-range" min="0.1" max="1" step="0.05" value="0.8">
+                          <input type="range" id="sliderTtsVolume" name="ttsVolume" class="form-range" min="0.1" max="1" step="0.05" value="0.8">
                         </div>
                       </div>
 
                       <div class="form-row">
                         <div class="form-group full-width">
                           <label for="sliderTtsRate">ความเร็วในการพูด (<span id="lblTtsRate">1.0</span>x)</label>
-                          <input type="range" id="sliderTtsRate" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
+                          <input type="range" id="sliderTtsRate" name="ttsRate" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
                         </div>
                       </div>
                     </div>
@@ -543,7 +594,7 @@
                       <div class="form-group">
                         <div class="switch-group">
                           <label class="switch">
-                            <input type="checkbox" id="chkProfanityFilterEnabled" checked>
+                            <input type="checkbox" id="chkProfanityFilterEnabled" name="profanityFilterEnabled" checked>
                             <span class="slider-switch"></span>
                           </label>
                           <span class="switch-label">เปิดใช้งานระบบกรองคำหยาบ (Anti-Troll)</span>
@@ -555,18 +606,19 @@
                       <div class="form-row">
                         <div class="form-group full-width">
                           <label for="profanityReplaceStyleSelect">รูปแบบการเซนเซอร์คำ</label>
-                          <select id="profanityReplaceStyleSelect" class="form-select">
-                            <option value="asterisks">ใช้เครื่องหมายดอกจันเซนเซอร์คำหยาบ (เช่น ค***)</option>
-                            <option value="polite">แปลงเป็นคำน่ารักสุภาพแทน (เช่น รักนะ, สู้ๆ) 🌸</option>
-                            <option value="block">บล็อกข้อความนั้นทั้งหมด (แสดงข้อความถูกกรองโดยระบบ)</option>
-                          </select>
+<select id="profanityReplaceStyleSelect" name="profanityReplaceStyle" class="form-select">
+                             <option value="asterisks">ใช้เครื่องหมายดอกจันเซนเซอร์คำหยาบ (เช่น ค***)</option>
+                             <option value="polite">แปลงเป็นคำน่ารักสุภาพแทน (เช่น รักนะ, สู้ๆ) 🌸</option>
+                             <option value="block">บล็อกข้อความนั้นทั้งหมด (แสดงข้อความถูกกรองโดยระบบ)</option>
+                           </select>
+
                         </div>
                       </div>
 
                       <div class="form-row">
                         <div class="form-group full-width">
                           <label for="inputProfanityWords">รายการคำหยาบและคำที่ไม่เหมาะสม (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
-                          <textarea id="inputProfanityWords" class="form-control" rows="3" style="font-family: inherit; resize: vertical;"></textarea>
+                          <textarea id="inputProfanityWords" name="profanityWords" class="form-control" rows="3" style="font-family: inherit; resize: vertical;"></textarea>
                           <small class="form-hint">สามารถลบหรือเพิ่มคำหยาบเพิ่มเติมได้เอง หากคำใดตรงกับข้อความจะถูกกรองออกทันที</small>
                         </div>
                       </div>
@@ -582,12 +634,12 @@
                     <div class="form-row">
                       <div class="form-group full-width">
                         <label for="inputMessageTemplate">รูปแบบประโยคแจ้งเตือน (Template)</label>
-                        <input type="text" id="inputMessageTemplate" class="form-control" value="{donor} ได้บริจาค {amount} บาท! 🎉">
+                        <input type="text" id="inputMessageTemplate" name="messageTemplate" class="form-control" value="{donor} ได้บริจาค {amount} บาท! 🎉">
                         <small class="form-hint">ใช้ <code>{donor}</code> แทนชื่อผู้บริจาค และ <code>{amount}</code> แทนจำนวนเงิน</small>
                       </div>
                       <div class="form-group full-width">
                         <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
-                        <input type="text" id="inputAmountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
+                        <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
                         <small class="form-hint">ข้อความนี้จะปรากฏต่อท้ายจำนวนเงินในกล่องแจ้งเตือน (เช่น 100 บาท)</small>
                       </div>
                     </div>
@@ -596,7 +648,7 @@
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
-                              <input type="checkbox" id="chkShowLabel" checked>
+                              <input type="checkbox" id="chkShowLabel" name="showLabel" checked>
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label">แสดงป้าย "บริจาค" (Show Donate Label)</span>
@@ -607,7 +659,7 @@
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
-                              <input type="checkbox" id="chkShowDonorMessage" checked>
+                              <input type="checkbox" id="chkShowDonorMessage" name="showDonorMessage" checked>
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
@@ -618,7 +670,7 @@
                     <div class="form-row">
                       <div class="form-group full-width">
                         <label for="inputMinAmount">จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
-                        <input type="number" id="inputMinAmount" class="form-control" min="1" value="1">
+                        <input type="number" id="inputMinAmount" name="minAmount" class="form-control" min="1" value="1">
                         <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
                       </div>
                     </div>
@@ -627,7 +679,6 @@
                   <!-- Actions block -->
                   <div class="settings-actions">
                     <button type="submit" class="btn btn-primary btn-large">💾 บันทึกและซิงค์การตั้งค่า</button>
-                    <button type="button" class="btn btn-secondary btn-large" id="btnTestOverlayForm">🎉 ทดสอบยิง Alert (ด้วยค่าที่ตั้งไว้)</button>
                   </div>
 
                 </form>
@@ -657,6 +708,7 @@
 
       </div>
     </main>
+
   </div>
 
   <!-- Raw JSON Inspect Modal -->
@@ -668,6 +720,19 @@
       </div>
       <div class="modal-body">
         <pre><code id="jsonInspectCode"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Modal for Confirmations (Logout, Delete) -->
+  <div class="modal" id="confirmModal">
+    <div class="modal-content confirm-modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
+      <div class="modal-icon" id="confirmModalIcon" style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+      <h3 id="confirmModalTitle">ยืนยันการดำเนินการ</h3>
+      <p id="confirmModalText" style="color: #94a3b8; margin-bottom: 2rem;">คุณแน่ใจหรือไม่ว่าต้องการดำเนินการนี้?</p>
+      <div class="confirm-actions" style="display: flex; gap: 10px; justify-content: center;">
+        <button class="btn btn-secondary" id="btnConfirmCancel">ยกเลิก</button>
+        <button class="btn btn-danger" id="btnConfirmOk">ยืนยัน</button>
       </div>
     </div>
   </div>

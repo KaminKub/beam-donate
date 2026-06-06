@@ -9,6 +9,9 @@ class TursoStore extends session.Store {
   async get(sid, callback) {
     try {
       await ensureConnected();
+      const { isFallback } = require('./database');
+      if (isFallback) return callback(null, null);
+
       const db = getDB();
       const result = await db.execute({
         sql: 'SELECT session FROM sessions WHERE sid = ?',
@@ -27,6 +30,9 @@ class TursoStore extends session.Store {
   async set(sid, sessionData, callback) {
     try {
       await ensureConnected();
+      const { isFallback } = require('./database');
+      if (isFallback) return callback(null);
+
       const db = getDB();
       const expires = this.ttl ? Date.now() + this.ttl : null;
       await db.execute({
@@ -42,6 +48,9 @@ class TursoStore extends session.Store {
   async destroy(sid, callback) {
     try {
       await ensureConnected();
+      const { isFallback } = require('./database');
+      if (isFallback) return callback(null);
+
       const db = getDB();
       await db.execute({
         sql: 'DELETE FROM sessions WHERE sid = ?',

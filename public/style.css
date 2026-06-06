@@ -1,10 +1,17 @@
-/* ========== CSS Reset & Global Design System ========== */
+/* ========== Reset & Global Design System ========== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   font-family: 'Outfit', 'Noto Sans Thai', 'Kanit', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+.btn-disabled {
+  filter: grayscale(1) opacity(0.5);
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
 }
 
 :root {
@@ -331,25 +338,34 @@ body {
 
 /* ========== Preset Amount Grid Buttons ========== */
 .amount-options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-  margin-bottom: 25px;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: start;
+  gap: 8px;
+  margin-bottom: auto;
+  overflow-x: unset;
+  padding-bottom: 5px;
+  scrollbar-width: none;
+}
+
+.amount-options::-webkit-scrollbar {
+  display: none;
 }
 
 .amount-btn {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--border-radius-md);
-  padding: 16px 12px;
+  padding: 6px 12px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
   transition: var(--transition-smooth);
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .amount-btn::before {
@@ -369,21 +385,18 @@ body {
 }
 
 .amount-emoji {
-  font-size: 24px;
-  margin-bottom: 2px;
+  font-size: 18px;
   transition: transform 0.25s ease;
 }
 
 .amount-val {
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 700;
   color: #ffffff;
 }
 
 .amount-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 400;
+  display: none;
 }
 
 /* Hover States */

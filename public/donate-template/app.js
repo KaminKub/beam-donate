@@ -48,6 +48,7 @@ async function loadPageContent() {
       
       // Update texts
       pageTitle.textContent = data.pageTitle;
+      document.title = data.pageTitle;
       pageSubtitle.textContent = data.pageSubtitle;
       // Since the template has 2 subtitle lines, we'll split the subtitle by newline if available, or just use the first one
       const subtitles = data.pageSubtitle.split('\n');
@@ -65,6 +66,12 @@ async function loadPageContent() {
        
        // Update social links
       renderSocialLinks(data.socials);
+
+       // Update favicon
+       const favicon = document.getElementById('favicon');
+       if (favicon) {
+         favicon.href = data.profileImage || '/avatar.jpg';
+       }
     }
   } catch (error) {
     console.error('Error loading page content:', error);
@@ -74,16 +81,30 @@ async function loadPageContent() {
 function renderSocialLinks(socials) {
   socialLinksContainer.innerHTML = '';
   
-  Object.entries(socials).forEach(([platform, url]) => {
-    if (url) {
-      const iconClass = SOCIAL_ICONS[platform] || 'fa-link';
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.className = `social-btn ${platform}`;
-      a.innerHTML = `<i class="fa-brands ${iconClass}"></i>`;
-      socialLinksContainer.appendChild(a);
-    }
+  const activeLinks = Object.entries(socials).filter(([_, url]) => url);
+  const showLabels = activeLinks.length <= 3;
+
+  const platformNames = {
+    twitch: 'Twitch',
+    youtube: 'YouTube',
+    tiktok: 'TikTok',
+    facebook: 'Facebook',
+    x: 'X (Twitter)',
+    discord: 'Discord',
+    instagram: 'Instagram'
+  };
+
+  activeLinks.forEach(([platform, url]) => {
+    const iconClass = SOCIAL_ICONS[platform] || 'fa-link';
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.className = `social-btn ${platform}`;
+    
+    const label = showLabels ? `<span class="social-label">${platformNames[platform] || platform}</span>` : '';
+    a.innerHTML = `<i class="fa-brands ${iconClass}"></i>${label}`;
+    
+    socialLinksContainer.appendChild(a);
   });
 }
 

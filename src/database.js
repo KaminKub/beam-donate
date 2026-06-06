@@ -87,7 +87,9 @@ async function migrateDB() {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS streamers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        twitch_id TEXT UNIQUE NOT NULL,
+        twitch_id TEXT UNIQUE,
+        streamlabs_id TEXT UNIQUE,
+        streamlabs_username TEXT,
         username TEXT UNIQUE NOT NULL,
         discord_webhook_url TEXT,
         overlay_token TEXT NOT NULL,
@@ -103,6 +105,7 @@ async function migrateDB() {
         ttsVolume REAL DEFAULT 0.8,
         ttsRate REAL DEFAULT 1.0,
         ttsLanguage TEXT DEFAULT 'th-TH',
+        ttsVoice TEXT,
 
         profanityFilterEnabled INTEGER DEFAULT 1,
         profanityWords TEXT,
@@ -141,7 +144,11 @@ async function migrateDB() {
         social_x TEXT,
         social_discord TEXT,
         social_instagram TEXT,
-
+        
+        -- Streamlabs OAuth Tokens
+        streamlabs_access_token TEXT,
+        streamlabs_refresh_token TEXT,
+        
         -- Profile System
         profile_image_source TEXT DEFAULT 'twitch',
         profile_image_value TEXT,
@@ -194,7 +201,10 @@ async function migrateDB() {
     
     const requiredCols = [
       { name: 'twitch_id', type: 'TEXT' },
+      { name: 'streamlabs_id', type: 'TEXT' },
+      { name: 'streamlabs_username', type: 'TEXT' },
       { name: 'ttsReadDonor', type: 'INTEGER DEFAULT 1' },
+      { name: 'ttsVoice', type: 'TEXT' },
       { name: 'amountSuffix', type: "TEXT DEFAULT 'บาท'" },
       { name: 'showLabel', type: 'INTEGER DEFAULT 1' },
       { name: 'page_title', type: 'TEXT' },
@@ -208,13 +218,15 @@ async function migrateDB() {
       { name: 'social_x', type: 'TEXT' },
       { name: 'social_discord', type: 'TEXT' },
       { name: 'social_instagram', type: 'TEXT' },
-       { name: 'profile_image_source', type: "TEXT DEFAULT 'twitch'" },
-       { name: 'profile_image_value', type: 'TEXT' },
+      { name: 'profile_image_source', type: "TEXT DEFAULT 'twitch'" },
+      { name: 'profile_image_value', type: 'TEXT' },
        { name: 'profile_glow_color', type: "TEXT DEFAULT '#005704'" },
+       { name: 'streamlabs_access_token', type: 'TEXT' },
+       { name: 'streamlabs_refresh_token', type: 'TEXT' },
        { name: 'customImageMode', type: "TEXT DEFAULT 'emoji'" },
-       { name: 'customImageValue', type: 'TEXT' },
-       { name: 'customSoundUrl', type: 'TEXT' }
-     ];
+      { name: 'customImageValue', type: 'TEXT' },
+      { name: 'customSoundUrl', type: 'TEXT' }
+    ];
 
     for (const col of requiredCols) {
       if (!streamerCols.includes(col.name)) {
@@ -340,18 +352,28 @@ async function getTransactions(username = null) {
   let args = [];
   
   if (username) {
-    sql += ' WHERE streamer_username = ?';
+    sql += ' WHERE LOWER(streamer_username) = LOWER(?)';
     args.push(username);
   }
   
   sql += ' ORDER BY createdAt DESC';
   
   const result = await db.execute({ sql, args });
-  return result.rows.map(row => ({
-    ...row,
-    raw_response: row.raw_response ? JSON.parse(row.raw_response) : null,
-    raw_webhook: row.raw_webhook ? JSON.parse(row.raw_webhook) : null
-  }));
+  return result.rows.map(row => {
+    let rawResponse = null;
+    let rawWebhook = null;
+    try {
+      if (row.raw_response) rawResponse = JSON.parse(row.raw_response);
+    } catch (e) { console.error(`Failed to parse raw_response for tx ${row.id}:`, e); }
+    try {
+      if (row.raw_webhook) rawWebhook = JSON.parse(row.raw_webhook);
+    } catch (e) { console.error(`Failed to parse raw_webhook for tx ${row.id}:`, e); }
+    return {
+      ...row,
+      raw_response: rawResponse,
+      raw_webhook: rawWebhook
+    };
+  });
 }
 
 /**
@@ -369,10 +391,20 @@ async function getTransactionById(id) {
   });
   const row = result.rows[0];
   if (!row) return null;
+  
+  let rawResponse = null;
+  let rawWebhook = null;
+  try {
+    if (row.raw_response) rawResponse = JSON.parse(row.raw_response);
+  } catch (e) { console.error(`Failed to parse raw_response for tx ${row.id}:`, e); }
+  try {
+    if (row.raw_webhook) rawWebhook = JSON.parse(row.raw_webhook);
+  } catch (e) { console.error(`Failed to parse raw_webhook for tx ${row.id}:`, e); }
+
   return {
     ...row,
-    raw_response: row.raw_response ? JSON.parse(row.raw_response) : null,
-    raw_webhook: row.raw_webhook ? JSON.parse(row.raw_webhook) : null
+    raw_response: rawResponse,
+    raw_webhook: rawWebhook
   };
 }
 
@@ -466,6 +498,7 @@ async function getStreamerByToken(token) {
 }
 
 async function getStreamerByTwitchId(twitchId) {
+  if (!twitchId) return null;
   await ensureConnected();
   if (isFallback) return null;
   if (!db) return null;
@@ -476,11 +509,24 @@ async function getStreamerByTwitchId(twitchId) {
   return result.rows[0] || null;
 }
 
+async function getStreamerByStreamlabsId(streamlabsId) {
+  if (!streamlabsId) return null;
+  await ensureConnected();
+  if (isFallback) return null;
+  if (!db) return null;
+  const result = await db.execute({
+    sql: 'SELECT * FROM streamers WHERE streamlabs_id = ?',
+    args: [streamlabsId]
+  });
+  return result.rows[0] || null;
+}
+
 /**
  * Fetch streamer details by username.
 
  */
 async function getStreamer(username) {
+  if (!username) return null;
   await ensureConnected();
   if (isFallback) {
     // If we have memorySettings, we might find the user there, 
@@ -491,7 +537,7 @@ async function getStreamer(username) {
   }
   if (!db) return null;
   const result = await db.execute({
-    sql: 'SELECT * FROM streamers WHERE username = ?',
+    sql: 'SELECT * FROM streamers WHERE LOWER(username) = LOWER(?)',
     args: [username]
   });
   return result.rows[0] || null;
@@ -526,124 +572,132 @@ async function saveStreamer(data) {
   // (Encryption removed as beam_api_key and beam_merchant_id are no longer used)
   
   if (existing) {
-    await db.execute({
-      sql: `UPDATE streamers SET 
-            discord_webhook_url = COALESCE(?, streamers.discord_webhook_url),
-            overlay_token = ?,
-            is_active = COALESCE(?, streamers.is_active),
-            duration = COALESCE(?, streamers.duration),
-            soundEnabled = COALESCE(?, streamers.soundEnabled),
-            soundChoice = COALESCE(?, streamers.soundChoice),
-            soundVolume = COALESCE(?, streamers.soundVolume),
-            ttsEnabled = COALESCE(?, streamers.ttsEnabled),
-            ttsReadDonor = COALESCE(?, streamers.ttsReadDonor),
-            ttsVolume = COALESCE(?, streamers.ttsVolume),
-            ttsRate = COALESCE(?, streamers.ttsRate),
-            ttsLanguage = COALESCE(?, streamers.ttsLanguage),
-            ttsVoice = COALESCE(?, streamers.ttsVoice),
-            profanityFilterEnabled = COALESCE(?, streamers.profanityFilterEnabled),
-            profanityWords = COALESCE(?, streamers.profanityWords),
-            profanityReplaceStyle = COALESCE(?, streamers.profanityReplaceStyle),
-            messageTemplate = COALESCE(?, streamers.messageTemplate),
-            amountSuffix = COALESCE(?, streamers.amountSuffix),
-            showLabel = COALESCE(?, streamers.showLabel),
-            showDonorMessage = COALESCE(?, streamers.showDonorMessage),
-            minAmount = COALESCE(?, streamers.minAmount),
-            theme = COALESCE(?, streamers.theme),
-            animation = COALESCE(?, streamers.animation),
-            fontFamily = COALESCE(?, streamers.fontFamily),
-            primaryColor = COALESCE(?, streamers.primaryColor),
-            secondaryColor = COALESCE(?, streamers.secondaryColor),
-            backgroundColor = COALESCE(?, streamers.backgroundColor),
-            textColor = COALESCE(?, streamers.textColor),
-            borderColor = COALESCE(?, streamers.borderColor),
-            particleCount = COALESCE(?, streamers.particleCount),
-            fontSize = COALESCE(?, streamers.fontSize),
-            customImageMode = COALESCE(?, streamers.customImageMode),
-            customImageValue = COALESCE(?, streamers.customImageValue),
-            customSoundUrl = COALESCE(?, streamers.customSoundUrl),
-            alert_sound_url = COALESCE(?, streamers.alert_sound_url),
-            page_title = COALESCE(?, streamers.page_title),
-            page_subtitle = COALESCE(?, streamers.page_subtitle),
-            thank_you_header = COALESCE(?, streamers.thank_you_header),
-            thank_you_subtitle = COALESCE(?, streamers.thank_you_subtitle),
-            social_twitch = COALESCE(?, streamers.social_twitch),
-            social_youtube = COALESCE(?, streamers.social_youtube),
-            social_tiktok = COALESCE(?, streamers.social_tiktok),
-            social_facebook = COALESCE(?, streamers.social_facebook),
-            social_x = COALESCE(?, streamers.social_x),
-            social_discord = COALESCE(?, streamers.social_discord),
-            social_instagram = COALESCE(?, streamers.social_instagram),
-            profile_image_source = COALESCE(?, streamers.profile_image_source),
-            profile_image_value = COALESCE(?, streamers.profile_image_value),
-            profile_glow_color = COALESCE(?, streamers.profile_glow_color)
-            WHERE twitch_id = ?`,
-      args: [
-        finalData.discord_webhook_url || null,
-        overlayToken || null,
-        finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
-        finalData.duration !== undefined ? finalData.duration : null,
-        finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
-        finalData.soundChoice || null,
-        finalData.soundVolume !== undefined ? finalData.soundVolume : null,
-        finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : null,
-        finalData.ttsReadDonor !== undefined ? (finalData.ttsReadDonor ? 1 : 0) : null,
-        finalData.ttsVolume !== undefined ? finalData.ttsVolume : null,
-        finalData.ttsRate !== undefined ? finalData.ttsRate : null,
-        finalData.ttsLanguage || null,
-        finalData.ttsVoice || null,
-        finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
-        finalData.profanityWords || null,
-        finalData.profanityReplaceStyle || null,
-        finalData.messageTemplate || null,
-        finalData.amountSuffix || null,
-        finalData.showLabel !== undefined ? (finalData.showLabel ? 1 : 0) : null,
-        finalData.showDonorMessage !== undefined ? (finalData.showDonorMessage ? 1 : 0) : null,
-        finalData.minAmount !== undefined ? finalData.minAmount : null,
-        finalData.theme || null,
-        finalData.animation || null,
-        finalData.fontFamily || null,
-        finalData.primaryColor || null,
-        finalData.secondaryColor || null,
-        finalData.backgroundColor || null,
-        finalData.textColor || null,
-        finalData.borderColor || null,
-        finalData.particleCount !== undefined ? finalData.particleCount : null,
-        finalData.fontSize !== undefined ? finalData.fontSize : null,
-        finalData.customImageMode || null,
-        finalData.customImageValue || null,
-        finalData.customSoundUrl || null,
-        finalData.alert_sound_url || null,
-        finalData.page_title || null,
-        finalData.page_subtitle || null,
-        finalData.thank_you_header || null,
-        finalData.thank_you_subtitle || null,
-        finalData.social_twitch || null,
-        finalData.social_youtube || null,
-        finalData.social_tiktok || null,
-        finalData.social_facebook || null,
-        finalData.social_x || null,
-        finalData.social_discord || null,
-        finalData.social_instagram || null,
-        finalData.profile_image_source || null,
-        finalData.profile_image_value || null,
-        finalData.profile_glow_color || null,
-        finalData.twitch_id || null
-      ]
-    });
+      await db.execute({
+        sql: `UPDATE streamers SET 
+               twitch_id = COALESCE(?, streamers.twitch_id),
+               streamlabs_id = COALESCE(?, streamers.streamlabs_id),
+               streamlabs_username = COALESCE(?, streamers.streamlabs_username),
+               discord_webhook_url = COALESCE(?, streamers.discord_webhook_url),
+              overlay_token = ?,
+              is_active = COALESCE(?, streamers.is_active),
+              duration = COALESCE(?, streamers.duration),
+              soundEnabled = COALESCE(?, streamers.soundEnabled),
+              soundChoice = COALESCE(?, streamers.soundChoice),
+              soundVolume = COALESCE(?, streamers.soundVolume),
+              ttsEnabled = COALESCE(?, streamers.ttsEnabled),
+              ttsReadDonor = COALESCE(?, streamers.ttsReadDonor),
+              ttsVolume = COALESCE(?, streamers.ttsVolume),
+              ttsRate = COALESCE(?, streamers.ttsRate),
+              ttsLanguage = COALESCE(?, streamers.ttsLanguage),
+              ttsVoice = COALESCE(?, streamers.ttsVoice),
+              profanityFilterEnabled = COALESCE(?, streamers.profanityFilterEnabled),
+              profanityWords = COALESCE(?, streamers.profanityWords),
+              profanityReplaceStyle = COALESCE(?, streamers.profanityReplaceStyle),
+              messageTemplate = COALESCE(?, streamers.messageTemplate),
+              amountSuffix = COALESCE(?, streamers.amountSuffix),
+              showLabel = COALESCE(?, streamers.showLabel),
+              showDonorMessage = COALESCE(?, streamers.showDonorMessage),
+              minAmount = COALESCE(?, streamers.minAmount),
+              theme = COALESCE(?, streamers.theme),
+              animation = COALESCE(?, streamers.animation),
+              fontFamily = COALESCE(?, streamers.fontFamily),
+              primaryColor = COALESCE(?, streamers.primaryColor),
+              secondaryColor = COALESCE(?, streamers.secondaryColor),
+              backgroundColor = COALESCE(?, streamers.backgroundColor),
+              textColor = COALESCE(?, streamers.textColor),
+              borderColor = COALESCE(?, streamers.borderColor),
+              particleCount = COALESCE(?, streamers.particleCount),
+              fontSize = COALESCE(?, streamers.fontSize),
+              customImageMode = COALESCE(?, streamers.customImageMode),
+              customImageValue = COALESCE(?, streamers.customImageValue),
+              customSoundUrl = COALESCE(?, streamers.customSoundUrl),
+              alert_sound_url = COALESCE(?, streamers.alert_sound_url),
+              page_title = COALESCE(?, streamers.page_title),
+              page_subtitle = COALESCE(?, streamers.page_subtitle),
+              thank_you_header = COALESCE(?, streamers.thank_you_header),
+              thank_you_subtitle = COALESCE(?, streamers.thank_you_subtitle),
+              social_twitch = COALESCE(?, streamers.social_twitch),
+              social_youtube = COALESCE(?, streamers.social_youtube),
+              social_tiktok = COALESCE(?, streamers.social_tiktok),
+              social_facebook = COALESCE(?, streamers.social_facebook),
+              social_x = COALESCE(?, streamers.social_x),
+              social_discord = COALESCE(?, streamers.social_discord),
+              social_instagram = COALESCE(?, streamers.social_instagram),
+              profile_image_source = COALESCE(?, streamers.profile_image_source),
+              profile_image_value = COALESCE(?, streamers.profile_image_value),
+              profile_glow_color = COALESCE(?, streamers.profile_glow_color)
+              WHERE twitch_id = ?`,
+       args: [
+         finalData.twitch_id || null,
+         finalData.streamlabs_id || null,
+         finalData.streamlabs_username || null,
+         finalData.discord_webhook_url || null,
+          overlayToken || null,
+          finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : null,
+          finalData.duration !== undefined ? finalData.duration : null,
+          finalData.soundEnabled !== undefined ? (finalData.soundEnabled ? 1 : 0) : null,
+          finalData.soundChoice !== undefined ? finalData.soundChoice : null,
+          finalData.soundVolume !== undefined ? finalData.soundVolume : null,
+          finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : null,
+          finalData.ttsReadDonor !== undefined ? (finalData.ttsReadDonor ? 1 : 0) : null,
+          finalData.ttsVolume !== undefined ? finalData.ttsVolume : null,
+          finalData.ttsRate !== undefined ? finalData.ttsRate : null,
+          finalData.ttsLanguage !== undefined ? finalData.ttsLanguage : null,
+          finalData.ttsVoice !== undefined ? finalData.ttsVoice : null,
+          finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
+          finalData.profanityWords !== undefined ? finalData.profanityWords : null,
+          finalData.profanityReplaceStyle !== undefined ? finalData.profanityReplaceStyle : null,
+          finalData.messageTemplate !== undefined ? finalData.messageTemplate : null,
+          finalData.amountSuffix !== undefined ? finalData.amountSuffix : null,
+          finalData.showLabel !== undefined ? (finalData.showLabel ? 1 : 0) : null,
+          finalData.showDonorMessage !== undefined ? (finalData.showDonorMessage ? 1 : 0) : null,
+          finalData.minAmount !== undefined ? finalData.minAmount : null,
+          finalData.theme !== undefined ? finalData.theme : null,
+          finalData.animation !== undefined ? finalData.animation : null,
+          finalData.fontFamily !== undefined ? finalData.fontFamily : null,
+          finalData.primaryColor !== undefined ? finalData.primaryColor : null,
+          finalData.secondaryColor !== undefined ? finalData.secondaryColor : null,
+          finalData.backgroundColor !== undefined ? finalData.backgroundColor : null,
+          finalData.textColor !== undefined ? finalData.textColor : null,
+          finalData.borderColor !== undefined ? finalData.borderColor : null,
+          finalData.particleCount !== undefined ? finalData.particleCount : null,
+          finalData.fontSize !== undefined ? finalData.fontSize : null,
+          finalData.customImageMode !== undefined ? finalData.customImageMode : null,
+          finalData.customImageValue !== undefined ? finalData.customImageValue : null,
+          finalData.customSoundUrl !== undefined ? finalData.customSoundUrl : null,
+          finalData.alert_sound_url !== undefined ? finalData.alert_sound_url : null,
+          finalData.page_title !== undefined ? finalData.page_title : null,
+          finalData.page_subtitle !== undefined ? finalData.page_subtitle : null,
+          finalData.thank_you_header !== undefined ? finalData.thank_you_header : null,
+          finalData.thank_you_subtitle !== undefined ? finalData.thank_you_subtitle : null,
+          finalData.social_twitch !== undefined ? finalData.social_twitch : null,
+          finalData.social_youtube !== undefined ? finalData.social_youtube : null,
+          finalData.social_tiktok !== undefined ? finalData.social_tiktok : null,
+          finalData.social_facebook !== undefined ? finalData.social_facebook : null,
+          finalData.social_x !== undefined ? finalData.social_x : null,
+          finalData.social_discord !== undefined ? finalData.social_discord : null,
+          finalData.social_instagram !== undefined ? finalData.social_instagram : null,
+          finalData.profile_image_source !== undefined ? finalData.profile_image_source : null,
+          finalData.profile_image_value !== undefined ? finalData.profile_image_value : null,
+          finalData.profile_glow_color !== undefined ? finalData.profile_glow_color : null,
+          finalData.twitch_id || null
+        ]
+      });
   } else {
-    await db.execute({
-      sql: `INSERT INTO streamers (twitch_id, username, discord_webhook_url, overlay_token, is_active, 
-            duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
-            profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
-            theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
-            customImageMode, customImageValue, customSoundUrl, alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
-             social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram,
-             profile_image_source, profile_image_value, profile_glow_color)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        finalData.twitch_id || null,
-        finalData.username || null,
+     await db.execute({
+       sql: `INSERT INTO streamers (twitch_id, streamlabs_id, streamlabs_username, username, discord_webhook_url, overlay_token, is_active, 
+             duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
+             profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
+             theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
+             customImageMode, customImageValue, customSoundUrl, alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
+              social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram,
+              profile_image_source, profile_image_value, profile_glow_color)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       args: [
+         finalData.twitch_id || null,
+         finalData.streamlabs_id || null,
+         finalData.streamlabs_username || null,
+         finalData.username || null,
         finalData.discord_webhook_url || null,
         overlayToken || null,
         finalData.is_active !== undefined ? (finalData.is_active ? 1 : 0) : 1,
@@ -695,6 +749,7 @@ async function saveStreamer(data) {
         finalData.profile_glow_color || '#005704'
       ]
     });
+
   }
   
   return { ...finalData, overlay_token: overlayToken };
@@ -759,6 +814,39 @@ async function resolveProfileImage(streamer) {
   return '/avatar.jpg';
 }
 
+async function deleteStreamer(id) {
+  await ensureConnected();
+  if (isFallback) {
+    console.warn('⚠️ deleteStreamer called in Fallback mode. Not implemented for memory storage.');
+    return;
+  }
+  if (!db) throw new Error('Database not initialized');
+
+  // 1. Get username first to clean up transactions
+  const streamerRes = await db.execute({
+    sql: 'SELECT username FROM streamers WHERE id = ?',
+    args: [id]
+  });
+  const streamer = streamerRes.rows[0];
+  if (!streamer) return;
+
+  const username = streamer.username;
+
+  // 2. Delete associated transactions
+  await db.execute({
+    sql: 'DELETE FROM transactions WHERE LOWER(streamer_username) = LOWER(?)',
+    args: [username]
+  });
+
+  // 3. Delete the streamer record
+  await db.execute({
+    sql: 'DELETE FROM streamers WHERE id = ?',
+    args: [id]
+  });
+
+  console.log(`🗑️ Database: Deleted streamer ${username} and their transactions.`);
+}
+
 /**
  * Fetch overlay settings for a specific user.
  * If not found or user not in DB, returns defaultSettings.
@@ -808,22 +896,23 @@ async function saveSettings(username, settings) {
   });
 }
 
+
 module.exports = {
   initDB,
   getDB,
   ensureConnected,
   migrateDB,
   getTransactions,
-
-
   getTransactionById,
   saveTransaction,
   getSettings,
   saveSettings,
   getStreamer,
   getStreamerByTwitchId,
+  getStreamerByStreamlabsId,
   getStreamerByToken,
   getDecryptedStreamer,
   saveStreamer,
+  deleteStreamer,
   resolveProfileImage
 };

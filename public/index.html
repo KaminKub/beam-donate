@@ -6,20 +6,26 @@
   <title>TipKub - สร้างหน้าโดเนทสำหรับสตรีมเมอร์</title>
   <!-- Open Graph / Facebook / Discord / Line -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://tipkub.me/"> 
+  <meta property="og:url" content="/"> 
   <meta property="og:title" content="TipKub | สร้างหน้าโดเนทส่วนตัว ✨">
   <meta property="og:description" content="สร้างหน้าโดเนทแบบเรียบง่ายสำหรับสตรีมเมอร์ พร้อมระบบ Alert แจ้งเตือนบนจอแบบ Real-time ให้ทุกการสนับสนุนมีความหมาย">
-  <meta property="og:image" content="https://tipkub.me/banner.jpg">
+  <meta property="og:image" content="/banner.jpg">
 
   <!-- Twitter / X -->
   <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://tipkub.me/">
+  <meta property="twitter:url" content="/">
   <meta property="twitter:title" content="TipKub | สร้างหน้าโดเนทส่วนตัว ✨">
   <meta property="twitter:description" content="สร้างหน้าโดเนทแบบเรียบง่ายสำหรับสตรีมเมอร์ พร้อมระบบ Alert แจ้งเตือนบนจอแบบ Real-time ให้ทุกการสนับสนุนมีความหมาย">
-  <meta property="twitter:image" content="https://tipkub.me/banner.jpg">
+  <meta property="twitter:image" content="/banner.jpg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    html {
+      overflow-x: hidden;
+    }
+    * {
+      box-sizing: border-box;
+    }
     :root {
       --primary: #667eea;
       --secondary: #764ba2;
@@ -45,6 +51,7 @@
       height: 100%;
       z-index: -1;
       filter: blur(80px);
+      overflow: hidden;
     }
     .orb {
       position: absolute;
@@ -57,7 +64,9 @@
 
     .landing-container {
       text-align: center;
-      width: fit-content;
+      width: 90%;
+      max-width: 600px;
+      margin: 0 auto;
       padding: 2rem;
       z-index: 1;
       animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -71,6 +80,8 @@
       animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       animation-delay: 0.2s;
       opacity: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     p {
       font-size: 1.2rem;
@@ -162,10 +173,20 @@
        animation: shineText 3s linear infinite;
        line-height: 1;
      }
-     @keyframes shineText {
-       0% { background-position: 200% center; }
-       100% { background-position: 0% center; }
-     }
+    @keyframes shineText {
+      0% { background-position: 200% center; }
+      100% { background-position: 0% center; }
+    }
+
+    @media (max-width: 480px) {
+      p {
+        font-size: 1rem;
+      }
+      .landing-container {
+        width: 95%;
+        padding: 1rem;
+      }
+    }
    </style>
   </head>
   <body>
@@ -183,21 +204,25 @@
     <p>แพลตฟอร์มหน้าโดเนทสำเร็จรูป โดย สตรีมเมอร์เพื่อสตรีมเมอร์<br>รับโดเนทผ่านบัญชี Feel Free Pay ของคุณเอง!<br>Beta Test (กำลังพัฒนา)</p>
     
     <div class="cta-group">
-      <a href="/register" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> สร้างหน้าโดเนทส่วนตัว
-      </a>
       <a href="/login" class="btn btn-secondary">
         <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ Dashboard
       </a>
+      <a href="/register.html" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> สมัครสมาชิก
+      </a>
     </div>
     <div class="demo-btn-container">
-      <a href="/kaminkub" class="btn btn-secondary btn-small" style="width: fit-content;">
+      <a href="/kaminkub" class="btn btn-secondary btn-small" style="width: fit-content;" target="_blank">
         ตัวอย่างหน้าโดเนท
       </a>
     </div>
     <footer style="margin-top: 3rem; width: 100%; text-align: center; opacity: 0.6; font-size: 0.8rem;">
       <a href="/privacy.html" style="color: white; text-decoration: none; opacity: 0.7; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
         Privacy Policy | นโยบายความเป็นส่วนตัว
+      </a><br>
+      <span style="color: white; opacity: 0.7; margin: 0 10px;"></span>
+      <a href="/terms-of-services.html" style="color: white; text-decoration: none; opacity: 0.7; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+        Terms of Service | ข้อกำหนดและเงื่อนไขการให้บริการ
       </a>
     </footer>
   </div>

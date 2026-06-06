@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>เลี้ยงกาแฟ KaminKub</title>
+  <title>ยินดีต้อนรับ</title>
   <!-- Dynamic Open Graph / Social Metadata -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://tipkub.me/{{username}}">
+  <meta property="og:url" content="/{{username}}">
   <meta property="og:title" content="{{og_title}}">
   <meta property="og:description" content="{{og_description}}">
   <meta property="og:image" content="{{og_image}}">
@@ -14,7 +14,7 @@
   <meta property="twitter:title" content="{{og_title}}">
   <meta property="twitter:description" content="{{og_description}}">
   <meta property="twitter:image" content="{{og_image}}">
-  <link rel="icon" type="image/jpeg" href="avatar.jpg">
+  <link rel="icon" id="favicon" type="image/jpeg" href="avatar.jpg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
@@ -33,7 +33,7 @@
     <div id="step-amount" class="step active">
       <div class="card glass-card">
 <div class="header">
-   <h1 id="pageTitle">เลี้ยงกาแฟ KaminKub</h1>
+   <h1 id="pageTitle">กำลังโหลด...</h1>
    <img src="avatar.jpg" id="profileImage" class="glowing-avatar" alt="Profile">
    <div id="socialLinks" class="social-links-grid">
      <a href="https://twitch.tv/kaminkub" target="_blank" class="social-btn twitch">
@@ -63,28 +63,25 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-ccw" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
     </div>
 </div>
-        <!-- preset amount buttons -->
-        <div class="amount-options">
-          <button class="amount-btn" data-amount="5">
-            <span class="amount-val">฿5</span>
-            <span class="amount-desc"></span>
-          </button>
-          <button class="amount-btn" data-amount="10">
-            <span class="amount-val">฿10</span>
-            <span class="amount-desc"></span>
-          </button>
-          <button class="amount-btn" data-amount="20">
-            <span class="amount-val">฿20</span>
-            <span class="amount-desc"></span>
-          </button>
-          <button class="amount-btn" data-amount="30">
-            <span class="amount-val">฿30</span>
-            <span class="amount-desc"></span>
-          </button>
-        </div>
-
         <div class="custom-amount">
-          <label for="customAmount">หรือระบุจำนวนเงินด้วยตนเอง</label>
+          <div class="amount-options">
+            <button class="amount-btn" data-amount="5">
+              <span class="amount-val">฿5</span>
+              <span class="amount-desc"></span>
+            </button>
+            <button class="amount-btn" data-amount="10">
+              <span class="amount-val">฿10</span>
+              <span class="amount-desc"></span>
+            </button>
+            <button class="amount-btn" data-amount="20">
+              <span class="amount-val">฿20</span>
+              <span class="amount-desc"></span>
+            </button>
+            <button class="amount-btn" data-amount="30">
+              <span class="amount-val">฿30</span>
+              <span class="amount-desc"></span>
+            </button>
+          </div>
           <div class="input-group">
             <span class="currency">฿</span>
             <input type="number" id="customAmount" placeholder="ระบุจำนวนเงิน..." min="1">
@@ -109,7 +106,7 @@
         <div style="text-align: center; margin: 20px auto;">
           <a style="font-size: 18px; color: #979797;">จัดทำโดย</a>
             <h2 style="margin: 3px 0;">
-            <a href="https://tipkub.me" style="text-decoration: none; font-size: 31px;">
+            <a href="/" style="text-decoration: none; font-size: 31px;">
                 <span class="highlight-amount">TipKub</span>
               </a>
             </h2>

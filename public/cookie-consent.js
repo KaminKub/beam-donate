@@ -10,8 +10,9 @@
     .cookie-consent-banner {
       position: fixed;
       top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 0;
+      right: 0;
+      margin: 0 auto;
       width: auto;
       max-width: 90%;
       background: rgba(255, 255, 255, 0.1);
@@ -67,14 +68,14 @@
       filter: brightness(1.1);
     }
     @keyframes slideDown {
-      from { transform: translate(-50%, -100px); opacity: 0; }
-      to { transform: translate(-50%, 0); opacity: 1; }
+      from { transform: translateY(-100px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
     @media (max-width: 600px) {
       .cookie-consent-banner {
         flex-direction: column;
         text-align: center;
-        width: 85%;
+        width: 90%;
         padding: 1rem;
       }
       .cookie-consent-text {
@@ -104,7 +105,7 @@
     localStorage.setItem('tipkub-cookie-consent', 'true');
     banner.style.transition = 'all 0.3s ease';
     banner.style.opacity = '0';
-    banner.style.transform = 'translate(-50%, -20px)';
+    banner.style.transform = 'translateY(-20px)';
     setTimeout(() => banner.remove(), 300);
   });
 })();
