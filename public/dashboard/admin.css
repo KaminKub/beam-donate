@@ -1252,3 +1252,134 @@ label {
     border-bottom: 1px solid var(--border-color);
   }
 }
+
+/* ========== Account & Connection List ========== */
+.account-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.acc-username {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.account-actions {
+  padding: 0 20px 20px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.connection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.connection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.connection-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.connection-row.is-connected {
+  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.conn-platform {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.conn-icon {
+  font-size: 1.3rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.connection-row[data-platform="twitch"] .conn-icon {
+  color: #9146ff;
+  background: rgba(145, 70, 255, 0.1);
+}
+
+.connection-row[data-platform="streamlabs"] .conn-icon {
+  color: #00cc66;
+  background: rgba(0, 204, 102, 0.1);
+}
+
+.connection-row[data-platform="streamlabs"] .conn-icon svg {
+  fill: currentColor;
+}
+
+.conn-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conn-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.conn-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.conn-status.connected {
+  color: var(--success);
+}
+
+.btn-conn {
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-connected {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: var(--success) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+.btn-disconnected {
+  cursor: pointer;
+}
+
+.btn-disconnected:hover {
+  background: var(--primary) !important;
+  color: #fff !important;
+}

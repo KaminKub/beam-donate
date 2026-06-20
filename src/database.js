@@ -521,6 +521,13 @@ async function getStreamerByStreamlabsId(streamlabsId) {
   return result.rows[0] || null;
 }
 
+async function getStreamerById(userId) {
+  if (!userId) return null;
+  const byTwitch = await getStreamerByTwitchId(userId);
+  if (byTwitch) return byTwitch;
+  return await getStreamerByStreamlabsId(userId);
+}
+
 /**
  * Fetch streamer details by username.
 
@@ -910,6 +917,7 @@ module.exports = {
   getStreamer,
   getStreamerByTwitchId,
   getStreamerByStreamlabsId,
+  getStreamerById,
   getStreamerByToken,
   getDecryptedStreamer,
   saveStreamer,

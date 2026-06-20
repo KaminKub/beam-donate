@@ -265,8 +265,10 @@
         
         const data = await res.json();
         profileImg.src = data.profileImage;
-        twitchName.textContent = data.twitchName;
-        usernameInput.value = data.twitchName.toLowerCase().replace(/\s+/g, '');
+        const displayName = data.twitchName || data.streamlabsName || data.streamlabsUsername || 'Unknown';
+        twitchName.textContent = displayName;
+        const suggestedUser = (data.twitchName || data.streamlabsUsername || '').toLowerCase().replace(/\s+/g, '');
+        usernameInput.value = suggestedUser;
       } catch (e) {
         window.location.href = '/login';
       }

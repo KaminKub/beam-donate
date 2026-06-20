@@ -419,9 +419,9 @@ async function loadAccountInfo() {
       document.getElementById('accUsername').textContent = data.username;
 
       // Handle Twitch Connection
-      updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch');
+      updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch');
       // Handle Streamlabs Connection
-      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs');
+      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs');
 
     } else {
       throw new Error('Failed to load account info');
@@ -432,24 +432,32 @@ async function loadAccountInfo() {
   }
 }
 
-function updateConnectionBtn(id, connected, authUrl) {
+function updateConnectionBtn(id, connected, authUrl, statusId) {
   const btn = document.getElementById(id);
   if (!btn) return;
 
+  const row = btn.closest('.connection-row');
+  const statusEl = statusId ? document.getElementById(statusId) : null;
+
   if (connected) {
-    btn.innerHTML = '✔️ เชื่อมต่อ';
-    btn.classList.add('btn-disabled');
-    btn.style.background = '#4b5563';
-    btn.style.color = '#9ca3af';
-    btn.style.cursor = 'not-allowed';
-    btn.style.pointerEvents = 'none';
+    btn.innerHTML = 'เชื่อมต่อแล้ว';
+    btn.classList.add('btn-connected');
+    btn.classList.remove('btn-disconnected');
+    if (row) row.classList.add('is-connected');
+    if (statusEl) {
+      statusEl.textContent = 'เชื่อมต่อแล้ว';
+      statusEl.classList.add('connected');
+    }
+    btn.onclick = null;
   } else {
     btn.innerHTML = 'เชื่อมต่อ';
-    btn.classList.remove('btn-disabled');
-    btn.style.background = '';
-    btn.style.color = '';
-    btn.style.cursor = 'pointer';
-    btn.style.pointerEvents = 'auto';
+    btn.classList.remove('btn-connected');
+    btn.classList.add('btn-disconnected');
+    if (row) row.classList.remove('is-connected');
+    if (statusEl) {
+      statusEl.textContent = 'ยังไม่ได้เชื่อมต่อ';
+      statusEl.classList.remove('connected');
+    }
     btn.onclick = () => window.location.href = authUrl;
   }
 }

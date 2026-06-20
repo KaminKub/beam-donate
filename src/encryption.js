@@ -11,14 +11,16 @@ const AUTH_TAG_LENGTH = 16;
  */
 function encrypt(text) {
   if (!text) return null;
-  
+
   const masterKey = process.env.MASTER_ENCRYPTION_KEY;
+  const salt = process.env.ENCRYPTION_SALT || 'default-salt-change-in-production';
+
   if (!masterKey) {
     throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
   }
 
-  // Ensure key is 32 bytes
-  const key = crypto.scryptSync(masterKey, 'salt', 32);
+  // Ensure key is 32 bytes using the salt
+  const key = crypto.scryptSync(masterKey, salt, 32);
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -39,6 +41,8 @@ function decrypt(encryptedText) {
   if (!encryptedText) return null;
 
   const masterKey = process.env.MASTER_ENCRYPTION_KEY;
+  const salt = process.env.ENCRYPTION_SALT || 'default-salt-change-in-production';
+
   if (!masterKey) {
     throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
   }
@@ -48,10 +52,10 @@ function decrypt(encryptedText) {
     throw new Error('Invalid encrypted text format');
   }
 
-  const key = crypto.scryptSync(masterKey, 'salt', 32);
+  const key = crypto.scryptSync(masterKey, salt, 32);
   const iv = Buffer.from(ivBase64, 'base64');
   const authTag = Buffer.from(authTagBase64, 'base64');
-  
+
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
 

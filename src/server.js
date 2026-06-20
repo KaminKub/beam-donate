@@ -19,6 +19,7 @@ const axios = require('axios');
 const session = require('express-session');
 const TursoStore = require('./sessionStore');
 const passport = require('passport');
+const rateLimit = require('express-rate-limit');
 
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
@@ -65,7 +66,27 @@ const defaultSettings = {
 };
 
 // ========== SSE Alert System ==========
+const MAX_SSE_CLIENTS = 500;
+const SSE_CLIENT_TTL = 5 * 60 * 1000;
 let sseClients = [];
+
+setInterval(() => {
+  const now = Date.now();
+  const before = sseClients.length;
+  sseClients = sseClients.filter(c => (now - c.lastActivity) < SSE_CLIENT_TTL);
+  if (before !== sseClients.length) {
+    console.log(`🧹 SSE cleanup: removed ${before - sseClients.length} stale clients, ${sseClients.length} remaining`);
+  }
+}, 60000);
+
+const DONATE_TEMPLATE = (() => {
+  try {
+    return fs.readFileSync(path.join(__dirname, '../public/donate-template/index.html'), 'utf8');
+  } catch (err) {
+    console.error('❌ Failed to load donate template:', err.message);
+    return null;
+  }
+})();
 
 function broadcastAlert(username, alertData) {
   const data = JSON.stringify(alertData);
@@ -97,14 +118,39 @@ async function logTransaction(data) {
 // Middleware
 app.use(cors());
 
+if (!process.env.SESSION_SECRET) {
+  console.error('❌ CRITICAL ERROR: SESSION_SECRET is not defined in the environment!');
+  process.exit(1);
+}
+
+const REQUIRED_ENV_VARS = [
+  'TWITCH_CLIENT_ID',
+  'TWITCH_CLIENT_SECRET',
+  'TWITCH_CALLBACK_URL',
+  'STREAMLABS_CLIENT_ID',
+  'STREAMLABS_CLIENT_SECRET',
+  'STREAMLABS_CALLBACK_URL',
+  'MASTER_ENCRYPTION_KEY',
+];
+
+const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error(`❌ CRITICAL ERROR: Missing required environment variables: ${missingVars.join(', ')}`);
+  process.exit(1);
+}
+
+if (!process.env.WEBHOOK_SECRET || process.env.WEBHOOK_SECRET === 'your_webhook_secret') {
+  console.warn('⚠️ WARNING: WEBHOOK_SECRET is not set or is using default value. Webhook verification will fail.');
+}
+
 app.use(session({
   store: new TursoStore(),
-  secret: process.env.SESSION_SECRET || 'twitch-secret-key',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production', 
-    httpOnly: true, 
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -145,7 +191,7 @@ passport.use(new OAuth2Strategy({
     clientID: process.env.STREAMLABS_CLIENT_ID,
     clientSecret: process.env.STREAMLABS_CLIENT_SECRET,
     callbackURL: process.env.STREAMLABS_CALLBACK_URL,
-    scope: process.env.STREAMLABS_SCOPE || 'identity'
+    scope: process.env.STREAMLABS_SCOPE || '',
   },
   async (accessToken, refreshToken, params, profile, done) => {
     try {
@@ -181,7 +227,7 @@ passport.deserializeUser(async (obj, done) => {
     if (!userId) return done(null, obj);
 
     // Try to find the streamer by either Twitch or Streamlabs ID
-    const streamer = await db.getStreamerByTwitchId(userId) || await db.getStreamerByStreamlabsId(userId);
+    const streamer = await db.getStreamerById(userId);
     
     if (streamer) {
       // Attach username to the user object for easy access in req.user.username
@@ -199,12 +245,22 @@ passport.deserializeUser(async (obj, done) => {
   }
 });
 
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ========== Helper Functions ==========
 async function getActualUsername(user) {
   if (!user) return null;
   const userId = user.twitch_id || user.streamlabs_id || user.id;
   try {
-    const streamer = await db.getStreamerByTwitchId(userId) || await db.getStreamerByStreamlabsId(userId);
+    const streamer = await db.getStreamerById(userId);
     if (streamer) return streamer.username;
   } catch (err) {
     console.error('Error resolving actual username:', err);
@@ -245,6 +301,7 @@ app.get('/register/setup', (req, res) => {
 });
 
 app.get('/api/register/pending', (req, res) => {
+  console.log('📋 [Register Pending] Session pendingUser:', req.session.pendingUser ? JSON.stringify({ streamlabsId: !!req.session.pendingUser.streamlabsId, twitchId: !!req.session.pendingUser.twitchId, streamlabsName: req.session.pendingUser.streamlabsName, profileImage: !!req.session.pendingUser.profileImage }) : '(none)');
   if (!req.session.pendingUser) return res.status(401).json({ error: 'Unauthorized' });
   res.json(req.session.pendingUser);
 });
@@ -280,7 +337,7 @@ app.post('/api/register/complete', async (req, res) => {
     }
   
     const pending = req.session.pendingUser;
-    console.log(`💾 [Register Complete] Saving new user to DB...`, { twitchId: pending.twitchId, streamlabsId: pending.streamlabsId });
+    console.log(`💾 [Register Complete] Saving user...`, { twitchId: pending.twitchId, streamlabsId: pending.streamlabsId, username: normalizedUsername, hasProfileImage: !!pending.profileImage });
     
     const newUser = await db.saveStreamer({
       twitch_id: pending.twitchId || null,
@@ -290,7 +347,9 @@ app.post('/api/register/complete', async (req, res) => {
       streamlabs_refresh_token: pending.streamlabs_refresh_token || null,
       username: normalizedUsername,
       overlay_token: crypto.randomBytes(16).toString('hex'),
-      is_active: 1
+      is_active: 1,
+      profile_image_value: pending.profileImage || null,
+      profile_image_source: pending.profileImage ? (pending.streamlabsId ? 'streamlabs' : 'twitch') : null
     });
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
@@ -308,7 +367,7 @@ app.post('/api/register/complete', async (req, res) => {
     });
   } catch (err) {
     console.error('💥 [Register Complete] CRITICAL ERROR during registration:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -319,7 +378,7 @@ app.get('/auth/twitch', (req, res, next) => {
 app.get('/auth/streamlabs', (req, res) => {
   const clientId = process.env.STREAMLABS_CLIENT_ID;
   const callbackUrl = process.env.STREAMLABS_CALLBACK_URL;
-  const scope = process.env.STREAMLABS_SCOPE || 'identity';
+  const scope = process.env.STREAMLABS_SCOPE || '';
   const responseType = process.env.STREAMLABS_RESPONSE_TYPE || 'code';
 
   if (!clientId || !callbackUrl) {
@@ -327,10 +386,17 @@ app.get('/auth/streamlabs', (req, res) => {
     return res.status(500).send('Server Configuration Error: Missing Streamlabs Credentials');
   }
 
-  const authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=${responseType}&scope=${scope}`;
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
+
+  let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=${responseType}&state=${state}`;
+  if (scope) authUrl += `&scope=${encodeURIComponent(scope)}`;
   
   console.log(`🚀 Redirecting to Streamlabs: ${authUrl}`);
-  res.redirect(authUrl);
+  req.session.save((err) => {
+    if (err) console.error('❌ Session save error before Streamlabs redirect:', err);
+    res.redirect(authUrl);
+  });
 });
 
 app.get('/auth/register/twitch', (req, res) => {
@@ -341,10 +407,9 @@ app.get('/auth/register/twitch', (req, res) => {
 });
 
 app.get('/auth/register/streamlabs', (req, res) => {
-  // Clear any existing pending user to start a fresh registration flow
-  req.session.pendingUser = null;
-  
-  // Explicitly redirect to the auth flow to begin registration
+  if (req.session.pendingUser && req.session.pendingUser.streamlabsId) {
+    return res.redirect('/register/setup');
+  }
   res.redirect('/auth/streamlabs');
 });
 
@@ -374,6 +439,17 @@ app.get('/auth/twitch/callback',
       }
   
     if (existingUser) {
+      // Refresh Twitch profile image on every login
+      const profileImageUrl = user.profile_image_url || existingUser.profile_image_value;
+      if (profileImageUrl && profileImageUrl !== existingUser.profile_image_value) {
+        await db.saveStreamer({
+          ...existingUser,
+          twitch_id: twitchId,
+          profile_image_value: profileImageUrl,
+          profile_image_source: 'twitch'
+        }).catch(e => console.error('Failed to sync profile image:', e.message));
+      }
+
       // Force save session to DB before redirecting to prevent session loss on serverless environments
       req.session.save((err) => {
         if (err) {
@@ -387,7 +463,7 @@ app.get('/auth/twitch/callback',
         req.session.pendingUser = {
           twitchId: twitchId,
           twitchName: twitchName,
-          profileImage: user._json?.profile_image_url || '/avatar.jpg'
+          profileImage: user.profile_image_url || '/avatar.jpg'
         };
         
         // Force save session to DB before redirecting to prevent session loss on serverless environments
@@ -395,7 +471,7 @@ app.get('/auth/twitch/callback',
           if (err) {
             console.error('❌ Session save error during registration:', err);
           }
-          return res.redirect('/register');
+        return res.redirect('/register/setup');
         });
       }
     } catch (err) {
@@ -406,52 +482,97 @@ app.get('/auth/twitch/callback',
 );
 
 app.get('/auth/streamlabs/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state, error, error_description } = req.query;
+
+  console.log('📥 Streamlabs callback received:', { code: code ? '(present)' : '(missing)', state: state ? '(present)' : '(missing)', error, error_description });
+
+  if (error) {
+    console.error(`❌ Streamlabs returned error: ${error} - ${error_description || 'no description'}`);
+    delete req.session.oauthState;
+    return res.redirect('/login-failed');
+  }
 
   if (!code) {
     console.error('❌ Streamlabs callback missing code');
     return res.redirect('/login-failed');
   }
 
+  if (!state || state !== req.session.oauthState) {
+    console.error('❌ Streamlabs CSRF validation failed - state mismatch', { sessionState: req.session.oauthState ? '(present)' : '(missing)', queryState: state || '(missing)' });
+    delete req.session.oauthState;
+    return res.redirect('/login-failed');
+  }
+
+  delete req.session.oauthState;
+
   try {
-    // 1. Exchange code for access_token
-    console.log('🔑 Exchanging Streamlabs code for token...');
-    const tokenResponse = await axios.post('https://streamlabs.com/api/v2.0/token', null, {
-      params: {
-        client_id: process.env.STREAMLABS_CLIENT_ID,
-        client_secret: process.env.STREAMLABS_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: process.env.STREAMLABS_CALLBACK_URL
+    // 1. Exchange code for access_token (POST JSON body per official docs)
+    console.log('🔑 [Streamlabs] Exchanging code for token...');
+    console.log('🔑 [Streamlabs] Client ID:', process.env.STREAMLABS_CLIENT_ID?.substring(0, 8) + '...');
+    console.log('🔑 [Streamlabs] Redirect URI:', process.env.STREAMLABS_CALLBACK_URL);
+
+    const tokenResponse = await axios.post('https://streamlabs.com/api/v2.0/token', {
+      grant_type: 'authorization_code',
+      client_id: process.env.STREAMLABS_CLIENT_ID,
+      client_secret: process.env.STREAMLABS_CLIENT_SECRET,
+      redirect_uri: process.env.STREAMLABS_CALLBACK_URL,
+      code: code
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
 
+    console.log('🔑 [Streamlabs] Token response status:', tokenResponse.status);
+    console.log('🔑 [Streamlabs] Token response keys:', Object.keys(tokenResponse.data).join(', '));
+
     const accessToken = tokenResponse.data.access_token;
     const refreshToken = tokenResponse.data.refresh_token;
-    if (!accessToken) throw new Error('No access token received from Streamlabs');
+    if (!accessToken) {
+      console.error('❌ [Streamlabs] Token response missing access_token:', JSON.stringify(tokenResponse.data));
+      throw new Error('No access token received from Streamlabs');
+    }
+
+    console.log('✅ [Streamlabs] Token obtained successfully');
 
     // 2. Get user profile info using access_token
-    console.log('👤 Fetching Streamlabs user profile...');
+    console.log('👤 [Streamlabs] Fetching user profile...');
     const userResponse = await axios.get('https://streamlabs.com/api/v2.0/user', {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     });
+
+    console.log('👤 [Streamlabs] User response status:', userResponse.status);
+    console.log('👤 [Streamlabs] User response keys:', Object.keys(userResponse.data).join(', '));
+    console.log('👤 [Streamlabs] User data:', JSON.stringify(userResponse.data).substring(0, 300));
 
     const userData = userResponse.data;
     const streamlabsId = userData.id;
     const streamlabsName = userData.username;
     const profileImage = userData.profile_image || '/avatar.jpg';
 
-    if (!streamlabsId) throw new Error('No Streamlabs ID received from profile API');
+    console.log('👤 [Streamlabs] Parsed - ID:', streamlabsId, 'Username:', streamlabsName, 'Image:', profileImage ? '(present)' : '(missing)');
+
+    if (!streamlabsId) {
+      console.error('❌ [Streamlabs] No streamlabs ID in profile response');
+      throw new Error('No Streamlabs ID received from profile API');
+    }
 
     // 3. DB Logic: Upsert / Linking
+    console.log('🗄️ [Streamlabs] Checking DB...');
     
     // Check if there's an existing authenticated session (e.g. logged in via Twitch)
     if (req.isAuthenticated()) {
       const currentUserId = req.user.id || req.user.twitch_id;
-      const existingUser = await db.getStreamerByTwitchId(currentUserId) || await db.getStreamerByStreamlabsId(currentUserId);
+      console.log('🔗 [Streamlabs] User already authenticated, looking up by:', currentUserId);
+      const existingUser = await db.getStreamerById(currentUserId);
       
       if (existingUser) {
-        console.log(`🔗 Linking Streamlabs ID ${streamlabsId} to existing user ${existingUser.username}`);
+        console.log(`🔗 [Streamlabs] Linking Streamlabs ID ${streamlabsId} to user ${existingUser.username}`);
         await db.saveStreamer({
           ...existingUser,
           streamlabs_id: streamlabsId,
@@ -464,9 +585,12 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     }
 
     // Check if this Streamlabs ID already exists in our DB
+    console.log('🔍 [Streamlabs] Looking up by streamlabsId:', streamlabsId);
     const existingUser = await db.getStreamerByStreamlabsId(streamlabsId);
+    console.log('🔍 [Streamlabs] Existing user:', existingUser ? existingUser.username : 'none');
+
     if (existingUser) {
-      console.log(`✅ User ${existingUser.username} logged in via Streamlabs. Updating tokens...`);
+      console.log(`✅ [Streamlabs] Returning user ${existingUser.username}. Updating tokens...`);
       await db.saveStreamer({
         ...existingUser,
         streamlabs_access_token: accessToken,
@@ -476,16 +600,17 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       // Create a session for this user
       req.login(existingUser, (err) => {
         if (err) {
-          console.error('Login error:', err);
+          console.error('❌ [Streamlabs] Login error:', err);
           return res.redirect('/login-failed');
         }
         req.session.save(() => {
+          console.log('✅ [Streamlabs] Session saved, redirecting to dashboard');
           return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
         });
       });
     } else {
       // 4. New User Flow: Store in session and send to registration setup
-      console.log(`🆕 New Streamlabs user detected: ${streamlabsName}. Starting registration flow.`);
+      console.log(`🆕 [Streamlabs] New user: ${streamlabsName}. Storing in session...`);
        req.session.pendingUser = {
          streamlabsId: streamlabsId,
          streamlabsUsername: streamlabsName,
@@ -496,13 +621,22 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
        };
       
       req.session.save((err) => {
-        if (err) console.error('Session save error:', err);
-        return res.redirect('/register');
+        if (err) {
+          console.error('❌ [Streamlabs] Session save error:', err);
+          return res.redirect('/login-failed');
+        }
+        console.log('✅ [Streamlabs] Session saved, redirecting to /register/setup');
+        return res.redirect('/register/setup');
       });
     }
 
   } catch (err) {
-    console.error('💥 Streamlabs Callback Error:', err.response?.data || err.message);
+    console.error('💥 [Streamlabs] Callback Error:', err.message);
+    console.error('💥 [Streamlabs] Error stack:', err.stack?.substring(0, 500));
+    if (err.response) {
+      console.error('💥 [Streamlabs] Response status:', err.response.status);
+      console.error('💥 [Streamlabs] Response data:', JSON.stringify(err.response.data).substring(0, 500));
+    }
     res.redirect('/login-failed');
   }
 });
@@ -526,9 +660,9 @@ app.get('/alert-test', (req, res) => {
 app.get('/admin', async (req, res) => {
   if (req.isAuthenticated()) {
     const user = req.user;
-    const twitchId = user.twitch_id || user.id;
+    const userId = user.twitch_id || user.id;
     try {
-      const streamer = await db.getStreamerByTwitchId(twitchId);
+      const streamer = await db.getStreamerById(userId);
       if (streamer) {
         return res.redirect(`/${streamer.username.toLowerCase()}/dashboard`);
       }
@@ -577,7 +711,7 @@ app.post('/api/create-charge', async (req, res) => {
     res.json({ success: true, paymentUrl: charge.url });
   } catch (error) {
     console.error('❌ Create payment link failed!', error.message);
-    res.status(500).json({ error: 'ไม่สามารถสร้างรายการบริจาคได้', details: error.message });
+    res.status(500).json({ error: 'ไม่สามารถสร้างรายการบริจาคได้' });
   }
 });
 
@@ -604,14 +738,17 @@ app.post('/webhook', async (req, res) => {
   try {
     const signature = req.headers['x-beam-signature'];
     const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (webhookSecret && signature) {
-      const secretBuffer = Buffer.from(webhookSecret, 'base64');
-      const hmac = crypto.createHmac('sha256', secretBuffer);
-      const digest = hmac.update(req.rawBody).digest('base64');
-      if (signature !== digest) return res.status(401).json({ error: 'Invalid signature' });
-    } else if (webhookSecret && !signature) {
+    if (!webhookSecret) {
+      console.error('❌ CRITICAL ERROR: WEBHOOK_SECRET is not configured');
+      return res.status(500).json({ error: 'Internal Server Error: Webhook secret not configured' });
+    }
+    if (!signature) {
       return res.status(400).json({ error: 'Missing signature' });
     }
+    const secretBuffer = Buffer.from(webhookSecret, 'base64');
+    const hmac = crypto.createHmac('sha256', secretBuffer);
+    const digest = hmac.update(req.rawBody).digest('base64');
+    if (signature !== digest) return res.status(401).json({ error: 'Invalid signature' });
     const event = req.body;
     const eventType = req.headers['x-beam-event'] || event.type;
     if (eventType === 'charge.completed' || eventType === 'charge.succeeded' || event.status === 'SUCCEEDED') {
@@ -632,7 +769,6 @@ app.post('/webhook', async (req, res) => {
       });
       const txDetails = (await db.getTransactionById(targetId)) || {};
       
-      // Targeted Broadcast: Send only to the streamer who received the money
       broadcastAlert(txDetails.streamer_username, {
         type: 'donation',
         donor: txDetails.donor || 'Anonymous',
@@ -647,12 +783,16 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ========== Multi-User Dynamic Routing Configuration ==========
 const RESERVED_WORDS = ['login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register'];
+
+function isReservedPath(path) {
+  const firstSegment = path.split('/')[1];
+  return RESERVED_WORDS.includes(firstSegment);
+}
 
 async function validateUsername(req, res, next) {
   const { username } = req.params;
-  if (RESERVED_WORDS.includes(username)) return next();
+  if (isReservedPath(req.path)) return next();
   try {
     const user = await db.getStreamer(username);
     if (user) {
@@ -671,16 +811,15 @@ async function ensureUserOwner(req, res, next) {
     const { username } = req.params;
     const user = req.user;
     
-    // Handle both Twitch profile (user.id) and Streamer record (user.twitch_id)
-    const twitchId = user.twitch_id || user.id;
+    const userId = user.twitch_id || user.id;
     
-    if (!twitchId) {
-      console.error('❌ Ownership check failed: No Twitch ID found in user session');
+    if (!userId) {
+      console.error('❌ Ownership check failed: No user ID found in session');
       return res.status(403).send('Forbidden: ไม่พบข้อมูลการยืนยันตัวตน');
     }
 
     try {
-      const streamer = await db.getStreamerByTwitchId(twitchId);
+      const streamer = await db.getStreamerById(userId);
       if (streamer && streamer.username.toLowerCase() === username.toLowerCase()) {
         return next();
       }
@@ -714,12 +853,18 @@ app.get('/api/alerts/stream', async (req, res) => {
     authMethod = 'session';
   }
 
+  if (sseClients.length >= MAX_SSE_CLIENTS) {
+    res.status(503).json({ error: 'Too many concurrent overlay connections' });
+    return;
+  }
+
   const isValidToken = authMethod === 'token';
+  const now = Date.now();
   
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' });
   res.write(`data: ${JSON.stringify({ type: 'connected', message: `Overlay connected as ${authenticatedUser || 'Unknown'}` })}\n\n`);
   
-  sseClients.push({ res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod });
+  sseClients.push({ res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now });
   
   const keepAlive = setInterval(() => { res.write(`: keep-alive\n\n`); }, 30000);
   
@@ -758,16 +903,25 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
 });
 
 
-app.post('/api/transactions/:id/status', async (req, res) => {
+app.post('/api/transactions/:id/status', ensureAuthenticated, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const validStatuses = ['pending', 'successful', 'failed'];
   if (!validStatuses.includes(status)) return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
+
   try {
     const tx = await db.getTransactionById(id);
     if (!tx) return res.status(404).json({ error: 'ไม่พบธุรกรรม' });
+
+    // Authorization check: Ensure the authenticated user is the owner of this transaction
+    const actualUsername = await getActualUsername(req.user);
+    if (actualUsername !== tx.streamer_username) {
+      return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์จัดการธุรกรรมนี้' });
+    }
+
     const updatedTx = await db.saveTransaction({ id, status });
     if (status === 'successful') {
+      // Refresh txDetails to get the most recent data for broadcasting
       const txDetails = await db.getTransactionById(id);
       broadcastAlert(txDetails.streamer_username, {
         type: 'donation',
@@ -780,6 +934,7 @@ app.post('/api/transactions/:id/status', async (req, res) => {
     }
     res.json({ success: true, transaction: updatedTx });
   } catch (err) {
+    console.error('Error updating transaction status:', err);
     res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานะได้' });
   }
 });
@@ -825,7 +980,7 @@ app.delete('/api/user/delete', ensureAuthenticated, async (req, res) => {
     const twitchId = user.twitch_id || user.id;
     
     // Verify ownership one last time
-    const streamer = await db.getStreamerByTwitchId(twitchId);
+    const streamer = await db.getStreamerById(twitchId);
     if (!streamer) return res.status(404).json({ error: 'User not found' });
     
     console.log(`🗑️ [User Delete] Deleting user: ${streamer.username} (ID: ${streamer.id})`);
@@ -1013,7 +1168,7 @@ app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
   try {
     const user = req.user;
     const twitchId = user.twitch_id || user.id;
-    const streamer = await db.getStreamerByTwitchId(twitchId);
+    const streamer = await db.getStreamerById(twitchId);
     
     if (streamer && streamer.overlay_token) {
       res.json({ token: streamer.overlay_token });
@@ -1035,19 +1190,21 @@ app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
 
 app.get('/:username', validateUsername, (req, res) => {
   try {
+    if (!DONATE_TEMPLATE) {
+      return res.status(500).send('เกิดข้อผิดพลาดในการโหลดหน้าเว็บ');
+    }
     const streamer = req.streamer;
-    const filePath = path.join(__dirname, '../public/donate-template/index.html');
-    let htmlContent = fs.readFileSync(filePath, 'utf8');
+    let htmlContent = DONATE_TEMPLATE;
  
     const ogTitle = `TipKub | ${streamer.page_title || streamer.username}`;
     const ogDescription = streamer.page_subtitle || 'สนับสนุนสตรีมเมอร์ที่คุณรักผ่าน TipKub';
     const ogImage = streamer.profile_image_value || '/avatar.jpg';
  
     htmlContent = htmlContent
-      .replace(/{{username}}/g, streamer.username)
-      .replace(/{{og_title}}/g, ogTitle)
-      .replace(/{{og_description}}/g, ogDescription)
-      .replace(/{{og_image}}/g, ogImage);
+      .replace(/{{username}}/g, escapeHTML(streamer.username))
+      .replace(/{{og_title}}/g, escapeHTML(ogTitle))
+      .replace(/{{og_description}}/g, escapeHTML(ogDescription))
+      .replace(/{{og_image}}/g, escapeHTML(ogImage));
  
     res.send(htmlContent);
   } catch (err) {
@@ -1064,10 +1221,15 @@ app.get('/:username/overlay', validateUsername, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/overlay.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`🌸 Stream Donation server running at http://localhost:${PORT}`);
-  console.log(`📋 Environment: ${process.env.BEAM_ENV || 'sandbox'}`);
-  console.log(`🎬 Overlay URL: http://localhost:${PORT}/overlay`);
-  console.log(`🧪 Alert Test: http://localhost:${PORT}/alert-test`);
-  console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
-});
+// Vercel serverless requires exporting the app
+module.exports = app;
+
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🌸 Stream Donation server running at http://localhost:${PORT}`);
+    console.log(`📋 Environment: ${process.env.BEAM_ENV || 'sandbox'}`);
+    console.log(`🎬 Overlay URL: http://localhost:${PORT}/overlay`);
+    console.log(`🧪 Alert Test: http://localhost:${PORT}/alert-test`);
+    console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
+  });
+}
