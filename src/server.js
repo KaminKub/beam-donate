@@ -441,16 +441,6 @@ app.get('/auth/twitch/callback',
       }
   
     if (existingUser) {
-      // Refresh Twitch profile image on every login
-      const profileImageUrl = user.profile_image_url || existingUser.profile_image_value;
-      if (profileImageUrl && profileImageUrl !== existingUser.profile_image_value) {
-        await db.saveStreamer({
-          ...existingUser,
-          twitch_id: twitchId,
-          profile_image_value: profileImageUrl,
-          profile_image_source: 'twitch'
-        }).catch(e => console.error('Failed to sync profile image:', e.message));
-      }
 
       // Force save session to DB before redirecting to prevent session loss on serverless environments
       req.session.save((err) => {

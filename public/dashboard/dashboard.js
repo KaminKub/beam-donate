@@ -1366,8 +1366,10 @@ async function savePageSettings(e) {
   
   // Only add profile_image_source if the element exists to avoid overwriting with empty string
   const sourceInput = document.getElementById('profileImageSource');
-  if (sourceInput) {
+  if (sourceInput && sourceInput.value) {
     settings.profile_image_source = sourceInput.value;
+  } else if (settings.profile_image_value) {
+    settings.profile_image_source = 'custom';
   }
 
   try {
@@ -1608,85 +1610,92 @@ async function loadMoreSounds() {
 }
 
 async function loadSoundsViaClientParse(resultsDiv, directUrl) {
-  const corsProxies = [
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  ];
+  const searchQuery = _soundBrowserQuery || '';
+  const searchUrl = searchQuery
+    ? `https://www.myinstants.com/search/?name=${encodeURIComponent(searchQuery)}`
+    : directUrl;
 
-  let html = null;
-  for (const buildUrl of corsProxies) {
-    try {
-      const proxyRes = await fetch(buildUrl(directUrl), { signal: AbortSignal.timeout(8000) });
-      if (proxyRes.ok) {
-        html = await proxyRes.text();
-        if (html && html.length > 500) break;
-      }
-    } catch {
-      continue;
+  resultsDiv.innerHTML = `
+    <div style="padding:20px;text-align:center;">
+      <div style="color:var(--text-muted);margin-bottom:12px;">
+        ⚠️ ไม่สามารถค้นหาอัตโนมัติได้ (myinstants.com บล็อคเซิร์ฟเวอร์)<br>
+        กรุณาค้นหาด้วยตัวเองแล้ววางลิงก์เสียงกลับมา
+      </div>
+      <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener"
+         style="display:inline-block;padding:10px 20px;background:var(--primary,#667eea);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;margin-bottom:16px;">
+        🔗 เปิด myinstants.com ค้นหาเสียง
+      </a>
+      <div style="display:flex;gap:8px;align-items:center;max-width:400px;margin:0 auto;">
+        <input type="text" id="manualSoundUrl" class="form-control"
+               placeholder="วาง URL เสียงจาก myinstants.com ที่นี่..."
+               style="flex:1;font-size:13px;">
+        <button class="btn btn-primary btn-sm" onclick="addManualSound()"
+                style="white-space:nowrap;">➕ เพิ่ม</button>
+      </div>
+      <small style="color:var(--text-muted);display:block;margin-top:8px;">
+        ตัวอย่าง: https://www.myinstants.com/instant/bruh-88907/
+      </small>
+    </div>`;
+
+  _soundBrowserHasMore = false;
+}
+
+function addManualSound() {
+  const input = document.getElementById('manualSoundUrl');
+  const resultsDiv = document.getElementById('soundResults');
+  if (!input || !resultsDiv) return;
+
+  const rawUrl = input.value.trim();
+  if (!rawUrl) return;
+
+  let slug = '';
+  let mp3Url = '';
+  let name = '';
+
+  const urlLower = rawUrl.toLowerCase();
+
+  if (urlLower.includes('/media/sounds/')) {
+    const m = rawUrl.match(/\/media\/sounds\/([\w-]+)\.mp3/);
+    if (m) {
+      slug = m[1];
+      mp3Url = rawUrl;
+    }
+  } else if (urlLower.includes('/instant/')) {
+    const m = rawUrl.match(/\/instant\/([\w-]+)/);
+    if (m) {
+      slug = m[1].replace(/\/$/, '');
+      mp3Url = `https://www.myinstants.com/media/sounds/${slug}.mp3`;
     }
   }
 
-  if (!html) {
-    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่สามารถเชื่อมต่อ myinstants.com ได้</div>';
-    _soundBrowserHasMore = false;
+  if (!slug || !mp3Url) {
+    input.style.borderColor = '#ef4444';
+    setTimeout(() => { input.style.borderColor = ''; }, 2000);
     return;
   }
 
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+  name = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-    const results = [];
-    const instantDivs = doc.querySelectorAll('div.instant');
-    
-    instantDivs.forEach(div => {
-      const playBtn = div.querySelector('button.small-button');
-      const link = div.querySelector('a.instant-link');
-      if (!playBtn || !link) return;
+  const item = document.createElement('div');
+  item.className = 'sound-item';
+  item.innerHTML = `
+    <span style="flex:1;font-size:14px;">${escapeHtml(name)}</span>
+    <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(mp3Url)}"
+            style="background:var(--bg-secondary,#1e293b);"
+            onclick="previewSound(this)">▶️ เล่น</button>
+    <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(mp3Url)}"
+            onclick="selectSound(this)">เลือก</button>
+  `;
 
-      const onclick = playBtn.getAttribute('onclick') || '';
-      const mp3Match = onclick.match(/play\('([^']+)'/);
-      if (!mp3Match) return;
-
-      const mp3Path = mp3Match[1];
-      const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
-      const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
-      const name = link.textContent.trim();
-
-      if (mp3Url && name) {
-        results.push({ id: slug, name, slug, mp3Url });
-      }
-    });
-
-    if (results.length === 0) {
-      resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง</div>';
-      _soundBrowserHasMore = false;
-      return;
-    }
-
+  const existing = resultsDiv.querySelector('.sound-item');
+  if (existing) {
+    resultsDiv.insertBefore(item, existing);
+  } else {
     resultsDiv.innerHTML = '';
-    results.forEach(sound => {
-      const item = document.createElement('div');
-      item.className = 'sound-item';
-      item.innerHTML = `
-        <span style="flex:1;font-size:14px;">${escapeHtml(sound.name)}</span>
-        <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
-                style="background:var(--bg-secondary,#1e293b);"
-                onclick="previewSound(this)">▶️ เล่น</button>
-        <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
-                onclick="selectSound(this)">เลือก</button>
-      `;
-      resultsDiv.appendChild(item);
-    });
-
-    _soundBrowserOffset = results.length;
-    _soundBrowserHasMore = false;
-  } catch (err) {
-    console.error('Client-side myinstants parse error:', err);
-    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง (ลองใหม่อีกครั้ง)</div>';
-    _soundBrowserHasMore = false;
+    resultsDiv.appendChild(item);
   }
+
+  input.value = '';
 }
 
 async function searchSounds() {
