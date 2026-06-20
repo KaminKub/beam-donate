@@ -395,11 +395,6 @@ body {
   max-width: 620px;
 }
 
-#btnSavePaymentSettings {
-  margin: 0 auto;
-  display: block;
-}
-
 .btn-sm {
   padding: 6px 12px;
   font-size: 12px;
@@ -903,6 +898,7 @@ label {
 
 .settings-actions {
   display: flex;
+  justify-content: center;
   gap: 16px;
   margin-bottom: 40px;
   position: sticky;
