@@ -1618,8 +1618,8 @@ async function loadSoundsViaClientParse(resultsDiv, directUrl) {
   resultsDiv.innerHTML = `
     <div style="padding:20px;text-align:center;">
       <div style="color:var(--text-muted);margin-bottom:12px;">
-        ⚠️ ไม่สามารถค้นหาอัตโนมัติได้ (myinstants.com บล็อคเซิร์ฟเวอร์)<br>
-        กรุณาค้นหาด้วยตัวเองแล้ววางลิงก์เสียงกลับมา
+        ⚠️ ไม่สามารถค้นหาอัตโนมัติได้กรุณาค้นหาด้วยวิธีนี้ <br>
+        กดคลิกขวาที่ Download MP3 > Copy Link > วางลิงก์เสียง
       </div>
       <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener"
          style="display:inline-block;padding:10px 20px;background:var(--primary,#667eea);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;margin-bottom:16px;">
@@ -1633,7 +1633,7 @@ async function loadSoundsViaClientParse(resultsDiv, directUrl) {
                 style="white-space:nowrap;">➕ เพิ่ม</button>
       </div>
       <small style="color:var(--text-muted);display:block;margin-top:8px;">
-        ตัวอย่าง: https://www.myinstants.com/instant/bruh-88907/
+        ตัวอย่าง: https://www.myinstants.com/media/sounds/aimaihwaelw.mp3
       </small>
     </div>`;
 
