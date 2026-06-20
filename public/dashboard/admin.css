@@ -720,8 +720,9 @@ body {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-.form-select option {
-  background-color: #111118;
+.form-select option,
+.form-control option {
+  background-color: rgba(0, 0, 0, 0.493);
   color: #e5e7eb;
 }
 

@@ -1563,6 +1563,11 @@ async function loadMoreSounds() {
     }
 
     if (!data.results || data.results.length === 0) {
+      if (_soundBrowserOffset === 0 && data.fallbackProxyUrl) {
+        await loadSoundsViaClientParse(resultsDiv, data.fallbackProxyUrl);
+        _soundBrowserLoading = false;
+        return;
+      }
       if (_soundBrowserOffset === 0) {
         resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง</div>';
       }
@@ -1599,6 +1604,67 @@ async function loadMoreSounds() {
       resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--failed,#ef4444);">ค้นหาไม่สำเร็จ: ' + escapeHtml(err.message) + '</div>';
     }
     _soundBrowserLoading = false;
+  }
+}
+
+async function loadSoundsViaClientParse(resultsDiv, proxyUrl) {
+  try {
+    const proxyRes = await fetch(proxyUrl);
+    if (!proxyRes.ok) throw new Error('Proxy fetch failed');
+    const html = await proxyRes.text();
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const results = [];
+    const instantDivs = doc.querySelectorAll('div.instant');
+    
+    instantDivs.forEach(div => {
+      const playBtn = div.querySelector('button.small-button');
+      const link = div.querySelector('a.instant-link');
+      if (!playBtn || !link) return;
+
+      const onclick = playBtn.getAttribute('onclick') || '';
+      const mp3Match = onclick.match(/play\('([^']+)'/);
+      if (!mp3Match) return;
+
+      const mp3Path = mp3Match[1];
+      const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
+      const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
+      const name = link.textContent.trim();
+
+      if (mp3Url && name) {
+        results.push({ id: slug, name, slug, mp3Url });
+      }
+    });
+
+    if (results.length === 0) {
+      resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง</div>';
+      _soundBrowserHasMore = false;
+      return;
+    }
+
+    resultsDiv.innerHTML = '';
+    results.forEach(sound => {
+      const item = document.createElement('div');
+      item.className = 'sound-item';
+      item.innerHTML = `
+        <span style="flex:1;font-size:14px;">${escapeHtml(sound.name)}</span>
+        <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
+                style="background:var(--bg-secondary,#1e293b);"
+                onclick="previewSound(this)">▶️ เล่น</button>
+        <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
+                onclick="selectSound(this)">เลือก</button>
+      `;
+      resultsDiv.appendChild(item);
+    });
+
+    _soundBrowserOffset = results.length;
+    _soundBrowserHasMore = false;
+  } catch (err) {
+    console.error('Client-side myinstants parse error:', err);
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง (ลองใหม่อีกครั้ง)</div>';
+    _soundBrowserHasMore = false;
   }
 }
 

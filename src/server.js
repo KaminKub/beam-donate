@@ -1315,23 +1315,60 @@ async function scrapeMyInstants(url) {
     }
 
     const results = [];
+
+    // Method 1: original regex (matching entire instant block)
     const instantBlockRegex = /<div class="instant">[\s\S]*?<button class="small-button" onclick="play\('([^']+)'[^"]*"[^>]*title="Play\s*(?:&quot;)?([^"&]*?)(?:&quot;)?\s*sound"[\s\S]*?<a href="[^"]*" class="instant-link[^"]*">([^<]+)<\/a>/g;
-    
     let match;
     while ((match = instantBlockRegex.exec(html)) !== null) {
       const mp3Path = match[1];
       const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
       const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
       const name = match[3].trim() || match[2].trim() || slug.replace(/[-_]/g, ' ');
-      
       if (mp3Url && name) {
+        results.push({ id: slug, name, slug, mp3Url });
+      }
+    }
+
+    // Method 2: fallback — extract mp3 paths and names separately
+    if (results.length === 0) {
+      console.log('MyInstants: primary regex failed, trying fallback extraction for', url);
+
+      const mp3Matches = [...html.matchAll(/play\('(\/media\/sounds\/[^']+\.mp3)'/g)];
+      const nameMatches = [...html.matchAll(/<a[^>]*class="instant-link"[^>]*>([^<]+)<\/a>/g)];
+
+      if (mp3Matches.length > 0 && nameMatches.length > 0) {
+        const count = Math.min(mp3Matches.length, nameMatches.length);
+        for (let i = 0; i < count; i++) {
+          const mp3Path = mp3Matches[i][1];
+          const mp3Url = `https://www.myinstants.com${mp3Path}`;
+          const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
+          const name = nameMatches[i][1].trim();
+          if (mp3Url && name) {
+            results.push({ id: slug, name, slug, mp3Url });
+          }
+        }
+      }
+    }
+
+    // Method 3: ultra-simple — just grab any mp3 links
+    if (results.length === 0) {
+      const simpleMp3 = [...html.matchAll(/\/media\/sounds\/([\w-]+)\.mp3/g)];
+      for (const m of simpleMp3) {
+        const slug = m[1];
         results.push({
           id: slug,
-          name: name,
-          slug: slug,
-          mp3Url: mp3Url,
+          name: slug.replace(/[-_]/g, ' '),
+          slug,
+          mp3Url: `https://www.myinstants.com/media/sounds/${slug}.mp3`
         });
       }
+    }
+
+    if (results.length === 0) {
+      const preview = html.substring(0, 300).replace(/\s+/g, ' ');
+      console.error('MyInstants: ALL extraction methods failed. HTML preview:', preview);
+      console.error('MyInstants: HTML contains "instant" class:', html.includes('class="instant"'));
+      console.error('MyInstants: HTML contains "play(":', html.includes("play('"));
     }
 
     myinstantsCache.set(url, { results, timestamp: Date.now() });
@@ -1349,6 +1386,40 @@ async function scrapeMyInstants(url) {
     throw err;
   }
 }
+
+app.get('/api/myinstants/proxy', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl) return res.status(400).json({ error: 'Missing url parameter' });
+
+    let targetUrl;
+    try {
+      targetUrl = decodeURIComponent(rawUrl);
+    } catch {
+      return res.status(400).json({ error: 'Invalid url' });
+    }
+
+    if (!targetUrl.startsWith('https://www.myinstants.com/')) {
+      return res.status(400).json({ error: 'Only myinstants.com URLs allowed' });
+    }
+
+    const response = await axios.get(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'th-TH,en-US;q=0.9,en;q=0.8',
+      },
+      timeout: 7000,
+      responseType: 'text',
+    });
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(response.data);
+  } catch (err) {
+    console.error('MyInstants proxy error:', err.message);
+    res.status(502).json({ error: 'Cannot fetch page from myinstants.com' });
+  }
+});
 
 app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
   try {
@@ -1375,13 +1446,19 @@ app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async 
     const allResults = await scrapeMyInstants(targetUrl);
     const paginatedResults = allResults.slice(offset, offset + limit);
 
-    res.json({ 
+    const responseData = { 
       results: paginatedResults,
       total: allResults.length,
       hasMore: offset + limit < allResults.length,
       pageName: pageName,
       currentPageId: query ? 'search' : pageId,
-    });
+    };
+
+    if (allResults.length === 0) {
+      responseData.fallbackProxyUrl = `/api/myinstants/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+
+    res.json(responseData);
   } catch (err) {
     console.error('MyInstants search error:', err.message);
     res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้', details: err.message });
@@ -1645,23 +1722,34 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, async (req, res) => {
  * Generate PromptPay EMVCo QR payload
  * Based on Thai PromptPay standard (Tag 30: Merchant Account Info)
  */
-function generatePromptPayPayload(phoneNumber, amount) {
-  const phone = phoneNumber.replace(/[^0-9]/g, '');
-  if (phone.length < 10) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมีอย่างน้อย 10 หลัก)');
+function generatePromptPayPayload(promptpayType, idOrPhone, amount) {
+  const cleaned = idOrPhone.replace(/[^0-9]/g, '');
+  if (cleaned.length < 10) throw new Error('ข้อมูล PromptPay ไม่ถูกต้อง (ต้องมีอย่างน้อย 10 หลัก)');
 
   const amountStr = amount ? amount.toFixed(2) : '';
-  let normalizedPhone = phone;
-  if (phone.startsWith('0')) {
-    normalizedPhone = '66' + phone.substring(1);
-  } else if (!phone.startsWith('66')) {
-    normalizedPhone = '66' + phone;
+
+  let accountInfo;
+  if (promptpayType === 'idcard') {
+    const idLen = cleaned.length.toString().padStart(2, '0');
+    accountInfo = `02${idLen}${cleaned}`;
+  } else if (promptpayType === 'ewallet') {
+    const idLen = cleaned.length.toString().padStart(2, '0');
+    accountInfo = `03${idLen}${cleaned}`;
+  } else {
+    let normalizedPhone = cleaned;
+    if (cleaned.startsWith('0')) {
+      normalizedPhone = '66' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('66')) {
+      normalizedPhone = '66' + cleaned;
+    }
+    const phoneInfo = `00${normalizedPhone}`;
+    accountInfo = `01${phoneInfo.length.toString().padStart(2, '0')}${phoneInfo}`;
   }
-  const phoneInfo = `00${normalizedPhone}`;
 
   const tags = [];
   tags.push({ id: '00', value: '01' });
   tags.push({ id: '01', value: amount ? '12' : '11' });
-  tags.push({ id: '29', value: `0016A00000067701011101${phoneInfo.length.toString().padStart(2, '0')}${phoneInfo}` });
+  tags.push({ id: '29', value: `0016A000000677010111${accountInfo.length.toString().padStart(2, '0')}${accountInfo}` });
   tags.push({ id: '58', value: 'TH' });
   tags.push({ id: '53', value: '764' });
   if (amountStr) tags.push({ id: '54', value: amountStr });
@@ -1720,8 +1808,10 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     }
     if (!phone) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้ตั้งค่าเบอร์ PromptPay' });
 
+    const promptpayType = streamer.promptpay_type || 'phone';
+
     const referenceId = `donate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const qrPayload = generatePromptPayPayload(phone, amount);
+    const qrPayload = generatePromptPayPayload(promptpayType, phone, amount);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Record transaction
