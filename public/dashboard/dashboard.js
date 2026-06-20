@@ -1563,8 +1563,8 @@ async function loadMoreSounds() {
     }
 
     if (!data.results || data.results.length === 0) {
-      if (_soundBrowserOffset === 0 && data.fallbackProxyUrl) {
-        await loadSoundsViaClientParse(resultsDiv, data.fallbackProxyUrl);
+      if (_soundBrowserOffset === 0 && data.fallbackDirectUrl) {
+        await loadSoundsViaClientParse(resultsDiv, data.fallbackDirectUrl);
         _soundBrowserLoading = false;
         return;
       }
@@ -1607,12 +1607,33 @@ async function loadMoreSounds() {
   }
 }
 
-async function loadSoundsViaClientParse(resultsDiv, proxyUrl) {
-  try {
-    const proxyRes = await fetch(proxyUrl);
-    if (!proxyRes.ok) throw new Error('Proxy fetch failed');
-    const html = await proxyRes.text();
+async function loadSoundsViaClientParse(resultsDiv, directUrl) {
+  const corsProxies = [
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
 
+  let html = null;
+  for (const buildUrl of corsProxies) {
+    try {
+      const proxyRes = await fetch(buildUrl(directUrl), { signal: AbortSignal.timeout(8000) });
+      if (proxyRes.ok) {
+        html = await proxyRes.text();
+        if (html && html.length > 500) break;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (!html) {
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่สามารถเชื่อมต่อ myinstants.com ได้</div>';
+    _soundBrowserHasMore = false;
+    return;
+  }
+
+  try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 

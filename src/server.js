@@ -1456,6 +1456,7 @@ app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async 
 
     if (allResults.length === 0) {
       responseData.fallbackProxyUrl = `/api/myinstants/proxy?url=${encodeURIComponent(targetUrl)}`;
+      responseData.fallbackDirectUrl = targetUrl;
     }
 
     res.json(responseData);
