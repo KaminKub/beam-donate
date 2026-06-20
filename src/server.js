@@ -626,7 +626,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           return res.redirect('/login-failed');
         }
         console.log('✅ [Streamlabs] Session saved, redirecting to /register/setup');
-        return res.redirect('/register/setup');
+              return res.redirect('/register');
       });
     }
 
