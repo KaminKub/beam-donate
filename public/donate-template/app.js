@@ -252,32 +252,38 @@ async function updateStatus() {
   statusText.textContent = 'ตรวจสอบสถานะ...';
 
   try {
-    // ใช้ Promise.all เพื่อดึงข้อมูลและหน่วงเวลาขั้นต่ำ 1.2 วินาที เพื่อความนุ่มนวล (Premium Feel)
     const [response] = await Promise.all([
       fetch('/api/overlay/status'),
       new Promise(resolve => setTimeout(resolve, 1200))
     ]);
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.active) {
-        statusDot.classList.add('online');
-        statusText.textContent = 'โดขึ้นจอ | เปิดอยู่';
-        if (statusNote) statusNote.style.display = 'none';
-      } else {
-        throw new Error('Overlay inactive');
-      }
+    if (!response.ok) {
+      setStatusOffline();
+      return;
+    }
+
+    const data = await response.json();
+    if (data.active) {
+      statusDot.classList.add('online');
+      statusText.textContent = 'โดขึ้นจอ | เปิดอยู่';
+      if (statusNote) statusNote.style.display = 'none';
     } else {
-      throw new Error();
+      setStatusOffline();
     }
   } catch (error) {
-    statusDot.classList.remove('online');
-    statusText.textContent = 'โดขึ้นจอ | ปิดอยู่';
-    if (statusNote) statusNote.style.display = 'block';
+    setStatusOffline();
   } finally {
-    // Stop Loading Animation
     if (refreshIcon) refreshIcon.classList.remove('spinning');
   }
+}
+
+function setStatusOffline() {
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const statusNote = document.getElementById('statusNote');
+  if (statusDot) statusDot.classList.remove('online');
+  if (statusText) statusText.textContent = 'โดขึ้นจอ | ปิดอยู่';
+  if (statusNote) statusNote.style.display = 'block';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

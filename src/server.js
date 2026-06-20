@@ -187,7 +187,7 @@ passport.use(new TwitchStrategy({
 // Passport Streamlabs Strategy Configuration
 passport.use(new OAuth2Strategy({
     authorizationURL: 'https://streamlabs.com/api/v2.0/authorize',
-    tokenURL: 'https://streamlabs.com/api/oauth/token',
+    tokenURL: 'https://streamlabs.com/api/v2.0/token',
     clientID: process.env.STREAMLABS_CLIENT_ID,
     clientSecret: process.env.STREAMLABS_CLIENT_SECRET,
     callbackURL: process.env.STREAMLABS_CALLBACK_URL,
@@ -506,31 +506,34 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
   delete req.session.oauthState;
 
   try {
-    // 1. Exchange code for access_token (POST JSON body per official docs)
+    // 1. Exchange code for access_token (v1.0 uses form-encoded body)
     console.log('🔑 [Streamlabs] Exchanging code for token...');
-    console.log('🔑 [Streamlabs] Client ID:', process.env.STREAMLABS_CLIENT_ID?.substring(0, 8) + '...');
+    console.log('🔑 [Streamlabs] Client ID valid:', !!process.env.STREAMLABS_CLIENT_ID);
+    console.log('🔑 [Streamlabs] Client Secret valid:', !!process.env.STREAMLABS_CLIENT_SECRET);
+    console.log('🔑 [Streamlabs] Client ID prefix:', process.env.STREAMLABS_CLIENT_ID?.substring(0, 12) + '...');
     console.log('🔑 [Streamlabs] Redirect URI:', process.env.STREAMLABS_CALLBACK_URL);
+    console.log('🔑 [Streamlabs] Code prefix:', code?.substring(0, 8) + '...');
 
-    const tokenResponse = await axios.post('https://streamlabs.com/api/v2.0/token', {
-      grant_type: 'authorization_code',
-      client_id: process.env.STREAMLABS_CLIENT_ID,
-      client_secret: process.env.STREAMLABS_CLIENT_SECRET,
-      redirect_uri: process.env.STREAMLABS_CALLBACK_URL,
-      code: code
-    }, {
+    const payload = new URLSearchParams();
+    payload.append('grant_type', 'authorization_code');
+    payload.append('client_id', process.env.STREAMLABS_CLIENT_ID);
+    payload.append('client_secret', process.env.STREAMLABS_CLIENT_SECRET);
+    payload.append('redirect_uri', process.env.STREAMLABS_CALLBACK_URL);
+    payload.append('code', code);
+
+    const response = await axios.post('https://streamlabs.com/api/v2.0/token', payload.toString(), {
       headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
+        'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
 
-    console.log('🔑 [Streamlabs] Token response status:', tokenResponse.status);
-    console.log('🔑 [Streamlabs] Token response keys:', Object.keys(tokenResponse.data).join(', '));
+    console.log('🔑 [Streamlabs] Token response status:', response.status);
+    console.log('🔑 [Streamlabs] Token response keys:', Object.keys(response.data).join(', '));
 
-    const accessToken = tokenResponse.data.access_token;
-    const refreshToken = tokenResponse.data.refresh_token;
+    const accessToken = response.data.access_token;
+    const refreshToken = response.data.refresh_token;
     if (!accessToken) {
-      console.error('❌ [Streamlabs] Token response missing access_token:', JSON.stringify(tokenResponse.data));
+      console.error('❌ [Streamlabs] Token response missing access_token:', JSON.stringify(response.data));
       throw new Error('No access token received from Streamlabs');
     }
 
@@ -541,8 +544,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     const userResponse = await axios.get('https://streamlabs.com/api/v2.0/user', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
+        'Content-Type': 'application/json'
       }
     });
 
