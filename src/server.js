@@ -1292,38 +1292,62 @@ async function scrapeMyInstants(url) {
     return cached.results;
   }
 
-  const response = await axios.get(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-    },
-    timeout: 10000,
-  });
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      timeout: 7000,
+      validateStatus: (status) => status < 500,
+    });
 
-  const html = response.data;
-  const results = [];
-  const instantBlockRegex = /<div class="instant">[\s\S]*?<button class="small-button" onclick="play\('([^']+)'[^"]*"[^>]*title="Play\s*(?:&quot;)?([^"&]*?)(?:&quot;)?\s*sound"[\s\S]*?<a href="[^"]*" class="instant-link[^"]*">([^<]+)<\/a>/g;
-  
-  let match;
-  while ((match = instantBlockRegex.exec(html)) !== null) {
-    const mp3Path = match[1];
-    const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
-    const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
-    const name = match[3].trim() || match[2].trim() || slug.replace(/[-_]/g, ' ');
-    
-    if (mp3Url && name) {
-      results.push({
-        id: slug,
-        name: name,
-        slug: slug,
-        mp3Url: mp3Url,
-      });
+    if (response.status !== 200) {
+      console.error(`MyInstants returned status ${response.status} for ${url}`);
+      return [];
     }
-  }
 
-  myinstantsCache.set(url, { results, timestamp: Date.now() });
-  return results;
+    const html = response.data;
+    if (!html || typeof html !== 'string' || html.length < 500) {
+      console.error(`MyInstants returned empty/invalid HTML (${html ? html.length : 0} bytes) for ${url}`);
+      return [];
+    }
+
+    const results = [];
+    const instantBlockRegex = /<div class="instant">[\s\S]*?<button class="small-button" onclick="play\('([^']+)'[^"]*"[^>]*title="Play\s*(?:&quot;)?([^"&]*?)(?:&quot;)?\s*sound"[\s\S]*?<a href="[^"]*" class="instant-link[^"]*">([^<]+)<\/a>/g;
+    
+    let match;
+    while ((match = instantBlockRegex.exec(html)) !== null) {
+      const mp3Path = match[1];
+      const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
+      const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
+      const name = match[3].trim() || match[2].trim() || slug.replace(/[-_]/g, ' ');
+      
+      if (mp3Url && name) {
+        results.push({
+          id: slug,
+          name: name,
+          slug: slug,
+          mp3Url: mp3Url,
+        });
+      }
+    }
+
+    myinstantsCache.set(url, { results, timestamp: Date.now() });
+    return results;
+  } catch (err) {
+    if (err.code === 'ECONNABORTED') {
+      console.error('MyInstants request timed out (7s):', url);
+      throw new Error('MyInstants server not responding in time');
+    }
+    if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
+      console.error('MyInstants DNS resolution failed:', url);
+      throw new Error('Cannot reach MyInstants server');
+    }
+    console.error('MyInstants fetch error:', err.message, err.code);
+    throw err;
+  }
 }
 
 app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
