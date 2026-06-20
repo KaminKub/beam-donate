@@ -152,7 +152,31 @@ async function migrateDB() {
         -- Profile System
         profile_image_source TEXT DEFAULT 'twitch',
         profile_image_value TEXT,
-        profile_glow_color TEXT DEFAULT '#005704'
+        profile_glow_color TEXT DEFAULT '#005704',
+
+         -- Payment Settings (Legacy)
+        payment_method TEXT DEFAULT 'ffp',
+        promptpay_phone TEXT,
+        promptpay_name TEXT,
+        promptpay_enabled INTEGER DEFAULT 0,
+        tfp_api_key TEXT,
+        tfp_api_secret TEXT,
+        tfp_connected INTEGER DEFAULT 0,
+        tfp_last_check TEXT,
+        -- PromptPay (New)
+        promptpay_type TEXT DEFAULT 'phone',
+        promptpay_value_encrypted TEXT,
+        slipok_api_encrypted TEXT,
+        slipok_api_key_encrypted TEXT,
+        slipok_connected INTEGER DEFAULT 0,
+        slipok_last_check TEXT,
+        -- TrueMoney Wallet
+        truemoney_enabled INTEGER DEFAULT 0,
+        truemoney_phone_encrypted TEXT,
+        truemoney_slipok_api_encrypted TEXT,
+        truemoney_slipok_api_key_encrypted TEXT,
+        truemoney_slipok_connected INTEGER DEFAULT 0,
+        truemoney_slipok_last_check TEXT
       )
     `);
 
@@ -170,7 +194,11 @@ async function migrateDB() {
         createdAt TEXT,
         updatedAt TEXT,
         paidAt TEXT,
-        streamer_username TEXT REFERENCES streamers(username)
+        streamer_username TEXT REFERENCES streamers(username),
+        payment_method TEXT DEFAULT 'ffp',
+        promptpay_slip_id TEXT,
+        promptpay_verified INTEGER DEFAULT 0,
+        promptpay_verified_at TEXT
       )
      `);
     await db.execute(`
@@ -193,6 +221,29 @@ async function migrateDB() {
     if (columns.includes('donor_name')) {
       console.log('🛠️ Migrating transactions: renaming donor_name -> donor');
       await db.execute('ALTER TABLE transactions RENAME COLUMN donor_name TO donor');
+    }
+
+    const requiredTxCols = [
+      { name: 'status', type: "TEXT DEFAULT 'pending'" },
+      { name: 'paymentUrl', type: 'TEXT' },
+      { name: 'raw_response', type: 'TEXT' },
+      { name: 'raw_webhook', type: 'TEXT' },
+      { name: 'createdAt', type: 'TEXT' },
+      { name: 'updatedAt', type: 'TEXT' },
+      { name: 'paidAt', type: 'TEXT' },
+      { name: 'streamer_username', type: 'TEXT' },
+      { name: 'payment_method', type: "TEXT DEFAULT 'ffp'" },
+      { name: 'promptpay_slip_id', type: 'TEXT' },
+      { name: 'promptpay_verified', type: 'INTEGER DEFAULT 0' },
+      { name: 'promptpay_verified_at', type: 'TEXT' }
+    ];
+
+    for (const col of requiredTxCols) {
+      if (!columns.includes(col.name)) {
+        const safeName = validateIdentifier(col.name);
+        console.log(`🛠️ Migrating transactions: adding column ${safeName}`);
+        await db.execute(`ALTER TABLE transactions ADD COLUMN ${safeName} ${col.type}`);
+      }
     }
 
     // C. Ensure new overlay settings columns exist
@@ -223,9 +274,29 @@ async function migrateDB() {
        { name: 'profile_glow_color', type: "TEXT DEFAULT '#005704'" },
        { name: 'streamlabs_access_token', type: 'TEXT' },
        { name: 'streamlabs_refresh_token', type: 'TEXT' },
-       { name: 'customImageMode', type: "TEXT DEFAULT 'emoji'" },
+      { name: 'customImageMode', type: "TEXT DEFAULT 'emoji'" },
       { name: 'customImageValue', type: 'TEXT' },
-      { name: 'customSoundUrl', type: 'TEXT' }
+      { name: 'customSoundUrl', type: 'TEXT' },
+      { name: 'payment_method', type: "TEXT DEFAULT 'ffp'" },
+      { name: 'promptpay_phone', type: 'TEXT' },
+      { name: 'promptpay_name', type: 'TEXT' },
+      { name: 'promptpay_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'tfp_api_key', type: 'TEXT' },
+      { name: 'tfp_api_secret', type: 'TEXT' },
+      { name: 'tfp_connected', type: 'INTEGER DEFAULT 0' },
+      { name: 'tfp_last_check', type: 'TEXT' },
+      { name: 'promptpay_type', type: "TEXT DEFAULT 'phone'" },
+      { name: 'promptpay_value_encrypted', type: 'TEXT' },
+      { name: 'slipok_api_encrypted', type: 'TEXT' },
+      { name: 'slipok_api_key_encrypted', type: 'TEXT' },
+      { name: 'slipok_connected', type: 'INTEGER DEFAULT 0' },
+      { name: 'slipok_last_check', type: 'TEXT' },
+      { name: 'truemoney_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_phone_encrypted', type: 'TEXT' },
+      { name: 'truemoney_slipok_api_encrypted', type: 'TEXT' },
+      { name: 'truemoney_slipok_api_key_encrypted', type: 'TEXT' },
+      { name: 'truemoney_slipok_connected', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_slipok_last_check', type: 'TEXT' }
     ];
 
     for (const col of requiredCols) {
@@ -448,25 +519,46 @@ async function saveTransaction(data) {
   }
 
   if (!db) throw new Error('Database not initialized');
-  
+
+  if (data.id) {
+    try {
+      const existing = await db.execute({
+        sql: 'SELECT streamer_username, amount, donor, message, payment_method FROM transactions WHERE id = ?',
+        args: [data.id]
+      });
+      if (existing.rows[0]) {
+        const ex = existing.rows[0];
+        if (!data.streamer_username) data.streamer_username = ex.streamer_username;
+        if (data.amount === undefined) data.amount = ex.amount;
+        if (data.donor === undefined) data.donor = ex.donor;
+        if (data.message === undefined) data.message = ex.message;
+        if (data.payment_method === undefined) data.payment_method = ex.payment_method;
+      }
+    } catch (e) {}
+  }
+
   const now = new Date().toISOString();
   const rawResponse = data.raw_response ? (typeof data.raw_response === 'string' ? data.raw_response : JSON.stringify(data.raw_response)) : null;
   const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
 
   await db.execute({
-    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
-            amount = excluded.amount,
-            donor = excluded.donor,
-            message = excluded.message,
+            amount = COALESCE(excluded.amount, transactions.amount),
+            donor = COALESCE(excluded.donor, transactions.donor),
+            message = COALESCE(excluded.message, transactions.message),
             status = excluded.status,
             paymentUrl = excluded.paymentUrl,
             raw_response = excluded.raw_response,
             raw_webhook = excluded.raw_webhook,
             updatedAt = excluded.updatedAt,
             paidAt = excluded.paidAt,
-            streamer_username = excluded.streamer_username`,
+            streamer_username = COALESCE(excluded.streamer_username, transactions.streamer_username),
+            payment_method = COALESCE(excluded.payment_method, transactions.payment_method),
+            promptpay_slip_id = excluded.promptpay_slip_id,
+            promptpay_verified = excluded.promptpay_verified,
+            promptpay_verified_at = excluded.promptpay_verified_at`,
     args: [
       data.id,
       data.amount || 0,
@@ -479,7 +571,11 @@ async function saveTransaction(data) {
       data.createdAt || now,
       now,
       data.paidAt || null,
-      data.streamer_username || null
+      data.streamer_username || null,
+      data.payment_method || 'ffp',
+      data.promptpay_slip_id || null,
+      data.promptpay_verified !== undefined ? (data.promptpay_verified ? 1 : 0) : 0,
+      data.promptpay_verified_at || null
     ]
   });
   
@@ -569,14 +665,39 @@ async function saveStreamer(data) {
    const existing = await getStreamerByTwitchId(data.twitch_id);
    const overlayToken = data.overlay_token || (existing ? existing.overlay_token : require('crypto').randomBytes(16).toString('hex'));
   
-  const finalData = {
-    ...existing,
-    ...data,
-    overlay_token: overlayToken
-  };
-  
-  // Only encrypt if the value is provided in the update data to avoid double encryption
-  // (Encryption removed as beam_api_key and beam_merchant_id are no longer used)
+   // Helper: true if text is already encrypted (3 colon-separated base64 parts)
+   function isEncrypted(text) {
+     if (!text) return false;
+     const parts = text.split(':');
+     return parts.length === 3 && parts.every(p => p.length > 8);
+   }
+
+   // Encrypt sensitive payment fields BEFORE building finalData
+   // Skip if already encrypted or already censored (contains '*')
+   if (data.promptpay_value && data.promptpay_value.length > 0 && !isEncrypted(data.promptpay_value) && !data.promptpay_value.includes('*')) {
+     try { data.promptpay_value_encrypted = encrypt(data.promptpay_value); } catch (e) { console.warn('Failed to encrypt promptpay_value:', e.message); }
+   }
+   if (data.slipok_api && data.slipok_api.length > 0 && !isEncrypted(data.slipok_api) && !data.slipok_api.includes('*')) {
+     try { data.slipok_api_encrypted = encrypt(data.slipok_api); } catch (e) { console.warn('Failed to encrypt slipok_api:', e.message); }
+   }
+   if (data.slipok_api_key && data.slipok_api_key.length > 0 && !isEncrypted(data.slipok_api_key) && !data.slipok_api_key.includes('*')) {
+     try { data.slipok_api_key_encrypted = encrypt(data.slipok_api_key); } catch (e) { console.warn('Failed to encrypt slipok_api_key:', e.message); }
+   }
+   if (data.truemoney_phone && data.truemoney_phone.length > 0 && !isEncrypted(data.truemoney_phone) && !data.truemoney_phone.includes('*')) {
+     try { data.truemoney_phone_encrypted = encrypt(data.truemoney_phone); } catch (e) { console.warn('Failed to encrypt truemoney_phone:', e.message); }
+   }
+   if (data.truemoney_slipok_api && data.truemoney_slipok_api.length > 0 && !isEncrypted(data.truemoney_slipok_api) && !data.truemoney_slipok_api.includes('*')) {
+     try { data.truemoney_slipok_api_encrypted = encrypt(data.truemoney_slipok_api); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api:', e.message); }
+   }
+   if (data.truemoney_slipok_api_key && data.truemoney_slipok_api_key.length > 0 && !isEncrypted(data.truemoney_slipok_api_key) && !data.truemoney_slipok_api_key.includes('*')) {
+     try { data.truemoney_slipok_api_key_encrypted = encrypt(data.truemoney_slipok_api_key); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api_key:', e.message); }
+   }
+
+   const finalData = {
+     ...existing,
+     ...data,
+     overlay_token: overlayToken
+   };
   
   if (existing) {
       await db.execute({
@@ -630,10 +751,30 @@ async function saveStreamer(data) {
               social_x = COALESCE(?, streamers.social_x),
               social_discord = COALESCE(?, streamers.social_discord),
               social_instagram = COALESCE(?, streamers.social_instagram),
-              profile_image_source = COALESCE(?, streamers.profile_image_source),
-              profile_image_value = COALESCE(?, streamers.profile_image_value),
-              profile_glow_color = COALESCE(?, streamers.profile_glow_color)
-              WHERE twitch_id = ?`,
+               profile_image_source = COALESCE(?, streamers.profile_image_source),
+               profile_image_value = COALESCE(?, streamers.profile_image_value),
+               profile_glow_color = COALESCE(?, streamers.profile_glow_color),
+               payment_method = COALESCE(?, streamers.payment_method),
+               promptpay_phone = COALESCE(?, streamers.promptpay_phone),
+               promptpay_name = COALESCE(?, streamers.promptpay_name),
+               promptpay_enabled = COALESCE(?, streamers.promptpay_enabled),
+               tfp_api_key = COALESCE(?, streamers.tfp_api_key),
+               tfp_api_secret = COALESCE(?, streamers.tfp_api_secret),
+               tfp_connected = COALESCE(?, streamers.tfp_connected),
+               tfp_last_check = COALESCE(?, streamers.tfp_last_check),
+               promptpay_type = COALESCE(?, streamers.promptpay_type),
+               promptpay_value_encrypted = COALESCE(?, streamers.promptpay_value_encrypted),
+               slipok_api_encrypted = COALESCE(?, streamers.slipok_api_encrypted),
+               slipok_api_key_encrypted = COALESCE(?, streamers.slipok_api_key_encrypted),
+               slipok_connected = COALESCE(?, streamers.slipok_connected),
+               slipok_last_check = COALESCE(?, streamers.slipok_last_check),
+               truemoney_enabled = COALESCE(?, streamers.truemoney_enabled),
+               truemoney_phone_encrypted = COALESCE(?, streamers.truemoney_phone_encrypted),
+               truemoney_slipok_api_encrypted = COALESCE(?, streamers.truemoney_slipok_api_encrypted),
+               truemoney_slipok_api_key_encrypted = COALESCE(?, streamers.truemoney_slipok_api_key_encrypted),
+               truemoney_slipok_connected = COALESCE(?, streamers.truemoney_slipok_connected),
+               truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check)
+               WHERE twitch_id = ?`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -687,6 +828,26 @@ async function saveStreamer(data) {
           finalData.profile_image_source !== undefined ? finalData.profile_image_source : null,
           finalData.profile_image_value !== undefined ? finalData.profile_image_value : null,
           finalData.profile_glow_color !== undefined ? finalData.profile_glow_color : null,
+          finalData.payment_method !== undefined ? finalData.payment_method : null,
+          finalData.promptpay_phone !== undefined ? finalData.promptpay_phone : null,
+          finalData.promptpay_name !== undefined ? finalData.promptpay_name : null,
+          finalData.promptpay_enabled !== undefined ? (finalData.promptpay_enabled ? 1 : 0) : null,
+          finalData.tfp_api_key !== undefined ? finalData.tfp_api_key : null,
+          finalData.tfp_api_secret !== undefined ? finalData.tfp_api_secret : null,
+          finalData.tfp_connected !== undefined ? (finalData.tfp_connected ? 1 : 0) : null,
+          finalData.tfp_last_check !== undefined ? finalData.tfp_last_check : null,
+          finalData.promptpay_type !== undefined ? finalData.promptpay_type : null,
+          finalData.promptpay_value_encrypted !== undefined ? finalData.promptpay_value_encrypted : null,
+          finalData.slipok_api_encrypted !== undefined ? finalData.slipok_api_encrypted : null,
+          finalData.slipok_api_key_encrypted !== undefined ? finalData.slipok_api_key_encrypted : null,
+          finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : null,
+          finalData.slipok_last_check !== undefined ? finalData.slipok_last_check : null,
+          finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : null,
+          finalData.truemoney_phone_encrypted !== undefined ? finalData.truemoney_phone_encrypted : null,
+          finalData.truemoney_slipok_api_encrypted !== undefined ? finalData.truemoney_slipok_api_encrypted : null,
+          finalData.truemoney_slipok_api_key_encrypted !== undefined ? finalData.truemoney_slipok_api_key_encrypted : null,
+          finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : null,
+          finalData.truemoney_slipok_last_check !== undefined ? finalData.truemoney_slipok_last_check : null,
           finalData.twitch_id || null
         ]
       });
@@ -698,8 +859,11 @@ async function saveStreamer(data) {
              theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
              customImageMode, customImageValue, customSoundUrl, alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
               social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram,
-              profile_image_source, profile_image_value, profile_glow_color)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              profile_image_source, profile_image_value, profile_glow_color,
+              payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
+              promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
+              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -753,7 +917,27 @@ async function saveStreamer(data) {
         finalData.social_instagram || null,
         finalData.profile_image_source || 'twitch',
         finalData.profile_image_value || null,
-        finalData.profile_glow_color || '#005704'
+        finalData.profile_glow_color || '#005704',
+        finalData.payment_method || 'ffp',
+        finalData.promptpay_phone || null,
+        finalData.promptpay_name || null,
+        finalData.promptpay_enabled !== undefined ? (finalData.promptpay_enabled ? 1 : 0) : 0,
+        finalData.tfp_api_key || null,
+        finalData.tfp_api_secret || null,
+        finalData.tfp_connected !== undefined ? (finalData.tfp_connected ? 1 : 0) : 0,
+        finalData.tfp_last_check || null,
+        finalData.promptpay_type || 'phone',
+        finalData.promptpay_value_encrypted || null,
+        finalData.slipok_api_encrypted || null,
+        finalData.slipok_api_key_encrypted || null,
+        finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : 0,
+        finalData.slipok_last_check || null,
+        finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : 0,
+        finalData.truemoney_phone_encrypted || null,
+        finalData.truemoney_slipok_api_encrypted || null,
+        finalData.truemoney_slipok_api_key_encrypted || null,
+        finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : 0,
+        finalData.truemoney_slipok_last_check || null
       ]
     });
 
@@ -839,17 +1023,33 @@ async function deleteStreamer(id) {
 
   const username = streamer.username;
 
-  // 2. Delete associated transactions
-  await db.execute({
-    sql: 'DELETE FROM transactions WHERE LOWER(streamer_username) = LOWER(?)',
-    args: [username]
-  });
+  try {
+    // Temporarily disable FK to allow direct deletes from DB console too
+    await db.execute('PRAGMA foreign_keys = OFF');
 
-  // 3. Delete the streamer record
-  await db.execute({
-    sql: 'DELETE FROM streamers WHERE id = ?',
-    args: [id]
-  });
+    // 2. Delete associated transactions
+    await db.execute({
+      sql: 'DELETE FROM transactions WHERE LOWER(streamer_username) = LOWER(?)',
+      args: [username]
+    });
+
+    // 3. Delete session data for this user
+    await db.execute({
+      sql: "DELETE FROM sessions WHERE session LIKE ?",
+      args: [`%${username}%`]
+    });
+
+    // 4. Delete the streamer record
+    await db.execute({
+      sql: 'DELETE FROM streamers WHERE id = ?',
+      args: [id]
+    });
+
+    await db.execute('PRAGMA foreign_keys = ON');
+  } catch (err) {
+    await db.execute('PRAGMA foreign_keys = ON');
+    throw err;
+  }
 
   console.log(`🗑️ Database: Deleted streamer ${username} and their transactions.`);
 }
@@ -903,6 +1103,140 @@ async function saveSettings(username, settings) {
   });
 }
 
+async function cleanupExpiredTransactions() {
+  await ensureConnected();
+  if (isFallback) {
+    const now = Date.now();
+    const expired = memoryTransactions.filter(t =>
+      t.status === 'pending' &&
+      t.createdAt &&
+      (now - new Date(t.createdAt).getTime()) > 30 * 60 * 1000
+    );
+    expired.forEach(t => { t.status = 'expired'; t.updatedAt = new Date().toISOString(); });
+    if (expired.length > 0) {
+      console.log(`🧹 Fallback: marked ${expired.length} transactions as expired`);
+      try {
+        const DB_DIR = path.join(__dirname, '../data');
+        fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
+      } catch (e) {}
+    }
+    return expired.length;
+  }
+  if (!db) return 0;
+
+  const result = await db.execute({
+    sql: `UPDATE transactions SET status = 'expired', updatedAt = ? WHERE status = 'pending' AND createdAt IS NOT NULL AND datetime(createdAt) < datetime('now', '-30 minutes')`,
+    args: [new Date().toISOString()]
+  });
+  if (result.rowsAffected > 0) {
+    console.log(`🧹 Cleaned up ${result.rowsAffected} expired transactions`);
+  }
+  return result.rowsAffected;
+}
+
+async function countPendingTransactions(username) {
+  await ensureConnected();
+  if (isFallback) {
+    return memoryTransactions.filter(t => t.status === 'pending' && t.streamer_username === username).length;
+  }
+  if (!db) return 0;
+  const result = await db.execute({
+    sql: 'SELECT COUNT(*) as cnt FROM transactions WHERE status = ? AND LOWER(streamer_username) = LOWER(?)',
+    args: ['pending', username]
+  });
+  return result.rows[0]?.cnt || 0;
+}
+
+/**
+ * Hard delete transactions marked as expired for more than 7 days.
+ * Returns number of deleted records.
+ */
+async function hardDeleteExpiredTransactions() {
+  await ensureConnected();
+  if (isFallback) {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const before = memoryTransactions.length;
+    memoryTransactions = memoryTransactions.filter(t =>
+      !(t.status === 'expired' && t.updatedAt && t.updatedAt < cutoff)
+    );
+    const deleted = before - memoryTransactions.length;
+    if (deleted > 0) {
+      console.log(`🗑️ Fallback: hard deleted ${deleted} expired transactions`);
+      try {
+        const DB_DIR = path.join(__dirname, '../data');
+        fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
+      } catch (e) {}
+    }
+    return deleted;
+  }
+  if (!db) return 0;
+
+  const result = await db.execute({
+    sql: `DELETE FROM transactions WHERE status = 'expired' AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
+  });
+  if (result.rowsAffected > 0) {
+    console.log(`🗑️ Hard deleted ${result.rowsAffected} expired transactions (older than 7 days)`);
+  }
+  return result.rowsAffected;
+}
+
+/**
+ * Hard delete all transactions older than specified months.
+ * This is triggered quarterly (every 3 months).
+ * Returns number of deleted records.
+ */
+async function hardDeleteOldTransactions(months = 3) {
+  await ensureConnected();
+  if (isFallback) {
+    const cutoff = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const before = memoryTransactions.length;
+    memoryTransactions = memoryTransactions.filter(t =>
+      !(t.createdAt && t.createdAt < cutoff)
+    );
+    const deleted = before - memoryTransactions.length;
+    if (deleted > 0) {
+      console.log(`🗑️ Fallback: hard deleted ${deleted} transactions older than ${months} months`);
+      try {
+        const DB_DIR = path.join(__dirname, '../data');
+        fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
+      } catch (e) {}
+    }
+    return deleted;
+  }
+  if (!db) return 0;
+
+  const result = await db.execute({
+    sql: `DELETE FROM transactions WHERE datetime(createdAt) < datetime('now', '-${months} months')`
+  });
+  if (result.rowsAffected > 0) {
+    console.log(`🗑️ Hard deleted ${result.rowsAffected} transactions older than ${months} months`);
+  }
+  return result.rowsAffected;
+}
+
+/**
+ * Get transactions for a specific user within a date range.
+ * Used for CSV download.
+ */
+async function getTransactionsByDateRange(username, fromDate, toDate) {
+  await ensureConnected();
+  if (isFallback) {
+    let txs = memoryTransactions.filter(t =>
+      t.streamer_username === username &&
+      t.createdAt &&
+      t.createdAt >= fromDate &&
+      t.createdAt <= toDate
+    );
+    return txs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+  if (!db) return [];
+
+  const result = await db.execute({
+    sql: 'SELECT * FROM transactions WHERE LOWER(streamer_username) = LOWER(?) AND createdAt >= ? AND createdAt <= ? ORDER BY createdAt DESC',
+    args: [username, fromDate, toDate]
+  });
+  return result.rows;
+}
 
 module.exports = {
   initDB,
@@ -912,6 +1246,11 @@ module.exports = {
   getTransactions,
   getTransactionById,
   saveTransaction,
+  cleanupExpiredTransactions,
+  hardDeleteExpiredTransactions,
+  hardDeleteOldTransactions,
+  getTransactionsByDateRange,
+  countPendingTransactions,
   getSettings,
   saveSettings,
   getStreamer,

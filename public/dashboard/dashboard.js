@@ -2,6 +2,10 @@
 let allTransactions = [];
 let activeTab = 'dashboard';
 
+// Sound Cache System
+const soundCache = new SoundCacheManager('tipkub-sounds-v1');
+const soundPlayer = new SoundPlayer(soundCache);
+
 function showNotification(message, type = 'success') {
   console.log(`[Notification] ${type}: ${message}`);
   let container = document.querySelector('.notification-container');
@@ -170,6 +174,35 @@ async function initializeDashboard() {
       };
     }
 
+    const btnBrowseSounds = document.getElementById('btnBrowseSounds');
+    if (btnBrowseSounds) {
+      btnBrowseSounds.onclick = openSoundBrowser;
+    }
+
+    const btnCloseSoundBrowser = document.getElementById('btnCloseSoundBrowser');
+    if (btnCloseSoundBrowser) {
+      btnCloseSoundBrowser.onclick = closeSoundBrowser;
+    }
+
+    const btnSoundSearch = document.getElementById('btnSoundSearch');
+    if (btnSoundSearch) {
+      btnSoundSearch.onclick = searchSounds;
+    }
+
+    const soundSearchInput = document.getElementById('soundSearchInput');
+    if (soundSearchInput) {
+      soundSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') searchSounds();
+      });
+    }
+
+    const soundBrowserModal = document.getElementById('soundBrowserModal');
+    if (soundBrowserModal) {
+      soundBrowserModal.addEventListener('click', (e) => {
+        if (e.target === soundBrowserModal) closeSoundBrowser();
+      });
+    }
+
     // Real-time brand glow update
     const glowPicker = document.getElementById('profileGlowColor');
     const glowText = document.getElementById('txtProfileGlowColor');
@@ -191,6 +224,7 @@ async function initializeDashboard() {
     }
 
     const btnCopyObsUrl = document.getElementById('btnCopyObsUrl');
+    const btnOpenObsUrl = document.getElementById('btnOpenObsUrl');
 
     if (btnCopyObsUrl) {
       btnCopyObsUrl.onclick = () => {
@@ -213,6 +247,15 @@ async function initializeDashboard() {
           .catch(err => {
             console.error('Failed to copy text: ', err);
           });
+      };
+    }
+
+    if (btnOpenObsUrl) {
+      btnOpenObsUrl.onclick = () => {
+        const urlInput = document.getElementById('obsOverlayUrl');
+        if (urlInput && urlInput.value) {
+          window.open(urlInput.value, '_blank');
+        }
       };
     }
 
@@ -280,7 +323,7 @@ async function initializeDashboard() {
     const chkProfanity = document.getElementById('chkProfanityFilterEnabled');
     if (chkProfanity) {
       chkProfanity.onchange = () => {
-        toggleProfanitySettings(chkProfanity.checked);
+        toggleProfanitySubSettings(chkProfanity.checked);
       };
     }
 
@@ -313,6 +356,118 @@ async function initializeDashboard() {
     const btnDeleteAccount = document.getElementById('btnDeleteAccount');
     if (btnDeleteAccount) {
       btnDeleteAccount.onclick = handleAccountDeletion;
+    }
+
+    // Payment Settings Handlers
+    const paymentCards = document.querySelectorAll('.payment-method-card');
+    const btnSavePayment = document.getElementById('btnSavePaymentSettings');
+
+    // Default: ไม่เลือกวิธีไหนเลย (Save button disabled)
+    paymentCards.forEach(c => c.classList.remove('active'));
+    if (btnSavePayment) btnSavePayment.disabled = true;
+
+    // Toggle selection (เลือกได้หลายวิธี) - เฉพาะการเลือก ไม่เปิด panel
+    paymentCards.forEach(card => {
+      card.addEventListener('click', (e) => {
+        // ไม่ toggle ถ้า click ที่ปุ่มตั้งค่า
+        if (e.target.closest('.btn-settings')) return;
+        
+        const method = card.getAttribute('data-method');
+        
+        // FFP disabled - ไม่ทำอะไร
+        if (method === 'ffp') return;
+
+        // Toggle active state (checkbox behavior)
+        card.classList.toggle('active');
+
+        if (card.classList.contains('active')) {
+          showSelectionBubble(card, 'เลือกแล้ว');
+        }
+
+        updateSaveButton();
+      });
+    });
+
+    // Settings button click handlers
+    document.querySelectorAll('.btn-settings').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetPanelId = btn.getAttribute('data-target');
+        const card = btn.closest('.payment-method-card');
+        
+        // ถ้า card ยังไม่ได้เลือก → ไม่เปิด panel
+        if (!card.classList.contains('active')) {
+          showNotification('กรุณาเลือกวิธีรับเงินก่อนตั้งค่า', 'error');
+          return;
+        }
+
+        // Toggle panel
+        const isCurrentlyOpen = btn.classList.contains('panel-open');
+        
+        if (isCurrentlyOpen) {
+          // ปิด panel
+          closeSettingsPanel(targetPanelId);
+          btn.classList.remove('panel-open');
+          card.classList.remove('panel-open');
+        } else {
+          // เปิด panel (ไม่ปิด panel อื่น)
+          openSettingsPanel(targetPanelId);
+          btn.classList.add('panel-open');
+          card.classList.add('panel-open');
+          
+          // Smooth scroll ไปที่ panel
+          setTimeout(() => {
+            const panel = document.getElementById(targetPanelId);
+            if (panel) {
+              panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }, 100);
+        }
+      });
+    });
+
+    // Close panel button handlers
+    document.querySelectorAll('.btn-close-panel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetPanelId = btn.getAttribute('data-target');
+        closeSettingsPanel(targetPanelId);
+        
+        // Reset ปุ่มตั้งค่า
+        const settingsBtn = document.querySelector(`.btn-settings[data-target="${targetPanelId}"]`);
+        if (settingsBtn) {
+          settingsBtn.classList.remove('panel-open');
+          const card = settingsBtn.closest('.payment-method-card');
+          if (card) {
+            card.classList.remove('panel-open');
+          }
+        }
+      });
+    });
+
+    // PromptPay Type dropdown handler
+    const promptpayTypeSelect = document.getElementById('inputPromptPayType');
+    if (promptpayTypeSelect) {
+      promptpayTypeSelect.addEventListener('change', updatePromptPayPlaceholder);
+    }
+
+    // SlipOK Test buttons
+    const btnTestSlipOk = document.getElementById('btnTestSlipOk');
+    if (btnTestSlipOk) {
+      btnTestSlipOk.onclick = testSlipOkConnection;
+    }
+
+    const btnTestTrueMoneySlipOk = document.getElementById('btnTestTrueMoneySlipOk');
+    if (btnTestTrueMoneySlipOk) {
+      btnTestTrueMoneySlipOk.onclick = testTrueMoneySlipOkConnection;
+    }
+
+    const btnSyncSlipOk = document.getElementById('btnSyncSlipOkFromPromptPay');
+    if (btnSyncSlipOk) {
+      btnSyncSlipOk.onclick = syncSlipOkFromPromptPay;
+    }
+
+    if (btnSavePayment) {
+      btnSavePayment.onclick = savePaymentSettings;
     }
 
     console.log('✅ initializeDashboard completed successfully');
@@ -356,7 +511,8 @@ function switchTab(tabId) {
     'transactions': { title: 'Donation History', subtitle: 'ประวัติธุรกรรมและการจำลองส่ง Alert' },
     'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของ OBS Stream' },
     'page-customization': { title: 'Page Customization', subtitle: 'ปรับแต่งหน้าโดเนท โปรไฟล์ และลิงก์โซเชียลมีเดีย' },
-    'account': { title: 'User Account', subtitle: 'จัดการข้อมูลส่วนตัวและความปลอดภัยของบัญชี' }
+    'account': { title: 'User Account', subtitle: 'จัดการข้อมูลส่วนตัวและความปลอดภัยของบัญชี' },
+    'payment-setup': { title: 'Payment Setup', subtitle: 'ตั้งค่าวิธีรับเงินบริจาคจากผู้ชม' }
   };
 
 
@@ -371,6 +527,9 @@ function switchTab(tabId) {
   }
   if (tabId === 'account') {
     loadAccountInfo();
+  }
+  if (tabId === 'payment-setup') {
+    loadPaymentSettings();
   }
 }
 
@@ -387,17 +546,25 @@ const btnConfirmCancel = document.getElementById('btnConfirmCancel');
 
 let currentConfirmAction = null;
 
-function showConfirmModal(title, text, icon = '⚠️', onConfirm = null) {
+function showConfirmModal(title, text, icon = '⚠️', onConfirm = null, btnText = 'ยืนยัน', btnClass = 'btn-danger') {
   confirmTitle.textContent = title;
   confirmText.textContent = text;
   confirmIcon.textContent = icon;
   currentConfirmAction = onConfirm;
+  btnConfirmOk.textContent = btnText;
+  btnConfirmOk.className = `btn ${btnClass}`;
   
   confirmModal.style.display = 'flex';
+  confirmModal.style.animation = 'modalFade 0.25s ease forwards';
 }
 
 function hideConfirmModal() {
-  confirmModal.style.display = 'none';
+  confirmModal.style.animation = 'modalFadeOut 0.2s ease forwards';
+  confirmModal.addEventListener('animationend', function handler() {
+    confirmModal.style.display = 'none';
+    confirmModal.style.animation = '';
+    confirmModal.removeEventListener('animationend', handler);
+  });
   currentConfirmAction = null;
 }
 
@@ -420,8 +587,16 @@ async function loadAccountInfo() {
 
       // Handle Twitch Connection
       updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch');
-      // Handle Streamlabs Connection
-      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs');
+      // Handle Streamlabs Connection (TEMPORARILY DISABLED - OAuth config pending)
+      const slBtn = document.getElementById('btnConnectStreamlabs');
+      const slStatus = document.getElementById('statusStreamlabs');
+      if (slBtn) {
+        slBtn.innerHTML = 'รออัปเดต';
+        slBtn.classList.add('btn-disconnected');
+        slBtn.style.pointerEvents = 'none';
+        slBtn.onclick = null;
+      }
+      if (slStatus) slStatus.textContent = 'รออัปเดต';
 
     } else {
       throw new Error('Failed to load account info');
@@ -603,7 +778,7 @@ function renderFullTransactions(transactions) {
   const filterStatus = document.getElementById('selectFilterStatus').value;
 
   const filtered = transactions.filter(t => {
-    const nameMatch = (t.donor || '').toLowerCase().includes(searchQuery);
+    const nameMatch = (t.donor || '').toLowerCase().includes(searchQuery) || (t.id || '').toLowerCase().includes(searchQuery);
     const statusMatch = filterStatus === 'all' || t.status === filterStatus;
     return nameMatch && statusMatch;
   });
@@ -617,22 +792,21 @@ function renderFullTransactions(transactions) {
     const date = t.createdAt ? new Date(t.createdAt).toLocaleString('th-TH') : '-';
     const tr = document.createElement('tr');
     
-    let actionsHtml = `
-      <button class="btn btn-secondary btn-sm" onclick="inspectTransaction('${t.id}')">🔍 Raw</button>
-      <button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')">🎉 Test Alert</button>
-    `;
-
-    if (t.status === 'pending') {
-      actionsHtml += `
-        <button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')">✔️ Force Pay</button>
-      `;
-    }
+    let actionsHtml = '<div class="action-buttons-grid">';
+    actionsHtml += t.status === 'successful' 
+      ? `<button class="btn btn-secondary btn-sm" onclick="inspectTransaction('${t.id}')">🔍 ดูรายละเอียด</button>`
+      : '<div></div>';
+    actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')">🔔 ยิง Alert ซ้ำ</button>`;
+    actionsHtml += t.status === 'pending'
+      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')">✔️ Force Pay</button>`
+      : '<div></div>';
+    actionsHtml += '</div>';
 
     tr.innerHTML = `
       <td>${date}</td>
       <td style="font-family: monospace; font-size: 11px;">${t.id}</td>
-      <td style="font-weight: 600; color: #818cf8;">฿${(Number(t.amount) || 0).toLocaleString()}</td>
       <td style="font-weight: 500;">${escapeHtml(t.donor || 'Anonymous')}</td>
+      <td style="font-weight: 600; color: #818cf8;">฿${(Number(t.amount) || 0).toLocaleString()}</td>
       <td class="text-muted" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.message || '-')}</td>
       <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
       <td>${actionsHtml}</td>
@@ -641,26 +815,153 @@ function renderFullTransactions(transactions) {
   });
 }
 
+// ========== Transaction Filter & Search ==========
+const inputSearchDonor = document.getElementById('inputSearchDonor');
+const selectFilterStatus = document.getElementById('selectFilterStatus');
+const btnRefreshTransactions = document.getElementById('btnRefreshTransactions');
+
+if (inputSearchDonor) {
+  inputSearchDonor.addEventListener('input', () => {
+    renderFullTransactions(allTransactions);
+  });
+}
+
+if (selectFilterStatus) {
+  selectFilterStatus.addEventListener('change', () => {
+    renderFullTransactions(allTransactions);
+  });
+}
+
+if (btnRefreshTransactions) {
+  btnRefreshTransactions.addEventListener('click', () => {
+    fetchTransactions();
+  });
+}
+
+// Download button + modal logic
+const btnDownloadTransactions = document.getElementById('btnDownloadTransactions');
+const btnDownloadFromNote = document.getElementById('btnDownloadFromNote');
+const downloadModal = document.getElementById('downloadModal');
+
+function openDownloadModal() {
+  if (!downloadModal) return;
+  const now = new Date();
+  const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  document.getElementById('downloadMonthFrom').value = oneMonthAgo.toISOString().slice(0, 7);
+  document.getElementById('downloadMonthTo').value = now.toISOString().slice(0, 7);
+  document.getElementById('downloadNote').style.display = 'block';
+  downloadModal.style.display = 'flex';
+  downloadModal.style.animation = 'modalFade 0.25s ease forwards';
+}
+
+if (btnDownloadTransactions && downloadModal) {
+  btnDownloadTransactions.addEventListener('click', openDownloadModal);
+}
+
+if (btnDownloadFromNote) {
+  btnDownloadFromNote.addEventListener('click', (e) => {
+    e.preventDefault();
+    openDownloadModal();
+  });
+}
+
+if (downloadModal) {
+
+  document.getElementById('btnCloseDownload').onclick = closeDownloadModal;
+  document.getElementById('btnCancelDownload').onclick = closeDownloadModal;
+
+  downloadModal.addEventListener('click', (e) => {
+    if (e.target === downloadModal) closeDownloadModal();
+  });
+
+  document.getElementById('btnConfirmDownload').onclick = async () => {
+    const fromVal = document.getElementById('downloadMonthFrom').value;
+    const toVal = document.getElementById('downloadMonthTo').value;
+    if (!fromVal || !toVal) {
+      showNotification('กรุณาเลือกทั้งเดือนเริ่มต้นและเดือนสิ้นสุด', 'error');
+      return;
+    }
+
+    const fromDate = `${fromVal}-01`;
+    const [toYear, toMonth] = toVal.split('-');
+    const lastDay = new Date(parseInt(toYear), parseInt(toMonth), 0).getDate();
+    const toDate = `${toVal}-${String(lastDay).padStart(2, '0')}`;
+
+    const pathParts = window.location.pathname.split('/');
+    const username = pathParts[1];
+    if (!username) return;
+
+    const btn = document.getElementById('btnConfirmDownload');
+    btn.disabled = true;
+    btn.textContent = '⏳ กำลังดาวน์โหลด...';
+
+    try {
+      const response = await fetch(`/api/transactions/${username}/download?from=${fromDate}&to=${toDate}`);
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'ดาวน์โหลดไม่สำเร็จ');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tipkub-donations-${username}-${fromVal}-${toVal}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotification('ดาวน์โหลดสำเร็จ');
+      closeDownloadModal();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📥 ดาวน์โหลด CSV';
+    }
+  };
+}
+
+function closeDownloadModal() {
+  if (!downloadModal) return;
+  downloadModal.style.animation = 'modalFadeOut 0.2s ease forwards';
+  downloadModal.addEventListener('animationend', function handler() {
+    downloadModal.style.display = 'none';
+    downloadModal.style.animation = '';
+    downloadModal.removeEventListener('animationend', handler);
+  });
+}
+
 // ========== Transactions Logic ==========
 async function forceSuccessTransaction(id) {
-  if (!confirm('ยืนยันการเปลี่ยนสถานะเป็น "ชำระเงินสำเร็จ"? (จะมีการส่ง Alert ไปยัง Overlay)')) return;
+  const tx = allTransactions.find(t => t.id === id);
+  const donorName = tx ? (tx.donor || 'Anonymous') : '';
+  const amount = tx ? `฿${(Number(tx.amount) || 0).toLocaleString()}` : '';
   
-  try {
-    const response = await fetch(`/api/transactions/${id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'successful' })
-    });
-    
-    if (response.ok) {
-      fetchTransactions();
-    } else {
-      const err = await response.json();
-      throw new Error(err.error || 'อัปเดตสถานะไม่สำเร็จ');
-    }
-  } catch (err) {
-    // Notification removed as per request
-  }
+  showConfirmModal(
+    '✅ ยืนยันการชำระเงินสำเร็จ',
+    `ระบบจะส่งการแจ้งเตือนไปยัง Overlay สำหรับธุรกรรมนี้\n\nผู้โดเนท: ${donorName}\nจำนวน: ${amount}`,
+    '💰',
+    async () => {
+      try {
+        const response = await fetch(`/api/transactions/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'successful' })
+        });
+        
+        if (response.ok) {
+          fetchTransactions();
+        } else {
+          const err = await response.json();
+          throw new Error(err.error || 'อัปเดตสถานะไม่สำเร็จ');
+        }
+      } catch (err) {
+        // Notification removed as per request
+      }
+    },
+    'ยืนยันชำระเงิน',
+    'btn-success'
+  );
 }
 
 
@@ -692,7 +993,59 @@ async function simulateTransactionAlert(id) {
 function inspectTransaction(id) {
   const tx = allTransactions.find(t => t.id === id);
   if (!tx) return;
-  alert(JSON.stringify(tx, null, 2));
+  
+  const modal = document.getElementById('transactionDetailModal');
+  const btnClose = document.getElementById('btnCloseTransactionDetail');
+  
+  // Populate data
+  document.getElementById('detailDonorName').textContent = tx.donor || 'Anonymous';
+  document.getElementById('detailAmount').textContent = `฿${(Number(tx.amount) || 0).toLocaleString()}`;
+  
+  const messageSection = document.getElementById('detailMessageSection');
+  const messageContent = document.getElementById('detailMessage');
+  if (tx.message && tx.message.trim()) {
+    messageContent.textContent = tx.message;
+    messageSection.style.display = 'block';
+  } else {
+    messageSection.style.display = 'none';
+  }
+  
+  const statusBadge = document.getElementById('detailStatus');
+  statusBadge.textContent = tx.status;
+  statusBadge.className = `badge ${getStatusBadgeClass(tx.status)}`;
+  
+  document.getElementById('detailTime').textContent = tx.createdAt 
+    ? new Date(tx.createdAt).toLocaleString('th-TH', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    : '-';
+  
+  document.getElementById('detailId').textContent = tx.id;
+  
+  // Show modal
+  modal.style.display = 'flex';
+  modal.style.animation = 'modalFade 0.25s ease forwards';
+  
+  // Close button handler
+  btnClose.onclick = () => {
+    modal.style.animation = 'modalFadeOut 0.2s ease forwards';
+    modal.addEventListener('animationend', function handler() {
+      modal.style.display = 'none';
+      modal.style.animation = '';
+      modal.removeEventListener('animationend', handler);
+    });
+  };
+  
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      btnClose.click();
+    }
+  };
 }
 
 async function triggerRandomTestAlert() {
@@ -724,12 +1077,6 @@ async function simulateCustomAlert(donor, amount, message) {
 
 
 // ========== Overlay Settings Logic ==========
-function toggleProfanitySettings(isEnabled) {
-  const container = document.getElementById('profanitySubSettingsContainer');
-  if (!container) return;
-  container.style.display = isEnabled ? 'block' : 'none';
-}
-
 function toggleTtsSubSettings(enabled) {
   const container = document.getElementById('ttsSubSettingsContainer');
   if (!container) return;
@@ -906,7 +1253,7 @@ async function saveOverlaySettings() {
       showNotification('💾 บันทึกสำเร็จ!🎉');
     }
   } catch (err) {
-    showNotification('❌ ไม่สามารถบันทึกการตั้งค่าได้', 'error');
+    showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');
   }
 }
 
@@ -1087,9 +1434,9 @@ function escapeHtml(text) {
 function getStatusBadgeClass(status) {
   switch (status) {
     case 'successful': return 'badge-success';
-    case 'pending': return 'badge-warning';
-    case 'failed': return 'badge-danger';
-    default: return 'badge-secondary';
+    case 'pending': return 'badge-pending';
+    case 'failed': return 'badge-failed';
+    default: return 'badge-pending';
   }
 }
 
@@ -1110,3 +1457,693 @@ function updateBrandGlow(color) {
 
 // Initialize settings on load
 // (Moved inside DOMContentLoaded)
+
+// ========== Sound Browser Functions ==========
+let _soundBrowserOffset = 0;
+let _soundBrowserLoading = false;
+let _soundBrowserHasMore = true;
+let _soundBrowserQuery = '';
+let _soundBrowserPageId = 'th';
+let _soundBrowserPages = ['th', 'global', 'us', 'jp', 'de', 'br', 'fr', 'uk'];
+let _soundBrowserPageIndex = 0;
+
+function openSoundBrowser() {
+  const modal = document.getElementById('soundBrowserModal');
+  const input = document.getElementById('soundSearchInput');
+  const resultsDiv = document.getElementById('soundResults');
+  if (modal) modal.style.display = 'flex';
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  if (resultsDiv) resultsDiv.innerHTML = '';
+  _soundBrowserOffset = 0;
+  _soundBrowserLoading = false;
+  _soundBrowserHasMore = true;
+  _soundBrowserQuery = '';
+  _soundBrowserPageId = 'th';
+  _soundBrowserPageIndex = 0;
+  updatePageName('Thailand');
+  loadMoreSounds();
+}
+
+function closeSoundBrowser() {
+  const modal = document.getElementById('soundBrowserModal');
+  if (modal) modal.style.display = 'none';
+  
+  // Stop playback and cleanup
+  soundPlayer.cleanup();
+  
+  if (window._soundPreviewAudio) {
+    window._soundPreviewAudio.pause();
+    window._soundPreviewAudio = null;
+  }
+  
+  // Log cache stats
+  if (soundCache) {
+    soundCache.getStats().then(stats => {
+      console.log('[SoundBrowser] Cache stats:', stats.count, 'sounds,', stats.sizeMB, 'MB');
+    }).catch(() => {});
+  }
+}
+
+function updatePageName(name) {
+  const el = document.getElementById('soundPageName');
+  if (el) el.textContent = name;
+}
+
+function loadNextPage() {
+  if (_soundBrowserLoading) return;
+  
+  const resultsDiv = document.getElementById('soundResults');
+  if (resultsDiv) resultsDiv.innerHTML = '';
+  
+  _soundBrowserPageIndex++;
+  if (_soundBrowserPageIndex >= _soundBrowserPages.length) {
+    _soundBrowserPageIndex = 0;
+  }
+  _soundBrowserPageId = _soundBrowserPages[_soundBrowserPageIndex];
+  _soundBrowserOffset = 0;
+  _soundBrowserHasMore = true;
+  _soundBrowserQuery = '';
+  
+  const input = document.getElementById('soundSearchInput');
+  if (input) input.value = '';
+  
+  console.log('[SoundBrowser] Next page:', _soundBrowserPageId, 'index:', _soundBrowserPageIndex);
+  loadMoreSounds();
+}
+
+async function loadMoreSounds() {
+  if (_soundBrowserLoading || !_soundBrowserHasMore) return;
+  _soundBrowserLoading = true;
+
+  const resultsDiv = document.getElementById('soundResults');
+  if (!resultsDiv) return;
+
+  const loader = document.createElement('div');
+  loader.id = 'soundLoader';
+  loader.style.cssText = 'text-align:center;padding:16px;color:var(--text-muted);';
+  loader.innerHTML = '<i class="fa fa-spinner fa-spin" style="font-size:20px;"></i>';
+  resultsDiv.appendChild(loader);
+
+  try {
+    const url = _soundBrowserQuery 
+      ? `/api/myinstants/search?q=${encodeURIComponent(_soundBrowserQuery)}&page=${_soundBrowserPageId}&offset=${_soundBrowserOffset}&limit=10`
+      : `/api/myinstants/search?page=${_soundBrowserPageId}&offset=${_soundBrowserOffset}&limit=10`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Search failed');
+    const data = await res.json();
+
+    const loaderEl = document.getElementById('soundLoader');
+    if (loaderEl) loaderEl.remove();
+
+    if (data.pageName) {
+      updatePageName(data.pageName);
+    }
+
+    if (!data.results || data.results.length === 0) {
+      if (_soundBrowserOffset === 0) {
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง</div>';
+      }
+      _soundBrowserHasMore = false;
+      _soundBrowserLoading = false;
+      return;
+    }
+
+    data.results.forEach(sound => {
+      const item = document.createElement('div');
+      item.className = 'sound-item';
+      item.innerHTML = `
+        <span style="flex:1;font-size:14px;">${escapeHtml(sound.name)}</span>
+        <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
+                style="background:var(--bg-secondary,#1e293b);"
+                onclick="previewSound(this)">▶️ เล่น</button>
+        <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
+                onclick="selectSound(this)">เลือก</button>
+      `;
+      resultsDiv.appendChild(item);
+    });
+
+    _soundBrowserOffset += data.results.length;
+    _soundBrowserHasMore = data.hasMore || false;
+    _soundBrowserLoading = false;
+
+    if (_soundBrowserHasMore && resultsDiv.scrollHeight <= resultsDiv.clientHeight) {
+      setTimeout(() => loadMoreSounds(), 100);
+    }
+  } catch (err) {
+    const loaderEl = document.getElementById('soundLoader');
+    if (loaderEl) loaderEl.remove();
+    if (_soundBrowserOffset === 0) {
+      resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--failed,#ef4444);">ค้นหาไม่สำเร็จ: ' + escapeHtml(err.message) + '</div>';
+    }
+    _soundBrowserLoading = false;
+  }
+}
+
+async function searchSounds() {
+  const input = document.getElementById('soundSearchInput');
+  const resultsDiv = document.getElementById('soundResults');
+  if (!resultsDiv) return;
+
+  _soundBrowserQuery = input ? input.value.trim() : '';
+  _soundBrowserOffset = 0;
+  _soundBrowserHasMore = true;
+  _soundBrowserLoading = false;
+  resultsDiv.innerHTML = '';
+  
+  if (_soundBrowserQuery) {
+    updatePageName(`Search: ${_soundBrowserQuery}`);
+  }
+  
+  loadMoreSounds();
+}
+
+async function previewSound(btn) {
+  const url = btn.getAttribute('data-mp3');
+  if (!url) return;
+
+  // Stop any current playback
+  soundPlayer.stop();
+
+  btn.textContent = '⏳ โหลด...';
+  btn.disabled = true;
+
+  let hasError = false;
+  let errorTimeout = null;
+
+  try {
+    // Play with caching (lazy load - only fetches on first play)
+    const audio = await soundPlayer.play(url, { volume: 0.5 });
+    
+    btn.textContent = '⏸️ หยุด';
+    btn.disabled = false;
+
+    audio.onended = () => { 
+      btn.textContent = '▶️ เล่น'; 
+    };
+    
+    audio.onerror = () => { 
+      // Delay error display to prevent flicker
+      if (errorTimeout) clearTimeout(errorTimeout);
+      errorTimeout = setTimeout(() => {
+        if (soundPlayer.isPlaying()) return; // Still playing, ignore error
+        btn.textContent = '❌ เล่นไม่ได้'; 
+        btn.disabled = false;
+        hasError = true;
+      }, 500);
+    };
+
+    // Toggle play/pause
+    btn.onclick = () => {
+      if (hasError) {
+        // Reset and retry
+        hasError = false;
+        previewSound(btn);
+        return;
+      }
+      if (soundPlayer.isPlaying()) {
+        soundPlayer.pause();
+        btn.textContent = '▶️ เล่น';
+      } else {
+        soundPlayer.resume();
+        btn.textContent = '⏸️ หยุด';
+      }
+    };
+  } catch (err) {
+    console.error('[previewSound] Failed to play:', url, err);
+    
+    // Delay error display to prevent flicker
+    if (errorTimeout) clearTimeout(errorTimeout);
+    errorTimeout = setTimeout(() => {
+      btn.textContent = '❌ เล่นไม่ได้';
+      btn.disabled = false;
+      hasError = true;
+    }, 500);
+    
+    // Fallback: try direct play without cache
+    try {
+      const audio = new Audio(url);
+      audio.preload = 'auto';
+      audio.volume = 0.5;
+      
+      // Wait for audio to be ready
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+        audio.oncanplaythrough = () => { clearTimeout(timeout); resolve(); };
+        audio.onerror = () => { clearTimeout(timeout); reject(new Error('Load failed')); };
+        if (audio.readyState >= 4) { clearTimeout(timeout); resolve(); }
+      });
+      
+      await audio.play();
+      window._soundPreviewAudio = audio;
+      
+      // Clear error state since fallback worked
+      if (errorTimeout) clearTimeout(errorTimeout);
+      hasError = false;
+      
+      btn.textContent = '⏸️ หยุด';
+      btn.disabled = false;
+      
+      audio.onended = () => { btn.textContent = '▶️ เล่น'; };
+      audio.onerror = () => { 
+        if (errorTimeout) clearTimeout(errorTimeout);
+        errorTimeout = setTimeout(() => {
+          if (!audio.paused) return;
+          btn.textContent = '❌ เล่นไม่ได้'; 
+        }, 500);
+      };
+      
+      btn.onclick = () => {
+        if (hasError) {
+          hasError = false;
+          previewSound(btn);
+          return;
+        }
+        if (!audio.paused) {
+          audio.pause();
+          btn.textContent = '▶️ เล่น';
+        } else {
+          audio.play();
+          btn.textContent = '⏸️ หยุด';
+        }
+      };
+    } catch (fallbackErr) {
+      console.error('[previewSound] Fallback also failed:', url, fallbackErr);
+      // Error already shown above
+    }
+  }
+}
+
+function selectSound(btn) {
+  const url = btn.getAttribute('data-mp3');
+  if (!url) return;
+
+  const input = document.getElementById('customSoundUrl');
+  if (input) {
+    input.value = url;
+    showNotification('เลือกเสียงแล้ว');
+  }
+  closeSoundBrowser();
+}
+
+function handleSoundScroll(el) {
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 30) {
+    loadMoreSounds();
+  }
+}
+
+// ========== Payment Settings Functions ==========
+
+function showSelectionBubble(element, message) {
+  // ลบ bubble เดิมถ้ามี
+  const existingBubble = element.querySelector('.selection-bubble');
+  if (existingBubble) existingBubble.remove();
+
+  const bubble = document.createElement('div');
+  bubble.className = 'selection-bubble';
+  bubble.textContent = message;
+  element.style.position = 'relative';
+  element.appendChild(bubble);
+
+  setTimeout(() => {
+    if (bubble.parentNode) bubble.remove();
+  }, 1800);
+}
+
+function openSettingsPanel(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  
+  panel.style.display = 'block';
+  panel.classList.remove('panel-closing');
+  panel.classList.add('panel-opening');
+  
+  // ลบ class panel-opening หลัง animation จบ (400ms)
+  setTimeout(() => {
+    panel.classList.remove('panel-opening');
+  }, 400);
+}
+
+function closeSettingsPanel(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel || panel.style.display === 'none') return;
+  
+  panel.classList.add('panel-closing');
+  
+  // รอ animation จบแล้วค่อยซ่อน (300ms)
+  setTimeout(() => {
+    panel.style.display = 'none';
+    panel.classList.remove('panel-closing');
+  }, 300);
+}
+
+function updateSettingsPanels() {
+  // ฟังก์ชันนี้ไม่ใช้แล้ว เพราะใช้ independent toggle แทน
+  // เก็บไว้เพื่อ backward compatibility
+}
+
+function updateSaveButton() {
+  const btnSave = document.getElementById('btnSavePaymentSettings');
+  if (!btnSave) return;
+
+  // อนุญาตให้บันทึกได้เสมอ (แม้ไม่มีวิธีไหนถูกเลือก)
+  // เพื่อให้ Guard ในหน้า Donate ทำงานได้
+  btnSave.disabled = false;
+}
+
+function updatePromptPayPlaceholder() {
+  const type = document.getElementById('inputPromptPayType')?.value;
+  const input = document.getElementById('inputPromptPay');
+  const hint = document.getElementById('promptpayHint');
+
+  if (!input || !hint) return;
+
+  const configs = {
+    phone: { placeholder: '081-234-5678', hint: 'กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์', maxlength: 10 },
+    idcard: { placeholder: '1-1001-00360-12-5', hint: 'กรุณากรอกเลขบัตรประจำตัวประชาชน', maxlength: 13 },
+    ewallet: { placeholder: 'e-Wallet ID', hint: 'กรุณากรอก e-Wallet ID', maxlength: 15 }
+  };
+
+  const config = configs[type] || configs.phone;
+  input.placeholder = config.placeholder;
+  input.maxLength = config.maxlength;
+  hint.textContent = config.hint;
+}
+
+function validatePromptPaySettings() {
+  const errors = [];
+  const promptpayCard = document.getElementById('cardPromptPay');
+  
+  if (promptpayCard?.classList.contains('active')) {
+    const promptpayValue = document.getElementById('inputPromptPay')?.value.trim();
+    const api = document.getElementById('inputSlipOkApi')?.value.trim();
+    const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
+
+    if (!promptpayValue) errors.push('ข้อมูลพร้อมเพย์');
+    if (!api) errors.push('SlipOK API');
+    if (!apiKey) errors.push('SlipOK API Key');
+
+    // ไฮไลท์ฟิลด์ที่ยังไม่ได้กรอก
+    ['inputPromptPay', 'inputSlipOkApi', 'inputSlipOkApiKey'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (!el.value.trim()) {
+          el.style.borderColor = '#f87171';
+          el.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.2)';
+        } else {
+          el.style.borderColor = '';
+          el.style.boxShadow = '';
+        }
+      }
+    });
+  }
+
+  const truemoneyCard = document.getElementById('cardTrueMoney');
+  if (truemoneyCard?.classList.contains('active')) {
+    const phone = document.getElementById('inputTrueMoneyPhone')?.value.trim();
+    const api = document.getElementById('inputTrueMoneyApi')?.value.trim();
+    const apiKey = document.getElementById('inputTrueMoneyApiKey')?.value.trim();
+
+    if (!phone) errors.push('เบอร์ TrueMoney');
+    if (!api) errors.push('SlipOK API (TrueMoney)');
+    if (!apiKey) errors.push('SlipOK API Key (TrueMoney)');
+
+    ['inputTrueMoneyPhone', 'inputTrueMoneyApi', 'inputTrueMoneyApiKey'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (!el.value.trim()) {
+          el.style.borderColor = '#f87171';
+          el.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.2)';
+        } else {
+          el.style.borderColor = '';
+          el.style.boxShadow = '';
+        }
+      }
+    });
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+async function loadPaymentSettings() {
+  try {
+    const response = await fetch('/api/payment/settings');
+    if (!response.ok) return;
+    const data = await response.json();
+
+    // ไม่ auto-select — โหลดสถานะจาก database
+    document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+
+    const promptpayCard = document.getElementById('cardPromptPay');
+    const truemoneyCard = document.getElementById('cardTrueMoney');
+
+    if (data.promptpay_enabled && promptpayCard) {
+      promptpayCard.classList.add('active');
+    }
+    if (data.truemoney_enabled && truemoneyCard) {
+      truemoneyCard.classList.add('active');
+    }
+
+    updateSaveButton();
+
+    // Fill PromptPay fields
+    const promptpayType = document.getElementById('inputPromptPayType');
+    const promptpayInput = document.getElementById('inputPromptPay');
+    if (promptpayType) promptpayType.value = data.promptpay_type || 'phone';
+    if (promptpayInput) promptpayInput.value = data.promptpay_value || '';
+    updatePromptPayPlaceholder();
+
+    // Fill SlipOK fields (PromptPay)
+    const slipOkApi = document.getElementById('inputSlipOkApi');
+    const slipOkApiKey = document.getElementById('inputSlipOkApiKey');
+    if (slipOkApi) slipOkApi.value = data.slipok_api || '';
+    if (slipOkApiKey) slipOkApiKey.value = data.slipok_api_key || '';
+
+    // SlipOK connection status
+    updateSlipOkStatus(data.slipok_connected, data.slipok_last_check);
+
+    // Fill TrueMoney fields
+    const trueMoneyPhone = document.getElementById('inputTrueMoneyPhone');
+    const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
+    const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
+    if (trueMoneyPhone) trueMoneyPhone.value = data.truemoney_phone || '';
+    if (trueMoneyApi) trueMoneyApi.value = data.truemoney_slipok_api || '';
+    if (trueMoneyApiKey) trueMoneyApiKey.value = data.truemoney_slipok_api_key || '';
+
+    updateTrueMoneySlipOkStatus(data.truemoney_slipok_connected, data.truemoney_slipok_last_check);
+  } catch (err) {
+    console.error('Load payment settings error:', err);
+  }
+}
+
+function updateSlipOkStatus(connected, lastCheck) {
+  const container = document.getElementById('slipokStatusContainer');
+  const status = document.getElementById('slipokStatus');
+  const title = document.getElementById('slipokStatusTitle');
+  const desc = document.getElementById('slipokStatusDesc');
+  const apiNotice = document.getElementById('promptpayApiNotice');
+
+  if (!container || !status) return;
+  container.style.display = 'block';
+
+  if (connected) {
+    status.className = 'tfp-status connected';
+    if (title) title.textContent = 'เชื่อมต่อแล้ว';
+    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'เชื่อมต่อ SlipOK สำเร็จ';
+    
+    // Fade out api-notice only
+    if (apiNotice) apiNotice.classList.add('fade-out');
+  } else {
+    status.className = 'tfp-status disconnected';
+    if (title) title.textContent = lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
+    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
+    
+    // Fade in api-notice
+    if (apiNotice) apiNotice.classList.remove('fade-out');
+  }
+}
+
+function updateTrueMoneySlipOkStatus(connected, lastCheck) {
+  const container = document.getElementById('trueMoneySlipOkStatusContainer');
+  const status = document.getElementById('trueMoneySlipOkStatus');
+  const title = document.getElementById('trueMoneySlipOkStatusTitle');
+  const desc = document.getElementById('trueMoneySlipOkStatusDesc');
+  const apiNotice = document.getElementById('truemoneyApiNotice');
+
+  if (!container || !status) return;
+  container.style.display = 'block';
+
+  if (connected) {
+    status.className = 'tfp-status connected';
+    if (title) title.textContent = 'เชื่อมต่อแล้ว';
+    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ';
+    
+    // Fade out api-notice only
+    if (apiNotice) apiNotice.classList.add('fade-out');
+  } else {
+    status.className = 'tfp-status disconnected';
+    if (title) title.textContent = lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
+    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
+    
+    // Fade in api-notice
+    if (apiNotice) apiNotice.classList.remove('fade-out');
+  }
+}
+
+async function testSlipOkConnection() {
+  const api = document.getElementById('inputSlipOkApi')?.value.trim();
+  const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
+
+  if (!api || !apiKey) {
+    showNotification('กรุณากรอก SlipOK API และ API Key', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnTestSlipOk');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังทดสอบ...';
+  }
+
+  try {
+    const payload = {
+      slipok_api: api,
+      slipok_api_key: apiKey,
+      promptpay_type: document.getElementById('inputPromptPayType')?.value || 'phone',
+      promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || ''
+    };
+
+    const response = await fetch('/api/payment/test-slipok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      showNotification('เชื่อมต่อ SlipOK สำเร็จ — บันทึกข้อมูลเรียบร้อย');
+      updateSlipOkStatus(true, new Date().toISOString());
+    } else {
+      showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
+    }
+  } catch (err) {
+    showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ';
+    }
+  }
+}
+
+async function testTrueMoneySlipOkConnection() {
+  const api = document.getElementById('inputTrueMoneyApi')?.value.trim();
+  const apiKey = document.getElementById('inputTrueMoneyApiKey')?.value.trim();
+
+  if (!api || !apiKey) {
+    showNotification('กรุณากรอก SlipOK API และ API Key สำหรับ TrueMoney', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnTestTrueMoneySlipOk');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังทดสอบ...';
+  }
+
+  try {
+    const payload = {
+      slipok_api: api,
+      slipok_api_key: apiKey,
+      method: 'truemoney',
+      truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || ''
+    };
+
+    const response = await fetch('/api/payment/test-slipok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      showNotification('เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ — บันทึกข้อมูลเรียบร้อย');
+      updateTrueMoneySlipOkStatus(true, new Date().toISOString());
+    } else {
+      showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
+    }
+  } catch (err) {
+    showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ';
+    }
+  }
+}
+
+function syncSlipOkFromPromptPay() {
+  const promptpayApi = document.getElementById('inputSlipOkApi')?.value.trim();
+  const promptpayApiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
+
+  if (!promptpayApi && !promptpayApiKey) {
+    showNotification('ยังไม่ได้กรอก API ในส่วนพร้อมเพย์ — กรุณากรอกก่อนซิงค์', 'error');
+    return;
+  }
+
+  if (promptpayApi.includes('*') || promptpayApiKey.includes('*')) {
+    showNotification('ข้อมูล API ในพร้อมเพย์เป็นค่าเซนเซอร์ — กรุณากรอกใหม่ก่อนซิงค์', 'error');
+    return;
+  }
+
+  const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
+  const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
+
+  if (trueMoneyApi) trueMoneyApi.value = promptpayApi;
+  if (trueMoneyApiKey) trueMoneyApiKey.value = promptpayApiKey;
+
+  showNotification('ดึงข้อมูล API จากพร้อมเพย์เรียบร้อย');
+}
+
+async function savePaymentSettings() {
+  // Validate ก่อนบันทึก
+  const validation = validatePromptPaySettings();
+  if (!validation.valid) {
+    showNotification('กรุณากรอกข้อมูลให้ครบ: ' + validation.errors.join(', '), 'error');
+    return;
+  }
+
+  const promptpayCard = document.getElementById('cardPromptPay');
+  const truemoneyCard = document.getElementById('cardTrueMoney');
+
+  const payload = {
+    promptpay_enabled: promptpayCard?.classList.contains('active') || false,
+    promptpay_type: document.getElementById('inputPromptPayType')?.value || 'phone',
+    promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || '',
+    slipok_api: document.getElementById('inputSlipOkApi')?.value.trim() || '',
+    slipok_api_key: document.getElementById('inputSlipOkApiKey')?.value.trim() || '',
+    truemoney_enabled: truemoneyCard?.classList.contains('active') || false,
+    truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || '',
+    truemoney_slipok_api: document.getElementById('inputTrueMoneyApi')?.value.trim() || '',
+    truemoney_slipok_api_key: document.getElementById('inputTrueMoneyApiKey')?.value.trim() || ''
+  };
+
+  try {
+    const response = await fetch('/api/payment/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      showNotification('💾 บันทึกการตั้งค่าการรับเงินสำเร็จ');
+    } else {
+      const err = await response.json();
+      throw new Error(err.error || 'บันทึกไม่สำเร็จ');
+    }
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}

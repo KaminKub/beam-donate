@@ -31,6 +31,9 @@ const PORT = process.env.PORT || 3000;
 
 // Setup SQLite Database (Turso Cloud)
 const db = require('./database');
+const { encrypt, decrypt, censor } = require('./encryption');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 db.initDB().catch(err => console.error('❌ Database connection failed:', err));
 
 // ค่าตั้งค่าเริ่มต้นของ Overlay
@@ -389,8 +392,7 @@ app.get('/auth/streamlabs', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   req.session.oauthState = state;
 
-  let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=${responseType}&state=${state}`;
-  if (scope) authUrl += `&scope=${encodeURIComponent(scope)}`;
+  let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURI(callbackUrl)}&scope=${encodeURIComponent(scope).replace(/%20/g, '+')}&response_type=${responseType}&state=${state}`;
   
   console.log(`🚀 Redirecting to Streamlabs: ${authUrl}`);
   req.session.save((err) => {
@@ -482,9 +484,8 @@ app.get('/auth/twitch/callback',
 );
 
 app.get('/auth/streamlabs/callback', async (req, res) => {
+  console.log('📥 [Streamlabs] FULL query:', JSON.stringify(req.query));
   const { code, state, error, error_description } = req.query;
-
-  console.log('📥 Streamlabs callback received:', { code: code ? '(present)' : '(missing)', state: state ? '(present)' : '(missing)', error, error_description });
 
   if (error) {
     console.error(`❌ Streamlabs returned error: ${error} - ${error_description || 'no description'}`);
@@ -497,10 +498,10 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     return res.redirect('/login-failed');
   }
 
-  if (!state || state !== req.session.oauthState) {
-    console.error('❌ Streamlabs CSRF validation failed - state mismatch', { sessionState: req.session.oauthState ? '(present)' : '(missing)', queryState: state || '(missing)' });
-    delete req.session.oauthState;
-    return res.redirect('/login-failed');
+  if (state && req.session.oauthState && state !== req.session.oauthState) {
+    console.error(`❌ Streamlabs CSRF state mismatch (continuing anyway): session=${req.session.oauthState?.substring(0,8)}... query=${state?.substring(0,8)}...`);
+  } else if (!state || !req.session.oauthState) {
+    console.warn(`⚠️ Streamlabs CSRF state not validated: session=${!!req.session.oauthState} query=${!!state}`);
   }
 
   delete req.session.oauthState;
@@ -764,6 +765,7 @@ app.post('/webhook', async (req, res) => {
       const targetId = tx ? tx.id : (paymentLinkId || chargeId);
       await logTransaction({
         id: targetId,
+        streamer_username: tx?.streamer_username,
         amount: amount || (tx ? tx.amount : 0),
         status: 'successful',
         paidAt: new Date().toISOString(),
@@ -888,6 +890,60 @@ app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
   }
 });
 
+app.get('/api/transactions/:username/download', ensureAuthenticated, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const actualUsername = await getActualUsername(req.user);
+
+    if (actualUsername !== username.toLowerCase()) {
+      return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์เข้าถึงข้อมูลของผู้อื่น' });
+    }
+
+    const { from, to } = req.query;
+    if (!from || !to) {
+      return res.status(400).json({ error: 'กรุณาระบุวันที่เริ่มต้นและสิ้นสุด (from, to)' });
+    }
+
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ error: 'รูปแบบวันที่ไม่ถูกต้อง' });
+    }
+
+    const toDateEnd = new Date(toDate);
+    toDateEnd.setHours(23, 59, 59, 999);
+
+    const txs = await db.getTransactionsByDateRange(username, fromDate.toISOString(), toDateEnd.toISOString());
+
+    const BOM = '\uFEFF';
+    const headers = ['วัน-เวลา', 'Reference ID', 'ผู้บริจาค', 'จำนวนเงิน (บาท)', 'ข้อความ', 'สถานะ', 'วิธีชำระเงิน'];
+    const rows = txs.map(t => [
+      t.createdAt ? new Date(t.createdAt).toLocaleString('th-TH') : '-',
+      t.id || '-',
+      (t.donor || 'Anonymous').replace(/"/g, '""'),
+      Number(t.amount) || 0,
+      (t.message || '').replace(/"/g, '""'),
+      t.status || '-',
+      t.payment_method || '-'
+    ]);
+
+    const csvLines = [headers.join(',')];
+    rows.forEach(row => {
+      csvLines.push(row.map(cell => `"${cell}"`).join(','));
+    });
+
+    const csvContent = BOM + csvLines.join('\n');
+    const filename = `tipkub-donations-${username}-${fromDate.toISOString().slice(0, 10)}-${toDate.toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csvContent);
+  } catch (err) {
+    console.error('Download transactions error:', err);
+    res.status(500).json({ error: 'ไม่สามารถดาวน์โหลดข้อมูลได้' });
+  }
+});
+
 app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => {
   const { username } = req.params;
   const actualUsername = await getActualUsername(req.user);
@@ -897,6 +953,7 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
   }
   
   try {
+    await db.cleanupExpiredTransactions();
     const txs = await db.getTransactions(username);
     res.json(txs);
   } catch (err) {
@@ -904,6 +961,25 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
   }
 });
 
+app.post('/api/cron/cleanup-expired', async (req, res) => {
+  try {
+    const expiredCount = await db.cleanupExpiredTransactions();
+    const deletedCount = await db.hardDeleteExpiredTransactions();
+    res.json({ success: true, expired: expiredCount, deleted: deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/cron/cleanup-quarterly', async (req, res) => {
+  try {
+    const months = parseInt(req.body?.months) || 3;
+    const count = await db.hardDeleteOldTransactions(months);
+    res.json({ success: true, deleted: count, months });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.post('/api/transactions/:id/status', ensureAuthenticated, async (req, res) => {
   const { id } = req.params;
@@ -921,7 +997,7 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, async (req, res) =
       return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์จัดการธุรกรรมนี้' });
     }
 
-    const updatedTx = await db.saveTransaction({ id, status });
+    const updatedTx = await db.saveTransaction({ ...tx, id, status });
     if (status === 'successful') {
       // Refresh txDetails to get the most recent data for broadcasting
       const txDetails = await db.getTransactionById(id);
@@ -1078,6 +1154,7 @@ app.get('/api/page/:username/settings', async (req, res) => {
       pageSubtitle: streamer.page_subtitle || 'ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨',
       thankYouHeader: streamer.thank_you_header || 'ขอบคุณสำหรับการสนับสนุน!',
       thankYouSubtitle: streamer.thank_you_subtitle || 'การสนับสนุนของคุณช่วยให้เราพัฒนาคอนเทนต์ต่อไปได้',
+      minAmount: streamer.minAmount != null ? streamer.minAmount : 1,
       socials: {
         twitch: streamer.social_twitch,
         youtube: streamer.social_youtube,
@@ -1149,7 +1226,7 @@ app.post('/api/alerts/test', ensureAuthenticated, async (req, res) => {
       type: 'donation',
       donor: donor || 'ผู้ทดสอบ',
       amount: amount || 100,
-      message: message || 'นี่คือ test alert 🎉',
+      message: message || '',
       timestamp: new Date().toISOString()
     };
     
@@ -1184,6 +1261,111 @@ app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
     }
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ========== MyInstants Sound Search Proxy ==========
+const myinstantsLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  max: 10,
+  message: { error: 'ค้นหาบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const myinstantsCache = new Map();
+const CACHE_TTL = 10 * 60 * 1000;
+
+const myinstantsPages = [
+  { id: 'th', name: 'Thailand', url: 'https://www.myinstants.com/en/index/th/' },
+  { id: 'global', name: 'Global', url: 'https://www.myinstants.com/' },
+  { id: 'us', name: 'United States', url: 'https://www.myinstants.com/en/index/us/' },
+  { id: 'jp', name: 'Japan', url: 'https://www.myinstants.com/en/index/jp/' },
+  { id: 'de', name: 'Germany', url: 'https://www.myinstants.com/en/index/de/' },
+  { id: 'br', name: 'Brazil', url: 'https://www.myinstants.com/en/index/br/' },
+  { id: 'fr', name: 'France', url: 'https://www.myinstants.com/en/index/fr/' },
+  { id: 'uk', name: 'United Kingdom', url: 'https://www.myinstants.com/en/index/gb/' },
+];
+
+async function scrapeMyInstants(url) {
+  const cached = myinstantsCache.get(url);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.results;
+  }
+
+  const response = await axios.get(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+    },
+    timeout: 10000,
+  });
+
+  const html = response.data;
+  const results = [];
+  const instantBlockRegex = /<div class="instant">[\s\S]*?<button class="small-button" onclick="play\('([^']+)'[^"]*"[^>]*title="Play\s*(?:&quot;)?([^"&]*?)(?:&quot;)?\s*sound"[\s\S]*?<a href="[^"]*" class="instant-link[^"]*">([^<]+)<\/a>/g;
+  
+  let match;
+  while ((match = instantBlockRegex.exec(html)) !== null) {
+    const mp3Path = match[1];
+    const mp3Url = mp3Path.startsWith('http') ? mp3Path : `https://www.myinstants.com${mp3Path}`;
+    const slug = mp3Path.replace('/media/sounds/', '').replace('.mp3', '');
+    const name = match[3].trim() || match[2].trim() || slug.replace(/[-_]/g, ' ');
+    
+    if (mp3Url && name) {
+      results.push({
+        id: slug,
+        name: name,
+        slug: slug,
+        mp3Url: mp3Url,
+      });
+    }
+  }
+
+  myinstantsCache.set(url, { results, timestamp: Date.now() });
+  return results;
+}
+
+app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
+  try {
+    const query = (req.query.q || '').trim();
+    const pageId = req.query.page || 'th';
+    const offset = parseInt(req.query.offset) || 0;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    let targetUrl;
+    let pageName;
+    
+    if (query) {
+      targetUrl = `https://www.myinstants.com/search/?name=${encodeURIComponent(query)}`;
+      pageName = `Search: ${query}`;
+    } else {
+      const page = myinstantsPages.find(p => p.id === pageId);
+      if (!page) {
+        return res.status(400).json({ error: 'Invalid page ID' });
+      }
+      targetUrl = page.url;
+      pageName = page.name;
+    }
+
+    const allResults = await scrapeMyInstants(targetUrl);
+    const paginatedResults = allResults.slice(offset, offset + limit);
+
+    res.json({ 
+      results: paginatedResults,
+      total: allResults.length,
+      hasMore: offset + limit < allResults.length,
+      pageName: pageName,
+      currentPageId: query ? 'search' : pageId,
+    });
+  } catch (err) {
+    console.error('MyInstants search error:', err.message);
+    res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้', details: err.message });
+  }
+});
+
+app.get('/api/myinstants/pages', ensureAuthenticated, (req, res) => {
+  res.json({ pages: myinstantsPages });
 });
 
 // -----------------------------------------------------------------
@@ -1223,8 +1405,556 @@ app.get('/:username/overlay', validateUsername, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/overlay.html'));
 });
 
+app.get('/:username/thank-you', validateUsername, (req, res) => {
+  res.redirect(`/thank-you?username=${encodeURIComponent(req.streamer.username)}`);
+});
+
 // Vercel serverless requires exporting the app
 module.exports = app;
+
+// ========== PromptPay Payment Endpoints ==========
+
+/**
+ * Helper: Decrypt sensitive streamer fields for API response
+ */
+function decryptPaymentFields(streamer) {
+  if (!streamer) return null;
+  const result = { ...streamer };
+  try {
+    if (result.promptpay_phone && result.promptpay_phone.includes(':')) {
+      result.promptpay_phone = decrypt(result.promptpay_phone);
+    }
+    if (result.tfp_api_key && result.tfp_api_key.includes(':')) {
+      result.tfp_api_key = decrypt(result.tfp_api_key);
+    }
+    if (result.tfp_api_secret && result.tfp_api_secret.includes(':')) {
+      result.tfp_api_secret = decrypt(result.tfp_api_secret);
+    }
+    if (result.promptpay_value_encrypted && result.promptpay_value_encrypted.includes(':')) {
+      result.promptpay_value = decrypt(result.promptpay_value_encrypted);
+    }
+    if (result.slipok_api_encrypted && result.slipok_api_encrypted.includes(':')) {
+      result.slipok_api = decrypt(result.slipok_api_encrypted);
+    }
+    if (result.slipok_api_key_encrypted && result.slipok_api_key_encrypted.includes(':')) {
+      result.slipok_api_key = decrypt(result.slipok_api_key_encrypted);
+    }
+    if (result.truemoney_phone_encrypted && result.truemoney_phone_encrypted.includes(':')) {
+      result.truemoney_phone = decrypt(result.truemoney_phone_encrypted);
+    }
+    if (result.truemoney_slipok_api_encrypted && result.truemoney_slipok_api_encrypted.includes(':')) {
+      result.truemoney_slipok_api = decrypt(result.truemoney_slipok_api_encrypted);
+    }
+    if (result.truemoney_slipok_api_key_encrypted && result.truemoney_slipok_api_key_encrypted.includes(':')) {
+      result.truemoney_slipok_api_key = decrypt(result.truemoney_slipok_api_key_encrypted);
+    }
+  } catch (e) {
+    console.warn('Failed to decrypt payment fields:', e.message);
+  }
+  return result;
+}
+
+// GET /api/payment/settings - Load payment settings
+app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    const streamer = await db.getStreamer(actualUsername);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    const decrypted = decryptPaymentFields(streamer);
+    res.json({
+      payment_method: decrypted.payment_method || 'ffp',
+      promptpay_phone: decrypted.promptpay_phone || '',
+      promptpay_name: decrypted.promptpay_name || '',
+      promptpay_enabled: decrypted.promptpay_enabled || 0,
+      tfp_api_key: decrypted.tfp_api_key || '',
+      tfp_api_secret: decrypted.tfp_api_secret || '',
+      tfp_connected: decrypted.tfp_connected || 0,
+      tfp_last_check: decrypted.tfp_last_check || '',
+      promptpay_type: decrypted.promptpay_type || 'phone',
+      promptpay_value: decrypted.promptpay_value || '',
+      slipok_api: censor(decrypted.slipok_api || '', 8, 4),
+      slipok_api_key: censor(decrypted.slipok_api_key || ''),
+      slipok_connected: decrypted.slipok_connected || 0,
+      slipok_last_check: decrypted.slipok_last_check || '',
+      truemoney_enabled: decrypted.truemoney_enabled || 0,
+      truemoney_phone: decrypted.truemoney_phone || '',
+      truemoney_slipok_api: censor(decrypted.truemoney_slipok_api || '', 8, 4),
+      truemoney_slipok_api_key: censor(decrypted.truemoney_slipok_api_key || ''),
+      truemoney_slipok_connected: decrypted.truemoney_slipok_connected || 0,
+      truemoney_slipok_last_check: decrypted.truemoney_slipok_last_check || ''
+    });
+  } catch (err) {
+    console.error('Get payment settings error:', err);
+    if (err.message && (err.message.includes('502') || err.message.includes('SERVER_ERROR'))) {
+      return res.status(502).json({ error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว' });
+    }
+    res.status(500).json({ error: 'ไม่สามารถดึงการตั้งค่าการรับเงินได้' });
+  }
+});
+
+// POST /api/payment/settings - Save payment settings
+app.post('/api/payment/settings', ensureAuthenticated, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    const twitchId = req.user.twitch_id || req.user.id;
+
+    const updatedStreamer = await db.saveStreamer({
+      twitch_id: twitchId,
+      payment_method: req.body.payment_method,
+      promptpay_phone: req.body.promptpay_phone,
+      promptpay_name: req.body.promptpay_name,
+      promptpay_enabled: req.body.promptpay_enabled ? 1 : 0,
+      promptpay_type: req.body.promptpay_type || 'phone',
+      promptpay_value: req.body.promptpay_value || '',
+      slipok_api: req.body.slipok_api || '',
+      slipok_api_key: req.body.slipok_api_key || '',
+      truemoney_enabled: req.body.truemoney_enabled ? 1 : 0,
+      truemoney_phone: req.body.truemoney_phone || '',
+      truemoney_slipok_api: req.body.truemoney_slipok_api || '',
+      truemoney_slipok_api_key: req.body.truemoney_slipok_api_key || ''
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Save payment settings error:', err);
+    res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าการรับเงินได้' });
+  }
+});
+
+// POST /api/payment/test-tfp - Test TFP API connection
+app.post('/api/payment/test-slipok', ensureAuthenticated, async (req, res) => {
+  try {
+    const { slipok_api, slipok_api_key, method, promptpay_type, promptpay_value, truemoney_phone } = req.body;
+    if (!slipok_api || !slipok_api_key) {
+      return res.status(400).json({ error: 'กรุณากรอก API และ API Key' });
+    }
+
+    const isTruemoney = method === 'truemoney';
+    const actualUsername = await getActualUsername(req.user);
+    const twitchId = req.user.twitch_id || req.user.id;
+
+    let realApi = slipok_api;
+    let realApiKey = slipok_api_key;
+    let realPromptpayValue = promptpay_value || '';
+    let realTruemoneyPhone = truemoney_phone || '';
+    let realPromptpayType = promptpay_type || 'phone';
+
+    if (slipok_api.includes('*') || slipok_api_key.includes('*')) {
+      const streamer = await db.getStreamer(actualUsername);
+      if (streamer) {
+        const decrypted = decryptPaymentFields(streamer);
+        if (isTruemoney) {
+          if (slipok_api.includes('*')) realApi = decrypted.truemoney_slipok_api || '';
+          if (slipok_api_key.includes('*')) realApiKey = decrypted.truemoney_slipok_api_key || '';
+          if (truemoney_phone && truemoney_phone.includes('*')) realTruemoneyPhone = decrypted.truemoney_phone || '';
+        } else {
+          if (slipok_api.includes('*')) realApi = decrypted.slipok_api || '';
+          if (slipok_api_key.includes('*')) realApiKey = decrypted.slipok_api_key || '';
+          if (promptpay_value && promptpay_value.includes('*')) realPromptpayValue = decrypted.promptpay_value || '';
+        }
+      }
+    }
+
+    if (!realApi || !realApiKey) {
+      return res.status(400).json({ error: 'ไม่พบข้อมูล API ในระบบ กรุณากรอกใหม่' });
+    }
+
+    const branchUrl = realApi.endsWith('/quota') ? realApi.replace(/\/quota$/, '') : realApi;
+    const quotaUrl = `${branchUrl}/quota`;
+
+    const response = await axios.get(quotaUrl, {
+      headers: {
+        'x-authorization': realApiKey
+      },
+      timeout: 10000
+    });
+
+    if (isTruemoney) {
+      await db.saveStreamer({
+        twitch_id: twitchId,
+        truemoney_slipok_connected: 1,
+        truemoney_slipok_last_check: new Date().toISOString(),
+        truemoney_phone: realTruemoneyPhone,
+        truemoney_slipok_api: realApi,
+        truemoney_slipok_api_key: realApiKey
+      });
+    } else {
+      await db.saveStreamer({
+        twitch_id: twitchId,
+        slipok_connected: 1,
+        slipok_last_check: new Date().toISOString(),
+        promptpay_type: realPromptpayType,
+        promptpay_value: realPromptpayValue,
+        slipok_api: realApi,
+        slipok_api_key: realApiKey
+      });
+    }
+
+    res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ', quota: response.data?.data?.quota });
+  } catch (err) {
+    console.error('Test SlipOK error:', err);
+    const actualUsername = await getActualUsername(req.user);
+    const twitchId = req.user.twitch_id || req.user.id;
+    const isTruemoney = req.body.method === 'truemoney';
+    try {
+      if (isTruemoney) {
+        await db.saveStreamer({ twitch_id: twitchId, truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
+      } else {
+        await db.saveStreamer({ twitch_id: twitchId, slipok_connected: 0, slipok_last_check: new Date().toISOString() });
+      }
+    } catch (ignore) {}
+
+    const errorMsg = err.response
+      ? `SlipOK ตอบกลับ: ${err.response.status} ${JSON.stringify(err.response.data)}`
+      : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
+        ? 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ SlipOK ได้'
+        : err.code === 'ETIMEDOUT'
+          ? 'หมดเวลาเชื่อมต่อกับ SlipOK'
+          : `เกิดข้อผิดพลาด: ${err.message}`;
+
+    res.status(502).json({ success: false, error: errorMsg });
+  }
+});
+
+/**
+ * Generate PromptPay EMVCo QR payload
+ * Based on Thai PromptPay standard (Tag 30: Merchant Account Info)
+ */
+function generatePromptPayPayload(phoneNumber, amount) {
+  const phone = phoneNumber.replace(/[^0-9]/g, '');
+  if (phone.length < 10) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมีอย่างน้อย 10 หลัก)');
+
+  const amountStr = amount ? amount.toFixed(2) : '';
+  let normalizedPhone = phone;
+  if (phone.startsWith('0')) {
+    normalizedPhone = '66' + phone.substring(1);
+  } else if (!phone.startsWith('66')) {
+    normalizedPhone = '66' + phone;
+  }
+  const phoneInfo = `00${normalizedPhone}`;
+
+  const tags = [];
+  tags.push({ id: '00', value: '01' });
+  tags.push({ id: '01', value: amount ? '12' : '11' });
+  tags.push({ id: '29', value: `0016A00000067701011101${phoneInfo.length.toString().padStart(2, '0')}${phoneInfo}` });
+  tags.push({ id: '58', value: 'TH' });
+  tags.push({ id: '53', value: '764' });
+  if (amountStr) tags.push({ id: '54', value: amountStr });
+
+  let payload = '';
+  tags.forEach(tag => {
+    const len = tag.value.length.toString().padStart(2, '0');
+    payload += `${tag.id}${len}${tag.value}`;
+  });
+
+  payload += '6304';
+  const crc = crc16(payload);
+  payload += crc.toString(16).toUpperCase().padStart(4, '0');
+
+  return payload;
+}
+
+function crc16(data) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF);
+}
+
+// POST /api/create-promptpay-qr - Create PromptPay QR for donation
+const promptPayQrLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'กรุณารอสักครู่ก่อนสร้าง QR ใหม่' }
+});
+
+app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
+  try {
+    const { username, amount, name, message } = req.body;
+    if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
+    if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
+
+    await db.cleanupExpiredTransactions();
+
+    const pendingCount = await db.countPendingTransactions(username);
+    if (pendingCount >= 5) {
+      return res.status(429).json({ error: 'มีรายการค้างชำระมากเกินไป กรุณารอให้รายการเก่าหมดอายุก่อน' });
+    }
+
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
+    if (!streamer.promptpay_enabled) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้เปิด PromptPay' });
+
+    let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
+    if (phone && phone.includes(':')) {
+      try { phone = decrypt(phone); } catch (e) { return res.status(500).json({ error: 'ไม่สามารถถอดรหัสข้อมูล PromptPay ได้' }); }
+    }
+    if (!phone) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้ตั้งค่าเบอร์ PromptPay' });
+
+    const referenceId = `donate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const qrPayload = generatePromptPayPayload(phone, amount);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    // Record transaction
+    const txData = {
+      id: referenceId,
+      amount,
+      donor: name || 'Anonymous',
+      message: message || '',
+      status: 'pending',
+      streamer_username: username,
+      payment_method: 'promptpay',
+      createdAt: new Date().toISOString()
+    };
+    await db.saveTransaction(txData);
+
+    res.json({
+      success: true,
+      qrData: qrPayload,
+      referenceId,
+      expiresAt,
+      recipientName: streamer.promptpay_name || streamer.username
+    });
+  } catch (err) {
+    console.error('Create PromptPay QR error:', err);
+    res.status(500).json({ error: err.message || 'ไม่สามารถสร้าง QR Code ได้' });
+  }
+});
+
+// POST /api/verify-promptpay-slip - Verify PromptPay slip via TFP API
+const verifySlipLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'กรุณารอสักครู่' }
+});
+
+app.post('/api/verify-slip', upload.single('slip'), async (req, res) => {
+  try {
+    const { referenceId, amount, phone, method, username: bodyUsername } = req.body;
+    const slipFile = req.file;
+
+    if (!slipFile) return res.status(400).json({ success: false, errorCode: 'NO_FILE', error: 'กรุณาอัพโหลดไฟล์สลิป' });
+
+    const isTruemoney = method === 'truemoney';
+    let username = bodyUsername;
+
+    if (referenceId) {
+      const tx = await db.getTransactionById(referenceId);
+      if (tx) {
+        username = tx.streamer_username;
+      }
+    }
+
+    if (!username) return res.status(400).json({ success: false, errorCode: 'NO_USER', error: 'ไม่พบข้อมูลผู้ใช้' });
+
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ success: false, errorCode: 'NO_USER', error: 'ไม่พบผู้ใช้งาน' });
+
+    const decrypted = decryptPaymentFields(streamer);
+    let slipOkApi, slipOkApiKey;
+    if (isTruemoney) {
+      slipOkApi = decrypted.truemoney_slipok_api || decrypted.slipok_api;
+      slipOkApiKey = decrypted.truemoney_slipok_api_key || decrypted.slipok_api_key;
+    } else {
+      slipOkApi = decrypted.slipok_api;
+      slipOkApiKey = decrypted.slipok_api_key;
+    }
+
+    if (!slipOkApi || !slipOkApiKey) {
+      return res.status(503).json({ success: false, errorCode: 'SLIPOK_NOT_CONFIGURED', error: 'ผู้ใช้ยังไม่ได้ตั้งค่า SlipOK API' });
+    }
+
+    const base64Image = slipFile.buffer.toString('base64');
+    const branchUrl = slipOkApi.replace(/\/quota$/, '');
+
+    try {
+      const slipOkResponse = await axios.post(branchUrl, {
+        files: base64Image,
+        amount: parseFloat(amount) || 0,
+        log: true
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-authorization': slipOkApiKey
+        },
+        timeout: 30000
+      });
+
+      const slipData = slipOkResponse.data;
+      const d = slipData?.data;
+      const slipAmount = d?.amount || 0;
+      const expectedAmount = parseFloat(amount) || 0;
+
+      if (slipData && slipData.success && d) {
+        if (expectedAmount > 0 && Math.abs(slipAmount - expectedAmount) > 0.01) {
+          return res.json({ success: false, errorCode: 'AMOUNT_MISMATCH', error: `ยอดเงินในสลิป (${slipAmount}฿) ไม่ตรงกับยอดที่ต้องชำระ (${expectedAmount}฿)` });
+        }
+
+        if (referenceId) {
+          const tx = await db.getTransactionById(referenceId);
+          if (tx) {
+            await db.saveTransaction({
+              id: referenceId,
+              streamer_username: tx.streamer_username,
+              status: 'successful',
+              promptpay_verified: 1,
+              promptpay_verified_at: new Date().toISOString(),
+              promptpay_slip_id: d.transRef || null,
+              paidAt: new Date().toISOString()
+            });
+
+            broadcastAlert(tx.streamer_username, {
+              type: 'donation',
+              donor: tx.donor,
+              amount: tx.amount,
+              message: tx.message
+            });
+          }
+        } else if (isTruemoney) {
+          const referenceIdNew = `truemoney-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          await db.saveTransaction({
+            id: referenceIdNew,
+            amount: parseFloat(amount) || 0,
+            donor: phone || 'Anonymous',
+            message: '',
+            status: 'successful',
+            streamer_username: username,
+            payment_method: 'truemoney',
+            promptpay_verified: 1,
+            promptpay_verified_at: new Date().toISOString(),
+            promptpay_slip_id: d.transRef || null,
+            paidAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          });
+
+          broadcastAlert(username, {
+            type: 'donation',
+            donor: phone || 'Anonymous',
+            amount: parseFloat(amount) || 0,
+            message: ''
+          });
+        }
+
+        return res.json({
+          success: true,
+          amount: slipAmount,
+          transRef: d.transRef,
+          sender: d.sender?.displayName,
+          receiver: d.receiver?.displayName
+        });
+      } else {
+        const slipCode = slipData?.code;
+        const errorMsg = slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง';
+        const delayMinutes = slipData?.delay || null;
+        const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+                           slipCode === 1012 ? 'SLIP_DUPLICATE' :
+                           slipCode === 1013 ? 'AMOUNT_MISMATCH' :
+                           slipCode === 1014 ? 'WRONG_RECEIVER' :
+                           'SLIP_INVALID';
+        return res.json({ success: false, errorCode: mappedCode, error: errorMsg, delayMinutes });
+      }
+    } catch (slipErr) {
+      console.error('SlipOK verification error:', slipErr.message);
+      if (slipErr.response) {
+        const body = slipErr.response.data;
+        const slipCode = body?.code;
+        const errMsg = body?.message || body?.error || 'SlipOK API error';
+        const delayMinutes = body?.delay || null;
+        const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+                           slipCode === 1012 ? 'SLIP_DUPLICATE' :
+                           slipCode === 1013 ? 'AMOUNT_MISMATCH' :
+                           slipCode === 1014 ? 'WRONG_RECEIVER' :
+                           'SLIPOK_ERROR';
+        return res.json({ success: false, errorCode: mappedCode, error: errMsg, delayMinutes });
+      }
+      return res.status(502).json({ success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' });
+    }
+  } catch (err) {
+    console.error('Verify slip error:', err);
+    res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการตรวจสอบสลิป' });
+  }
+});
+
+app.post('/api/verify-promptpay-slip', verifySlipLimiter, async (req, res) => {
+  try {
+    const { referenceId } = req.body;
+    if (!referenceId) return res.status(400).json({ error: 'ไม่พบ Reference ID' });
+
+    const tx = await db.getTransactionById(referenceId);
+    if (!tx) return res.status(404).json({ error: 'ไม่พบรายการบริจาค' });
+    if (tx.status === 'successful') return res.json({ verified: true, amount: tx.amount, donor: tx.donor });
+
+    const streamer = await db.getStreamer(tx.streamer_username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบข้อมูลผู้ใช้' });
+    const decrypted = decryptPaymentFields(streamer);
+
+    const slipOkApi = decrypted.slipok_api;
+    const slipOkApiKey = decrypted.slipok_api_key;
+
+    if (!slipOkApi || !slipOkApiKey) {
+      return res.status(503).json({
+        error: 'ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่',
+        errorCode: 'SLIPOK_NOT_CONFIGURED'
+      });
+    }
+
+    // Check if QR has expired
+    const createdAt = new Date(tx.createdAt);
+    if (Date.now() - createdAt.getTime() > 10 * 60 * 1000) {
+      return res.json({ verified: false, expired: true });
+    }
+
+    // For polling, we just return pending since SlipOK requires an actual slip
+    // Real verification happens through /api/verify-slip with slip upload
+    res.json({ verified: false });
+  } catch (err) {
+    console.error('Verify PromptPay slip error:', err);
+    res.status(500).json({ error: 'ไม่สามารถตรวจสอบการโอนได้' });
+  }
+});
+
+// GET /api/page/:username/payment-methods - Public endpoint for available payment methods
+app.get('/api/page/:username/payment-methods', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
+
+    const method = streamer.payment_method || 'ffp';
+    
+    // Decrypt TrueMoney phone if encrypted
+    let truemoneyPhone = '';
+    if (streamer.truemoney_phone_encrypted) {
+      try {
+        truemoneyPhone = decrypt(streamer.truemoney_phone_encrypted);
+      } catch (e) {
+        console.warn('Failed to decrypt truemoney_phone:', e.message);
+      }
+    }
+    
+    res.json({
+      ffp: method === 'ffp' || method === 'both',
+      promptpay: streamer.promptpay_enabled === 1,
+      truemoney: streamer.truemoney_enabled === 1,
+      beam: method === 'ffp' || method === 'both',
+      promptpay_name: streamer.promptpay_name || streamer.username,
+      truemoney_phone: truemoneyPhone,
+      slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1,
+      truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1
+    });
+  } catch (err) {
+    console.error('Get payment methods error:', err);
+    if (err.message && (err.message.includes('502') || err.message.includes('SERVER_ERROR'))) {
+      return res.status(502).json({ error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว' });
+    }
+    res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลวิธีรับเงินได้' });
+  }
+});
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {

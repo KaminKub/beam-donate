@@ -40,10 +40,9 @@
          <button class="menu-item" data-tab="account">
            <span class="icon">👤</span> บัญชีผู้ใช้
          </button>
-         <button class="menu-item" data-tab="payment-setup" disabled>
-
-           <span class="icon">🏦</span> ตั้งค่ารับเงิน (เร็วๆนี้)
-        </button>
+         <button class="menu-item" data-tab="payment-setup">
+            <span class="icon">🏦</span> ตั้งค่ารับเงิน
+         </button>
        </nav>
 
         <div class="sidebar-footer">
@@ -158,6 +157,7 @@
                 <div class="copy-url-group">
                   <input type="text" id="obsOverlayUrl" readonly value="http://localhost:3000/overlay">
                   <button class="btn btn-primary" id="btnCopyObsUrl">คัดลอก</button>
+                  <button class="btn btn-secondary" id="btnOpenObsUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
                 </div>
                 <div class="instructions-steps">
                   <div class="step-num">1</div>
@@ -184,7 +184,7 @@
             <div class="filter-bar">
               <div class="search-group">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="inputSearchDonor" placeholder="ค้นหาชื่อผู้บริจาค...">
+                <input type="text" id="inputSearchDonor" placeholder="ค้นหาชื่อผู้บริจาค/Reference-ID...">
               </div>
               <div class="filter-groups">
                 <select id="selectFilterStatus" class="form-select">
@@ -192,10 +192,16 @@
                   <option value="successful">สำเร็จ (Successful)</option>
                   <option value="pending">รอชำระเงิน (Pending)</option>
                   <option value="failed">ล้มเหลว (Failed)</option>
+                  <option value="expired">หมดอายุ (Expired)</option>
                 </select>
                 <button class="btn btn-secondary" id="btnRefreshTransactions">🔄 รีเฟรช</button>
+                <button class="btn btn-secondary" id="btnDownloadTransactions">📥 ดาวน์โหลด</button>
               </div>
             </div>
+
+            <p style="font-size: 11px; color: #f59e0b; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️</span> ระบบจะล้างรายการบริจาคที่มีอายุเกิน 3 เดือนโดยอัตโนมัติ — <a href="#" id="btnDownloadFromNote" style="color: #fbbf24; text-decoration: underline;">ดาวน์โหลดเก็บไว้ที่นี่</a>
+            </p>
 
             <!-- Transactions Table -->
             <div class="table-responsive list-table-wrapper">
@@ -399,6 +405,231 @@
             </div>
           </section>
 
+          <!-- SECTION: PAYMENT SETUP -->
+          <section id="tab-payment-setup" class="tab-content">
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3>🏦 ตั้งค่าการรับเงิน (Payment Settings)</h3>
+                <p class="text-muted" style="font-size: 13px; margin-top: 8px;">เลือกวิธีรับเงินบริจาคจากผู้ชม</p>
+              </div>
+
+              <div class="payment-setup-container">
+                <div class="settings-section">
+                  <h4><i class="fas fa-wallet"></i> วิธีรับเงิน</h4>
+                  <small style="color: #9ca3af; font-size: 12px; display: block; margin-bottom: 12px;">
+                    คลิกเพื่อเลือกวิธีชำระเงิน (เลือกได้มากกว่า 1 วิธี)
+                  </small>
+                  
+                  <!-- Payment Method Items Container -->
+                  <div class="payment-methods-list">
+                    <!-- FFP Card -->
+                    <div class="payment-method-item">
+                      <div class="payment-method-card disabled" data-method="ffp" id="cardFFP">
+                        <div class="card-icon">
+                          <img src="../Image/FFP-logo.png" alt="Feel Free Pay">
+                        </div>
+                        <h3>Feel Free Pay</h3>
+                        <p>ผู้โดเนทไม่เห็นชื่อหรือข้อมูลส่วนตัวของผู้รับเงิน</p>
+                        <small style="color: #f87171; display: block; margin-top: 4px;">ระบบยังไม่พร้อม</small>
+                      </div>
+                    </div>
+                    
+                    <!-- PromptPay Card + Settings -->
+                    <div class="payment-method-item">
+                      <div class="payment-method-card" data-method="promptpay" id="cardPromptPay">
+                        <div class="card-icon">
+                          <img src="../Image/QR-PromptPay.png" alt="พร้อมเพย์">
+                        </div>
+                        <h3>พร้อมเพย์</h3>
+                        <p>โอนตรงเข้าบัญชีทันที</p>
+                        <button type="button" class="btn-settings" data-target="promptpaySettingsPanel">
+                          <span>ตั้งค่า</span>
+                          <i class="fas fa-chevron-down"></i>
+                        </button>
+                      </div>
+                      
+                      <!-- PromptPay Settings Panel -->
+                      <div class="settings-panel" id="promptpaySettingsPanel" data-panel="promptpay">
+                        <div class="panel-header">
+                          <h4><i class="fas fa-mobile-alt"></i> ตั้งค่าพร้อมเพย์</h4>
+                          <button type="button" class="btn-close-panel" data-target="promptpaySettingsPanel">
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                        
+                        <div class="settings-section">
+                          <h5>ข้อมูลพร้อมเพย์</h5>
+                          
+                          <div class="form-group">
+                            <label for="inputPromptPayType">ประเภทบัญชีพร้อมเพย์</label>
+                            <select id="inputPromptPayType" class="form-control">
+                              <option value="phone">เบอร์โทรศัพท์</option>
+                              <option value="idcard">เลขบัตรประจำตัวประชาชน</option>
+                              <option value="ewallet">e-Wallet ID</option>
+                            </select>
+                          </div>
+
+                          <div class="form-group">
+                            <label for="inputPromptPay">ข้อมูลพร้อมเพย์</label>
+                            <input type="text" id="inputPromptPay" class="form-control"
+                                   placeholder="081-234-5678" maxlength="10">
+                            <small class="text-muted" id="promptpayHint">กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์</small>
+                          </div>
+                        </div>
+
+                        <div class="settings-section">
+                          <h5>SlipOK API Configuration</h5>
+                          <div class="api-notice" id="promptpayApiNotice">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong><br>
+                              สมัคร API ได้ที่
+                              <a href="https://slipok.com/price-and-service/" target="_blank"
+                                 style="display: inline-flex; align-items: center; gap: 4px;">
+                                SlipOK <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
+                              </a>
+                            </div>
+                          </div>
+
+                          <a href="https://slipok.com/price-and-service/" target="_blank"
+                             class="btn btn-outline"
+                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 16px;">
+                            <i class="fas fa-external-link-alt"></i> ไปสมัคร SlipOK API
+                          </a>
+
+                          <div class="form-group">
+                            <label for="inputSlipOkApi">API</label>
+                            <input type="password" id="inputSlipOkApi" class="form-control"
+                                   placeholder="https://api.slipok.com/api/line/apikey/........">
+                            <small class="text-muted">กรอก API ที่ได้จากหน้าจัดการสาขาใน SlipOK</small>
+                          </div>
+
+                          <div class="form-group">
+                            <label for="inputSlipOkApiKey">API Key</label>
+                            <input type="password" id="inputSlipOkApiKey" class="form-control"
+                                   placeholder="x-authorization key">
+                            <small class="text-muted">กรอก API Key</small>
+                          </div>
+
+                          <button type="button" id="btnTestSlipOk" class="btn btn-secondary" style="margin-top: 8px;">
+                            <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ
+                          </button>
+
+                          <div id="slipokStatusContainer" style="display: none;">
+                            <div class="tfp-status disconnected" id="slipokStatus">
+                              <div class="tfp-status-icon">
+                                <i class="fas fa-times"></i>
+                              </div>
+                              <div class="tfp-status-text">
+                                <strong id="slipokStatusTitle">ยังไม่ได้เชื่อมต่อ</strong>
+                                <span id="slipokStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- TrueMoney Card + Settings -->
+                    <div class="payment-method-item">
+                      <div class="payment-method-card" data-method="truemoney" id="cardTrueMoney">
+                        <div class="card-icon">
+                          <img src="../Image/TrueWallate.png" alt="TrueMoney Wallet">
+                        </div>
+                        <h3>TrueMoney Wallet</h3>
+                        <p>รับเงินผ่านวอลเลท ง่าย สะดวก</p>
+                        <button type="button" class="btn-settings" data-target="truemoneySettingsPanel">
+                          <span>ตั้งค่า</span>
+                          <i class="fas fa-chevron-down"></i>
+                        </button>
+                      </div>
+                      
+                      <!-- TrueMoney Settings Panel -->
+                      <div class="settings-panel" id="truemoneySettingsPanel" data-panel="truemoney">
+                        <div class="panel-header">
+                          <h4><i class="fas fa-wallet"></i> ตั้งค่า TrueMoney Wallet</h4>
+                          <button type="button" class="btn-close-panel" data-target="truemoneySettingsPanel">
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                        
+                        <div class="settings-section">
+                          <h5>ข้อมูล TrueMoney Wallet</h5>
+                          <div class="form-group">
+                            <label for="inputTrueMoneyPhone">เบอร์โทรศัพท์ TrueMoney Wallet</label>
+                            <input type="tel" id="inputTrueMoneyPhone" class="form-control"
+                                   placeholder="08x-xxx-xxxx" maxlength="10">
+                            <small class="text-muted">เบอร์โทรที่ผูกกับบัญชี TrueMoney Wallet (10 หลัก)</small>
+                          </div>
+                        </div>
+
+                        <div class="settings-section">
+                          <h5>SlipOK API Configuration</h5>
+                          <div class="api-notice" id="truemoneyApiNotice">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong><br>
+                              ใช้ SlipOK API เดียวกันกับพร้อมเพย์
+                              <a href="https://slipok.com/price-and-service/" target="_blank"
+                                 style="display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;">
+                                SlipOK <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
+                              </a>
+                            </div>
+                          </div>
+
+                          <a href="https://slipok.com/price-and-service/" target="_blank"
+                             class="btn btn-outline"
+                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 16px;">
+                            <i class="fas fa-external-link-alt"></i> ไปสมัคร SlipOK API
+                          </a>
+
+                          <button type="button" id="btnSyncSlipOkFromPromptPay" class="btn-sync-promptpay"
+                                  title="ดึงข้อมูล API จากพร้อมเพย์">
+                            <i class="fas fa-sync-alt"></i> ดึงข้อมูล API จากพร้อมเพย์
+                          </button>
+
+                          <div class="form-group">
+                            <label for="inputTrueMoneyApi">API</label>
+                            <input type="password" id="inputTrueMoneyApi" class="form-control"
+                                   placeholder="https://api.slipok.com/api/line/apikey/........">
+                            <small class="text-muted">กรอก Branch ID (URL ที่ได้จาก SlipOK)</small>
+                          </div>
+                          <div class="form-group">
+                            <label for="inputTrueMoneyApiKey">API Key</label>
+                            <input type="password" id="inputTrueMoneyApiKey" class="form-control"
+                                   placeholder="x-authorization key">
+                            <small class="text-muted">กรอก API Key สำหรับ x-authorization header</small>
+                          </div>
+                          <button type="button" id="btnTestTrueMoneySlipOk" class="btn btn-secondary" style="margin-top: 8px;">
+                            <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ
+                          </button>
+
+                          <div id="trueMoneySlipOkStatusContainer" style="display: none;">
+                            <div class="tfp-status disconnected" id="trueMoneySlipOkStatus">
+                              <div class="tfp-status-icon">
+                                <i class="fas fa-times"></i>
+                              </div>
+                              <div class="tfp-status-text">
+                                <strong id="trueMoneySlipOkStatusTitle">ยังไม่ได้เชื่อมต่อ</strong>
+                                <span id="trueMoneySlipOkStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-actions" style="margin-top: 24px;">
+                  <button type="button" id="btnSavePaymentSettings" class="btn btn-primary btn-large">
+                    💾 บันทึกการตั้งค่า
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
          <!-- SECTION: OVERLAY CONFIGURATOR -->
           <section id="tab-overlay-config" class="tab-content">
             <div class="settings-grid">
@@ -552,9 +783,12 @@
                        </div>
 
                        <div class="form-group" id="customSoundUrlContainer" style="display: none;">
-                         <label for="customSoundUrl">URL เสียงแจ้งเตือน (Direct Link .mp3)</label>
-                         <input type="text" id="customSoundUrl" name="customSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
-                       </div>
+                          <label for="customSoundUrl">URL เสียงแจ้งเตือน (Direct Link .mp3)</label>
+                          <input type="text" id="customSoundUrl" name="customSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
+                          <button type="button" id="btnBrowseSounds" class="btn btn-secondary" style="margin-top: 8px; width: 100%;">
+                            🔍 เลือกเสียงจาก myinstants.com
+                          </button>
+                        </div>
 
                        <div class="form-group">
                          <label for="sliderSoundVolume">ความดังเสียงเตือน (<span id="lblSoundVolume">50</span>%)</label>
@@ -746,7 +980,7 @@
     <div class="modal-content confirm-modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
       <div class="modal-icon" id="confirmModalIcon" style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
       <h3 id="confirmModalTitle">ยืนยันการดำเนินการ</h3>
-      <p id="confirmModalText" style="color: #94a3b8; margin-bottom: 2rem;">คุณแน่ใจหรือไม่ว่าต้องการดำเนินการนี้?</p>
+      <p id="confirmModalText" style="color: #94a3b8; margin-bottom: 2rem; white-space: pre-line;">คุณแน่ใจหรือไม่ว่าต้องการดำเนินการนี้?</p>
       <div class="confirm-actions" style="display: flex; gap: 10px; justify-content: center;">
         <button class="btn btn-secondary" id="btnConfirmCancel">ยกเลิก</button>
         <button class="btn btn-danger" id="btnConfirmOk">ยืนยัน</button>
@@ -754,6 +988,112 @@
     </div>
   </div>
 
+  <!-- Transaction Detail Modal -->
+  <div class="modal" id="transactionDetailModal">
+    <div class="modal-content transaction-detail-content">
+      <div class="modal-header">
+        <h3>🎉 รายละเอียดการบริจาค</h3>
+        <button class="btn-close" id="btnCloseTransactionDetail">&times;</button>
+      </div>
+      <div class="modal-body transaction-detail-body">
+        <div class="transaction-detail-card">
+          <div class="donor-section">
+            <div class="donor-avatar" id="detailDonorAvatar">🎁</div>
+            <h2 class="donor-name" id="detailDonorName">-</h2>
+          </div>
+          
+          <div class="amount-section">
+            <div class="amount-label">จำนวนเงินบริจาค</div>
+            <div class="amount-value" id="detailAmount">฿0</div>
+          </div>
+          
+          <div class="message-section" id="detailMessageSection">
+            <div class="message-label">ข้อความ</div>
+            <div class="message-content" id="detailMessage">-</div>
+          </div>
+          
+          <div class="meta-section">
+            <div class="meta-row">
+              <span class="meta-label">สถานะ:</span>
+              <span class="meta-value" id="detailStatus">-</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">เวลา:</span>
+              <span class="meta-value" id="detailTime">-</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">ID:</span>
+              <span class="meta-value meta-id" id="detailId">-</span>
+            </div>
+          </div>
+          
+          <div class="thank-you-section">
+            <div class="thank-you-text">ขอบคุณจากหัวใจ ❤️</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MyInstants Sound Browser Modal -->
+  <div id="soundBrowserModal" class="modal">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+      <div class="modal-header" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <h3>🔍 เลือกเสียงจาก myinstants.com</h3>
+          <button class="btn-close" id="btnCloseSoundBrowser">&times;</button>
+        </div>
+        <p style="font-size: 11px; color: var(--pending, #f59e0b); margin: 0; line-height: 1.4;">⚠️ แนะนำให้อัพโหลดเสียงเป็น URL ส่วนตัว เนื่องจากเสียงจาก MyInstants อาจไม่เล่นบน Overlay ในบางครั้ง</p>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <input type="text" id="soundSearchInput" class="form-control" placeholder="ค้นหาเสียง... (เช่น vine boom, bruh)">
+          <button type="button" id="btnSoundSearch" class="btn btn-primary">ค้นหา</button>
+        </div>
+        <small style="color: var(--text-muted); font-size: 11px; display: block; margin-bottom: 12px;">Sounds provided by <a href="https://www.myinstants.com" target="_blank" style="color: var(--primary); text-decoration: none;">Myinstants.com</a></small>
+        <div id="soundResults" style="max-height: 350px; overflow-y: auto;" onscroll="handleSoundScroll(this)">
+        </div>
+        <div id="soundPagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+          <span id="soundPageName" style="font-size: 12px; color: var(--text-muted);">Thailand</span>
+          <button type="button" id="btnNextPage" class="btn btn-secondary btn-sm" onclick="loadNextPage()">หน้าถัดไป →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Download Transactions Modal -->
+  <div class="modal" id="downloadModal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>📥 ดาวน์โหลดประวัติโดเนท</h3>
+        <button class="btn-close" id="btnCloseDownload">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+          เลือกช่วงเดือนที่ต้องการดาวน์โหลด ข้อมูลจะถูกส่งออกเป็นไฟล์ CSV
+        </p>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="downloadMonthFrom">ตั้งแต่เดือน</label>
+            <input type="month" id="downloadMonthFrom" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="downloadMonthTo">ถึงเดือน</label>
+            <input type="month" id="downloadMonthTo" class="form-control">
+          </div>
+        </div>
+        <p id="downloadNote" style="color: #f87171; font-size: 11px; margin-top: 12px; display: none;">
+          ⚠️ ข้อมูลจะถูกรีเซททุก 3 เดือน — แนะนำให้ดาวน์โหลดเก็บไว้
+        </p>
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="btn btn-secondary" id="btnCancelDownload" style="flex: 1;">ยกเลิก</button>
+          <button class="btn btn-primary" id="btnConfirmDownload" style="flex: 1;">📥 ดาวน์โหลด CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/dashboard/sound-cache.js"></script>
   <script src="/dashboard/dashboard.js"></script>
 </body>
 </html>

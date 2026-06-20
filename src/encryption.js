@@ -67,5 +67,9 @@ function decrypt(encryptedText) {
 
 module.exports = {
   encrypt,
-  decrypt
+  decrypt,
+  censor: (text, showFirst = 3, showLast = 4) => {
+    if (!text || text.length <= showFirst + showLast) return text ? '*'.repeat(text.length) : '';
+    return text.substring(0, showFirst) + '*'.repeat(text.length - showFirst - showLast) + text.substring(text.length - showLast);
+  }
 };

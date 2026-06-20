@@ -66,7 +66,7 @@
         <div class="custom-amount">
           <div class="amount-options">
             <button class="amount-btn" data-amount="10">
-              <span class="amount-val">฿20</span>
+              <span class="amount-val">฿10</span>
               <span class="amount-desc"></span>
             </button>
             <button class="amount-btn" data-amount="15">
@@ -86,6 +86,7 @@
             <span class="currency">฿</span>
             <input type="number" id="customAmount" placeholder="ระบุจำนวนเงิน..." min="1">
           </div>
+          <div id="minAmountWarning" class="min-amount-warning" style="display: none;">กรุณาระบุจำนวนเงินขั้นต่ำ ฿<span id="minAmountWarningValue">1</span></div>
         </div>
 
         <div class="donor-info">
@@ -97,7 +98,7 @@
         </div>
     <p id="statusNote" class="status-note" style="display: none;">
         <span class="note-dot"></span>
-          <span>หมายเหตุ: สถานะขณะนี้ <span class="note-highlight">'โดขึ้นจอ | ปิดอยู่'</span> ค่าเลี้ยงกาแฟจะส่งถึงปกติ เพียงแต่จะไม่แจ้งเตือนขึ้นจอขณะไลฟ์สด</span>
+          <span>หมายเหตุ: สถานะขณะนี้ <span class="note-highlight">'โดขึ้นจอ | ปิดอยู่'</span> ค่าโดเนทจะส่งถึงปกติ เพียงแต่จะไม่แจ้งเตือนขึ้นจอขณะไลฟ์สด</span>
       </p>
         <button id="btnDonate" class="btn-primary" disabled>
           ดำเนินการต่อ
@@ -111,14 +112,86 @@
               </a>
             </h2>
         </div>
+    </div>  <!-- end step-amount -->
 
-    <!-- หน้าแสดง QR Code (คงไว้สำหรับโค้ด JS ทำงาน แต่สตรีมเมอร์ส่วนใหญ่อาจจะ redirect ไป Beam ทันที) -->
+    <!-- หน้าเลือกวิธีชำระเงิน -->
+    <div id="step-payment-method" class="step">
+      <div class="card glass-card">
+        <div class="header">
+          <h2>ยืนยันการบริจาค</h2>
+        </div>
+
+        <div class="payment-summary">
+          <div class="summary-amount-display">
+            <span class="summary-label">จำนวนเงินที่คุณจะบริจาค</span>
+            <span id="summaryAmount" class="summary-amount-large">฿0</span>
+          </div>
+          <div class="summary-row">
+            <span>ผู้บริจาค:</span>
+            <span id="summaryDonor">-</span>
+          </div>
+        </div>
+
+        <div class="payment-methods">
+          <div class="payment-method-option disabled" data-method="ffp" id="optionFFP" style="display: none;">
+            <div class="payment-method-icon">
+              <img src="../Image/FFP-logo.png" alt="Feel Free Pay">
+            </div>
+            <div class="payment-method-info">
+              <h3>Feel Free Pay</h3>
+              <p>บัตรเครดิต, Mobile Banking, e-Wallet, QR PromptPay</p>
+              <span class="payment-method-badge" style="background: rgba(239,68,68,0.15); color: #f87171;">ระบบยังไม่พร้อม</span>
+            </div>
+            <div class="payment-method-check">
+              <i class="fas fa-check-circle"></i>
+            </div>
+          </div>
+
+          <div class="payment-method-option" data-method="promptpay" id="optionPromptPay">
+            <div class="payment-method-icon">
+              <img src="../Image/icon-thaiqr.png" alt="พร้อมเพย์">
+            </div>
+            <div class="payment-method-info">
+              <h3>พร้อมเพย์</h3>
+              <p>โอนตรงเข้าบัญชีผู้รับ รวดเร็ว ไม่มีค่าธรรมเนียม</p>
+            </div>
+            <div class="payment-method-check">
+              <i class="fas fa-check-circle"></i>
+            </div>
+          </div>
+
+          <div class="payment-method-option" data-method="truemoney" id="optionTrueMoney">
+            <div class="payment-method-icon">
+              <img src="../Image/TrueWallate.png" alt="TrueMoney Wallet">
+            </div>
+            <div class="payment-method-info">
+              <h3>TrueMoney Wallet</h3>
+              <p>โอนเงินผ่านวอลเลท สะดวก รวดเร็ว</p>
+            </div>
+            <div class="payment-method-check">
+              <i class="fas fa-check-circle"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button id="btnBackToAmount" class="btn-secondary">
+            ← ย้อนกลับ
+          </button>
+          <button id="btnProceedPayment" class="btn-primary" disabled>
+            ดำเนินการต่อ →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- หน้าแสดง QR Code (สำหรับ PromptPay Direct) -->
     <div id="step-qr" class="step">
       <div class="card glass-card">
         <div class="header">
-          <div class="glowing-qr">📱</div>
-          <h2>สแกน QR Code</h2>
-          <p class="subtitle">ชำระผ่าน PromptPay อย่างรวดเร็วและปลอดภัย</p>
+          <img src="../Image/QR-PromptPay.png" alt="พร้อมเพย์" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
+          <h2>สแกนเพื่อจ่าย</h2>
+          <p class="subtitle" id="qrSubtitle">สแกน QR Code เพื่อโอนเงินผ่านพร้อมเพย์</p>
         </div>
 
         <div class="qr-container">
@@ -130,32 +203,146 @@
         </div>
 
         <div class="amount-display">
-          <span class="label">ยอดเงินที่ต้องชำระ</span>
+          <span class="label">จำนวนเงิน</span>
           <span id="displayAmount" class="value">฿0</span>
         </div>
 
-        <div class="instructions">
-          <p><span>1</span> เปิดแอปธนาคารของคุณ</p>
-          <p><span>2</span> เลือกสแกน QR Code</p>
-          <p><span>3</span> สแกนคิวอาร์โค้ดด้านบน</p>
-          <p><span>4</span> กดยืนยันการชำระเงินในแอปธนาคาร</p>
+        <div class="qr-info-box" style="margin-bottom: 16px;">
+          <div class="info-row">
+            <span class="info-label">ผู้รับ:</span>
+            <span id="qrRecipientName" class="info-value">พร้อมเพย์</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Reference:</span>
+            <span id="qrReference" class="info-value">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">หมดอายุใน:</span>
+            <span id="qrExpiry" class="info-value countdown">10:00</span>
+          </div>
         </div>
 
-        <div id="paymentStatus" class="status checking">
-          <div class="spinner-small"></div>
-          <span>รอการชำระเงิน...</span>
+        <div class="slip-upload-container" id="slipUploadContainer">
+          <input type="file" id="slipFileInput" accept="image/*" style="display: none;">
+          <label for="slipFileInput" class="slip-upload-btn" id="slipUploadBtn">
+            <div class="upload-content">
+              <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: #9ca3af;"></i>
+              <span>อัพโหลดสลิปโอนเงิน</span>
+              <small>คลิกหรือลากไฟล์มาวางที่นี่</small>
+            </div>
+          </label>
+          <div class="upload-preview" id="slipPreview" style="display: none;">
+            <img id="slipPreviewImage" src="" alt="Preview">
+            <button id="btnRemoveSlip" class="btn-remove" type="button">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
         </div>
 
-        <button id="btnBack" class="btn-secondary">
-          ← ย้อนกลับไปแก้ไข
+        <button id="btnVerifySlip" class="btn-verify-slip" disabled>
+          <i class="fas fa-check-circle"></i> ตรวจสอบสลิป
         </button>
+
+        <div id="slipokWarning" class="slipok-warning" style="display: none;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>⚠️ ระบบตรวจสอบสลิปยังไม่พร้อม — เจ้าของหน้ายังไม่ได้ตั้งค่า SlipOK API</span>
+        </div>
+
+        <div id="paymentStatus" class="status checking" style="display: none;">
+          <div class="spinner-small"></div>
+          <span>กำลังตรวจสอบสลิป...</span>
+        </div>
+
+        <div id="paymentError" class="payment-error" style="display: none;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span id="paymentErrorMessage">ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่</span>
+        </div>
+
+        <div class="button-group">
+          <button id="btnBack" class="btn-secondary">
+            ← ยกเลิก
+          </button>
+          <button id="btnRetryQR" class="btn-primary" style="display: none;">
+            🔄 ลองใหม่
+          </button>
+        </div>
       </div>
-    </div>
-  </div>
+    </div>  <!-- end step-qr -->
 
-  <script src="/donate-template/app.js"></script>
+    <!-- หน้า TrueMoney Wallet -->
+    <div id="step-truemoney" class="step">
+      <div class="card glass-card">
+        <div class="header">
+          <img src="../Image/TrueWallate.png" alt="TrueMoney" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
+          <h2>TrueMoney Wallet</h2>
+          <p class="subtitle">โอนเงินผ่าน TrueMoney Wallet</p>
+        </div>
 
-    <footer style="position: center; bottom: 2rem; width: 100%; text-align: center; z-index: 1;  opacity: 0.6; font-size: 0.8rem;">
+        <div class="amount-display">
+          <span class="label">ยอดเงินที่ต้องชำระ</span>
+          <span id="trueMoneyAmount" class="value">฿0</span>
+        </div>
+
+        <div class="truemoney-phone-box">
+          <div class="truemoney-phone-label">โอนไปยังเบอร์</div>
+          <div class="truemoney-phone-number" id="trueMoneyPhoneDisplay">0xx-xxx-xxxx</div>
+          <button class="btn-copy-phone" id="btnCopyTrueMoneyPhone" title="คัดลอกเบอร์">
+            <i class="fas fa-copy"></i> คัดลอก
+          </button>
+        </div>
+
+        <div class="instructions">
+          <p><span>1</span> เปิดแอป TrueMoney Wallet</p>
+          <p><span>2</span> เลือกเมนู "โอนเงิน" → "โอนเงินให้บุคคล"</p>
+          <p><span>3</span> กรอกเบอร์โทรศัพท์ด้านบน แล้วระบุยอดเงิน</p>
+          <p><span>4</span> กดยืนยันการโอน แล้วอัพโหลดสลิปด้านล่าง</p>
+        </div>
+
+        <div class="slip-upload-container" id="trueMoneySlipUploadContainer">
+          <input type="file" id="trueMoneySlipFileInput" accept="image/*" style="display: none;">
+          <label for="trueMoneySlipFileInput" class="slip-upload-btn" id="trueMoneySlipUploadBtn">
+            <div class="upload-content">
+              <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: #9ca3af;"></i>
+              <span>อัพโหลดสลิปโอนเงิน</span>
+              <small>คลิกหรือลากไฟล์มาวางที่นี่</small>
+            </div>
+          </label>
+          <div class="upload-preview" id="trueMoneySlipPreview" style="display: none;">
+            <img id="trueMoneySlipPreviewImage" src="" alt="Preview">
+            <button id="btnRemoveTrueMoneySlip" class="btn-remove" type="button">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+
+        <button id="btnVerifyTrueMoney" class="btn-verify-slip" disabled>
+          <i class="fas fa-check-circle"></i> ตรวจสอบสลิป
+        </button>
+
+        <div id="trueMoneySlipokWarning" class="slipok-warning" style="display: none;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>⚠️ ระบบตรวจสอบสลิปยังไม่พร้อม — เจ้าของหน้ายังไม่ได้ตั้งค่า SlipOK API</span>
+        </div>
+
+        <div id="trueMoneyPaymentStatus" class="status checking" style="display: none;">
+          <div class="spinner-small"></div>
+          <span>กำลังตรวจสอบสลิป...</span>
+        </div>
+
+        <div id="trueMoneyPaymentError" class="payment-error" style="display: none;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span id="trueMoneyPaymentErrorMessage">เกิดข้อผิดพลาด</span>
+        </div>
+
+        <div class="button-group">
+          <button id="btnBackTrueMoney" class="btn-secondary">
+            ← ย้อนกลับ
+          </button>
+        </div>
+      </div>
+    </div>  <!-- end step-truemoney -->
+
+    <footer style="text-align: center; margin-top: 24px; opacity: 0.6; font-size: 0.8rem;">
     <a href="/privacy.html" style="color: white; text-decoration: none; opacity: 0.7; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
       Privacy Policy | นโยบายความเป็นส่วนตัว
       </a><br>
@@ -164,5 +351,8 @@
         Terms of Service | ข้อกำหนดและเงื่อนไขการให้บริการ
       </a>
   </footer>
+  </div>  <!-- end container -->
+
+  <script src="/donate-template/app.js"></script>
 </body>
 </html>
