@@ -296,19 +296,24 @@ npm run migrate
 ```
 รัน script `scripts/migrate.js` เพื่อสร้าง/อัปเดต schema — **ห้าม** รัน migration บน request path (Vercel Cold Start จะ timeout)
 
-## Deployment (Vercel)
+## Deployment
 
-### Environment Variables ที่ต้องตั้งค่าบน Vercel
+### VPS (แนะนำ)
+ดู [VPS_SETUP_GUIDE.md](./VPS_SETUP_GUIDE.md) — คู่มือติดตั้งแบบสมบูรณ์บน Ubuntu 24.04
+- เสปกขั้นต่ำ: 1 vCPU / 1 GB RAM / 15 GB SSD
+- รองรับทุกฟีเจอร์ (SSE, File Upload, Real-time Alert)
+- PM2 + Nginx + SSL + Cloudflare DNS Failover
+
+### Vercel (สำรอง)
+Environment Variables ที่ต้องตั้งค่าบน Vercel:
 - `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (Database)
 - `SESSION_SECRET` (Session)
 - `MASTER_ENCRYPTION_KEY` + `ENCRYPTION_SALT` (Encryption)
 - `TWITCH_CLIENT_ID` + `TWITCH_CLIENT_SECRET` + `TWITCH_CALLBACK_URL` (OAuth)
 
-### ข้อควรระวัง
-- **Cold Start**: อย่ารัน migration ใน `initDB()` — ใช้ `npm run migrate` แยก
-- **Stateless Session**: ใช้ TursoStore แทน Memory Store
-- **Trust Proxy**: ตั้ง `app.set('trust proxy', 1)` สำหรับ Cookie บน Vercel
-- **Read-Only Filesystem**: ใช้ Turso DB เท่านั้น (ไม่มี local SQLite)
+ข้อควรระวัง:
+- SSE ใช้ไม่ได้บน Vercel Free (Function timeout 10 วิ)
+- ไม่ต้องรัน `npm run migrate` — รันแยกก่อน deploy
 
 ## เอกสารเพิ่มเติม
 
@@ -316,6 +321,7 @@ npm run migrate
 |------|----------|
 | [VISION.md](./VISION.md) | วิสัยทัศน์และสถาปัตยกรรมระบบ |
 | [API_INTEGRATION_GUIDE.md](./API_INTEGRATION_GUIDE.md) | คู่มือ API Integration (SlipOK + Architecture + การวางโค้ด) |
+| [VPS_SETUP_GUIDE.md](./VPS_SETUP_GUIDE.md) | คู่มือติดตั้งบน VPS Ubuntu + Cloudflare DNS Failover |
 | [AGENTS.md](./AGENTS.md) | คู่มือ Debugging และ Pattern สำหรับ AI |
 | [WORKFLOW_GUIDELINES.md](./WORKFLOW_GUIDELINES.md) | กฎการทำงาน Triple-Check + Server Verification |
 | [plans/PROMPTPAY_BLUEPRINT.md](./plans/PROMPTPAY_BLUEPRINT.md) | Blueprint ระบบชำระเงิน PromptPay + SlipOK |

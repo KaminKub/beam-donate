@@ -91,6 +91,57 @@ const DONATE_TEMPLATE = (() => {
   }
 })();
 
+// ========== Anti-Bot: Honeypot + Timestamp Token ==========
+const MIN_SUBMIT_TIME = 2000;     // Minimum 2 seconds for human
+const TOKEN_EXPIRY = 3600000;     // Token expires in 1 hour (page refresh)
+const HONEYPOT_FIELD = 'contact_email';
+
+function generatePageToken() {
+  const timestamp = Date.now();
+  const nonce = crypto.randomBytes(4).toString('hex');
+  const hmac = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'default')
+    .update(`${timestamp}:${nonce}`)
+    .digest('hex')
+    .substring(0, 16);
+  return `${timestamp}:${nonce}:${hmac}`;
+}
+
+function verifyPageToken(token) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split(':');
+  if (parts.length !== 3) return false;
+  const [ts, nonce, sig] = parts;
+  const timestamp = parseInt(ts, 10);
+  if (isNaN(timestamp)) return false;
+  const hmac = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'default')
+    .update(`${timestamp}:${nonce}`)
+    .digest('hex')
+    .substring(0, 16);
+  if (sig !== hmac) return false;
+  const elapsed = Date.now() - timestamp;
+  return elapsed >= MIN_SUBMIT_TIME && elapsed <= TOKEN_EXPIRY;
+}
+
+function blockBot(req, res) {
+  // Fail silently — return same error structure so bots can't distinguish
+  res.status(403).json({ error: 'FORBIDDEN', message: 'Request rejected' });
+}
+
+function checkAntiBot(req, res) {
+  // Honeypot check
+  const honeypot = req.body?.[HONEYPOT_FIELD] ?? req.body?.get?.(HONEYPOT_FIELD);
+  if (honeypot !== undefined && honeypot !== null && honeypot !== '') {
+    return false;
+  }
+  // Timestamp token check
+  const token = req.body?.page_token;
+  if (!token || !verifyPageToken(token)) {
+    return false;
+  }
+  return true;
+}
+// ========== End Anti-Bot ==========
+
 function broadcastAlert(username, alertData) {
   const data = JSON.stringify(alertData);
   console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
@@ -1480,7 +1531,8 @@ app.get('/:username', validateUsername, (req, res) => {
       .replace(/{{username}}/g, escapeHTML(streamer.username))
       .replace(/{{og_title}}/g, escapeHTML(ogTitle))
       .replace(/{{og_description}}/g, escapeHTML(ogDescription))
-      .replace(/{{og_image}}/g, escapeHTML(ogImage));
+      .replace(/{{og_image}}/g, escapeHTML(ogImage))
+      .replace(/{{page_token}}/g, generatePageToken());
  
     res.send(htmlContent);
   } catch (err) {
@@ -1796,6 +1848,7 @@ const promptPayQrLimiter = rateLimit({
 
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
+    if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { username, amount, name, message } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
     if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
@@ -1868,6 +1921,7 @@ const verifySlipLimiter = rateLimit({
 
 app.post('/api/verify-slip', upload.single('slip'), async (req, res) => {
   try {
+    if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId, amount, phone, method, username: bodyUsername } = req.body;
     const slipFile = req.file;
 
@@ -2015,6 +2069,7 @@ app.post('/api/verify-slip', upload.single('slip'), async (req, res) => {
 
 app.post('/api/verify-promptpay-slip', verifySlipLimiter, async (req, res) => {
   try {
+    if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId } = req.body;
     if (!referenceId) return res.status(400).json({ error: 'ไม่พบ Reference ID' });
 

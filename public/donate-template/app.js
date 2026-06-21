@@ -9,6 +9,19 @@ const POLLING_TIMEOUT = 600000; // 10 minutes
 const QR_EXPIRY = 10 * 60 * 1000; // 10 minutes
 let pollingStartTime = null;
 
+// ========== Anti-Bot: Page Token from Server ==========
+let pageToken = '';
+const metaToken = document.querySelector('meta[name="page-token"]');
+if (metaToken) pageToken = metaToken.getAttribute('content') || '';
+
+function getAntiBotPayload() {
+  return {
+    page_token: pageToken,
+    contact_email: ''
+  };
+}
+// ========== End Anti-Bot ==========
+
 // ========== Cookie Helpers for Donor Name ==========
 
 function setCookie(name, value, days) {
@@ -393,6 +406,7 @@ btnProceedPayment.addEventListener('click', async () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...getAntiBotPayload(),
           username,
           amount: selectedAmount,
           name: donorNameInput.value,
@@ -557,7 +571,7 @@ function startPromptPayPolling() {
       const response = await fetch('/api/verify-promptpay-slip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ referenceId: currentChargeId })
+        body: JSON.stringify({ ...getAntiBotPayload(), referenceId: currentChargeId })
       });
 
       const data = await response.json();
@@ -721,6 +735,8 @@ async function doVerifySlip() {
     formData.append('referenceId', currentChargeId);
     formData.append('amount', selectedAmount);
     formData.append('username', window.location.pathname.split('/')[1]);
+    formData.append('page_token', pageToken);
+    formData.append('contact_email', '');
 
     const response = await fetch('/api/verify-slip', {
       method: 'POST',
@@ -886,6 +902,8 @@ async function doVerifyTrueMoney() {
     formData.append('amount', selectedAmount);
     formData.append('method', 'truemoney');
     formData.append('username', window.location.pathname.split('/')[1]);
+    formData.append('page_token', pageToken);
+    formData.append('contact_email', '');
 
     const response = await fetch('/api/verify-slip', {
       method: 'POST',
