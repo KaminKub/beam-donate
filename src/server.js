@@ -150,6 +150,7 @@ function broadcastAlert(username, alertData) {
     if (client.username === username) {
       try {
         client.res.write(`data: ${data}\n\n`);
+        client.lastActivity = Date.now();
         return true;
       } catch (err) {
         console.error(`❌ [Broadcast] Failed to write to client ${username}:`, err.message);
@@ -909,13 +910,21 @@ app.get('/api/alerts/stream', async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' });
   res.write(`data: ${JSON.stringify({ type: 'connected', message: `Overlay connected as ${authenticatedUser || 'Unknown'}` })}\n\n`);
   
-  sseClients.push({ res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now });
-  
-  const keepAlive = setInterval(() => { res.write(`: keep-alive\n\n`); }, 30000);
-  
+  const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now };
+  sseClients.push(clientObj);
+  console.log(`✅ SSE client connected: ${authenticatedUser || 'anonymous'} (auth: ${authMethod})`);
+   
+  const keepAlive = setInterval(() => {
+    try {
+      res.write(`: keep-alive\n\n`);
+      clientObj.lastActivity = Date.now();
+    } catch (e) { /* connection lost */ }
+  }, 30000);
+   
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
+    console.log(`🔌 SSE client disconnected: ${authenticatedUser || 'anonymous'}`);
   });
 });
 
