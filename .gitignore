@@ -25,3 +25,12 @@ VPS_SETUP_GUIDE.md
 ecosystem.config.js
 vps_setup.py
 vps_fix.py
+vps_fix2.py
+vps_debug.py
+expand_ssl.py
+force_deploy.py
+setup_nginx_ssl.py
+vps_check_port.py
+setup_ssl_certbot.py
+vps_fix_env.py
+vps_restart_verify.py
