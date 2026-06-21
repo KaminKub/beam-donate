@@ -74,6 +74,7 @@ const SSE_CLIENT_TTL = 5 * 60 * 1000;
 let sseClients = [];
 const tokenCache = new Map(); // token → { username, cachedAt }
 const TOKEN_CACHE_TTL = 10 * 60 * 1000; // 10 min
+const disconnectTimers = new Map(); // username → setTimeout (5s grace before logging disconnect)
 
 setInterval(() => {
   const now = Date.now();
@@ -926,7 +927,14 @@ app.get('/api/alerts/stream', async (req, res) => {
   
   const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now };
   sseClients.push(clientObj);
-  // Log only first connection per username (suppress reconnect noise)
+  
+  // Clear any pending disconnect log for this user (quick reconnect < 5s)
+  const pendingTimer = disconnectTimers.get(authenticatedUser);
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+    disconnectTimers.delete(authenticatedUser);
+  }
+  // Log only first connection per username
   const existing = sseClients.filter(c => c.username === authenticatedUser && c.res !== res);
   if (existing.length === 0) {
     console.log(`✅ SSE client connected: ${authenticatedUser || 'anonymous'} (auth: ${authMethod})`);
@@ -942,10 +950,15 @@ app.get('/api/alerts/stream', async (req, res) => {
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
-    // Log only if this was the last connection for this username
+    
     const stillConnected = sseClients.some(c => c.username === authenticatedUser);
-    if (!stillConnected) {
-      console.log(`🔌 SSE client disconnected: ${authenticatedUser || 'anonymous'}`);
+    if (!stillConnected && authenticatedUser) {
+      // Wait 5s before logging — skip if reconnects quickly
+      const timer = setTimeout(() => {
+        disconnectTimers.delete(authenticatedUser);
+        console.log(`🔌 SSE client disconnected: ${authenticatedUser}`);
+      }, 5000);
+      disconnectTimers.set(authenticatedUser, timer);
     }
   });
 });
