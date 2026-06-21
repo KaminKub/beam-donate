@@ -6,6 +6,13 @@
   <title>🧪 Alert Test Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ปิด caret ทั้งโปรเจกต์ ยกเว้นกล่องพิมพ์ข้อความ */
+    *, *::before, *::after {
+      caret-color: transparent !important;
+    }
+    input, textarea, [contenteditable="true"] {
+      caret-color: auto !important;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
