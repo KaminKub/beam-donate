@@ -328,4 +328,6 @@ MIT
 
 ---
 
-Made by TBDEV
+Original project by TBDEV — Single-tenant Beam Checkout donation system
+TipKub by KaminKub — Multi-tenant platform with SlipOK integration,
+PromptPay QR, TrueMoney Wallet, and OBS Overlay system
