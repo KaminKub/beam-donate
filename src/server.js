@@ -2013,14 +2013,14 @@ app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (re
     const slipHash = crypto.createHash('sha256').update(slipFile.buffer).digest('hex');
     if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
     if (slipHashCache.get(username).has(slipHash)) {
-      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกส่งไปแล้ว กรุณารอสักครู่' });
+      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกส่งไปแล้ว กรุณารอ 1 นาที' });
     }
     slipHashCache.get(username).add(slipHash);
-    // Auto-expire hash after 5 min
+    // Auto-expire hash after 1 min
     setTimeout(() => {
       const set = slipHashCache.get(username);
       if (set) set.delete(slipHash);
-    }, 5 * 60 * 1000);
+    }, 60 * 1000);
 
     const base64Image = slipFile.buffer.toString('base64');
     const branchUrl = slipOkApi.replace(/\/quota$/, '');
