@@ -1593,6 +1593,7 @@ app.post('/api/payment/settings', ensureAuthenticated, async (req, res) => {
 
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
+      username: actualUsername,
       payment_method: req.body.payment_method,
       promptpay_phone: req.body.promptpay_phone,
       promptpay_name: req.body.promptpay_name,
@@ -1713,34 +1714,51 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, async (req, res) => {
  * Generate PromptPay EMVCo QR payload
  * Based on Thai PromptPay standard (Tag 30: Merchant Account Info)
  */
-function generatePromptPayPayload(promptpayType, idOrPhone, amount) {
-  const cleaned = idOrPhone.replace(/[^0-9]/g, '');
-  if (cleaned.length < 10) throw new Error('ข้อมูล PromptPay ไม่ถูกต้อง (ต้องมีอย่างน้อย 10 หลัก)');
+function generatePromptPayPayload(phoneNumber, amount) {
+  const phone = phoneNumber.replace(/[^0-9]/g, '');
+  if (phone.length < 10) throw new Error('เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมีอย่างน้อย 10 หลัก)');
 
   const amountStr = amount ? amount.toFixed(2) : '';
-
-  let accountInfo;
-  if (promptpayType === 'idcard') {
-    const idLen = cleaned.length.toString().padStart(2, '0');
-    accountInfo = `02${idLen}${cleaned}`;
-  } else if (promptpayType === 'ewallet') {
-    const idLen = cleaned.length.toString().padStart(2, '0');
-    accountInfo = `03${idLen}${cleaned}`;
-  } else {
-    let normalizedPhone = cleaned;
-    if (cleaned.startsWith('0')) {
-      normalizedPhone = '66' + cleaned.substring(1);
-    } else if (!cleaned.startsWith('66')) {
-      normalizedPhone = '66' + cleaned;
-    }
-    const phoneInfo = `00${normalizedPhone}`;
-    accountInfo = `01${phoneInfo.length.toString().padStart(2, '0')}${phoneInfo}`;
+  let normalizedPhone = phone;
+  if (phone.startsWith('0')) {
+    normalizedPhone = '66' + phone.substring(1);
+  } else if (!phone.startsWith('66')) {
+    normalizedPhone = '66' + phone;
   }
+  const phoneInfo = `00${normalizedPhone}`;
 
   const tags = [];
   tags.push({ id: '00', value: '01' });
   tags.push({ id: '01', value: amount ? '12' : '11' });
-  tags.push({ id: '29', value: `0016A000000677010111${accountInfo.length.toString().padStart(2, '0')}${accountInfo}` });
+  tags.push({ id: '29', value: `0016A00000067701011101${phoneInfo.length.toString().padStart(2, '0')}${phoneInfo}` });
+  tags.push({ id: '58', value: 'TH' });
+  tags.push({ id: '53', value: '764' });
+  if (amountStr) tags.push({ id: '54', value: amountStr });
+
+  let payload = '';
+  tags.forEach(tag => {
+    const len = tag.value.length.toString().padStart(2, '0');
+    payload += `${tag.id}${len}${tag.value}`;
+  });
+
+  payload += '6304';
+  const crc = crc16(payload);
+  payload += crc.toString(16).toUpperCase().padStart(4, '0');
+
+  return payload;
+}
+
+function generatePromptPayIdCardPayload(idCardNumber, amount) {
+  const cleaned = idCardNumber.replace(/[^0-9]/g, '');
+  if (cleaned.length !== 13) throw new Error('เลขบัตรประชาชนต้องมี 13 หลัก');
+
+  const amountStr = amount ? amount.toFixed(2) : '';
+  const idLen = cleaned.length.toString().padStart(2, '0');
+
+  const tags = [];
+  tags.push({ id: '00', value: '01' });
+  tags.push({ id: '01', value: amount ? '12' : '11' });
+  tags.push({ id: '29', value: `0016A00000067701011102${idLen}${cleaned}` });
   tags.push({ id: '58', value: 'TH' });
   tags.push({ id: '53', value: '764' });
   if (amountStr) tags.push({ id: '54', value: amountStr });
@@ -1795,14 +1813,24 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
 
     let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
     if (phone && phone.includes(':')) {
-      try { phone = decrypt(phone); } catch (e) { return res.status(500).json({ error: 'ไม่สามารถถอดรหัสข้อมูล PromptPay ได้' }); }
+      try {
+        phone = decrypt(phone);
+      } catch (e) {
+        console.error('Decrypt promptpay_value failed:', e.message);
+        return res.status(400).json({ 
+          error: 'ข้อมูล PromptPay ไม่ถูกต้อง', 
+          details: 'ข้อมูลถูกเข้ารหัสด้วยคีย์ที่ไม่ตรงกัน กรุณาไปที่หน้า Dashboard > ตั้งค่าการชำระเงิน แล้วบันทึกข้อมูลพร้อมเพย์ใหม่อีกครั้ง'
+        });
+      }
     }
     if (!phone) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้ตั้งค่าเบอร์ PromptPay' });
 
     const promptpayType = streamer.promptpay_type || 'phone';
 
     const referenceId = `donate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const qrPayload = generatePromptPayPayload(promptpayType, phone, amount);
+    const qrPayload = promptpayType === 'idcard'
+      ? generatePromptPayIdCardPayload(phone, amount)
+      : generatePromptPayPayload(phone, amount);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Record transaction
@@ -2043,7 +2071,8 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
     }
     
     res.json({
-      ffp: method === 'ffp' || method === 'both',
+      // FIXME: เมื่อ FFP พร้อมใช้งาน เปลี่ยนเป็น (method === 'ffp' || method === 'both')
+      ffp: false,
       promptpay: streamer.promptpay_enabled === 1,
       truemoney: streamer.truemoney_enabled === 1,
       beam: method === 'ffp' || method === 'both',

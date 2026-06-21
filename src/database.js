@@ -662,7 +662,10 @@ async function saveStreamer(data) {
   }
   if (!db) throw new Error('Database not initialized');
   
-   const existing = await getStreamerByTwitchId(data.twitch_id);
+   const existing = await getStreamerByTwitchId(data.twitch_id)
+     || await getStreamerByStreamlabsId(data.streamlabs_id)
+     || await getStreamerByStreamlabsId(data.twitch_id)
+     || (data.username ? await getStreamer(data.username) : null);
    const overlayToken = data.overlay_token || (existing ? existing.overlay_token : require('crypto').randomBytes(16).toString('hex'));
   
    // Helper: true if text is already encrypted (3 colon-separated base64 parts)
