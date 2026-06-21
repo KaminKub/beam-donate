@@ -72,6 +72,8 @@ const defaultSettings = {
 const MAX_SSE_CLIENTS = 500;
 const SSE_CLIENT_TTL = 5 * 60 * 1000;
 let sseClients = [];
+const tokenCache = new Map(); // token → { username, cachedAt }
+const TOKEN_CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 setInterval(() => {
   const now = Date.now();
@@ -883,23 +885,32 @@ app.get('/api/alerts/stream', async (req, res) => {
   let authMethod = null;
 
   if (token) {
-    try {
-      const streamer = await db.getStreamerByToken(token);
-      if (streamer) {
-        authenticatedUser = streamer.username;
-        authMethod = 'token';
-      } else {
-        console.warn(`⚠️ SSE: token lookup returned null for token prefix: ${token.substring(0, 8)}...`);
+    // Check memory cache first (avoids DB latency from remote Turso)
+    const cached = tokenCache.get(token);
+    if (cached && (Date.now() - cached.cachedAt) < TOKEN_CACHE_TTL) {
+      authenticatedUser = cached.username;
+      authMethod = 'token';
+    } else {
+      try {
+        const streamer = await db.getStreamerByToken(token);
+        if (streamer) {
+          authenticatedUser = streamer.username;
+          authMethod = 'token';
+          // Cache for future lookups
+          tokenCache.set(token, { username: streamer.username, cachedAt: Date.now() });
+        } else {
+          console.warn(`⚠️ SSE: token lookup returned null for prefix: ${token.substring(0, 8)}...`);
+        }
+      } catch (err) {
+        console.error('❌ SSE: token lookup error:', err.message);
       }
-    } catch (err) {
-      console.error('❌ SSE: token lookup error:', err.message);
     }
   }
   
-  // Fallback to session auth if token auth didn't work (or no token provided)
+  // Fallback to session auth only if token auth completely failed
   if (!authenticatedUser && req.isAuthenticated()) {
     authenticatedUser = await getActualUsername(req.user);
-    authMethod = authMethod || 'session';
+    authMethod = 'session';
   }
 
   if (sseClients.length >= MAX_SSE_CLIENTS) {
@@ -935,9 +946,7 @@ app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     
-    const isActive = sseClients.some(client => 
-      client.username === actualUsername && (client.authMethod === 'token' || client.authMethod === 'session')
-    );
+    const isActive = sseClients.some(client => client.username === actualUsername && client.authMethod === 'token');
     res.json({ active: isActive });
   } catch (err) {
     console.error('Get overlay status error:', err);
