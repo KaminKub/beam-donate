@@ -926,7 +926,11 @@ app.get('/api/alerts/stream', async (req, res) => {
   
   const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now };
   sseClients.push(clientObj);
-  console.log(`✅ SSE client connected: ${authenticatedUser || 'anonymous'} (auth: ${authMethod})`);
+  // Log only first connection per username (suppress reconnect noise)
+  const existing = sseClients.filter(c => c.username === authenticatedUser && c.res !== res);
+  if (existing.length === 0) {
+    console.log(`✅ SSE client connected: ${authenticatedUser || 'anonymous'} (auth: ${authMethod})`);
+  }
    
   const keepAlive = setInterval(() => {
     try {
@@ -938,7 +942,11 @@ app.get('/api/alerts/stream', async (req, res) => {
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
-    console.log(`🔌 SSE client disconnected: ${authenticatedUser || 'anonymous'}`);
+    // Log only if this was the last connection for this username
+    const stillConnected = sseClients.some(c => c.username === authenticatedUser);
+    if (!stillConnected) {
+      console.log(`🔌 SSE client disconnected: ${authenticatedUser || 'anonymous'}`);
+    }
   });
 });
 
