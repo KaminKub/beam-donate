@@ -2145,7 +2145,8 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
   }
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (typeof require !== 'undefined' && require.main === module) {
+  // Only listen when run directly (node src/server.js), not when imported (Vercel)
   app.listen(PORT, () => {
     console.log(`🌸 Stream Donation server running at http://localhost:${PORT}`);
     console.log(`📋 Environment: ${process.env.BEAM_ENV || 'sandbox'}`);
