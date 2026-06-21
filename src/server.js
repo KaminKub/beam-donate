@@ -929,14 +929,14 @@ app.get('/api/alerts/stream', async (req, res) => {
   sseClients.push(clientObj);
   
   // Clear any pending disconnect log for this user (quick reconnect < 5s)
+  const wasReconnecting = disconnectTimers.has(authenticatedUser);
   const pendingTimer = disconnectTimers.get(authenticatedUser);
   if (pendingTimer) {
     clearTimeout(pendingTimer);
     disconnectTimers.delete(authenticatedUser);
   }
-  // Log only first connection per username
-  const existing = sseClients.filter(c => c.username === authenticatedUser && c.res !== res);
-  if (existing.length === 0) {
+  // Log only first connection — suppress refresh/reconnect noise
+  if (!wasReconnecting) {
     console.log(`✅ SSE client connected: ${authenticatedUser || 'anonymous'} (auth: ${authMethod})`);
   }
    
