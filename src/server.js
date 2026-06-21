@@ -2163,4 +2163,21 @@ if (typeof require !== 'undefined' && require.main === module) {
     console.log(`🧪 Alert Test: http://localhost:${PORT}/alert-test`);
     console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
   });
+
+  // Memory monitoring — log every 5 minutes
+  let lastMemLog = 0;
+  setInterval(() => {
+    const mem = process.memoryUsage();
+    const rssMB = Math.round(mem.rss / 1024 / 1024);
+    const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
+    const now = Date.now();
+    if (now - lastMemLog > 4 * 60 * 1000) {
+      console.log(`📊 Memory: RSS=${rssMB}MB heap=${heapMB}MB sseClients=${sseClients.length}`);
+      lastMemLog = now;
+    }
+    // Emergency: log if memory spikes
+    if (rssMB > 300) {
+      console.warn(`⚠️ High memory usage: RSS=${rssMB}MB heap=${heapMB}MB sseClients=${sseClients.length}`);
+    }
+  }, 60000);
 }
