@@ -884,19 +884,22 @@ app.get('/api/alerts/stream', async (req, res) => {
 
   if (token) {
     try {
-      // Look up the user by their unique overlay_token in the DB
       const streamer = await db.getStreamerByToken(token);
       if (streamer) {
         authenticatedUser = streamer.username;
         authMethod = 'token';
+      } else {
+        console.warn(`⚠️ SSE: token lookup returned null for token prefix: ${token.substring(0, 8)}...`);
       }
     } catch (err) {
-      console.error('Token lookup error:', err);
+      console.error('❌ SSE: token lookup error:', err.message);
     }
-  } else if (req.isAuthenticated()) {
-    // Fallback to session authentication if no token is provided (e.g., opening in browser while logged in)
+  }
+  
+  // Fallback to session auth if token auth didn't work (or no token provided)
+  if (!authenticatedUser && req.isAuthenticated()) {
     authenticatedUser = await getActualUsername(req.user);
-    authMethod = 'session';
+    authMethod = authMethod || 'session';
   }
 
   if (sseClients.length >= MAX_SSE_CLIENTS) {
@@ -932,7 +935,9 @@ app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     
-    const isActive = sseClients.some(client => client.username === actualUsername && client.authMethod === 'token');
+    const isActive = sseClients.some(client => 
+      client.username === actualUsername && (client.authMethod === 'token' || client.authMethod === 'session')
+    );
     res.json({ active: isActive });
   } catch (err) {
     console.error('Get overlay status error:', err);

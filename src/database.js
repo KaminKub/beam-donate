@@ -586,11 +586,25 @@ async function getStreamerByToken(token) {
   await ensureConnected();
   if (isFallback) return null;
   if (!db) return null;
-  const result = await db.execute({
-    sql: 'SELECT * FROM streamers WHERE overlay_token = ?',
-    args: [token]
-  });
-  return result.rows[0] || null;
+  
+  // Retry up to 2 times for transient DB issues (e.g., cold start, network hiccup)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await db.execute({
+        sql: 'SELECT * FROM streamers WHERE overlay_token = ?',
+        args: [token]
+      });
+      if (result.rows.length > 0) return result.rows[0];
+      if (attempt < 2) await new Promise(r => setTimeout(r, 300));
+    } catch (err) {
+      if (attempt === 2) {
+        console.error(`❌ getStreamerByToken failed after 3 attempts:`, err.message);
+        return null;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+  return null;
 }
 
 async function getStreamerByTwitchId(twitchId) {
