@@ -560,4 +560,4 @@ curl -X POST http://localhost:3000/api/alerts/test \
 
 ---
 
-Made by TBDEV
+Made by KaminKub (Summary by Opencode)
