@@ -1960,9 +1960,12 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
 // POST /api/verify-promptpay-slip - Verify PromptPay slip via TFP API
 const verifySlipLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 3,  // 3 slips/min per IP — ป้องกัน spam (แผนฟรีจำกัด 100/เดือน)
   message: { error: 'กรุณารอสักครู่' }
 });
+
+// Per-streamer daily slip verifications (in-memory, resets on restart)
+const dailySlipCounts = new Map(); // username → { count, date }
 
 app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (req, res) => {
   try {
@@ -2021,6 +2024,18 @@ app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (re
       const set = slipHashCache.get(username);
       if (set) set.delete(slipHash);
     }, 5 * 60 * 1000);
+
+    // Guard 3: Daily per-streamer limit (5 verifications/day — safe for 100/month free plan)
+    const today = new Date().toDateString();
+    const entry = dailySlipCounts.get(username);
+    if (entry && entry.date === today && entry.count >= 5) {
+      return res.status(429).json({ success: false, errorCode: 'DAILY_LIMIT', error: 'ครบจำนวนการตรวจสอบสลิปต่อวันแล้ว (5/วัน) กรุณาลองใหม่พรุ่งนี้' });
+    }
+    if (!entry || entry.date !== today) {
+      dailySlipCounts.set(username, { count: 1, date: today });
+    } else {
+      entry.count++;
+    }
 
     const base64Image = slipFile.buffer.toString('base64');
     const branchUrl = slipOkApi.replace(/\/quota$/, '');
