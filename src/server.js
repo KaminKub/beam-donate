@@ -75,6 +75,7 @@ let sseClients = [];
 const tokenCache = new Map(); // token → { username, cachedAt }
 const TOKEN_CACHE_TTL = 10 * 60 * 1000; // 10 min
 const disconnectTimers = new Map(); // username → setTimeout (5s grace before logging disconnect)
+const slipHashCache = new Map(); // username → Set of base64 hashes (5 min TTL against slip re-submit)
 
 setInterval(() => {
   const now = Date.now();
@@ -1963,7 +1964,7 @@ const verifySlipLimiter = rateLimit({
   message: { error: 'กรุณารอสักครู่' }
 });
 
-app.post('/api/verify-slip', upload.single('slip'), async (req, res) => {
+app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId, amount, phone, method, username: bodyUsername } = req.body;
@@ -1999,6 +2000,27 @@ app.post('/api/verify-slip', upload.single('slip'), async (req, res) => {
     if (!slipOkApi || !slipOkApiKey) {
       return res.status(503).json({ success: false, errorCode: 'SLIPOK_NOT_CONFIGURED', error: 'ผู้ใช้ยังไม่ได้ตั้งค่า SlipOK API' });
     }
+
+    // Guard 1: Reject if transaction already successful (prevents re-verifying completed payments)
+    if (referenceId) {
+      const existingTx = await db.getTransactionById(referenceId);
+      if (existingTx && existingTx.status === 'successful') {
+        return res.json({ success: false, errorCode: 'ALREADY_VERIFIED', error: 'รายการนี้ได้รับการยืนยันแล้ว' });
+      }
+    }
+
+    // Guard 2: Deduplicate slip by image hash (5 min TTL per streamer)
+    const slipHash = crypto.createHash('sha256').update(slipFile.buffer).digest('hex');
+    if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
+    if (slipHashCache.get(username).has(slipHash)) {
+      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกส่งไปแล้ว กรุณารอสักครู่' });
+    }
+    slipHashCache.get(username).add(slipHash);
+    // Auto-expire hash after 5 min
+    setTimeout(() => {
+      const set = slipHashCache.get(username);
+      if (set) set.delete(slipHash);
+    }, 5 * 60 * 1000);
 
     const base64Image = slipFile.buffer.toString('base64');
     const branchUrl = slipOkApi.replace(/\/quota$/, '');
