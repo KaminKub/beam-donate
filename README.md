@@ -1,32 +1,114 @@
-# Stream Donation 🌸
+# TipKub — แพลตฟอร์มหน้าโดเนทสำหรับสตรีมเมอร์
 
-หน้า Donate รับชำระเงินหลายช่องทางผ่าน Beam Checkout API พร้อมระบบ Live Donation Alert สำหรับ OBS
+แพลตฟอร์ม Multi-Tenant สำหรับสตรีมเมอร์ สร้างหน้ารับบริจาคส่วนตัวพร้อมระบบ Live Donation Alert บน OBS รองรับหลายช่องทางชำระเงิน ผ่านระบบตรวจสอบสลิปโอนเงินอัตโนมัติด้วย SlipOK API พร้อมรองรับ PromptPay QR และ TrueMoney Wallet
 
-## Features
+## คุณสมบัติหลัก
 
-- ✅ รับบริจาคผ่านหลายช่องทาง:
-  - 💚 QR PromptPay
-  - 💳 บัตรเครดิต/เดบิต (Visa, Mastercard, Amex, UnionPay) — ขั้นต่ำ 200 บาท
-  - 🏦 Mobile Banking
-  - 👛 E-Wallets (TrueMoney, ShopeePay, LINE Pay ฯลฯ)
-- ✅ เลือกจำนวนเงินหรือกรอกเอง
-- ✅ 🎬 **Live Donation Alert** แสดงบน OBS/Stream (คล้าย TipMe/Streamlabs)
-- ✅ 📊 **Premium Admin Dashboard** จัดการยอด ดูสถิติ และจำลองหรือบังคับสถานะธุรกรรม
-- ✅ 🎨 **Real-time Live Customization** ปรับแต่งสกินสี ขอบ ฟอนต์ แอนิเมชัน และละอองวิบวับของ Alert แบบสดๆ ได้ทันที
-- ✅ 🔊 **Sound & Speech Synthesis (TTS)** เลือกโทนเสียงเตือน ปรับความดัง และมี AI อ่านข้อความออกเสียงภาษาไทย/อังกฤษฟรี!
-- ✅ Webhook รับแจ้งเตือนเมื่อชำระสำเร็จ
-- ✅ หน้า Thank You หลังจ่ายเสร็จ
-- ✅ 🧪 Alert Test Dashboard ทดสอบ alert โดยไม่ต้องจ่ายเงินจริง
+### ระบบรับบริจาค
+- **SlipOK Slip Verification** — ระบบหลัก ตรวจสอบสลิปโอนเงินอัตโนมัติผ่าน SlipOK API (รองรับ JPG, PNG, WEBP, JFIF)
+- **PromptPay Direct** — QR Code EMVCo โอนตรงเข้าบัญชีพร้อมเพย์ของผู้ใช้ (เบอร์โทร / เลขบัตร / e-Wallet ID)
+- **TrueMoney Wallet** — รับเงินผ่านวอลเลท ตรวจสอบสลิปด้วย SlipOK API (เช่นเดียวกับพร้อมเพย์)
+- **Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก ไม่เปิดเผยตัวตนผู้รับ (กำลังพัฒนา แทนที่ Beam Donate)
+
+### Live Donation Alert (OBS Overlay)
+- แสดง Alert แบบ Real-time บน OBS/Stream ผ่าน Server-Sent Events (SSE)
+- ปรับแต่งธีม (Glassmorphism, Cyberpunk, Minimalist, Custom)
+- เลือกแบบอักษรภาษาไทย (Noto Sans Thai, Kanit, Mitr, Chakra Petch, Sarabun)
+- แอนิเมชันเข้า (Slide Down/Up, Fade, Zoom)
+- ระบบเสียงเตือน (Classic Chime, Retro Arcade, Modern Synth, Soft Bell, Custom URL)
+- เลือกเสียงจาก **MyInstants.com** ผ่าน Sound Browser ใน Dashboard
+- **TTS Engine** — อ่านข้อความออกเสียงภาษาไทย/อังกฤษ ด้วย Web Speech API
+- ตัวกรองคำหยาบ (Profanity Filter)
+- Real-time Live Sync — เปลี่ยน skin สี/แอนิเมชัน/เสียงบน OBS ทันทีโดยไม่ต้อง Refresh
+- Live Preview — Iframe ตัวอย่างแบบ Interactive
+
+### Dashboard (หน้าควบคุมสตรีมเมอร์)
+- **แท็บประวัติธุรกรรม** — ดูสถิติ, ค้นหา, Force Pay, Test Alert, Raw Inspect, ดาวน์โหลด CSV
+- **แท็บตั้งค่าหน้าโดเนท** — ชื่อหน้า, คำบรรยาย, Social Links, ภาพโปรไฟล์, สีเรืองแสง
+- **แท็บปรับแต่ง Overlay** — ธีม, ฟอนต์, แอนิเมชัน, เสียง, TTS, สี, ขนาดอักษร
+- **แท็บตั้งค่าการรับเงิน** — เลือกเปิด/ปิด PromptPay + TrueMoney Wallet, กรอก SlipOK API
+- **แท็บตั้งค่าบัญชี** — เชื่อมต่อ Twitch/Streamlabs, ลบบัญชี, ออกจากระบบ
+
+### ระบบยืนยันตัวตน
+- **Twitch OAuth** — ล็อกอิน/สมัครด้วย Twitch
+- **Streamlabs OAuth** — ล็อกอิน/สมัครด้วย Streamlabs (กำลังพัฒนา)
+- หน้า Register แยกสำหรับผู้ใช้ใหม่ พร้อมยอมรับข้อกำหนดและเงื่อนไข
+- Session เก็บใน **Turso DB** (รองรับ Serverless)
+
+### ระบบความปลอดภัย
+- **AES-256-GCM Encryption** — เข้ารหัสข้อมูลสำคัญก่อนบันทึกลง DB (เบอร์พร้อมเพย์, API Key, เลขบัญชี)
+- **Censor Display** — แสดงข้อมูลแบบเซ็นเซอร์ เช่น `081****3456`
+- **Rate Limiting** — ป้องกันการเรียก API ซ้ำๆ (SlipOK, MyInstants)
+- **PDPA Compliance** — นโยบายความเป็นส่วนตัวสอดคล้องกับ พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล
 
 ## Tech Stack
 
-- **Frontend:** HTML + CSS + JavaScript
-- **Backend:** Node.js + Express
-- **Payment:** Beam Checkout API (PromptPay, Card, Mobile Banking, E-Wallets)
-- **Database:** SQLite (Local Development) & **Turso DB** (Cloud SQLite for Serverless/Vercel)
-- **Realtime:** Server-Sent Events (SSE)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | HTML5 + CSS3 + Vanilla JavaScript |
+| Backend | Node.js + Express 4 |
+| Database | Turso Cloud SQLite (`@libsql/client`) + In-Memory Fallback |
+| Authentication | Passport.js (Twitch OAuth, Streamlabs OAuth) |
+| Session Store | TursoStore (Custom Turso-backed session store) |
+| Payment | SlipOK API (ตรวจสอบสลิป) + Feel Free Pay (กำลังพัฒนา) |
+| Encryption | AES-256-GCM (Node.js `crypto`) |
+| File Upload | Multer (Memory Storage) |
+| Realtime | Server-Sent Events (SSE) |
+| Rate Limiting | express-rate-limit |
+| Deployment | Vercel (Serverless) |
 
-## Setup
+## โครงสร้างโปรเจค
+
+```
+beam-donate/
+├── src/
+│   ├── server.js              # Express server + Routes + SSE + OAuth + SlipOK API
+│   ├── database.js            # Turso/SQLite Database Manager + Migrations
+│   ├── encryption.js          # AES-256-GCM encrypt/decrypt/censor
+│   ├── sessionStore.js        # Custom Turso-backed session store
+│   └── streamlabs.js          # Streamlabs OAuth helper
+├── public/
+│   ├── index.html             # Landing Page (หน้าแรก)
+│   ├── login.html             # หน้าล็อกอิน (Twitch + Streamlabs)
+│   ├── register.html          # หน้าสมัครสมาชิก
+│   ├── register-setup.html    # หน้าตั้งค่าหลังสมัคร (Username, Profile)
+│   ├── privacy.html           # นโยบายความเป็นส่วนตัว
+│   ├── terms-of-services.html # ข้อกำหนดและเงื่อนไข
+│   ├── login-failed.html      # หน้าล็อกอินล้มเหลว
+│   ├── style.css              # สไตล์หลักของหน้าโดเนท
+│   ├── overlay.html           # Live Donation Alert Overlay (OBS Browser Source)
+│   ├── overlay.css            # สไตล์ Overlay
+│   ├── overlay.js             # SSE client + Alert queue
+│   ├── alert-test.html        # หน้าทดสอบ Alert
+│   ├── thank-you.html         # หน้าขอบคุณหลังโอนเงินสำเร็จ
+│   ├── cookie-consent.js      # Cookie Consent Banner
+│   ├── Image/                 # ไอคอน/โลโก้ วิธีชำระเงิน
+│   │   ├── FFP-logo.png
+│   │   ├── QR-PromptPay.png
+│   │   ├── TrueWallate.png
+│   │   └── icon-thaiqr.png
+│   ├── dashboard/             # Dashboard (หน้าควบคุมสตรีมเมอร์)
+│   │   ├── index.html         # Dashboard HTML
+│   │   ├── dashboard.js       # Dashboard Logic
+│   │   ├── admin.css          # Dashboard Styles
+│   │   └── sound-cache.js     # Cache ระบบเสียง
+│   └── donate-template/       # หน้าโดเนทของแต่ละ User (Dynamic)
+│       ├── index.html         # Donate page 3-step flow
+│       └── app.js             # Donate flow logic + Slip upload
+├── scripts/
+│   └── migrate.js             # Database migration script
+├── plans/                     # แผนพัฒนาและเอกสารอ้างอิง
+│   ├── KaminKub_Checklist.md  # Checklist หลัก
+│   ├── PROMPTPAY_BLUEPRINT.md # Blueprint ระบบชำระเงิน
+│   ├── SlipOK Guide.md        # สรุป SlipOK API
+│   └── ...
+├── .env                       # Environment variables (ไม่อัปโหลดขึ้น Git)
+├── vercel.json                # Vercel deployment config
+├── package.json
+└── README.md
+```
+
+## การติดตั้งและใช้งาน
 
 ### 1. Clone & Install
 
@@ -38,171 +120,207 @@ npm install
 
 ### 2. สร้างไฟล์ `.env`
 
-```bash
-cp .env.example .env
-```
-
-แก้ไขค่าใน `.env`:
-
 ```env
-# Beam API Credentials (จาก Beam Dashboard)
-BEAM_API_KEY=your_beam_api_key_here
-BEAM_SECRET_KEY=your_beam_secret_key_here
+# Database — Turso Cloud SQLite
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your_turso_jwt_token
 
-# Environment: sandbox หรือ production
-BEAM_ENV=sandbox
+# Session
+SESSION_SECRET=your_session_secret
+
+# Encryption (AES-256-GCM)
+MASTER_ENCRYPTION_KEY=your_master_encryption_key
+ENCRYPTION_SALT=your_encryption_salt
+
+# Twitch OAuth
+TWITCH_CLIENT_ID=your_twitch_client_id
+TWITCH_CLIENT_SECRET=your_twitch_client_secret
+TWITCH_CALLBACK_URL=http://localhost:3000/auth/twitch/callback
+
+# Streamlabs OAuth (ถ้ามี)
+STREAMLABS_CLIENT_ID=your_streamlabs_client_id
+STREAMLABS_CLIENT_SECRET=your_streamlabs_client_secret
+STREAMLABS_REDIRECT_URI=http://localhost:3000/auth/streamlabs/callback
 
 # Server
 PORT=3000
-
-# Webhook Secret (optional - สำหรับ verify webhook)
-WEBHOOK_SECRET=your_webhook_secret
-
-# Turso Cloud SQLite Database (สำหรับบันทึกข้อมูลถาวรบน Vercel)
-TURSO_DATABASE_URL=libsql://your-db-name.turso.io
-TURSO_AUTH_TOKEN=your_turso_jwt_auth_token_here
 ```
 
-### 3. รัน Server
+### 3. Setup Database
 
 ```bash
-# Development
+npm run migrate
+```
+
+### 4. รัน Server
+
+```bash
+# Development (Watch mode)
 npm run dev
 
 # Production
 npm start
 ```
 
-### 4. เปิดเว็บ
+### 5. เปิดเว็บ
 
 ```
 http://localhost:3000
 ```
 
-## 📊 Database Configuration
-
-ระบบจัดการข้อมูลธุรกรรมและการตั้งค่ามีรูปแบบยืดหยุ่นสูง (Hybrid Storage):
-1. **Local Development (SQLite ในตัว):** ไม่ต้องตั้งค่าใดๆ ระบบจะเขียนไฟล์ลงดิสก์ที่ `data/database.db` ของคุณอัตโนมัติ
-2. **Production/Vercel (Turso Cloud DB):** เนื่องจากระบบไฟล์บน Vercel เป็น Read-Only ทำให้ข้อมูลหายเมื่อรีเซ็ตอินสแตนซ์ จึงแนะนำให้เชื่อมต่อกับ **Turso DB** ซึ่งเป็น SQLite ในระบบคลาวด์ (ผ่าน `@libsql/client` แบบ HTTP ที่เสถียรและเร็วมาก)
-
-> [!TIP]
-> **ระบบย้ายข้อมูลเดิมอัตโนมัติ (Zero-Downtime Auto-Migration):**
-> ทันทีที่คุณเปิดรันเซิร์ฟเวอร์ด้วยระบบฐานข้อมูลใหม่นี้ ระบบจะค้นหาและคัดลอกประวัติการบริจาคและค่าตั้งค่า Overlay จากไฟล์ JSON เก่า (`transactions.json` และ `overlay-settings.json`) ย้ายเข้าไปเก็บใน Turso/SQLite ให้อัตโนมัติในครั้งแรก ข้อมูลเดิมไม่มีสูญหายแน่นอน!
-
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | หน้า Donate |
-| POST | `/api/create-charge` | สร้าง Payment Link (รองรับทุกช่องทาง) |
-| GET | `/api/charge/:id` | เช็คสถานะ charge |
-| POST | `/webhook` | รับ webhook จาก Beam |
-| GET | `/thank-you` | หน้าขอบคุณ |
-| GET | `/overlay` | 🎬 Donation Alert Overlay (สำหรับ OBS Browser Source) |
-| GET | `/alert-test` | 🧪 Alert Test Dashboard |
-| GET | `/admin` | 📊 Premium Admin Dashboard |
-| GET | `/api/transactions` | ดึงรายการประวัติการบริจาคทั้งหมด |
-| POST | `/api/transactions/:id/status` | บังคับสถานะรายการบริจาค (เช่น Force Pay) |
-| GET | `/api/overlay/settings` | ดึงค่าปรับแต่ง Overlay ปัจจุบัน |
-| POST | `/api/overlay/settings` | บันทึกค่าปรับแต่ง Overlay และยิง SSE Sync |
-| GET | `/api/alerts/stream` | SSE stream สำหรับ overlay |
-| POST | `/api/alerts/test` | ส่ง test alert |
+### หน้าสาธารณะ (Public)
 
-## Beam API Keys
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/` | Landing Page |
+| GET | `/login` | หน้าล็อกอิน |
+| GET | `/register` | หน้าสมัครสมาชิก |
+| GET | `/register/setup` | หน้าตั้งค่าหลังสมัคร |
+| GET | `/:username` | หน้าโดเนทของ User (Dynamic) |
+| GET | `/:username/thank-you` | หน้าขอบคุณของ User |
+| GET | `/:username/overlay` | Overlay ของ User |
+| GET | `/:username/dashboard` | Dashboard ของ User (ต้องเป็นเจ้าของ) |
 
-ไปที่ [Beam Dashboard](https://dashboard.beamcheckout.com) เพื่อ:
+### ยืนยันตัวตน (Auth)
 
-1. สมัคร Merchant Account
-2. ได้รับ API Key และ Secret Key
-3. สำหรับทดสอบ ใช้ Playground environment
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/auth/twitch` | เริ่ม Twitch OAuth |
+| GET | `/auth/twitch/callback` | Twitch OAuth callback |
+| GET | `/auth/streamlabs` | เริ่ม Streamlabs OAuth |
+| GET | `/auth/streamlabs/callback` | Streamlabs OAuth callback |
+| GET | `/auth/register/twitch` | สมัครผ่าน Twitch (ข้าม OAuth ถ้ามี pending user) |
+| GET | `/auth/register/streamlabs` | สมัครผ่าน Streamlabs (ข้าม OAuth ถ้ามี pending user) |
+| POST | `/api/register/complete` | สร้างบัญชีหลังตั้งค่า Profile |
+| GET | `/api/register/pending` | เช็คว่ามี pending user หรือไม่ |
+| POST | `/api/logout` | ออกจากระบบ |
 
-### Sandbox vs Production
+### จัดการบัญชี (User)
 
-| Environment | API URL |
-|-------------|---------|
-| Sandbox | `https://playground.api.beamcheckout.com` |
-| Production | `https://api.beamcheckout.com` |
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/api/user/me` | ข้อมูล User ที่ล็อกอินอยู่ |
+| DELETE | `/api/user/delete` | ลบบัญชี (ต้องเป็นเจ้าของ) |
 
-## Webhook Setup
+### ชำระเงิน (SlipOK + PromptPay)
 
-1. ไปที่ Beam Dashboard → Webhooks
-2. เพิ่ม Webhook URL: `https://your-domain.com/webhook`
-3. เลือก Events: `charge.completed`
-4. Copy Webhook Secret ใส่ใน `.env`
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| POST | `/api/create-promptpay-qr` | สร้าง QR Code PromptPay (EMVCo) |
+| POST | `/api/verify-slip` | อัพโหลดและตรวจสอบสลิปผ่าน SlipOK API |
+| POST | `/api/verify-promptpay-slip` | ตรวจสอบสลิปพร้อมเพย์ (Rate Limited) |
+| GET | `/api/payment/settings` | ดึงค่าตั้งค่าการรับเงิน (เข้ารหัสแล้ว) |
+| POST | `/api/payment/settings` | บันทึกค่าตั้งค่าการรับเงิน (เข้ารหัสก่อนเก็บ) |
+| POST | `/api/payment/test-slipok` | ทดสอบเชื่อมต่อ SlipOK API |
+| GET | `/api/page/:username/payment-methods` | ดึงวิธีชำระเงินที่เปิดใช้ของ User |
 
-## Project Structure
+### Overlay & Alert
 
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/api/overlay/settings` | ดึงค่าตั้งค่า Overlay |
+| POST | `/api/overlay/settings` | บันทึกค่าตั้งค่า Overlay + SSE Sync |
+| GET | `/api/overlay/status` | เช็คสถานะ Overlay (Online/Offline) |
+| GET | `/api/overlay/token` | ดึง Overlay Token |
+| GET | `/api/alerts/stream` | SSE Stream สำหรับ Overlay |
+| POST | `/api/alerts/test` | ส่ง Test Alert |
+| GET | `/api/page/:username/settings` | ดึงค่าตั้งค่าหน้าโดเนท (สาธารณะ) |
+| POST | `/api/page/settings` | บันทึกค่าตั้งค่าหน้าโดเนท |
+
+### ธุรกรรม (Transactions)
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/api/transactions/:username` | ดึงประวัติธุรกรรมของ User |
+| GET | `/api/transactions/:username/download` | ดาวน์โหลดประวัติเป็น CSV |
+| POST | `/api/transactions/:id/status` | บังคับเปลี่ยนสถานะธุรกรรม |
+
+### ระบบเสริม
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/api/myinstants/search` | ค้นหาเสียงจาก MyInstants.com (Rate Limited) |
+| GET | `/api/myinstants/proxy` | Proxy ดึงข้อมูลเสียงจาก MyInstants |
+| GET | `/api/myinstants/pages` | รายการหน้าหมวดหมู่ MyInstants |
+| GET | `/api/tts` | Text-to-Speech proxy |
+| GET | `/health` | Health Check |
+
+### Cron Jobs
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| POST | `/api/cron/cleanup-expired` | ลบธุรกรรมหมดอายุ |
+| POST | `/api/cron/cleanup-quarterly` | ลบข้อมูลรายไตรมาส |
+
+## ระบบชำระเงิน
+
+### SlipOK Slip Verification (ระบบหลัก)
+ใช้ตรวจสอบสลิปโอนเงินทั้ง **PromptPay** และ **TrueMoney Wallet** ผ่าน SlipOK API เดียวกัน
+
+1. Backend สร้าง QR Code (PromptPay EMVCo หรือ TrueMoney Wallet) พร้อมระบุจำนวนเงิน
+2. User สแกน QR ด้วยแอปธนาคาร/TrueMoney → โอนเงิน
+3. User อัพโหลดสลิปโอนเงิน (JPG/PNG/WEBP)
+4. Backend ส่งสลิปไปตรวจสอบที่ SlipOK API (`POST /api/verify-slip`)
+5. SlipOK คืนข้อมูลธุรกรรม (จำนวนเงิน, ธนาคาร, ผู้โอน, ผู้รับ)
+6. ระบบตรวจสอบยอดเงิน + บัญชีผู้รับ → ยืนยันการบริจาค + ยิง Alert
+
+### Feel Free Pay (FFP) (กำลังพัฒนา)
+ระบบรับเงินทางเลือกที่จะมาแทนที่ Beam Donate
+- ผู้โดเนทไม่เห็นชื่อหรือข้อมูลส่วนตัวของผู้รับเงิน
+- เงินจะเข้าผ่าน FFP โดยตรง ไม่ผ่านแพลตฟอร์ม
+- กำลังรอ API จาก FFP เพื่อเริ่มการพัฒนา
+
+### การเข้ารหัสข้อมูล
+ข้อมูลสำคัญทั้งหมดเข้ารหัสด้วย **AES-256-GCM** ก่อนบันทึกลงฐานข้อมูล:
+
+| ฟิลด์ | รูปแบบที่แสดง |
+|-------|---------------|
+| `promptpay_value_encrypted` | `081****3456` |
+| `slipok_api_encrypted` | `https://api.slipok.com/.../****` |
+| `slipok_api_key_encrypted` | `****abcd` |
+| `truemoney_phone_encrypted` | `081****3456` |
+
+## ฐานข้อมูล
+
+### ตาราง `streamers`
+เก็บข้อมูล User และการตั้งค่าทั้งหมด (Overlay, Payment, Profile, Social Links)
+
+### ตาราง `transactions`
+เก็บประวัติธุรกรรมการบริจาค (Auto-delete หลัง 30 วัน)
+
+### การ Migration
+```bash
+npm run migrate
 ```
-beam-donate/
-├── public/
-│   ├── index.html        # หน้า Donate
-│   ├── thank-you.html    # หน้าขอบคุณ
-│   ├── overlay.html      # 🎬 Donation Alert Overlay (OBS)
-│   ├── overlay.css       # Overlay styles + animations
-│   ├── overlay.js        # SSE client + alert queue
-│   ├── alert-test.html   # 🧪 Alert Test Dashboard
-│   ├── admin.html        # 📊 Premium Admin Dashboard
-│   ├── admin.css         # Admin Dashboard styles
-│   ├── admin.js          # Admin Dashboard logic
-│   ├── style.css         # Donate page styles
-│   └── app.js            # Donate page JS
-├── src/
-│   ├── server.js         # Express server + SSE
-│   ├── database.js       # 📊 SQLite/Turso Database Manager
-│   └── beam.js           # Beam API wrapper
-├── data/                 # โฟลเดอร์เก็บ SQLite Database และไฟล์สำรอง (.bak)
-├── .env.example          # ตัวอย่าง environment variables
-├── .gitignore
-├── package.json
-└── README.md
-```
+รัน script `scripts/migrate.js` เพื่อสร้าง/อัปเดต schema — **ห้าม** รัน migration บน request path (Vercel Cold Start จะ timeout)
 
-## 🎬 Live Donation Alert (OBS Overlay)
+## Deployment (Vercel)
 
-ระบบแสดงแจ้งเตือนบริจาคแบบ real-time บน live stream คล้าย TipMe / Streamlabs
+### Environment Variables ที่ต้องตั้งค่าบน Vercel
+- `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (Database)
+- `SESSION_SECRET` (Session)
+- `MASTER_ENCRYPTION_KEY` + `ENCRYPTION_SALT` (Encryption)
+- `TWITCH_CLIENT_ID` + `TWITCH_CLIENT_SECRET` + `TWITCH_CALLBACK_URL` (OAuth)
 
-## 📊 Premium Admin Dashboard (ระบบแดชบอร์ดสตรีมเมอร์)
+### ข้อควรระวัง
+- **Cold Start**: อย่ารัน migration ใน `initDB()` — ใช้ `npm run migrate` แยก
+- **Stateless Session**: ใช้ TursoStore แทน Memory Store
+- **Trust Proxy**: ตั้ง `app.set('trust proxy', 1)` สำหรับ Cookie บน Vercel
+- **Read-Only Filesystem**: ใช้ Turso DB เท่านั้น (ไม่มี local SQLite)
 
-หน้าควบคุมสุดพรีเมียมสไตล์ Modern Dark Mode ช่วยให้สตรีมเมอร์สามารถบริหารจัดการธุรกรรมการบริจาคและปรับแต่งสไตล์ของ Live Overlay ได้อย่างสมบูรณ์แบบ:
+## เอกสารเพิ่มเติม
 
-### วิธีใช้งาน
-1. เปิดเบราว์เซอร์แล้วไปที่: `http://localhost:3000/admin`
-2. **Dashboard Tab:** ดูสถิติรวมยอดบริจาค, อัตราความสำเร็จสำเร็จ (Success Ratio) และสถิติธุรกรรม
-3. **Donation History Tab:** 
-   - ค้นหารายการและฟิลเตอร์สถานะธุรกรรม
-   - **Force Pay:** บังคับให้ธุรกรรม Pending เปลี่ยนเป็น Success (ช่วยทดสอบ Flow เสมือนจ่ายเงินจริง)
-   - **Test Alert:** ยิง Alert ของธุรกรรมรายนั้นๆ ขึ้นจอเพื่อทดสอบ
-   - **Raw Inspect:** เปิดกล่องตรวจสอบ JSON Payload เชิงลึก
-4. **Overlay Configurator Tab:**
-   - **Visual Themes:** เลือกสกินแสดงผล (Glassmorphism, Cyberpunk Neon, Minimalist, Custom) ปรับแต่งโทนสีสัน ขอบ และละออง particles วิบวับ
-   - **Typography:** เปลี่ยนแบบอักษรภาษาไทยยอดนิยม (Noto Sans Thai, Kanit, Mitr, Chakra Petch, Sarabun)
-   - **Entrance Animations:** คุมวิถีการเด้งแจ้งเตือน (เลื่อนลงจากบน, เลื่อนขึ้นจากล่าง, เลื่อนจากข้าง, ซูมเข้า, ค่อยๆ เฟด) และเวลาค้างของ Alert (2-20 วินาที)
-   - **Audio Alert:** เลือกประเภทเสียงเตือน (Classic Chime, Retro Arcade, Modern Synth, Soft Bell) และระดับสไลเดอร์เสียง
-   - **TTS Engine (อ่านออกเสียง AI):** สวิตช์เปิดใช้ระบบสังเคราะห์เสียงพูดอ่านข้อความภาษาไทย/อังกฤษ ด้วย Web Speech API อัตโนมัติ (เลือกสปีดเร็ว/ช้า และระดับเสียงพูดได้)
-   - **Real-time Live Sync:** เมื่อกดบันทึกหรือยิงทดสอบ การตั้งค่าต่างๆ จะซิงค์ผ่าน SSE และ**อัปเดตสกินสี แอนิเมชัน และเสียงเตือนบนหน้าจอ OBS จริงทันทีโดยไม่ต้องกด Refresh OBS ใหม่!**
-   - **Live Preview:** มี Iframe ตัวอย่างจำลองแบบ Interactive ช่วยให้เห็นผลตกแต่งสดๆ ก่อนนำไปขึ้นไลฟ์จริง
-
-
-### วิธีใช้งาน
-
-1. เปิด OBS Studio
-2. เพิ่ม **Browser Source** ใหม่
-3. ใส่ URL: `http://localhost:3000/overlay`
-4. ตั้งค่า Width: `800`, Height: `200`
-5. เมื่อมีคนบริจาคสำเร็จ → Alert จะแสดงอัตโนมัติ
-
-### URL Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `duration` | `8000` | ระยะเวลาแสดง alert (ms) |
-| `sound` | `true` | เปิด/ปิดเสียงแจ้งเตือน |
-
-ตัวอย่าง: `/overlay?duration=10000&sound=false`
-
-### ทดสอบ Alert
-
-เปิด `http://localhost:3000/alert-test` เพื่อส่ง test alert โดยไม่ต้องจ่ายเงินจริง
+| ไฟล์ | คำอธิบาย |
+|------|----------|
+| [VISION.md](./VISION.md) | วิสัยทัศน์และสถาปัตยกรรมระบบ |
+| [API_INTEGRATION_GUIDE.md](./API_INTEGRATION_GUIDE.md) | คู่มือ API Integration (SlipOK + Architecture + การวางโค้ด) |
+| [AGENTS.md](./AGENTS.md) | คู่มือ Debugging และ Pattern สำหรับ AI |
+| [WORKFLOW_GUIDELINES.md](./WORKFLOW_GUIDELINES.md) | กฎการทำงาน Triple-Check + Server Verification |
+| [plans/PROMPTPAY_BLUEPRINT.md](./plans/PROMPTPAY_BLUEPRINT.md) | Blueprint ระบบชำระเงิน PromptPay + SlipOK |
+| [plans/SlipOK Guide.md](./plans/SlipOK%20Guide.md) | สรุป SlipOK API v1.13 |
+| [plans/KaminKub_Checklist.md](./plans/KaminKub_Checklist.md) | Development Checklist |
 
 ## License
 

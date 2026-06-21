@@ -1,3 +1,9 @@
+/* ปิด caret ทั้งโปรเจกต์โดยไม่ยุ่งกับสไตล์อื่น */
+*, *::before, *::after, 
+input, textarea, [contenteditable="true"] {
+    caret-color: transparent !important;
+}
+
 /* ========== Configuration Variables ========== */
 :root {
   --primary-color: #667eea;
