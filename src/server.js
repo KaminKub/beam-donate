@@ -1920,7 +1920,7 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     await db.cleanupExpiredTransactions();
 
     const pendingCount = await db.countPendingTransactions(username);
-    if (pendingCount >= 5) {
+    if (pendingCount >= 50) {
       return res.status(429).json({ error: 'มีรายการค้างชำระมากเกินไป กรุณารอให้รายการเก่าหมดอายุก่อน' });
     }
 
