@@ -103,7 +103,7 @@ const HONEYPOT_FIELD = 'contact_email';
 function generatePageToken() {
   const timestamp = Date.now();
   const nonce = crypto.randomBytes(4).toString('hex');
-  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'default';
+  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET;
   const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
@@ -118,7 +118,7 @@ function verifyPageToken(token) {
   const [ts, nonce, sig] = parts;
   const timestamp = parseInt(ts, 10);
   if (isNaN(timestamp)) return false;
-  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'default';
+  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET;
   const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
@@ -559,7 +559,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     console.log('🔑 [Streamlabs] Exchanging code for token...');
     console.log('🔑 [Streamlabs] Client ID valid:', !!process.env.STREAMLABS_CLIENT_ID);
     console.log('🔑 [Streamlabs] Client Secret valid:', !!process.env.STREAMLABS_CLIENT_SECRET);
-    console.log('🔑 [Streamlabs] Client ID prefix:', process.env.STREAMLABS_CLIENT_ID?.substring(0, 12) + '...');
     console.log('🔑 [Streamlabs] Redirect URI:', process.env.STREAMLABS_CALLBACK_URL);
     console.log('🔑 [Streamlabs] Code prefix:', code?.substring(0, 8) + '...');
 

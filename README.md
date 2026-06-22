@@ -275,12 +275,12 @@ http://localhost:3000
 ### การเข้ารหัสข้อมูล
 ข้อมูลสำคัญทั้งหมดเข้ารหัสด้วย **AES-256-GCM** ก่อนบันทึกลงฐานข้อมูล:
 
-| ฟิลด์ | รูปแบบที่แสดง |
-|-------|---------------|
-| `promptpay_value_encrypted` | `081****3456` |
-| `slipok_api_encrypted` | `https://api.slipok.com/.../****` |
-| `slipok_api_key_encrypted` | `****abcd` |
-| `truemoney_phone_encrypted` | `081****3456` |
+| ประเภทข้อมูล | รูปแบบที่แสดง |
+|--------------|---------------|
+| เบอร์พร้อมเพย์ / เลขบัตร | `081****3456` |
+| SlipOK API Endpoint | `https://api.slipok.com/.../****` |
+| SlipOK API Key | `****abcd` |
+| เบอร์ TrueMoney Wallet | `081****3456` |
 
 ## ฐานข้อมูล
 

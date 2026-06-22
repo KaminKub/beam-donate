@@ -369,14 +369,14 @@ module.exports = { createCharge };
 
 ### ฟิลด์ที่ต้องเข้ารหัส
 
-| ฟิลด์ DB | ข้อมูล | Censor Display |
-|----------|--------|----------------|
-| `promptpay_value_encrypted` | เบอร์พร้อมเพย์/เลขบัตร | `081****3456` |
-| `slipok_api_encrypted` | SlipOK Branch URL | `https://.../****` |
-| `slipok_api_key_encrypted` | SlipOK API Key | `****abcd` |
-| `truemoney_phone_encrypted` | เบอร์ TrueMoney | `081****3456` |
-| `truemoney_slipok_api_encrypted` | SlipOK API (TrueMoney) | `https://.../****` |
-| `truemoney_slipok_api_key_encrypted` | SlipOK Key (TrueMoney) | `****abcd` |
+| ประเภทข้อมูล | คำอธิบาย | Censor Display |
+|--------------|----------|----------------|
+| เบอร์พร้อมเพย์/เลขบัตร | ข้อมูล PromptPay | `081****3456` |
+| SlipOK Branch URL | Endpoint สำหรับตรวจสอบสลิป | `https://.../****` |
+| SlipOK API Key | Key สำหรับ authenticate | `****abcd` |
+| เบอร์ TrueMoney | ข้อมูล TrueMoney Wallet | `081****3456` |
+| SlipOK API (TrueMoney) | Endpoint TrueMoney แยก | `https://.../****` |
+| SlipOK Key (TrueMoney) | Key TrueMoney แยก | `****abcd` |
 
 ### วิธีใช้ (ใน `src/server.js`)
 ```javascript

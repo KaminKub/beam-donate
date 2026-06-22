@@ -3,25 +3,4 @@ node_modules/
 .DS_Store
 *.log
 data/
-AGENTS.md
-VISION.md
-RECENT_WORK_LOG.md
-CHECKLIST.md
-WORKFLOW_GUIDELINES.md
-HANDOFF_SOUND_ALERT.md
-dashboard-old.js
-index-Old.html
-database-old.js
-admin-old.css
-KaminKub_Checklist.md
-check_syntax.py
-backticks.txt
-database_dump.js
-STREAMLABS_CHECKLIST.md
-UI_UX_IMPROVEMENTS.md
-PROMPTPAY_BLUEPRINT.md
-SlipOK Guide.md
-VPS_SETUP_GUIDE.md
-ecosystem.config.js
-failover_watcher.py
 .env.production

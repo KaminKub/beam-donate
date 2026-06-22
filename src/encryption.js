@@ -13,10 +13,13 @@ function encrypt(text) {
   if (!text) return null;
 
   const masterKey = process.env.MASTER_ENCRYPTION_KEY;
-  const salt = process.env.ENCRYPTION_SALT || 'default-salt-change-in-production';
+  const salt = process.env.ENCRYPTION_SALT;
 
   if (!masterKey) {
     throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
+  }
+  if (!salt) {
+    throw new Error('ENCRYPTION_SALT is not defined in environment variables');
   }
 
   // Ensure key is 32 bytes using the salt
@@ -41,10 +44,13 @@ function decrypt(encryptedText) {
   if (!encryptedText) return null;
 
   const masterKey = process.env.MASTER_ENCRYPTION_KEY;
-  const salt = process.env.ENCRYPTION_SALT || 'default-salt-change-in-production';
+  const salt = process.env.ENCRYPTION_SALT;
 
   if (!masterKey) {
     throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
+  }
+  if (!salt) {
+    throw new Error('ENCRYPTION_SALT is not defined in environment variables');
   }
 
   const [ivBase64, authTagBase64, encryptedBase64] = encryptedText.split(':');
