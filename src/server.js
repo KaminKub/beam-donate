@@ -1581,6 +1581,9 @@ app.get('/:username', validateUsername, (req, res) => {
       .replace(/{{og_image}}/g, escapeHTML(ogImage))
       .replace(/{{page_token}}/g, generatePageToken());
  
+    res.set('Cache-Control', 'no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.send(htmlContent);
   } catch (err) {
     console.error('Error serving dynamic donation page:', err);

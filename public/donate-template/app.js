@@ -14,6 +14,27 @@ let pageToken = '';
 const metaToken = document.querySelector('meta[name="page-token"]');
 if (metaToken) pageToken = metaToken.getAttribute('content') || '';
 
+// Auto-reload if token expired (new deploy / cache)
+if (!pageToken) location.reload();
+
+// Global fetch guard: auto-reload on 403 FORBIDDEN (stale token from cache)
+const _fetch = window.fetch;
+window.fetch = async function(url, options) {
+  const res = await _fetch(url, options);
+  if (res.status === 403) {
+    try {
+      const clone = res.clone();
+      const body = await clone.json();
+      if (body.error === 'FORBIDDEN') {
+        console.warn('🔄 Token expired — reloading page...');
+        location.reload();
+        return new Response(null, { status: 503 });
+      }
+    } catch (_) {}
+  }
+  return res;
+};
+
 function getAntiBotPayload() {
   return {
     page_token: pageToken,
