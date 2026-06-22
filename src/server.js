@@ -103,7 +103,8 @@ const HONEYPOT_FIELD = 'contact_email';
 function generatePageToken() {
   const timestamp = Date.now();
   const nonce = crypto.randomBytes(4).toString('hex');
-  const hmac = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'default')
+  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'default';
+  const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
     .substring(0, 16);
@@ -117,7 +118,8 @@ function verifyPageToken(token) {
   const [ts, nonce, sig] = parts;
   const timestamp = parseInt(ts, 10);
   if (isNaN(timestamp)) return false;
-  const hmac = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'default')
+  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'default';
+  const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
     .substring(0, 16);
