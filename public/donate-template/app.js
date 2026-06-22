@@ -1082,8 +1082,9 @@ async function updateStatus() {
   statusText.textContent = 'ตรวจสอบสถานะ...';
 
   try {
+    const username = window.location.pathname.replace(/^\/|\/$/g, '');
     const [response] = await Promise.all([
-      fetch('/api/overlay/status'),
+      fetch(`/api/overlay/status/${username}`),
       new Promise(resolve => setTimeout(resolve, 1200))
     ]);
 

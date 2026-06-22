@@ -978,6 +978,20 @@ app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Public overlay status (for donate page — no login required)
+app.get('/api/overlay/status/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    if (!username) return res.status(400).json({ active: false, error: 'missing username' });
+    const isActive = sseClients.some(client => 
+      client.username === username.toLowerCase() && client.authMethod === 'token'
+    );
+    res.json({ active: isActive });
+  } catch (err) {
+    res.status(500).json({ active: false, error: 'server error' });
+  }
+});
+
 app.get('/api/transactions/:username/download', ensureAuthenticated, async (req, res) => {
   try {
     const { username } = req.params;
