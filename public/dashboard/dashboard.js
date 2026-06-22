@@ -1389,8 +1389,14 @@ async function loadOverlaySettings() {
        document.getElementById('chkProfanityFilterEnabled').checked = s.profanityFilterEnabled;
        document.getElementById('profanityReplaceStyleSelect').value = s.profanityReplaceStyle || 'asterisks';
        document.getElementById('inputProfanityWords').value = s.profanityWords || '';
- 
- 
+
+       // Notify CustomSelect wrappers by dispatching change events
+       ['themeSelect', 'fontSelect', 'animSelect', 'soundChoiceSelect',
+        'customImageMode', 'profanityReplaceStyleSelect'].forEach(id => {
+         const el = document.getElementById(id);
+         if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
+       });
+
        // Handle custom fields toggle on startup
        toggleTtsSubSettings(s.ttsEnabled);
        toggleAudioSettingsRow(s.soundEnabled);
@@ -2228,6 +2234,7 @@ async function loadPaymentSettings() {
     const promptpayType = document.getElementById('inputPromptPayType');
     const promptpayInput = document.getElementById('inputPromptPay');
     if (promptpayType) promptpayType.value = data.promptpay_type || 'phone';
+    if (promptpayType) promptpayType.dispatchEvent(new Event('change', { bubbles: true }));
     if (promptpayInput) promptpayInput.value = data.promptpay_value || '';
     updatePromptPayPlaceholder();
 

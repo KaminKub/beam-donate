@@ -1131,7 +1131,7 @@ async function getSettings(username, defaultSettings) {
   // Merge and filter out null values to ensure defaults are used
   const merged = { ...defaultSettings };
   for (const [key, value] of Object.entries(streamer)) {
-    if (value !== null) {
+    if (value !== null && value !== '') {
       merged[key] = value;
     }
   }
