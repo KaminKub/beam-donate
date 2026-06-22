@@ -946,7 +946,7 @@ function renderRecentTransactions(transactions) {
       <td style="font-weight: 500;">${escapeHtml(t.donor || 'Anonymous')}</td>
       <td style="font-weight: 600; color: #818cf8;">฿${(Number(t.amount) || 0).toLocaleString()}</td>
       <td class="text-muted" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.message || '-')}</td>
-      <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+      <td><span class="badge ${getStatusBadgeClass(t.status)}">${getStatusLabel(t.status)}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -990,7 +990,7 @@ function renderFullTransactions(transactions) {
       <td style="font-weight: 500;">${escapeHtml(t.donor || 'Anonymous')}</td>
       <td style="font-weight: 600; color: #818cf8;">฿${(Number(t.amount) || 0).toLocaleString()}</td>
       <td class="text-muted" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.message || '-')}</td>
-      <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+      <td><span class="badge ${getStatusBadgeClass(t.status)}">${getStatusLabel(t.status)}</span></td>
       <td>${actionsHtml}</td>
     `;
     tbody.appendChild(tr);
@@ -1660,8 +1660,14 @@ function getStatusBadgeClass(status) {
     case 'successful': return 'badge-success';
     case 'pending': return 'badge-pending';
     case 'failed': return 'badge-failed';
+    case 'expired': return 'badge-expired';
     default: return 'badge-pending';
   }
+}
+
+function getStatusLabel(status) {
+  var labels = { successful: 'สำเร็จ', pending: 'รอชำระ', failed: 'ล้มเหลว', expired: 'หมดอายุ' };
+  return labels[status] || status;
 }
 
 function validateUrl(url) {
