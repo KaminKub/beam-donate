@@ -1980,10 +1980,10 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
 const verifySlipLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'กรุณารอสักครู่' },
+  message: { error: 'กรุณารอสักครู่ — ระบบกำลังประมวลผลสลิปก่อนหน้า' },
   handler: (req, res) => {
     console.warn(`⚠️ Rate limit hit on /api/verify-slip — IP: ${req.ip}`);
-    res.status(429).json({ error: 'กรุณารอสักครู่' });
+    res.status(429).json({ success: false, errorCode: 'RATE_LIMITED', error: 'กรุณารอสักครู่ — ระบบกำลังประมวลผล' });
   }
 });
 
@@ -2028,15 +2028,15 @@ app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (re
     if (referenceId) {
       const existingTx = await db.getTransactionById(referenceId);
       if (existingTx && existingTx.status === 'successful') {
-        return res.json({ success: false, errorCode: 'ALREADY_VERIFIED', error: 'รายการนี้ได้รับการยืนยันแล้ว' });
+        return res.json({ success: false, errorCode: 'ALREADY_VERIFIED', error: '✅ รายการนี้ได้รับการยืนยันเรียบร้อยแล้ว' });
       }
     }
 
-    // Guard 2: Deduplicate slip by image hash (5 min TTL per streamer)
+    // Guard 2: Deduplicate slip by image hash (1 min TTL per streamer)
     const slipHash = crypto.createHash('sha256').update(slipFile.buffer).digest('hex');
     if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
     if (slipHashCache.get(username).has(slipHash)) {
-      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกส่งไปแล้ว กรุณารอ 1 นาที' });
+      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกอัพโหลดไปแล้ว — กรุณาถ่ายสลิปใหม่ หรือรอ 1 นาที' });
     }
     slipHashCache.get(username).add(slipHash);
     // Auto-expire hash after 1 min

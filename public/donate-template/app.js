@@ -779,7 +779,7 @@ async function doVerifySlip() {
     }
 
     const errorCode = data.errorCode || '';
-    const isRetryable = errorCode === 'CONNECTION_FAILED' || errorCode === 'SERVER_ERROR';
+    const isRetryable = errorCode === 'CONNECTION_FAILED' || errorCode === 'SERVER_ERROR' || errorCode === 'RATE_LIMITED';
 
     if (errorCode === 'SLIP_DELAY') {
       const delayMin = data.delayMinutes || 5;
@@ -787,6 +787,14 @@ async function doVerifySlip() {
         () => `⏳ ${data.error || 'กรุณารอการตรวจสอบ'}`,
         () => '⏰ พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
       );
+      return;
+    }
+
+    if (errorCode === 'SLIP_DUPLICATE' || errorCode === 'ALREADY_VERIFIED') {
+      paymentStatus.style.display = 'none';
+      showPaymentError(data.error || 'สลิปนี้ถูกใช้แล้ว');
+      btnVerifySlip.innerHTML = '<i class="fas fa-check-circle"></i> ตรวจสอบสลิป';
+      btnVerifySlip.disabled = false;
       return;
     }
 
