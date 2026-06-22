@@ -1005,6 +1005,7 @@ function renderFullTransactions(transactions) {
 const inputSearchDonor = document.getElementById('inputSearchDonor');
 const selectFilterStatus = document.getElementById('selectFilterStatus');
 const btnRefreshTransactions = document.getElementById('btnRefreshTransactions');
+const btnCopyPopupUrl = document.getElementById('btnCopyPopupUrl');
 
 if (inputSearchDonor) {
   inputSearchDonor.addEventListener('input', () => {
@@ -1050,6 +1051,20 @@ if (btnDownloadFromNote) {
   btnDownloadFromNote.addEventListener('click', (e) => {
     e.preventDefault();
     openDownloadModal();
+  });
+}
+
+if (btnCopyPopupUrl) {
+  btnCopyPopupUrl.addEventListener('click', () => {
+    const pathParts = window.location.pathname.split('/');
+    const username = pathParts[1];
+    if (!username) return;
+    const url = window.location.origin + '/' + username + '/dona-monitor';
+    navigator.clipboard.writeText(url).then(() => {
+      showNotification('คัดลอกลิงก์ Dona-Monitor แล้ว!', 'success');
+    }).catch(() => {
+      showNotification('ไม่สามารถคัดลอกลิงก์ได้', 'error');
+    });
   });
 }
 

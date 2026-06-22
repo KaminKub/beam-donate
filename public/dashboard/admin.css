@@ -327,7 +327,7 @@ body {
   transform: translateY(-1px);
 }
 
-.btn-refresh-round {
+.btn-icon-round {
   width: 36px;
   height: 36px;
   padding: 0;
@@ -344,42 +344,29 @@ body {
   flex-shrink: 0;
 }
 
-.btn-refresh-round:hover {
+.btn-icon-round:hover {
   background: rgba(99, 102, 241, 0.25);
   color: var(--primary);
   border-color: rgba(99, 102, 241, 0.4);
-  transform: rotate(30deg);
+  transform: scale(1.1);
 }
 
-.btn-refresh-round.spinning i {
+.btn-icon-round.spinning i {
   animation: refreshSpin 0.7s ease-in-out infinite;
+}
+
+.btn-icon-round.refresh-hover:hover {
+  transform: rotate(30deg) scale(1.1);
+}
+
+.btn-icon-round:active {
+  transform: scale(0.92);
+  transition: transform 0.1s ease;
 }
 
 @keyframes refreshSpin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-.btn-popup-monitor {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(99, 102, 241, 0.1));
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  padding: 7px 14px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-.btn-popup-monitor:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(99, 102, 241, 0.2));
-  color: #c7d2fe;
-  border-color: rgba(99, 102, 241, 0.55);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
 }
 
 .btn-danger {
