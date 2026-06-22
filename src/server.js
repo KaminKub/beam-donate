@@ -1976,18 +1976,25 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   }
 });
 
-// POST /api/verify-promptpay-slip - Verify PromptPay slip via TFP API
-const verifySlipLimiter = rateLimit({
+// POST /api/verify-slip — actual slip upload (10/min per IP)
+const uploadSlipLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'คุณอัพโหลดสลิปถี่เกินไป — กรุณารอ 1 นาทีแล้วลองใหม่' },
+  message: { error: 'ตรวจพบพฤติกรรมผิดปกติ หรืออัพโหลดถี่เกินไป' },
   handler: (req, res) => {
     console.warn(`⚠️ Rate limit hit on /api/verify-slip — IP: ${req.ip}`);
-    res.status(429).json({ success: false, errorCode: 'RATE_LIMITED', error: 'คุณอัพโหลดสลิปถี่เกินไป — กรุณารอ 1 นาทีแล้วลองใหม่' });
+    res.status(429).json({ success: false, errorCode: 'RATE_LIMITED', error: 'ตรวจพบพฤติกรรมผิดปกติ หรืออัพโหลดถี่เกินไป' });
   }
 });
 
-app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (req, res) => {
+// POST /api/verify-promptpay-slip — polling (20/min per IP, called every 3s)
+const pollSlipLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { success: false, errorCode: 'RATE_LIMITED', error: 'กรุณารอสักครู่' }
+});
+
+app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId, amount, phone, method, username: bodyUsername } = req.body;
@@ -2036,7 +2043,7 @@ app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (re
     const slipHash = crypto.createHash('sha256').update(slipFile.buffer).digest('hex');
     if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
     if (slipHashCache.get(username).has(slipHash)) {
-      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'สลิปนี้ถูกอัพโหลดไปแล้ว — กรุณาถ่ายสลิปใหม่ หรือรอ 1 นาที' });
+      return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'ตรวจพบสลิปซ้ำ — สลิปนี้เคยถูกใช้ไปแล้ว' });
     }
     slipHashCache.get(username).add(slipHash);
     // Auto-expire hash after 1 min
@@ -2156,7 +2163,7 @@ app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (re
   }
 });
 
-app.post('/api/verify-promptpay-slip', verifySlipLimiter, async (req, res) => {
+app.post('/api/verify-promptpay-slip', pollSlipLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId } = req.body;

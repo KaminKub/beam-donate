@@ -738,9 +738,6 @@ if (btnVerifySlip) {
 
     btnVerifySlip.disabled = true;
     btnVerifySlip.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
-    paymentStatus.style.display = 'flex';
-    paymentStatus.className = 'status checking';
-    paymentStatus.innerHTML = '<div class="spinner-small"></div><span>กำลังตรวจสอบสลิป...</span>';
     hidePaymentError();
 
     await doVerifySlip();
@@ -912,9 +909,6 @@ if (btnVerifyTrueMoney) {
 
     btnVerifyTrueMoney.disabled = true;
     btnVerifyTrueMoney.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
-    trueMoneyPaymentStatus.style.display = 'flex';
-    trueMoneyPaymentStatus.className = 'status checking';
-    trueMoneyPaymentStatus.innerHTML = '<div class="spinner-small"></div><span>กำลังตรวจสอบสลิป...</span>';
     hideTrueMoneyError();
 
     await doVerifyTrueMoney();
