@@ -314,18 +314,14 @@ async function initializeDashboard() {
         const response = await fetch('/api/overlay/status');
         if (response.ok) {
           const { active } = await response.json();
-          const indicator = document.getElementById('overlayStatusIndicator');
-          const text = document.getElementById('overlayStatusText');
-          
-          if (indicator && text) {
+          const pill = document.getElementById('overlayStatusPill');
+          if (pill) {
             if (active) {
-              indicator.className = 'status-indicator online';
-              text.textContent = 'ออนไลน์ (Active)';
-              text.style.color = 'var(--success)';
+              pill.className = 'status-pill online';
+              pill.innerHTML = 'Overlay Connected';
             } else {
-              indicator.className = 'status-indicator offline';
-              text.textContent = 'ออฟไลน์ (Inactive)';
-              text.style.color = 'var(--text-muted)';
+              pill.className = 'status-pill offline';
+              pill.innerHTML = 'Overlay Offline';
             }
           }
         }
