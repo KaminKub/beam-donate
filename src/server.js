@@ -1980,10 +1980,10 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
 const verifySlipLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'กรุณารอสักครู่ — ระบบกำลังประมวลผลสลิปก่อนหน้า' },
+  message: { error: 'คุณอัพโหลดสลิปถี่เกินไป — กรุณารอ 1 นาทีแล้วลองใหม่' },
   handler: (req, res) => {
     console.warn(`⚠️ Rate limit hit on /api/verify-slip — IP: ${req.ip}`);
-    res.status(429).json({ success: false, errorCode: 'RATE_LIMITED', error: 'กรุณารอสักครู่ — ระบบกำลังประมวลผล' });
+    res.status(429).json({ success: false, errorCode: 'RATE_LIMITED', error: 'คุณอัพโหลดสลิปถี่เกินไป — กรุณารอ 1 นาทีแล้วลองใหม่' });
   }
 });
 
