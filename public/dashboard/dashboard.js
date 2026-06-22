@@ -1,6 +1,37 @@
 // ========== DOM Elements & Global State ==========
 let allTransactions = [];
 let activeTab = 'dashboard';
+let _csrfToken = null;
+
+async function ensureCsrfToken() {
+  if (_csrfToken) return _csrfToken;
+  try {
+    const res = await fetch('/api/csrf-token');
+    if (res.ok) {
+      const data = await res.json();
+      _csrfToken = data.csrfToken;
+    }
+  } catch (e) {}
+  return _csrfToken;
+}
+
+async function fetchWithCsrf(url, options = {}) {
+  const token = await ensureCsrfToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers['X-CSRF-Token'] = token;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 403) {
+    let body;
+    try { body = await res.json(); } catch (e) { body = null; }
+    if (body && body.code === 'CSRF_INVALID') {
+      _csrfToken = null;
+      const fresh = await ensureCsrfToken();
+      headers['X-CSRF-Token'] = fresh;
+      return fetch(url, { ...options, headers });
+    }
+  }
+  return res;
+}
 
 // Sound Cache System
 const soundCache = new SoundCacheManager('tipkub-sounds-v1');
@@ -651,7 +682,7 @@ async function handleAccountDeletion() {
         '🔴', 
         async () => {
           try {
-            const response = await fetch('/api/user/delete', { method: 'DELETE' });
+             const response = await fetchWithCsrf('/api/user/delete', { method: 'DELETE' });
             if (response.ok) {
               showNotification('ลบบัญชีสำเร็จ ระบบจะพากลับไปหน้าหลัก');
               setTimeout(() => { window.location.href = '/'; }, 2000);
@@ -1244,7 +1275,7 @@ async function saveOverlaySettings() {
   };
  
   try {
-    const res = await fetch('/api/overlay/settings', {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1373,7 +1404,7 @@ async function savePageSettings(e) {
   }
 
   try {
-    const response = await fetch('/api/page/settings', {
+    const response = await fetchWithCsrf('/api/page/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
@@ -2227,7 +2258,7 @@ async function savePaymentSettings() {
   };
 
   try {
-    const response = await fetch('/api/payment/settings', {
+    const response = await fetchWithCsrf('/api/payment/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

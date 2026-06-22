@@ -346,6 +346,31 @@ async function migrateDB() {
       console.warn('⚠️ Settings migration failed or not needed:', e.message);
     }
 
+    // M1 — Encrypt any plaintext Streamlabs OAuth tokens already in DB
+    try {
+      const tokRows = await db.execute("SELECT twitch_id, streamlabs_access_token, streamlabs_refresh_token FROM streamers WHERE streamlabs_access_token IS NOT NULL OR streamlabs_refresh_token IS NOT NULL");
+      let encCount = 0;
+      const isEnc = (t) => t && typeof t === 'string' && t.split(':').length === 3 && t.split(':').every(p => p.length > 8);
+      for (const row of tokRows.rows) {
+        const sets = [];
+        const args = [];
+        if (row.streamlabs_access_token && !isEnc(row.streamlabs_access_token)) {
+          try { sets.push('streamlabs_access_token = ?'); args.push(encrypt(row.streamlabs_access_token)); } catch (e) {}
+        }
+        if (row.streamlabs_refresh_token && !isEnc(row.streamlabs_refresh_token)) {
+          try { sets.push('streamlabs_refresh_token = ?'); args.push(encrypt(row.streamlabs_refresh_token)); } catch (e) {}
+        }
+        if (sets.length > 0) {
+          args.push(row.twitch_id);
+          await db.execute({ sql: `UPDATE streamers SET ${sets.join(', ')} WHERE twitch_id = ?`, args });
+          encCount++;
+        }
+      }
+      if (encCount > 0) console.log(`🔐 Encrypted Streamlabs tokens for ${encCount} streamer(s) at rest.`);
+    } catch (e) {
+      console.warn('⚠️ Streamlabs token encryption migration skipped:', e.message);
+    }
+
     console.log('✅ Turso Database schema verified and migrated.');
   } catch (err) {
     console.error('💥 Migration failed:', err);
@@ -706,9 +731,16 @@ async function saveStreamer(data) {
    if (data.truemoney_slipok_api && data.truemoney_slipok_api.length > 0 && !isEncrypted(data.truemoney_slipok_api) && !data.truemoney_slipok_api.includes('*')) {
      try { data.truemoney_slipok_api_encrypted = encrypt(data.truemoney_slipok_api); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api:', e.message); }
    }
-   if (data.truemoney_slipok_api_key && data.truemoney_slipok_api_key.length > 0 && !isEncrypted(data.truemoney_slipok_api_key) && !data.truemoney_slipok_api_key.includes('*')) {
-     try { data.truemoney_slipok_api_key_encrypted = encrypt(data.truemoney_slipok_api_key); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api_key:', e.message); }
-   }
+    if (data.truemoney_slipok_api_key && data.truemoney_slipok_api_key.length > 0 && !isEncrypted(data.truemoney_slipok_api_key) && !data.truemoney_slipok_api_key.includes('*')) {
+      try { data.truemoney_slipok_api_key_encrypted = encrypt(data.truemoney_slipok_api_key); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api_key:', e.message); }
+    }
+    // Encrypt Streamlabs OAuth tokens at rest (M1)
+    if (data.streamlabs_access_token && data.streamlabs_access_token.length > 0 && !isEncrypted(data.streamlabs_access_token)) {
+      try { data.streamlabs_access_token = encrypt(data.streamlabs_access_token); } catch (e) { console.warn('Failed to encrypt streamlabs_access_token:', e.message); }
+    }
+    if (data.streamlabs_refresh_token && data.streamlabs_refresh_token.length > 0 && !isEncrypted(data.streamlabs_refresh_token)) {
+      try { data.streamlabs_refresh_token = encrypt(data.streamlabs_refresh_token); } catch (e) { console.warn('Failed to encrypt streamlabs_refresh_token:', e.message); }
+    }
 
    const finalData = {
      ...existing,
@@ -966,8 +998,12 @@ async function saveStreamer(data) {
     });
 
   }
-  
-  return { ...finalData, overlay_token: overlayToken };
+
+  // Never expose OAuth tokens (now encrypted at rest) back to callers
+  const returned = { ...finalData, overlay_token: overlayToken };
+  delete returned.streamlabs_access_token;
+  delete returned.streamlabs_refresh_token;
+  return returned;
 }
 
 const axios = require('axios'); // Use axios for simpler API calls
@@ -1229,11 +1265,14 @@ async function hardDeleteOldTransactions(months = 3) {
   }
   if (!db) return 0;
 
+  const safeMonths = Math.max(1, Math.min(12, parseInt(months, 10) || 3));
+  const modifier = `-${safeMonths} months`;
   const result = await db.execute({
-    sql: `DELETE FROM transactions WHERE datetime(createdAt) < datetime('now', '-${months} months')`
+    sql: `DELETE FROM transactions WHERE datetime(createdAt) < datetime('now', ?)`,
+    args: [modifier]
   });
   if (result.rowsAffected > 0) {
-    console.log(`🗑️ Hard deleted ${result.rowsAffected} transactions older than ${months} months`);
+    console.log(`🗑️ Hard deleted ${result.rowsAffected} transactions older than ${safeMonths} months`);
   }
   return result.rowsAffected;
 }

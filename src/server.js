@@ -177,7 +177,38 @@ async function logTransaction(data) {
 }
 
 // Middleware
-app.use(cors());
+const ALLOWED_ORIGINS = [
+  'https://tipkub.me',
+  'https://www.tipkub.me',
+  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : [])
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+let helmet;
+try { helmet = require('helmet'); } catch (e) {}
+if (helmet) {
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+  }));
+  app.use(helmet.frameguard({ action: 'sameorigin' }));
+} else {
+  app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
+}
 
 if (!process.env.SESSION_SECRET) {
   console.error('❌ CRITICAL ERROR: SESSION_SECRET is not defined in the environment!');
@@ -546,10 +577,15 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     return res.redirect('/login-failed');
   }
 
-  if (state && req.session.oauthState && state !== req.session.oauthState) {
-    console.error(`❌ Streamlabs CSRF state mismatch (continuing anyway): session=${req.session.oauthState?.substring(0,8)}... query=${state?.substring(0,8)}...`);
-  } else if (!state || !req.session.oauthState) {
-    console.warn(`⚠️ Streamlabs CSRF state not validated: session=${!!req.session.oauthState} query=${!!state}`);
+  if (!state || !req.session.oauthState) {
+    console.error('❌ Streamlabs CSRF state missing');
+    delete req.session.oauthState;
+    return res.redirect('/login-failed');
+  }
+  if (state !== req.session.oauthState) {
+    console.error(`❌ Streamlabs CSRF state mismatch: session=${req.session.oauthState.substring(0,8)}... query=${state.substring(0,8)}...`);
+    delete req.session.oauthState;
+    return res.redirect('/login-failed');
   }
 
   delete req.session.oauthState;
@@ -1062,7 +1098,13 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
   }
 });
 
-app.post('/api/cron/cleanup-expired', async (req, res) => {
+function checkCronAuth(req, res, next) {
+  const token = req.query.token || (req.body && req.body.token);
+  if (token && process.env.CRON_SECRET && token === process.env.CRON_SECRET) return next();
+  return res.status(403).json({ error: 'Forbidden' });
+}
+
+app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
   try {
     const expiredCount = await db.cleanupExpiredTransactions();
     const deletedCount = await db.hardDeleteExpiredTransactions();
@@ -1072,9 +1114,9 @@ app.post('/api/cron/cleanup-expired', async (req, res) => {
   }
 });
 
-app.post('/api/cron/cleanup-quarterly', async (req, res) => {
+app.post('/api/cron/cleanup-quarterly', checkCronAuth, async (req, res) => {
   try {
-    const months = parseInt(req.body?.months) || 3;
+    const months = parseInt(req.body?.months, 10) || 3;
     const count = await db.hardDeleteOldTransactions(months);
     res.json({ success: true, deleted: count, months });
   } catch (err) {
@@ -1153,7 +1195,7 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-app.delete('/api/user/delete', ensureAuthenticated, async (req, res) => {
+app.delete('/api/user/delete', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const user = req.user;
     const twitchId = user.twitch_id || user.id;
@@ -1219,14 +1261,40 @@ app.get('/api/overlay/settings', async (req, res) => {
   }
 });
 
-app.post('/api/overlay/settings', ensureAuthenticated, async (req, res) => {
+function filterAllowedFields(body, allowedFields) {
+  const safe = {};
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) safe[key] = body[key];
+  }
+  return safe;
+}
+
+const OVERLAY_ALLOWED_FIELDS = [
+  'theme', 'animation', 'fontFamily', 'duration', 'particleCount', 'fontSize',
+  'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
+  'soundEnabled', 'soundChoice', 'soundVolume', 'customSoundUrl',
+  'ttsEnabled', 'ttsReadDonor', 'ttsLanguage', 'ttsVolume', 'ttsRate',
+  'messageTemplate', 'amountSuffix', 'showLabel', 'showDonorMessage', 'minAmount',
+  'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
+  'customImageMode', 'customImageValue'
+];
+
+const PAGE_ALLOWED_FIELDS = [
+  'page_title', 'page_subtitle', 'thank_you_header', 'thank_you_subtitle',
+  'profile_image_value', 'profile_image_source', 'profile_glow_color',
+  'social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook',
+  'social_x', 'social_discord', 'social_instagram'
+];
+
+app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     const twitchId = req.user.twitch_id || req.user.id;
     
+    const safeBody = filterAllowedFields(req.body, OVERLAY_ALLOWED_FIELDS);
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
-      ...req.body
+      ...safeBody
     });
     
     broadcastAlert(actualUsername, { type: 'settings_update', settings: updatedStreamer });
@@ -1281,13 +1349,14 @@ app.get('/api/page/:username/settings', async (req, res) => {
   }
 });
 
-app.post('/api/page/settings', ensureAuthenticated, async (req, res) => {
+app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const twitchId = req.user.twitch_id || req.user.id;
     
+    const safeBody = filterAllowedFields(req.body, PAGE_ALLOWED_FIELDS);
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
-      ...req.body
+      ...safeBody
     });
     
     res.json({ success: true, settings: updatedStreamer });
@@ -1343,6 +1412,26 @@ function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.redirect('/login');
 }
+
+// CSRF protection (synchronizer token pattern, session-stored)
+function getCsrfToken(req) {
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+  }
+  return req.session.csrfToken;
+}
+function csrfProtection(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+  const token = req.headers['x-csrf-token'] || req.headers['x-xsrf-token'];
+  if (!token || token !== req.session.csrfToken) {
+    return res.status(403).json({ error: 'CSRF token invalid', code: 'CSRF_INVALID' });
+  }
+  next();
+}
+
+app.get('/api/csrf-token', ensureAuthenticated, (req, res) => {
+  res.json({ csrfToken: getCsrfToken(req) });
+});
 
 app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
   try {
@@ -1701,7 +1790,7 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
 });
 
 // POST /api/payment/settings - Save payment settings
-app.post('/api/payment/settings', ensureAuthenticated, async (req, res) => {
+app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     const twitchId = req.user.twitch_id || req.user.id;
@@ -2242,8 +2331,9 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
 
 if (typeof require !== 'undefined' && require.main === module) {
   // Only listen when run directly (node src/server.js), not when imported (Vercel)
-  app.listen(PORT, () => {
-    console.log(`🌸 Stream Donation server running at http://localhost:${PORT}`);
+  const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+  app.listen(PORT, BIND_HOST, () => {
+    console.log(`🌸 Stream Donation server running at http://${BIND_HOST}:${PORT}`);
     console.log(`📋 Environment: ${process.env.BEAM_ENV || 'sandbox'}`);
     console.log(`🎬 Overlay URL: http://localhost:${PORT}/overlay`);
     console.log(`🧪 Alert Test: http://localhost:${PORT}/alert-test`);
