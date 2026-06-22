@@ -556,6 +556,12 @@ function switchTab(tabId) {
   if (tabId === 'dashboard' || tabId === 'transactions') {
     fetchTransactions();
   }
+  if (tabId === 'overlay-config') {
+    loadOverlaySettings();
+  }
+  if (tabId === 'page-customization') {
+    loadPageSettings();
+  }
   if (tabId === 'account') {
     loadAccountInfo();
   }
@@ -1013,8 +1019,10 @@ if (selectFilterStatus) {
 }
 
 if (btnRefreshTransactions) {
-  btnRefreshTransactions.addEventListener('click', () => {
-    fetchTransactions();
+  btnRefreshTransactions.addEventListener('click', async () => {
+    btnRefreshTransactions.classList.add('spinning');
+    await fetchTransactions();
+    btnRefreshTransactions.classList.remove('spinning');
   });
 }
 
