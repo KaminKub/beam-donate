@@ -410,7 +410,7 @@
         html += '<td class="col-actions"><div class="popup-action-btns">';
         html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ">🔔</button>';
         if (t.status === 'pending') {
-          html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="Force Pay">✔</button>';
+          html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน">✔</button>';
         }
         html += '</div></td>';
         html += '</tr>';
@@ -437,15 +437,15 @@
     async function forceSuccess(id) {
       var tx = allTransactions.find(function(t) { return t.id === id; });
       if (!tx) return;
-      if (!confirm('ยืนยัน Force Pay\n\nผู้โดเนท: ' + (tx.donor || 'Anonymous') + '\nจำนวน: ฿' + (Number(tx.amount) || 0).toLocaleString())) return;
+      if (!confirm('ยืนยันการชำระเงินด้วยตนเอง\n\nผู้โดเนท: ' + (tx.donor || 'Anonymous') + '\nจำนวน: ฿' + (Number(tx.amount) || 0).toLocaleString())) return;
       try {
         var res = await fetch('/api/transactions/' + id + '/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'successful' })
         });
-        if (res.ok) { fetchTransactions(); showNotification('Force Pay สำเร็จ', 'success'); }
-        else showNotification('Force Pay ไม่สำเร็จ', 'error');
+        if (res.ok) { fetchTransactions(); showNotification('ยืนยันการชำระเงินสำเร็จ', 'success'); }
+        else showNotification('ยืนยันการชำระเงินไม่สำเร็จ', 'error');
       } catch (e) {
         showNotification('เกิดข้อผิดพลาด', 'error');
       }

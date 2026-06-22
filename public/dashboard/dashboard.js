@@ -980,7 +980,7 @@ function renderFullTransactions(transactions) {
       : '<div></div>';
     actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')">🔔 ยิง Alert ซ้ำ</button>`;
     actionsHtml += t.status === 'pending'
-      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')">✔️ Force Pay</button>`
+      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง">✔ ยืนยัน</button>`
       : '<div></div>';
     actionsHtml += '</div>';
 
@@ -1137,8 +1137,8 @@ async function forceSuccessTransaction(id) {
   const amount = tx ? `฿${(Number(tx.amount) || 0).toLocaleString()}` : '';
   
   showConfirmModal(
-    '✅ ยืนยันการชำระเงินสำเร็จ',
-    `ระบบจะส่งการแจ้งเตือนไปยัง Overlay สำหรับธุรกรรมนี้\n\nผู้โดเนท: ${donorName}\nจำนวน: ${amount}`,
+    '✅ ยืนยันการชำระเงินด้วยตนเอง',
+    `ระบบจะส่ง Alert และเปลี่ยนสถานะเป็นชำระสำเร็จ\n\nผู้โดเนท: ${donorName}\nจำนวน: ${amount}`,
     '💰',
     async () => {
       try {
