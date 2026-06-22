@@ -191,20 +191,35 @@
        animation-delay: 0.8s;
        opacity: 0;
      }
-      .highlight-amount {
-       background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
-       background-size: 200% auto;
-       -webkit-background-clip: text;
-       background-clip: text;
-       -webkit-text-fill-color: transparent;
-       font-weight: 800;
-       display: inline-block;
-       position: relative;
-       overflow: hidden;
-       width: fit-content;
-       animation: shineText 3s linear infinite;
-       line-height: 1;
-     }
+       .highlight-amount {
+        background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+        width: fit-content;
+        animation: shineText 3s linear infinite;
+        line-height: 1;
+      }
+      .highlight-free {
+        background: linear-gradient(90deg, #facc15 0%, #ffffff 50%, #facc15 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        font-size: 1.3em;
+        display: inline-block;
+        overflow: hidden;
+        width: fit-content;
+        animation: shineText 3s linear infinite;
+        line-height: 1;
+        vertical-align: -0.22em;
+      }
     @keyframes shineText {
       0% { background-position: 200% center; }
       100% { background-position: 0% center; }
@@ -233,7 +248,7 @@
   <div class="landing-container">
     <h1><span class="highlight-amount">TipKub</span></h1>
     <p style="font-size: 1rem; margin-top: -1rem; margin-bottom: 2rem;">By <a href="https://www.openlink.co/kaminkub" target="_blank" style="color: #a5b4fc; text-decoration: none;">Kaminkub</a></p>
-    <p>แพลตฟอร์มหน้าโดเนทสำเร็จรูป โดย สตรีมเมอร์เพื่อสตรีมเมอร์<br>รับโดเนทผ่าน API ของคุณเอง แน่นอนว่าฟรี!!!<br>Beta Test (กำลังพัฒนา)</p>
+    <p>หน้ารับโดเนทสำเร็จรูป โดยสตรีมเมอร์ เพื่อสตรีมเมอร์<br>โอนตรงเข้าบัญชีคุณเอง แน่นอนว่า <span class="highlight-free">ฟรี!</span><br>Beta Test (กำลังพัฒนา)</p>
     
     <div class="cta-group">
       <a href="/login" class="btn btn-secondary">
