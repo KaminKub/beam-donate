@@ -757,9 +757,9 @@ small.text-muted {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
