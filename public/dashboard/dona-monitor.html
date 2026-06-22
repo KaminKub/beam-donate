@@ -172,12 +172,12 @@
     .popup-table tbody tr:hover {
       background: rgba(99, 102, 241, 0.06);
     }
-    .popup-table .col-date { width: 14%; white-space: nowrap; }
+    .popup-table .col-status { width: 10%; }
+    .popup-table .col-actions { width: 20%; }
     .popup-table .col-donor { width: 16%; font-weight: 500; }
     .popup-table .col-amount { width: 12%; font-weight: 600; color: #818cf8; white-space: nowrap; }
-    .popup-table .col-message { width: 20%; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .popup-table .col-status { width: 12%; }
-    .popup-table .col-actions { width: 26%; }
+    .popup-table .col-message { width: 18%; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .popup-table .col-date { width: 14%; white-space: nowrap; }
     .popup-table .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -369,12 +369,12 @@
       <table class="popup-table" id="transactionsTable">
         <thead>
           <tr>
-            <th class="col-date">วัน-เวลา</th>
+            <th class="col-status">สถานะ</th>
+            <th class="col-actions">จัดการ</th>
             <th class="col-donor">ผู้บริจาค</th>
             <th class="col-amount">ยอดเงิน</th>
             <th class="col-message">ข้อความ</th>
-            <th class="col-status">สถานะ</th>
-            <th class="col-actions">จัดการ</th>
+            <th class="col-date">วัน-เวลา</th>
           </tr>
         </thead>
         <tbody>
@@ -494,10 +494,6 @@
         var amount = (Number(t.amount) || 0).toLocaleString();
 
         html += '<tr>';
-        html += '<td class="col-date">' + date + '</td>';
-        html += '<td class="col-donor">' + escapedDonor + '</td>';
-        html += '<td class="col-amount">฿' + amount + '</td>';
-        html += '<td class="col-message" title="' + escapedMessage + '">' + escapedMessage + '</td>';
         html += '<td class="col-status"><span class="' + badgeClass + '">' + statusLabel + '</span></td>';
         html += '<td class="col-actions"><div class="popup-action-btns">';
         html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ">🔔</button>';
@@ -505,6 +501,10 @@
           html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน">✔</button>';
         }
         html += '</div></td>';
+        html += '<td class="col-donor">' + escapedDonor + '</td>';
+        html += '<td class="col-amount">฿' + amount + '</td>';
+        html += '<td class="col-message" title="' + escapedMessage + '">' + escapedMessage + '</td>';
+        html += '<td class="col-date">' + date + '</td>';
         html += '</tr>';
       }
       tbody.innerHTML = html;
