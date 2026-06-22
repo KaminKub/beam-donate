@@ -67,14 +67,10 @@
     }
     .btn-alert:hover { filter: brightness(1.15); transform: translateY(-1px); }
     .btn-alert-fire {
-      background: linear-gradient(135deg, #f59e0b, #ef4444);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-    }
-    .btn-alert-refresh {
-      background: rgba(99, 102, 241, 0.2);
-      color: #818cf8;
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #1a1a2e;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+      font-weight: 700;
     }
     .btn-alert-close {
       background: rgba(239, 68, 68, 0.15);
@@ -350,7 +346,7 @@
       </div>
       <div class="popup-header-right">
         <button class="btn-alert btn-alert-fire" id="btnQuickAlert">⚡ Quick Alert</button>
-        <button class="btn-alert btn-alert-refresh" id="btnRefresh" title="Refresh">🔄</button>
+        <button class="btn btn-icon-round refresh-hover" id="btnRefresh" title="รีเฟรช"><i class="fa-solid fa-arrow-rotate-right"></i></button>
         <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close">✕</button>
       </div>
     </div>
@@ -629,10 +625,13 @@
         document.getElementById('btnCloseWindow').style.display = 'inline-block';
       }
 
-      document.getElementById('btnRefresh').addEventListener('click', function() {
+      var btnRefresh = document.getElementById('btnRefresh');
+      btnRefresh.addEventListener('click', async function() {
+        btnRefresh.classList.add('spinning');
         countdown = REFRESH_SECONDS;
         document.getElementById('refreshIndicator').textContent = '⏱ ' + countdown + 's';
-        fetchTransactions();
+        await fetchTransactions();
+        btnRefresh.classList.remove('spinning');
         showNotification('รีเฟรชแล้ว', 'success');
       });
 
