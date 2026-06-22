@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dona-Monitor | TipKub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="/dashboard/admin.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans Thai', 'Outfit', 'Chakra Petch', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .popup-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 0;
+    }
+    .popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .popup-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .popup-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    .popup-header h1 .highlight {
+      color: #818cf8;
+    }
+    .popup-header-right {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn-alert {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-alert:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn-alert-fire {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    }
+    .btn-alert-refresh {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .btn-alert-close {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .auto-refresh-indicator {
+      font-size: 10px;
+      color: #64748b;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(100, 116, 139, 0.15);
+      white-space: nowrap;
+    }
+    .popup-filter-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(5px);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .popup-search {
+      flex: 1;
+      min-width: 150px;
+      padding: 6px 10px 6px 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      background: rgba(30, 41, 59, 0.8);
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .popup-search:focus { border-color: #818cf8; }
+    .popup-search-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 150px;
+    }
+    .popup-search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #64748b;
+      pointer-events: none;
+    }
+    .popup-filter-select {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      background: rgba(30, 41, 59, 0.8);
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+    }
+    .popup-filter-select:focus { border-color: #818cf8; }
+    .popup-table-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px;
+    }
+    .popup-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .popup-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    .popup-table th {
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .popup-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.08);
+      vertical-align: middle;
+    }
+    .popup-table tbody tr {
+      transition: background 0.15s;
+    }
+    .popup-table tbody tr:hover {
+      background: rgba(99, 102, 241, 0.06);
+    }
+    .popup-table .col-date { width: 14%; white-space: nowrap; }
+    .popup-table .col-donor { width: 16%; font-weight: 500; }
+    .popup-table .col-amount { width: 12%; font-weight: 600; color: #818cf8; white-space: nowrap; }
+    .popup-table .col-message { width: 20%; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .popup-table .col-status { width: 12%; }
+    .popup-table .col-actions { width: 26%; }
+    .popup-table .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .popup-action-btns {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .popup-btn-sm {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.12s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .popup-btn-sm:hover { filter: brightness(1.2); transform: translateY(-1px); }
+    .popup-btn-inspect {
+      background: rgba(100, 116, 139, 0.2);
+      color: #94a3b8;
+    }
+    .popup-btn-refire {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+    }
+    .popup-btn-force {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+    .popup-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: rgba(15, 23, 42, 0.9);
+      border-top: 1px solid rgba(99, 102, 241, 0.15);
+      font-size: 11px;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+    .popup-footer .count {
+      color: #818cf8;
+      font-weight: 500;
+    }
+    .popup-notification {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 999;
+      pointer-events: none;
+      animation: popupNotifIn 0.25s ease, popupNotifOut 0.25s ease 2.5s forwards;
+    }
+    @keyframes popupNotifIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    @keyframes popupNotifOut { from { opacity: 1; } to { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
+    .popup-notification.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .popup-notification.error { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-success { background: rgba(34, 197, 94, 0.15); color: #22c55e; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+    .badge-pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+    .badge-failed { background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+    .badge-expired { background: rgba(100, 116, 139, 0.15); color: #94a3b8; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+  </style>
+</head>
+<body>
+  <div class="popup-container">
+    <div class="popup-header">
+      <div class="popup-header-left">
+        <h1><span class="highlight">TipKub</span> Dona-Monitor</h1>
+        <span class="auto-refresh-indicator" id="refreshIndicator">⏱ Auto 10s</span>
+      </div>
+      <div class="popup-header-right">
+        <button class="btn-alert btn-alert-fire" id="btnQuickAlert">⚡ Quick Alert</button>
+        <button class="btn-alert btn-alert-refresh" id="btnRefresh" title="Refresh">🔄</button>
+        <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close">✕</button>
+      </div>
+    </div>
+
+    <div class="popup-filter-bar">
+      <div class="popup-search-wrapper">
+        <span class="popup-search-icon">🔍</span>
+        <input type="text" class="popup-search" id="inputSearch" placeholder="ค้นหาผู้บริจาค / Ref ID...">
+      </div>
+      <select class="popup-filter-select" id="selectStatus">
+        <option value="all">ทั้งหมด</option>
+        <option value="successful">สำเร็จ</option>
+        <option value="pending">รอชำระ</option>
+        <option value="failed">ล้มเหลว</option>
+        <option value="expired">หมดอายุ</option>
+      </select>
+    </div>
+
+    <div class="popup-table-wrap">
+      <table class="popup-table" id="transactionsTable">
+        <thead>
+          <tr>
+            <th class="col-date">วัน-เวลา</th>
+            <th class="col-donor">ผู้บริจาค</th>
+            <th class="col-amount">ยอดเงิน</th>
+            <th class="col-message">ข้อความ</th>
+            <th class="col-status">สถานะ</th>
+            <th class="col-actions">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="6" class="empty-state">กำลังโหลดข้อมูล...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="popup-footer">
+      <span>รายการ: <span class="count" id="rowCount">0</span></span>
+      <span>TipKub Dona-Monitor v1.0</span>
+    </div>
+  </div>
+
+  <script>
+    let allTransactions = [];
+    let refreshInterval = null;
+    const REFRESH_SECONDS = 10;
+    let countdown = REFRESH_SECONDS;
+
+    function getUsername() {
+      var parts = window.location.pathname.split('/');
+      return parts[1];
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      var div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function getStatusBadgeClass(status) {
+      switch (status) {
+        case 'successful': return 'badge-success';
+        case 'pending': return 'badge-pending';
+        case 'failed': return 'badge-failed';
+        case 'expired': return 'badge-expired';
+        default: return 'badge-pending';
+      }
+    }
+
+    function getStatusLabel(status) {
+      var labels = { successful: 'สำเร็จ', pending: 'รอชำระ', failed: 'ล้มเหลว', expired: 'หมดอายุ' };
+      return labels[status] || status;
+    }
+
+    function showNotification(message, type) {
+      var el = document.createElement('div');
+      el.className = 'popup-notification ' + (type || 'success');
+      el.textContent = message;
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 3000);
+    }
+
+    async function fetchTransactions() {
+      var username = getUsername();
+      try {
+        var res = await fetch('/api/transactions/' + username);
+        if (res.ok) {
+          allTransactions = await res.json();
+          allTransactions.sort(function(a, b) {
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+          });
+          render();
+        } else if (res.status === 401 || res.status === 403) {
+          document.querySelector('#transactionsTable tbody').innerHTML =
+            '<tr><td colspan="6" class="empty-state">⚠️ กรุณาเปิดหน้านี้จาก Dashboard / หมดเวลาเซสชัน</td></tr>';
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+      }
+    }
+
+    function render() {
+      var searchQuery = (document.getElementById('inputSearch').value || '').toLowerCase().trim();
+      var filterStatus = document.getElementById('selectStatus').value;
+      var tbody = document.querySelector('#transactionsTable tbody');
+
+      var filtered = allTransactions.filter(function(t) {
+        var nameMatch = (t.donor || '').toLowerCase().indexOf(searchQuery) !== -1 ||
+                        (t.id || '').toLowerCase().indexOf(searchQuery) !== -1;
+        var statusMatch = filterStatus === 'all' || t.status === filterStatus;
+        return nameMatch && statusMatch;
+      });
+
+      document.getElementById('rowCount').textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">ไม่พบข้อมูล</td></tr>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < filtered.length; i++) {
+        var t = filtered[i];
+        var date = t.createdAt ? new Date(t.createdAt).toLocaleString('th-TH') : '-';
+        var badgeClass = getStatusBadgeClass(t.status);
+        var statusLabel = getStatusLabel(t.status);
+        var escapedId = escapeHtml(t.id);
+        var escapedDonor = escapeHtml(t.donor || 'Anonymous');
+        var escapedMessage = escapeHtml(t.message || '-');
+        var amount = (Number(t.amount) || 0).toLocaleString();
+
+        html += '<tr>';
+        html += '<td class="col-date">' + date + '</td>';
+        html += '<td class="col-donor">' + escapedDonor + '</td>';
+        html += '<td class="col-amount">฿' + amount + '</td>';
+        html += '<td class="col-message" title="' + escapedMessage + '">' + escapedMessage + '</td>';
+        html += '<td class="col-status"><span class="' + badgeClass + '">' + statusLabel + '</span></td>';
+        html += '<td class="col-actions"><div class="popup-action-btns">';
+        html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ">🔔</button>';
+        if (t.status === 'pending') {
+          html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="Force Pay">✔</button>';
+        }
+        html += '</div></td>';
+        html += '</tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    async function reAlert(id) {
+      var tx = allTransactions.find(function(t) { return t.id === id; });
+      if (!tx) return;
+      try {
+        var res = await fetch('/api/alerts/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donor: tx.donor, amount: tx.amount, message: tx.message })
+        });
+        if (res.ok) showNotification('ส่ง Alert ซ้ำแล้ว!', 'success');
+        else showNotification('ส่ง Alert ไม่สำเร็จ', 'error');
+      } catch (e) {
+        showNotification('เกิดข้อผิดพลาด', 'error');
+      }
+    }
+
+    async function forceSuccess(id) {
+      var tx = allTransactions.find(function(t) { return t.id === id; });
+      if (!tx) return;
+      if (!confirm('ยืนยัน Force Pay\n\nผู้โดเนท: ' + (tx.donor || 'Anonymous') + '\nจำนวน: ฿' + (Number(tx.amount) || 0).toLocaleString())) return;
+      try {
+        var res = await fetch('/api/transactions/' + id + '/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'successful' })
+        });
+        if (res.ok) { fetchTransactions(); showNotification('Force Pay สำเร็จ', 'success'); }
+        else showNotification('Force Pay ไม่สำเร็จ', 'error');
+      } catch (e) {
+        showNotification('เกิดข้อผิดพลาด', 'error');
+      }
+    }
+
+    async function quickAlert() {
+      var names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง', 'SuraGaming 🎮', 'นินจานักพัฒนา', 'ผู้สนับสนุนลึกลับ'];
+      var messages = ['สู้ๆ นะครับพี่! 💪', 'ขอเพลงสากลชิลๆ เพลงนึงค่าา 🎵', 'ระบบใหม่เฟี้ยวมากครับ! ✨', 'บริจาคค่าน้ำเก๊กฮวย 🍺', 'ชอบเว็บนี้มาก 🚀', '', 'สุดจัดปลัดบอก!'];
+      var amounts = [50, 100, 250, 500, 1000, 2500, 5000];
+      var donor = names[Math.floor(Math.random() * names.length)];
+      var message = messages[Math.floor(Math.random() * messages.length)];
+      var amount = amounts[Math.floor(Math.random() * amounts.length)];
+      try {
+        var res = await fetch('/api/alerts/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donor: donor, amount: amount, message: message })
+        });
+        if (res.ok) showNotification('ยิง Quick Alert แล้ว! (' + donor + ' ฿' + amount + ')', 'success');
+        else showNotification('ยิง Alert ไม่สำเร็จ', 'error');
+      } catch (e) {
+        showNotification('เกิดข้อผิดพลาด', 'error');
+      }
+    }
+
+    function updateCountdown() {
+      countdown--;
+      if (countdown <= 0) {
+        countdown = REFRESH_SECONDS;
+        fetchTransactions();
+      }
+      document.getElementById('refreshIndicator').textContent = '⏱ ' + countdown + 's';
+    }
+
+    function closeWindow() {
+      if (window.opener) {
+        window.close();
+      } else {
+        window.location.href = '/';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.opener) {
+        document.getElementById('btnCloseWindow').style.display = 'inline-block';
+      }
+
+      document.getElementById('btnRefresh').addEventListener('click', function() {
+        countdown = REFRESH_SECONDS;
+        document.getElementById('refreshIndicator').textContent = '⏱ ' + countdown + 's';
+        fetchTransactions();
+        showNotification('รีเฟรชแล้ว', 'success');
+      });
+
+      document.getElementById('btnQuickAlert').addEventListener('click', quickAlert);
+      document.getElementById('btnCloseWindow').addEventListener('click', closeWindow);
+      document.getElementById('inputSearch').addEventListener('input', render);
+      document.getElementById('selectStatus').addEventListener('change', render);
+
+      fetchTransactions();
+      refreshInterval = setInterval(updateCountdown, 1000);
+    });
+  </script>
+</body>
+</html>

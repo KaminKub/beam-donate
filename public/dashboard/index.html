@@ -124,7 +124,7 @@
             <!-- Recent Transactions Table -->
             <div class="dashboard-card card-large">
               <div class="card-header">
-                <h3>ธุรกรรมล่าสุด (Recent Transactions)</h3>
+                <h3>ธุรกรรมล่าสุด (Recent Transactions) <button class="btn btn-icon-monitor" onclick="openDonationPopup()" title="เปิดหน้าจอ Dona-Monitor แยก (ใช้กับ OBS Dock)"><i class="fa-solid fa-arrow-up-right-from-square"></i></button></h3>
                 <button class="btn btn-text" onclick="switchTab('transactions')">ดูทั้งหมด →</button>
               </div>
               <div class="table-responsive">
@@ -196,6 +196,7 @@
                 </select>
                 <button class="btn btn-secondary" id="btnRefreshTransactions">🔄 รีเฟรช</button>
                 <button class="btn btn-secondary" id="btnDownloadTransactions">📥 ดาวน์โหลด</button>
+                <button class="btn btn-secondary" onclick="openDonationPopup()" title="เปิดหน้า Dona-Monitor ในหน้าต่างแยก (Popup) ใช้กับ OBS Dock ได้">🖥️ เปิด Popup</button>
               </div>
             </div>
 

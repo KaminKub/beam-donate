@@ -1228,6 +1228,23 @@ function inspectTransaction(id) {
   };
 }
 
+function openDonationPopup() {
+  const pathParts = window.location.pathname.split('/');
+  const username = pathParts[1];
+  if (!username) return;
+
+  const url = '/' + username + '/dona-monitor';
+  const width = 750;
+  const height = 600;
+  const left = Math.max(0, (window.screen.width - width) / 2);
+  const top = Math.max(0, (window.screen.height - height) / 2);
+
+  window.open(url, 'TipKubDonationMonitor',
+    'width=' + width + ',height=' + height +
+    ',left=' + left + ',top=' + top +
+    ',resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no');
+}
+
 async function triggerRandomTestAlert() {
   const names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง', 'SuraGaming 🎮', 'นินจานักพัฒนา', 'ผู้สนับสนุนลึกลับ'];
   const messages = ['สู้ๆ นะครับพี่! เป็นกำลังใจให้ทุกไลฟ์เลย 💪', 'ขอเพลงสากลชิลๆ เพลงนึงค่าา 🎵', 'ระบบใหม่เฟี้ยวเงาะมากครับ! ✨', 'บริจาคค่าน้ำเก๊กฮวยเย็นๆ ครับผม 🍺', 'พัฒนาต่อไปครับ ชอบเว็บนี้มาก 🚀', '', 'สุดจัดปลัดบอก ขนาดปลัดลาออกยังต้องบอกว่าสุดจัด!'];

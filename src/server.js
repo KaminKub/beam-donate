@@ -1674,13 +1674,17 @@ app.get('/:username', validateUsername, (req, res) => {
  
     const ogTitle = `TipKub | ${streamer.page_title || streamer.username}`;
     const ogDescription = streamer.page_subtitle || 'สนับสนุนสตรีมเมอร์ที่คุณรักผ่าน TipKub';
-    const ogImage = streamer.profile_image_value || '/avatar.jpg';
+    const ogImage = streamer.profile_image_value
+      ? (streamer.profile_image_value.startsWith('http') ? streamer.profile_image_value : `https://tipkub.me${streamer.profile_image_value.replace(/^\/{1,2}/, '/')}`)
+      : 'https://tipkub.me/avatar.jpg';
+    const ogUrl = `https://tipkub.me/${streamer.username}`;
  
     htmlContent = htmlContent
       .replace(/{{username}}/g, escapeHTML(streamer.username))
       .replace(/{{og_title}}/g, escapeHTML(ogTitle))
       .replace(/{{og_description}}/g, escapeHTML(ogDescription))
       .replace(/{{og_image}}/g, escapeHTML(ogImage))
+      .replace(/{{og_url}}/g, escapeHTML(ogUrl))
       .replace(/{{page_token}}/g, generatePageToken());
  
     res.set('Cache-Control', 'no-store, must-revalidate');
@@ -1695,6 +1699,10 @@ app.get('/:username', validateUsername, (req, res) => {
 
 app.get('/:username/dashboard', ensureUserOwner, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard/index.html'));
+});
+
+app.get('/:username/dona-monitor', ensureUserOwner, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/dashboard/dona-monitor.html'));
 });
 
 app.get('/:username/overlay', validateUsername, (req, res) => {
