@@ -438,7 +438,7 @@
                     <div class="payment-method-item">
                       <div class="payment-method-card" data-method="promptpay" id="cardPromptPay">
                         <div class="card-icon">
-                          <img src="../Image/QR-PromptPay.png" alt="พร้อมเพย์">
+                          <img src="../Image/QR-PromptPay.png" alt="พร้อมเพย์" width="144" height="144" loading="eager">
                         </div>
                         <h3>พร้อมเพย์</h3>
                         <p>โอนตรงเข้าบัญชีทันที</p>
@@ -462,7 +462,7 @@
                           
                           <div class="form-group">
                             <label for="inputPromptPayType">ประเภทบัญชีพร้อมเพย์</label>
-                            <select id="inputPromptPayType" class="form-control">
+                            <select id="inputPromptPayType" class="form-select">
                               <option value="phone">เบอร์โทรศัพท์</option>
                               <option value="idcard">เลขบัตรประจำตัวประชาชน</option>
                               <option value="ewallet">e-Wallet ID</option>
@@ -478,24 +478,25 @@
                         </div>
 
                         <div class="settings-section">
-                          <h5>SlipOK API Configuration</h5>
+                          <h5>เชื่อมต่อ SlipOK (อ่านสลิปอัตโนมัติ)</h5>
                           <div class="api-notice" id="promptpayApiNotice">
                             <i class="fas fa-info-circle"></i>
                             <div>
-                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong><br>
-                              สมัคร API ได้ที่
-                              <a href="https://slipok.com/price-and-service/" target="_blank"
-                                 style="display: inline-flex; align-items: center; gap: 4px;">
-                                SlipOK <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
-                              </a>
+                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong>
                             </div>
                           </div>
 
-                          <a href="https://slipok.com/price-and-service/" target="_blank"
-                             class="btn btn-outline"
-                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 16px;">
-                            <i class="fas fa-external-link-alt"></i> ไปสมัคร SlipOK API
+                          <a href="https://app.slipok.com/" target="_blank"
+                             class="btn btn-slipok-api"
+                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 6px;">
+                            <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
                           </a>
+                          <div style="margin-bottom: 16px;">
+                            <a href="https://slipok.com/price-and-service/" target="_blank"
+                               class="slipok-packages-link">
+                              <i class="fas fa-layer-group" style="font-size: 10px;"></i> ดูแพ็กเกจอ่านสลิปทั้งหมด
+                            </a>
+                          </div>
 
                           <div class="form-group">
                             <label for="inputSlipOkApi">API</label>
@@ -534,7 +535,7 @@
                     <div class="payment-method-item">
                       <div class="payment-method-card" data-method="truemoney" id="cardTrueMoney">
                         <div class="card-icon">
-                          <img src="../Image/TrueWallate.png" alt="TrueMoney Wallet">
+                          <img src="../Image/TrueWallate.png" alt="TrueMoney Wallet" width="144" height="144" loading="eager">
                         </div>
                         <h3>TrueMoney Wallet</h3>
                         <p>รับเงินผ่านวอลเลท ง่าย สะดวก</p>
@@ -564,24 +565,26 @@
                         </div>
 
                         <div class="settings-section">
-                          <h5>SlipOK API Configuration</h5>
+                          <h5>เชื่อมต่อ SlipOK (อ่านสลิปอัตโนมัติ)</h5>
                           <div class="api-notice" id="truemoneyApiNotice">
                             <i class="fas fa-info-circle"></i>
                             <div>
-                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong><br>
+                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong>
                               ใช้ SlipOK API เดียวกันกับพร้อมเพย์
-                              <a href="https://slipok.com/price-and-service/" target="_blank"
-                                 style="display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;">
-                                SlipOK <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
-                              </a>
                             </div>
                           </div>
 
-                          <a href="https://slipok.com/price-and-service/" target="_blank"
-                             class="btn btn-outline"
-                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 16px;">
-                            <i class="fas fa-external-link-alt"></i> ไปสมัคร SlipOK API
+                          <a href="https://app.slipok.com/" target="_blank"
+                             class="btn btn-slipok-api"
+                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 6px;">
+                            <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
                           </a>
+                          <div style="margin-bottom: 16px;">
+                            <a href="https://slipok.com/price-and-service/" target="_blank"
+                               class="slipok-packages-link">
+                              <i class="fas fa-layer-group" style="font-size: 10px;"></i> ดูแพ็กเกจอ่านสลิปทั้งหมด
+                            </a>
+                          </div>
 
                           <button type="button" id="btnSyncSlipOkFromPromptPay" class="btn-sync-promptpay"
                                   title="ดึงข้อมูล API จากพร้อมเพย์">

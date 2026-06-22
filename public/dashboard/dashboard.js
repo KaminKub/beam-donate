@@ -690,13 +690,162 @@ async function handleAccountDeletion() {
               const err = await response.json();
               throw new Error(err.error || 'ลบบัญชีไม่สำเร็จ');
             }
-          } catch (err) {
-            showNotification(err.message, 'error');
-          }
-        }
-      );
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+    );
+  }
+);
+}
+
+// ========== Custom Select Dropdown Component ==========
+const CustomDropdown = (() => {
+  const instances = [];
+
+  function initAll() {
+    document.querySelectorAll('select.form-select').forEach(select => {
+      if (select.dataset.customSelect !== 'true') {
+        new CustomSelect(select);
+      }
+    });
+  }
+
+  class CustomSelect {
+    constructor(select) {
+      this.select = select;
+      this.select.dataset.customSelect = 'true';
+      this._build();
+      instances.push(this);
     }
-  );
+
+    _build() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cs-wrapper';
+
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'cs-trigger form-select';
+      trigger.textContent = this.select.options[this.select.selectedIndex]?.textContent || '';
+
+      const panel = document.createElement('div');
+      panel.className = 'cs-panel';
+
+      Array.from(this.select.options).forEach((opt, i) => {
+        const item = document.createElement('div');
+        item.className = 'cs-option';
+        item.textContent = opt.textContent;
+        if (i === this.select.selectedIndex) item.classList.add('selected');
+        item.addEventListener('click', () => {
+          this._select(i);
+        });
+        // Mouse move shimmer per option
+        item.addEventListener('mousemove', (e) => {
+          const rect = item.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          item.style.setProperty('--mx', `${x}%`);
+        });
+        panel.appendChild(item);
+      });
+
+      // Insert wrapper before select, then hide select
+      this.select.style.display = 'none';
+      this.select.insertAdjacentElement('beforebegin', wrapper);
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(panel);
+
+      this.wrapper = wrapper;
+      this.trigger = trigger;
+      this.panel = panel;
+      this.items = panel.querySelectorAll('.cs-option');
+
+      // Events
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggle();
+      });
+
+      this.select.addEventListener('change', () => {
+        trigger.textContent = this.select.options[this.select.selectedIndex]?.textContent;
+        this._highlightSelected();
+      });
+    }
+
+    _select(index) {
+      this.select.selectedIndex = index;
+      this.select.dispatchEvent(new Event('change', { bubbles: true }));
+      window.setTimeout(() => this.select.dispatchEvent(new Event('input', { bubbles: true })), 0);
+      this.trigger.textContent = this.select.options[index]?.textContent;
+      this._highlightSelected();
+      this._close();
+    }
+
+    _highlightSelected() {
+      this.items.forEach((el, i) => {
+        el.classList.toggle('selected', i === this.select.selectedIndex);
+      });
+    }
+
+    toggle() {
+      this.panel.classList.contains('open') ? this._close() : this._open();
+    }
+
+    _open() {
+      CustomSelect._closeAll();
+      this.panel.classList.add('open');
+      this.trigger.classList.add('open');
+      // Scroll selected into view
+      const sel = this.panel.querySelector('.cs-option.selected');
+      if (sel) {
+        window.setTimeout(() => sel.scrollIntoView({ block: 'nearest' }), 150);
+      }
+    }
+
+    _close() {
+      this.trigger.classList.remove('open');
+      this.panel.classList.add('closing');
+      const onEnd = () => {
+        this.panel.classList.remove('open', 'closing');
+        this.panel.removeEventListener('animationend', onEnd);
+      };
+      this.panel.addEventListener('animationend', onEnd);
+    }
+
+    static _closeAll() {
+      instances.forEach(inst => {
+        if (inst.panel.classList.contains('open')) {
+          inst._close();
+        }
+      });
+    }
+  }
+
+  // Global click-outside-to-close
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.cs-wrapper')) {
+      CustomSelect._closeAll();
+    }
+  });
+
+  return { initAll };
+})();
+
+// Initialize custom selects on first load and when tabs switch
+const _origSwitchTab = switchTab;
+switchTab = function(tabId, ...args) {
+  _origSwitchTab.call(this, tabId, ...args);
+  if (tabId === 'payment-setup') {
+    window.setTimeout(() => CustomDropdown.initAll(), 300);
+  }
+};
+
+// Initial init
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    window.setTimeout(() => CustomDropdown.initAll(), 500);
+  });
+} else {
+  window.setTimeout(() => CustomDropdown.initAll(), 500);
 }
 
 async function handleLogout() {

@@ -636,6 +636,22 @@ body {
 }
 
 .text-muted { color: var(--text-muted); }
+
+/* ========== Form Helper Text (small.text-muted under inputs) ========== */
+small.text-muted {
+  display: block;
+  margin-top: 4px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.65);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.form-control:focus ~ small.text-muted,
+.form-select:focus ~ small.text-muted {
+  color: rgba(179, 186, 207, 0.85);
+}
 .text-center { text-align: center; }
 
 /* ========== Badges ========== */
@@ -712,26 +728,202 @@ body {
 /* ========== Form Controls (Overlay Configurator) ========== */
 .form-select, .form-control {
   width: 100%;
-  background-color: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-color);
+  background-color: rgba(15, 18, 35, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text-main);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 11px 14px;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: dark;
 }
 
 .form-select:focus, .form-control:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 2px 8px rgba(99, 102, 241, 0.08);
+  background-color: rgba(15, 18, 35, 0.8);
 }
 
-.form-select option,
-.form-control option {
-  background-color: rgba(0, 0, 0, 0.493);
+.form-control:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(15, 18, 35, 0.7);
+}
+
+/* ========== Dropdown (select) Specific Styles ========== */
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px;
+  padding-right: 36px;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.3s ease, background-image 0.25s ease, border-radius 0.2s ease;
+}
+
+.form-select:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  background-color: rgba(15, 18, 35, 0.75);
+}
+
+.form-select:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background-color: rgba(15, 18, 35, 0.85);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12), 0 4px 14px rgba(99, 102, 241, 0.1);
+  animation: selectFocusPulse 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23818cf8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+@keyframes selectFocusPulse {
+  0%   { box-shadow: 0 0 0 0px rgba(99, 102, 241, 0), 0 0 0px rgba(99, 102, 241, 0); }
+  40%  { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.18), 0 6px 20px rgba(99, 102, 241, 0.15); }
+  100% { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12), 0 4px 14px rgba(99, 102, 241, 0.1); }
+}
+
+.form-select option {
+  background-color: #111427;
   color: #e5e7eb;
+  padding: 10px 14px;
+  font-size: 13px;
+  transition: background-color 0.1s ease;
+}
+
+.form-select option:checked {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* ========== Text Input (form-control) Specific Styles ========== */
+.form-control {
+  background-color: rgba(15, 18, 35, 0.5);
+}
+
+.form-control:focus {
+  background-color: rgba(15, 18, 35, 0.7);
+}
+
+/* ========== Custom Select Dropdown ========== */
+.cs-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.cs-trigger {
+  width: 100%;
+  text-align: left;
+}
+
+.cs-trigger.open {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
+.cs-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #12172e;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.08);
+}
+
+.cs-panel.open {
+  max-height: 300px;
+  opacity: 1;
+  pointer-events: auto;
+  overflow-y: auto;
+  animation: dropdownSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cs-panel.closing {
+  animation: dropdownSlideOut 0.2s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+@keyframes dropdownSlideIn {
+  0%   { max-height: 0; opacity: 0; transform: translateY(-8px); }
+  60%  { max-height: 300px; opacity: 0.7; transform: translateY(2px); }
+  100% { max-height: 300px; opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dropdownSlideOut {
+  0%   { max-height: 300px; opacity: 1; transform: translateY(0); }
+  100% { max-height: 0; opacity: 0; transform: translateY(-8px); }
+}
+
+/* Scrollbar for dropdown panel */
+.cs-panel::-webkit-scrollbar {
+  width: 5px;
+}
+.cs-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cs-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.cs-option {
+  padding: 11px 16px;
+  font-size: 13px;
+  color: #cbd5e1;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.cs-option::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.1) var(--mx, 50%), transparent 100%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.cs-option:hover::before {
+  opacity: 1;
+}
+
+.cs-option:hover {
+  color: #ffffff;
+  background-color: rgba(99, 102, 241, 0.08);
+}
+
+.cs-option.selected {
+  color: #ffffff;
+  font-weight: 600;
+  background-color: rgba(99, 102, 241, 0.18);
+}
+
+.cs-option.selected::after {
+  content: '\f00c';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #818cf8;
+  animation: checkPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 label {
@@ -1399,6 +1591,7 @@ label {
   .payment-method-card .card-icon img {
     width: 100px;
     height: 100px;
+    aspect-ratio: 1 / 1;
   }
   
   .payment-method-card h3 {
@@ -1750,8 +1943,8 @@ label {
 }
 
 .payment-method-card.active .card-icon {
-  transform: scale(1.1);
-  transition: transform 0.3s ease;
+  filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.25));
+  transition: filter 0.3s ease;
 }
 
 .payment-method-card .card-icon {
@@ -1768,7 +1961,9 @@ label {
   width: 144px;
   height: 144px;
   object-fit: contain;
+  object-position: center;
   display: block;
+  aspect-ratio: 1 / 1;
 }
 
 .payment-method-card.disabled {
@@ -2022,6 +2217,10 @@ label {
   color: var(--text-secondary);
 }
 
+.settings-panel .form-group {
+  margin-bottom: 16px;
+}
+
 /* ========== FFP Info Panel ========== */
 .ffp-info-panel,
 .truemoney-settings {
@@ -2081,6 +2280,90 @@ label {
   background: rgba(102, 126, 234, 0.1);
   border-color: var(--primary);
   color: var(--primary);
+}
+
+/* ========== SlipOK API Button (Prominent) ========== */
+.btn-slipok-api {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  background-size: 200% auto;
+  border: none;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(139, 92, 246, 0.15);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-slipok-api::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-slipok-api:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.3);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.btn-slipok-api:hover::before {
+  left: 100%;
+}
+
+.btn-slipok-api:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.btn-slipok-api i {
+  font-size: 13px;
+  transition: transform 0.3s ease;
+}
+
+.btn-slipok-api:hover i {
+  transform: translateX(2px);
+}
+
+/* ========== SlipOK Packages Link ========== */
+.slipok-packages-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.25s ease;
+  opacity: 0.7;
+}
+
+.slipok-packages-link:hover {
+  color: #a5b4fc;
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.08);
+  text-decoration: none;
+}
+
+.slipok-packages-link i {
+  transition: transform 0.3s ease;
+}
+
+.slipok-packages-link:hover i {
+  transform: scale(1.15);
 }
 
 .payment-method-card h3 {
