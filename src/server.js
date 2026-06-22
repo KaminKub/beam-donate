@@ -1960,8 +1960,12 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
 // POST /api/verify-promptpay-slip - Verify PromptPay slip via TFP API
 const verifySlipLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 2,
-  message: { error: 'กรุณารอสักครู่' }
+  max: 10,
+  message: { error: 'กรุณารอสักครู่' },
+  handler: (req, res) => {
+    console.warn(`⚠️ Rate limit hit on /api/verify-slip — IP: ${req.ip}`);
+    res.status(429).json({ error: 'กรุณารอสักครู่' });
+  }
 });
 
 app.post('/api/verify-slip', verifySlipLimiter, upload.single('slip'), async (req, res) => {
