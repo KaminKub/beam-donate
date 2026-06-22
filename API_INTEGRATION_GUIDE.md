@@ -11,9 +11,7 @@
 4. [การวางโค้ด API ในโปรเจค](#4-การวางโค้ด-api-ในโปรเจค)
 5. [Environment Variables](#5-environment-variables)
 6. [ระบบเข้ารหัสข้อมูล](#6-ระบบเข้ารหัสข้อมูล)
-7. [Error Handling Patterns](#7-error-handling-patterns)
-8. [Security Best Practices](#8-security-best-practices)
-9. [Troubleshooting](#9-troubleshooting)
+7. [Security Best Practices](#7-security-best-practices)
 
 ---
 
@@ -277,48 +275,7 @@ app.post('/api/my-new-endpoint', ensureAuthenticated, myApiLimiter, async (req, 
 });
 ```
 
-### 4.4 การเพิ่ม External API Service ใหม่
-
-ถ้าต้องเชื่อมต่อกับ API ใหม่ (เช่น Feel Free Pay) ให้สร้างไฟล์แยก:
-
-```
-src/
-├── slipok.js          # SlipOK API (ถ้าแยกออกมา — ปัจจุบันอยู่ใน server.js)
-└── ffp.js             # Feel Free Pay API (อนาคต)
-```
-
-**Template สำหรับ API Wrapper Module:**
-```javascript
-// src/ffp.js
-const axios = require('axios');
-
-const FFP_BASE_URL = 'https://api.feelfreepay.com/v1';
-
-async function createCharge(apiKey, merchantId, amount, description) {
-  try {
-    const response = await axios.post(`${FFP_BASE_URL}/charges`, {
-      amount,
-      description,
-      currency: 'THB'
-    }, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'X-Merchant-ID': merchantId
-      }
-    });
-    return { success: true, data: response.data };
-  } catch (err) {
-    return {
-      success: false,
-      error: err.response?.data?.message || err.message
-    };
-  }
-}
-
-module.exports = { createCharge };
-```
-
-### 4.5 ตำแหน่งโค้ด Frontend
+### 4.4 ตำแหน่งโค้ด Frontend
 
 | ไฟล์ | หน้าที่ | API ที่เรียก |
 |------|---------|-------------|
@@ -397,67 +354,15 @@ res.json({ slipokApiKey: display });
 
 ---
 
-## 7. Error Handling Patterns
+## 7. Security Best Practices
 
-### Pattern 1: External API Call (try-catch + user-friendly error)
-```javascript
-try {
-  const response = await axios.post(slipokUrl, formData, { headers });
-  if (!response.data.success) {
-    return res.status(400).json({
-      error: 'SLIP_CHECK_FAILED',
-      message: mapSlipOkError(response.data.errorCode)
-    });
-  }
-} catch (err) {
-  console.error('SlipOK API Error:', err.message);
-  res.status(502).json({
-    error: 'SLIPOK_UNAVAILABLE',
-    message: 'ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่'
-  });
-}
-```
-
-### Pattern 2: Database Query (fallback values)
-```javascript
-try {
-  const result = await db.getStreamerSettings(username);
-  res.json(result);
-} catch (err) {
-  console.error('DB Error:', err);
-  // Return default values แทน crash
-  res.json(getDefaultSettings());
-}
-```
-
-### Pattern 3: SSE Broadcast (safe filter)
-```javascript
-function broadcastAlert(username, alertData) {
-  sseClients = sseClients.filter(client => {
-    if (client.username === username) {
-      try {
-        client.res.write(`data: ${JSON.stringify(alertData)}\n\n`);
-        return true;
-      } catch (e) {
-        return false; // ลบ client ที่ error
-      }
-    }
-    return true;
-  });
-}
-```
-
----
-
-## 8. Security Best Practices
-
-### 8.1 ข้อมูลที่ต้องเข้ารหัสเสมอ
+### 7.1 ข้อมูลที่ต้องเข้ารหัสเสมอ
 - เบอร์โทรศัพท์/เลขบัตรพร้อมเพย์
 - API Key / API Secret ทั้งหมด
 - เลขบัญชี TrueMoney
 - OAuth tokens (Streamlabs access/refresh token)
 
-### 8.2 Rate Limiting
+### 7.2 Rate Limiting
 ```javascript
 // ป้องกันการเรียก SlipOK API ซ้ำๆ
 const verifySlipLimiter = rateLimit({
@@ -474,7 +379,7 @@ const myinstantsLimiter = rateLimit({
 });
 ```
 
-### 8.3 Authentication Middleware
+### 7.3 Authentication Middleware
 ```javascript
 function ensureAuthenticated(req, res, next) {
   if (req.session && req.session.streamer) return next();
@@ -488,13 +393,13 @@ function ensureUserOwner(req, res, next) {
 }
 ```
 
-### 8.4 Input Validation
+### 7.4 Input Validation
 - ตรวจสอบ `username` ด้วย regex (ป้องกัน path traversal)
 - จำกัดขนาดไฟล์อัพโหลด (5 MB ผ่าน Multer)
 - Validate จำนวนเงิน (≥ 10 บาท)
 - Validate รูปแบบเบอร์โทร (10 หลัก)
 
-### 8.5 PDPA Compliance
+### 7.5 PDPA Compliance
 - ไม่เก็บข้อมูลธุรกรรมเกิน 30 วัน (Auto-delete)
 - เข้ารหัสข้อมูลอ่อนไหวทั้งหมดก่อนบันทึก
 - ไม่ทำเป็นตัวกลางรับเงิน (เงินเข้าบัญชีผู้ใช้โดยตรง)
@@ -502,62 +407,4 @@ function ensureUserOwner(req, res, next) {
 
 ---
 
-## 9. Troubleshooting
-
-### SlipOK API
-
-| ปัญหา | สาเหตุ | วิธีแก้ |
-|-------|--------|---------|
-| Error 1002 | API Key ผิด | ตรวจสอบ `x-authorization` header |
-| Error 1010 (Delay Slip) | BBL/SCB ต้องรอ | ตั้ง timer ตามฟิลด์ `delay` แล้ว retry |
-| Error 1012 (สลิปซ้ำ) | สลิปถูกใช้แล้ว | แจ้ง user ว่าสลิปนี้ถูกใช้ไปแล้ว |
-| Error 1013 (ยอดไม่ตรง) | amount ไม่ตรง | ตรวจสอบว่าส่ง amount ถูกต้อง |
-| Connection timeout | SlipOK ล่ม | แจ้ง "ระบบเช็คสลิปไม่ทำงานชั่วคราว" |
-
-### Database (Turso)
-
-| ปัญหา | สาเหตุ | วิธีแก้ |
-|-------|--------|---------|
-| `no such column` | ยังไม่ได้ migrate | รัน `npm run migrate` |
-| 502 / Connection error | Turso ล่มชั่วคราว | ระบบมี fallback values + retry |
-| Cold Start timeout | รัน migration ใน initDB | ห้ามรัน migration บน request path |
-
-### Vercel Deployment
-
-| ปัญหา | สาเหตุ | วิธีแก้ |
-|-------|--------|---------|
-| Session หายทุก request | ใช้ Memory Store | ใช้ TursoStore (Turso-backed) |
-| `EROFS` read-only error | เขียนไฟล์ลง disk | ใช้ Turso DB เท่านั้น |
-| Cookie ไม่ส่ง | `secure: true` บน HTTP proxy | ตั้ง `app.set('trust proxy', 1)` |
-
----
-
-## การทดสอบ API
-
-### ทดสอบ SlipOK
-```bash
-# ทดสอบเชื่อมต่อ (จาก Dashboard)
-curl -X POST http://localhost:3000/api/payment/test-slipok \
-  -H "Cookie: connect.sid=..." \
-  -H "Content-Type: application/json" \
-  -d '{"api": "https://api.slipok.com/api/line/apikey/xxx", "apiKey": "your-key"}'
-
-# ตรวจสอบสลิป
-curl -X POST http://localhost:3000/api/verify-slip \
-  -F "slip=@slip.jpg" \
-  -F "username=streamer_username" \
-  -F "amount=100"
-```
-
-### ทดสอบ Alert
-```bash
-# ส่ง Test Alert
-curl -X POST http://localhost:3000/api/alerts/test \
-  -H "Cookie: connect.sid=..." \
-  -H "Content-Type: application/json" \
-  -d '{"donor": "Tester", "amount": 50, "message": "Test alert!"}'
-```
-
----
-
-Made by KaminKub (Summary by Opencode)
+Made by KaminKub

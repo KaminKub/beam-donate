@@ -97,11 +97,6 @@ beam-donate/
 │       └── app.js             # Donate flow logic + Slip upload
 ├── scripts/
 │   └── migrate.js             # Database migration script
-├── plans/                     # แผนพัฒนาและเอกสารอ้างอิง
-│   ├── KaminKub_Checklist.md  # Checklist หลัก
-│   ├── PROMPTPAY_BLUEPRINT.md # Blueprint ระบบชำระเงิน
-│   ├── SlipOK Guide.md        # สรุป SlipOK API
-│   └── ...
 ├── .env                       # Environment variables (ไม่อัปโหลดขึ้น Git)
 ├── vercel.json                # Vercel deployment config
 ├── package.json
@@ -113,7 +108,7 @@ beam-donate/
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/beam-donate.git
+git clone https://github.com/KaminKub/beam-donate.git
 cd beam-donate
 npm install
 ```
@@ -299,8 +294,7 @@ npm run migrate
 ## Deployment
 
 ### VPS (แนะนำ)
-ดู [VPS_SETUP_GUIDE.md](./VPS_SETUP_GUIDE.md) — คู่มือติดตั้งแบบสมบูรณ์บน Ubuntu 24.04
-- เสปกขั้นต่ำ: 1 vCPU / 1 GB RAM / 15 GB SSD
+- เสปกขั้นต่ำ: 1 vCPU / 1 GB RAM / 15 GB SSD (Ubuntu 24.04)
 - รองรับทุกฟีเจอร์ (SSE, File Upload, Real-time Alert)
 - PM2 + Nginx + SSL + Cloudflare DNS Failover
 
@@ -314,19 +308,6 @@ Environment Variables ที่ต้องตั้งค่าบน Vercel:
 ข้อควรระวัง:
 - SSE ใช้ไม่ได้บน Vercel Free (Function timeout 10 วิ)
 - ไม่ต้องรัน `npm run migrate` — รันแยกก่อน deploy
-
-## เอกสารเพิ่มเติม
-
-| ไฟล์ | คำอธิบาย |
-|------|----------|
-| [VISION.md](./VISION.md) | วิสัยทัศน์และสถาปัตยกรรมระบบ |
-| [API_INTEGRATION_GUIDE.md](./API_INTEGRATION_GUIDE.md) | คู่มือ API Integration (SlipOK + Architecture + การวางโค้ด) |
-| [VPS_SETUP_GUIDE.md](./VPS_SETUP_GUIDE.md) | คู่มือติดตั้งบน VPS Ubuntu + Cloudflare DNS Failover |
-| [AGENTS.md](./AGENTS.md) | คู่มือ Debugging และ Pattern สำหรับ AI |
-| [WORKFLOW_GUIDELINES.md](./WORKFLOW_GUIDELINES.md) | กฎการทำงาน Triple-Check + Server Verification |
-| [plans/PROMPTPAY_BLUEPRINT.md](./plans/PROMPTPAY_BLUEPRINT.md) | Blueprint ระบบชำระเงิน PromptPay + SlipOK |
-| [plans/SlipOK Guide.md](./plans/SlipOK%20Guide.md) | สรุป SlipOK API v1.13 |
-| [plans/KaminKub_Checklist.md](./plans/KaminKub_Checklist.md) | Development Checklist |
 
 ## License
 
