@@ -11,7 +11,6 @@
 <body>
   <!-- Preload payment logos so they load even when tab-payment-setup is display:none -->
   <div aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;">
-    <img src="../Image/FFP-logo.png" alt="">
     <img src="../Image/QR-PromptPay.png" alt="">
     <img src="../Image/TrueWallate.png" alt="">
   </div>
@@ -433,17 +432,17 @@
                   
                   <!-- Payment Method Items Container -->
                   <div class="payment-methods-list">
-                    <!-- FFP Card -->
-                     <div class="payment-method-item">
-                       <div class="payment-method-card disabled" data-method="ffp" id="cardFFP">
-                        <div class="card-icon">
-                          <img src="../Image/FFP-logo.png" alt="Feel Free Pay">
-                        </div>
-                        <h3>Feel Free Pay</h3>
-                        <p>ผู้โดเนทไม่เห็นชื่อหรือข้อมูลส่วนตัวของผู้รับเงิน</p>
-                        <small style="color: #f87171; display: block; margin-top: 4px;">ระบบยังไม่พร้อม</small>
-                      </div>
-                    </div>
+                     <!-- FFP Card -->
+                      <div class="payment-method-item">
+                        <div class="payment-method-card disabled" data-method="ffp" id="cardFFP">
+                         <div class="card-icon" style="font-size: 2.8rem; font-weight: 800; letter-spacing: 2px; color: #a5b4fc; line-height: 1;">
+                           FFP
+                         </div>
+                         <h3>Feel Free Pay</h3>
+                         <p>ผู้โดเนทไม่เห็นชื่อหรือข้อมูลส่วนตัวของผู้รับเงินและไม่ต้องอัพสลิป โดยกรอก API Key ของผู้ใช้</p>
+                         <small style="color: #f87171; display: block; margin-top: 4px; line-height: 1.4;">ระบบกำลังพัฒนา</small>
+                       </div>
+                     </div>
                     
                     <!-- PromptPay Card + Settings -->
                     <div class="payment-method-item">
