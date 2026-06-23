@@ -418,6 +418,38 @@
     let refreshInterval = null;
     const REFRESH_SECONDS = 10;
     let countdown = REFRESH_SECONDS;
+    let _csrfToken = null;
+
+    async function ensureCsrfToken() {
+      if (_csrfToken) return _csrfToken;
+      try {
+        var res = await fetch('/api/csrf-token');
+        if (res.ok) {
+          var data = await res.json();
+          _csrfToken = data.csrfToken;
+        }
+      } catch (e) {}
+      return _csrfToken;
+    }
+
+    async function fetchWithCsrf(url, options) {
+      options = options || {};
+      var token = await ensureCsrfToken();
+      var headers = Object.assign({}, options.headers || {});
+      if (token) headers['X-CSRF-Token'] = token;
+      var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+      if (res.status === 403) {
+        var body;
+        try { body = await res.json(); } catch (e) { body = null; }
+        if (body && body.code === 'CSRF_INVALID') {
+          _csrfToken = null;
+          token = await ensureCsrfToken();
+          headers['X-CSRF-Token'] = token;
+          return fetch(url, Object.assign({}, options, { headers: headers }));
+        }
+      }
+      return res;
+    }
 
     function getUsername() {
       var parts = window.location.pathname.split('/');
@@ -524,7 +556,7 @@
       var tx = allTransactions.find(function(t) { return t.id === id; });
       if (!tx) return;
       try {
-        var res = await fetch('/api/alerts/test', {
+        var res = await fetchWithCsrf('/api/alerts/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donor: tx.donor, amount: tx.amount, message: tx.message })
@@ -579,7 +611,7 @@
         '<i class="fa-solid fa-sack-dollar"></i>',
         async function() {
           try {
-            var res = await fetch('/api/transactions/' + id + '/status', {
+            var res = await fetchWithCsrf('/api/transactions/' + id + '/status', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ status: 'successful' })
@@ -601,7 +633,7 @@
       var message = messages[Math.floor(Math.random() * messages.length)];
       var amount = amounts[Math.floor(Math.random() * amounts.length)];
       try {
-        var res = await fetch('/api/alerts/test', {
+        var res = await fetchWithCsrf('/api/alerts/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donor: donor, amount: amount, message: message })

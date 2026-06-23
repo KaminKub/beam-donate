@@ -1002,7 +1002,7 @@ function renderFullTransactions(transactions) {
       : '<div></div>';
     actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')"><i class="fa-solid fa-bell"></i> ยิง Alert ซ้ำ</button>`;
     actionsHtml += t.status === 'pending'
-      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง"><i class="fa-solid fa-check"></i> ยืนยัน</button>`
+      ? `<button class="btn btn-primary btn-sm" style="background:#059669;box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง"><i class="fa-solid fa-check" style="color:#4ade80;"></i> ยืนยัน</button>`
       : '<div></div>';
     actionsHtml += '</div>';
 
