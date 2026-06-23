@@ -28,6 +28,12 @@
       caret-color: auto !important;
     }
 
+    html {
+      overflow-x: hidden;
+    }
+    * {
+      box-sizing: border-box;
+    }
     :root {
       --primary: #667eea;
       --secondary: #764ba2;
@@ -46,6 +52,8 @@
       min-height: 100vh;
       padding: 2rem;
       box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     .bg-orbs {
       position: absolute;
@@ -53,6 +61,7 @@
       height: 100%;
       z-index: -1;
       filter: blur(80px);
+      overflow: hidden;
     }
     .orb {
       position: absolute;

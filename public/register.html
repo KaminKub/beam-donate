@@ -88,9 +88,9 @@
     .tos-container {
       margin-bottom: 2rem;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
       text-align: left;
       font-size: 0.9rem;
       color: #cbd5e1;
@@ -98,9 +98,12 @@
       user-select: none;
     }
     .tos-container input {
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
       cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 1px;
     }
     .tos-container a {
       color: #3b82f6;
@@ -109,6 +112,17 @@
     }
     .tos-container a:hover {
       text-decoration: underline;
+    }
+    @media (max-width: 480px) {
+      .tos-container {
+        gap: 14px;
+        padding: 0.25rem 0;
+      }
+      .tos-container input {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+      }
     }
 
     .btn-twitch {
