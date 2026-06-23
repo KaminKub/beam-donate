@@ -404,7 +404,7 @@ btnProceedPayment.addEventListener('click', async () => {
     } catch (error) {
       alert(error.message);
       btnProceedPayment.disabled = false;
-      btnProceedPayment.textContent = 'ดำเนินการต่อ →';
+      btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
     }
   } else if (selectedPaymentMethod === 'promptpay') {
     // Check if there's a pending QR with the same params (donor went back and forth without changes)
@@ -414,7 +414,7 @@ btnProceedPayment.addEventListener('click', async () => {
     if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage) {
       restoreQRStep(pending);
       btnProceedPayment.disabled = false;
-      btnProceedPayment.textContent = 'ดำเนินการต่อ →';
+      btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
       return;
     }
 
@@ -443,7 +443,7 @@ btnProceedPayment.addEventListener('click', async () => {
           showPaymentError(data.error || 'ไม่สามารถสร้าง QR Code ได้');
         }
         btnProceedPayment.disabled = false;
-        btnProceedPayment.textContent = 'ดำเนินการต่อ →';
+        btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
         return;
       }
 
@@ -455,7 +455,7 @@ btnProceedPayment.addEventListener('click', async () => {
     } catch (error) {
       showPaymentError(error.message);
       btnProceedPayment.disabled = false;
-      btnProceedPayment.textContent = 'ดำเนินการต่อ →';
+      btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
     }
   }
 });
@@ -531,7 +531,7 @@ function showQRExpired() {
   if (paymentStatus) {
     paymentStatus.style.display = 'flex';
     paymentStatus.className = 'status expired';
-    paymentStatus.innerHTML = '⏰ QR Code หมดอายุแล้ว';
+    paymentStatus.innerHTML = '<i class="fa-solid fa-clock"></i> QR Code หมดอายุแล้ว';
   }
   if (btnRetryQR) btnRetryQR.style.display = 'block';
 }
@@ -604,7 +604,7 @@ function startPromptPayPolling() {
         if (paymentStatus) {
           paymentStatus.style.display = 'flex';
           paymentStatus.className = 'status success';
-          paymentStatus.innerHTML = '✅ ชำระเงินสำเร็จ!';
+          paymentStatus.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> ชำระเงินสำเร็จ!';
         }
         setTimeout(() => {
           window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
@@ -616,7 +616,7 @@ function startPromptPayPolling() {
         if (paymentStatus) {
           paymentStatus.style.display = 'flex';
           paymentStatus.className = 'status expired';
-          paymentStatus.innerHTML = '⏰ QR Code หมดอายุแล้ว';
+          paymentStatus.innerHTML = '<i class="fa-solid fa-clock"></i> QR Code หมดอายุแล้ว';
         }
         if (btnRetryQR) btnRetryQR.style.display = 'block';
       }
@@ -781,8 +781,8 @@ async function doVerifySlip() {
     if (errorCode === 'SLIP_DELAY') {
       const delayMin = data.delayMinutes || 5;
       handleSlipDelay(delayMin, btnVerifySlip, paymentStatus, doVerifySlip,
-        () => `⏳ ${data.error || 'กรุณารอการตรวจสอบ'}`,
-        () => '⏰ พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
+	() => `<i class="fa-solid fa-clock"></i> ${data.error || 'กรุณารอการตรวจสอบ'}`,
+		() => '<i class="fa-solid fa-clock"></i> พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
       );
       return;
     }
@@ -951,8 +951,8 @@ async function doVerifyTrueMoney() {
     if (errorCode === 'SLIP_DELAY') {
       const delayMin = data.delayMinutes || 5;
       handleSlipDelay(delayMin, btnVerifyTrueMoney, trueMoneyPaymentStatus, doVerifyTrueMoney,
-        () => `⏳ ${data.error || 'กรุณารอการตรวจสอบ'}`,
-        () => '⏰ พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
+	() => `<i class="fa-solid fa-clock"></i> ${data.error || 'กรุณารอการตรวจสอบ'}`,
+		() => '<i class="fa-solid fa-clock"></i> พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
       );
       return;
     }

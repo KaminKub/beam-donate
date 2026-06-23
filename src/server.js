@@ -902,7 +902,7 @@ async function ensureUserOwner(req, res, next) {
     
     if (!userId) {
       console.error('❌ Ownership check failed: No user ID found in session');
-      return res.status(403).send('Forbidden: ไม่พบข้อมูลการยืนยันตัวตน');
+      return res.redirect('/forbidden.html?reason=noauth');
     }
 
     try {
@@ -913,7 +913,7 @@ async function ensureUserOwner(req, res, next) {
     } catch (err) {
       console.error('Ownership check error:', err);
     }
-    return res.status(403).send('Forbidden: คุณไม่มีสิทธิ์จัดการหน้า Dashboard ของผู้อื่น');
+    return res.redirect('/forbidden.html?reason=owner');
   }
   res.redirect('/login');
 }

@@ -245,7 +245,7 @@ async function showAlert(data) {
         iconEmojiEl.innerHTML = `<img src="${overlaySettings.customImageValue}" class="custom-alert-img">`;
         iconContainer.style.display = 'flex';
       } else if (overlaySettings.customImageMode === 'emoji') {
-        iconEmojiEl.textContent = overlaySettings.customImageValue || '💝';
+        iconEmojiEl.innerHTML = overlaySettings.customImageValue || '<i class="fa-solid fa-heart"></i>';
         // In Text Only theme, emojis/text icons are hidden
         iconContainer.style.display = isTextOnly ? 'none' : 'flex';
       } else {
@@ -262,7 +262,7 @@ async function showAlert(data) {
 
   const labelElement = alertBox.querySelector('.alert-label');
   if (labelElement) {
-    const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : true;
+    const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : false;
     const tempLower = overlaySettings.messageTemplate.toLowerCase();
     if (!showLabelSetting || tempLower.includes('{amount}') || tempLower.includes('บริจาค') || tempLower.includes('donate')) {
       labelElement.style.display = 'none';

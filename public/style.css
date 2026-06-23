@@ -944,7 +944,7 @@ input[type=number] {
 
 .payment-method-check i {
   font-size: 24px;
-  color: var(--primary-color, #667eea);
+  color: #22c55e;
 }
 
 .payment-summary {

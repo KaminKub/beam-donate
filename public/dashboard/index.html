@@ -9,10 +9,16 @@
   <link rel="stylesheet" href="/dashboard/admin.css">
 </head>
 <body>
+  <!-- Preload payment logos so they load even when tab-payment-setup is display:none -->
+  <div aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;">
+    <img src="../Image/FFP-logo.png" alt="">
+    <img src="../Image/QR-PromptPay.png" alt="">
+    <img src="../Image/TrueWallate.png" alt="">
+  </div>
   <div class="admin-wrapper">
     <!-- Sidebar Navigation -->
     <aside class="admin-sidebar">
-      <button id="btnCloseMobileMenu" class="btn-close-menu">✕</button>
+      <button id="btnCloseMobileMenu" class="btn-close-menu"><i class="fa-solid fa-xmark"></i></button>
        <h2><a href="/"><span class="highlight-amount">TipKub</span></a></h2>
        <div class="brand">
          <div class="brand-logo">
@@ -26,22 +32,22 @@
 
       <nav class="sidebar-menu">
         <button class="menu-item active" data-tab="dashboard">
-          <span class="icon">📊</span> ภาพรวม Dashboard
+          <span class="icon"><i class="fa-solid fa-chart-bar"></i></span> ภาพรวม Dashboard
         </button>
         <button class="menu-item" data-tab="transactions">
-          <span class="icon">💸</span> ประวัติโดเนท
+          <span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span> ประวัติโดเนท
         </button>
         <button class="menu-item" data-tab="overlay-config">
-          <span class="icon">🔔</span> ปรับแต่งวิดเจ็ต
+          <span class="icon"><i class="fa-solid fa-bell"></i></span> ปรับแต่งวิดเจ็ต
         </button>
          <button class="menu-item" data-tab="page-customization">
-           <span class="icon">🎨</span> แต่งหน้าโดเนท
+           <span class="icon"><i class="fa-solid fa-palette"></i></span> แต่งหน้าโดเนท
          </button>
          <button class="menu-item" data-tab="account">
-           <span class="icon">👤</span> บัญชีผู้ใช้
+           <span class="icon"><i class="fa-solid fa-user"></i></span> บัญชีผู้ใช้
          </button>
          <button class="menu-item" data-tab="payment-setup">
-            <span class="icon">🏦</span> ตั้งค่ารับเงิน
+            <span class="icon"><i class="fa-solid fa-building-columns"></i></span> ตั้งค่ารับเงิน
          </button>
        </nav>
 
@@ -59,20 +65,20 @@
       <div class="header-sticky-group">
         <header class="main-header">
           <div class="header-left">
-            <button id="btnMobileMenu" class="btn-hamburger">☰</button>
+            <button id="btnMobileMenu" class="btn-hamburger"><i class="fa-solid fa-bars"></i></button>
             <h1 id="tabTitle">Dashboard Overview</h1>
             <p id="tabSubtitle">ภาพรวมยอดบริจาคและสถิติระบบ</p>
           </div>
            <div class="header-right" style="display: flex; gap: 10px;">
-             <a href="/" id="btnOpenDonateDesktop" target="_blank" class="btn btn-secondary desktop-only" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
-             <button class="btn btn-primary desktop-only" id="btnQuickTestAlert">⚡ ยิง Quick Alert</button>
+             <a href="/" id="btnOpenDonateDesktop" target="_blank" class="btn btn-secondary desktop-only" style="text-decoration: none;"><i class="fa-solid fa-link"></i> เปิดหน้าโดเนท</a>
+             <button class="btn btn-primary desktop-only" id="btnQuickTestAlert"><i class="fa-solid fa-bolt"></i> ยิง Quick Alert</button>
            </div>
         </header>
         
         <!-- Mobile Quick Actions (Sticky below header) -->
         <div class="mobile-quick-actions">
-          <a href="/" id="btnOpenDonateMobile" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 เปิดหน้าโดเนท</a>
-          <button class="btn btn-primary" id="btnQuickTestAlertMobile">⚡ ยิง Quick Alert</button>
+          <a href="/" id="btnOpenDonateMobile" target="_blank" class="btn btn-secondary" style="text-decoration: none;"><i class="fa-solid fa-link"></i> เปิดหน้าโดเนท</a>
+          <button class="btn btn-primary" id="btnQuickTestAlertMobile"><i class="fa-solid fa-bolt"></i> ยิง Quick Alert</button>
         </div>
       </div>
 
@@ -92,7 +98,7 @@
             </div>
 
             <div class="stat-card">
-              <div class="stat-icon count">✅</div>
+              <div class="stat-icon count"><i class="fa-solid fa-circle-check"></i></div>
               <div class="stat-info">
                 <h3>บริจาคสำเร็จ (ครั้ง)</h3>
                 <h2 id="statSuccessCount">0</h2>
@@ -101,7 +107,7 @@
             </div>
 
             <div class="stat-card">
-              <div class="stat-icon rate">📈</div>
+              <div class="stat-icon rate"><i class="fa-solid fa-chart-line"></i></div>
               <div class="stat-info">
                 <h3>อัตราความสำเร็จ</h3>
                 <h2 id="statSuccessRate">0%</h2>
@@ -110,7 +116,7 @@
             </div>
 
             <div class="stat-card">
-              <div class="stat-icon pending">⌛</div>
+              <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
               <div class="stat-info">
                 <h3>รายการรอ/ล้มเหลว</h3>
                 <h2 id="statPendingCount">0 / 0</h2>
@@ -150,7 +156,7 @@
             <!-- OBS Setup Card -->
             <div class="dashboard-card card-small">
                <div class="card-header">
-                 <h3>🎬 เชื่อมต่อกับโปรแกรมสตรีม</h3>
+                 <h3><i class="fa-solid fa-film"></i> เชื่อมต่อกับโปรแกรมสตรีม</h3>
                </div>
               <div class="obs-setup-box">
                 <p>คัดลอก URL ด้านล่างไปใส่ใน **Browser Source** ของ OBS เพื่อเปิดใช้ระบบ Alert บริจาคเด้งขึ้นไลฟ์สด:</p>
@@ -183,7 +189,7 @@
             <!-- Filter Bar -->
             <div class="filter-bar">
               <div class="search-group">
-                <span class="search-icon">🔍</span>
+                <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
                 <input type="text" id="inputSearchDonor" placeholder="ค้นหาชื่อผู้บริจาค/Reference-ID...">
               </div>
               <div class="filter-groups">
@@ -202,7 +208,7 @@
             </div>
 
             <p style="font-size: 11px; color: #f59e0b; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-              <span>⚠️</span> ระบบจะล้างรายการบริจาคที่มีอายุเกิน 3 เดือนโดยอัตโนมัติ — <a href="#" id="btnDownloadFromNote" style="color: #fbbf24; text-decoration: underline;">ดาวน์โหลดเก็บไว้ที่นี่</a>
+              <i class="fa-solid fa-triangle-exclamation" style="font-size:12px;"></i> ระบบจะล้างรายการบริจาคที่มีอายุเกิน 3 เดือนโดยอัตโนมัติ — <a href="#" id="btnDownloadFromNote" style="color: #fbbf24; text-decoration: underline;">ดาวน์โหลดเก็บไว้ที่นี่</a>
             </p>
 
             <!-- Transactions Table -->
@@ -238,7 +244,7 @@
                 <!-- Card: Profile Customization -->
                 <div class="dashboard-card settings-card">
                   <div class="settings-card-header">
-                    <h4>🖼️ ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
+                    <h4><i class="fa-solid fa-image"></i> ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
                   </div>
                   <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
                       <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
@@ -268,7 +274,7 @@
                 <!-- Card: Page Texts -->
                 <div class="dashboard-card settings-card">
                   <div class="settings-card-header">
-                    <h4>📝 ข้อความหน้าโดเนท (Page Content)</h4>
+                    <h4><i class="fa-solid fa-pen-to-square"></i> ข้อความหน้าโดเนท (Page Content)</h4>
                   </div>
                   <div class="form-group">
                     <label for="inputPageTitle">ชื่อหน้าโดเนท (Page Title)</label>
@@ -283,7 +289,7 @@
                 <!-- Card: Thank You Message -->
                 <div class="dashboard-card settings-card">
                   <div class="settings-card-header">
-                    <h4>🙏 ข้อความขอบคุณ (Thank You Message)</h4>
+                    <h4><i class="fa-solid fa-hands-praying"></i> ข้อความขอบคุณ (Thank You Message)</h4>
                   </div>
                   <div class="form-group">
                     <label for="inputThankYouHeader">หัวข้อขอบคุณ (Header)</label>
@@ -298,7 +304,7 @@
                 <!-- Card: Social Media Links -->
                 <div class="dashboard-card settings-card">
                   <div class="settings-card-header">
-                    <h4>🔗 ลิงก์โซเชียลมีเดีย (Social Links)</h4>
+                    <h4><i class="fa-solid fa-link"></i> ลิงก์โซเชียลมีเดีย (Social Links)</h4>
                   </div>
                      <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                       <div class="form-group">
@@ -340,20 +346,20 @@
                   </div>
 
                   <div class="settings-actions">
-                    <button type="submit" class="btn btn-primary btn-large">💾 บันทึกการปรับแต่งหน้าเว็บ</button>
+                    <button type="submit" class="btn btn-primary btn-large"><i class="fa-solid fa-floppy-disk"></i> บันทึกการปรับแต่งหน้าเว็บ</button>
                   </div>
                 </form>
               </div>
               <div class="settings-preview-panel">
                 <div class="dashboard-card preview-card">
                   <div class="preview-header">
-                    <h3>🖼️ พรีวิวหน้าโดเนท (Page Preview)</h3>
+                    <h3><i class="fa-solid fa-image"></i> พรีวิวหน้าโดเนท (Page Preview)</h3>
                   </div>
                   <div class="preview-iframe-wrapper">
                     <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
                   </div>
                   <div class="preview-controls">
-                    <button class="btn btn-secondary" id="btnReloadPagePreview">🔄 โหลดตัวอย่างใหม่</button>
+                    <button class="btn-reload-preview" id="btnReloadPagePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                   </div>
                 </div>
               </div>
@@ -366,7 +372,7 @@
           <section id="tab-account" class="tab-content">
             <div class="dashboard-card">
               <div class="card-header">
-                <h3>👤 บัญชีผู้ใช้ (Account Settings)</h3>
+                <h3><i class="fa-solid fa-user"></i> บัญชีผู้ใช้ (Account Settings)</h3>
               </div>
               <div class="account-info-grid">
                 <div class="info-group">
@@ -411,7 +417,7 @@
           <section id="tab-payment-setup" class="tab-content">
             <div class="dashboard-card">
               <div class="card-header">
-                <h3>🏦 ตั้งค่าการรับเงิน (Payment Settings)</h3>
+                <h3><i class="fa-solid fa-building-columns"></i> ตั้งค่าการรับเงิน (Payment Settings)</h3>
                 <p class="text-muted" style="font-size: 13px; margin-top: 8px;">เลือกวิธีรับเงินบริจาคจากผู้ชม</p>
               </div>
 
@@ -628,7 +634,7 @@
 
                 <div class="settings-actions" style="margin-top: 24px;">
                   <button type="button" id="btnSavePaymentSettings" class="btn btn-primary btn-large">
-                    💾 บันทึกการตั้งค่า
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า
                   </button>
                 </div>
               </div>
@@ -646,7 +652,7 @@
                   <!-- Card: Visual Settings -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header">
-                      <h4>🎨 รูปแบบและธีมแสดงผล (Style & Themes)</h4>
+                      <h4><i class="fa-solid fa-palette"></i> รูปแบบและธีมแสดงผล (Style & Themes)</h4>
                     </div>
                     
                     <div class="form-row">
@@ -758,7 +764,7 @@
                   <!-- Card: Audio & TTS Settings -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header">
-                      <h4>🔊 เสียงแจ้งเตือนและระบบอ่านข้อความ (Sound & TTS AI)</h4>
+                      <h4><i class="fa-solid fa-volume-high"></i> เสียงแจ้งเตือนและระบบอ่านข้อความ (Sound & TTS AI)</h4>
                     </div>
 
                     <div class="form-row flex-align-center">
@@ -791,7 +797,7 @@
                           <label for="customSoundUrl">URL เสียงแจ้งเตือน (Direct Link .mp3)</label>
                           <input type="text" id="customSoundUrl" name="customSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
                           <button type="button" id="btnBrowseSounds" class="btn btn-secondary" style="margin-top: 8px; width: 100%;">
-                            🔍 เลือกเสียงจาก myinstants.com
+                            <i class="fa-solid fa-magnifying-glass"></i> เลือกเสียงจาก myinstants.com
                           </button>
                         </div>
 
@@ -809,7 +815,7 @@
          <input type="checkbox" id="chkTtsEnabled" name="ttsEnabled">
          <span class="slider-switch"></span>
        </label>
-       <span class="switch-label">💡 เปิดอ่านข้อความบริจาคอัตโนมัติ (TTS)</span>
+        <span class="switch-label"><i class="fa-solid fa-lightbulb"></i> เปิดอ่านข้อความบริจาคอัตโนมัติ (TTS)</span>
      </div>
    </div>
    <div class="form-group">
@@ -818,7 +824,7 @@
          <input type="checkbox" id="chkTtsReadDonor" name="ttsReadDonor" checked>
          <span class="slider-switch"></span>
        </label>
-       <span class="switch-label">💡 เปิดอ่านชื่อผู้บริจาคและจำนวนบริจาค</span>
+        <span class="switch-label"><i class="fa-solid fa-lightbulb"></i> เปิดอ่านชื่อผู้บริจาคและจำนวนบริจาค</span>
      </div>
    </div>
  </div>
@@ -843,7 +849,7 @@
                   <!-- Card: Profanity Filter Settings -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header">
-                      <h4>🤬 ระบบกรองคำหยาบคาย (Profanity Filter)</h4>
+                      <h4><i class="fa-solid fa-shield-halved"></i> ระบบกรองคำหยาบคาย (Profanity Filter)</h4>
                     </div>
 
                     <div class="form-row flex-align-center">
@@ -884,7 +890,7 @@
                   <!-- Card: Message Settings -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header">
-                      <h4>💬 ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
+                      <h4><i class="fa-solid fa-comment"></i> ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
                     </div>
 
                     <div class="form-row">
@@ -904,7 +910,7 @@
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
-                              <input type="checkbox" id="chkShowLabel" name="showLabel" checked>
+                              <input type="checkbox" id="chkShowLabel" name="showLabel">
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label">แสดงป้าย "บริจาค" (Show Donate Label)</span>
@@ -934,7 +940,7 @@
 
                   <!-- Actions block -->
                   <div class="settings-actions">
-                    <button type="submit" class="btn btn-primary btn-large">💾 บันทึกและซิงค์การตั้งค่า</button>
+                    <button type="submit" class="btn btn-primary btn-large"><i class="fa-solid fa-floppy-disk"></i> บันทึกและซิงค์การตั้งค่า</button>
                   </div>
 
                 </form>
@@ -944,7 +950,7 @@
               <div class="settings-preview-panel">
                 <div class="dashboard-card preview-card">
                   <div class="preview-header">
-                    <h3>📺 หน้าจอจำลองสด (Live Overlay Preview)</h3>
+                    <h3><i class="fa-solid fa-tv"></i> หน้าจอจำลองสด (Live Overlay Preview)</h3>
                     <span class="badge badge-success">SSE Connected</span>
                   </div>
                   <p class="preview-hint">เมื่อกด "ยิงทดสอบ Alert" ด้านซ้าย หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
@@ -953,7 +959,7 @@
                     <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
                   </div>
                   <div class="preview-controls">
-                    <button class="btn btn-secondary" id="btnReloadPreview">🔄 โหลดตัวอย่างใหม่</button>
+                    <button class="btn-reload-preview" id="btnReloadPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                     <span class="text-muted" style="font-size: 12px;">หมายเหตุ: ในระบบจริง OBS จะมีพื้นหลังโปร่งใส</span>
                   </div>
                 </div>
@@ -971,7 +977,7 @@
   <div class="modal" id="inspectModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>🔍 รายละเอียดธุรกรรม (Raw Transaction JSON)</h3>
+        <h3><i class="fa-solid fa-magnifying-glass"></i> รายละเอียดธุรกรรม (Raw Transaction JSON)</h3>
         <button class="btn-close" id="btnCloseModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -983,7 +989,7 @@
   <!-- Custom Modal for Confirmations (Logout, Delete) -->
   <div class="modal" id="confirmModal">
     <div class="modal-content confirm-modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
-      <div class="modal-icon" id="confirmModalIcon" style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+      <div class="modal-icon" id="confirmModalIcon" style="font-size: 3rem; margin-bottom: 1rem;"><i class="fa-solid fa-triangle-exclamation"></i></div>
       <h3 id="confirmModalTitle">ยืนยันการดำเนินการ</h3>
       <p id="confirmModalText" style="color: #94a3b8; margin-bottom: 2rem; white-space: pre-line;">คุณแน่ใจหรือไม่ว่าต้องการดำเนินการนี้?</p>
       <div class="confirm-actions" style="display: flex; gap: 10px; justify-content: center;">
@@ -997,13 +1003,13 @@
   <div class="modal" id="transactionDetailModal">
     <div class="modal-content transaction-detail-content">
       <div class="modal-header">
-        <h3>🎉 รายละเอียดการบริจาค</h3>
+        <h3><i class="fa-solid fa-gift"></i> รายละเอียดการบริจาค</h3>
         <button class="btn-close" id="btnCloseTransactionDetail">&times;</button>
       </div>
       <div class="modal-body transaction-detail-body">
         <div class="transaction-detail-card">
           <div class="donor-section">
-            <div class="donor-avatar" id="detailDonorAvatar">🎁</div>
+            <div class="donor-avatar" id="detailDonorAvatar"><i class="fa-solid fa-gift"></i></div>
             <h2 class="donor-name" id="detailDonorName">-</h2>
           </div>
           
@@ -1033,7 +1039,7 @@
           </div>
           
           <div class="thank-you-section">
-            <div class="thank-you-text">ขอบคุณจากหัวใจ ❤️</div>
+            <div class="thank-you-text">ขอบคุณจากหัวใจ <i class="fa-solid fa-heart"></i></div>
           </div>
         </div>
       </div>
@@ -1045,10 +1051,10 @@
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
       <div class="modal-header" style="flex-direction: column; align-items: flex-start; gap: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <h3>🔍 เลือกเสียงจาก myinstants.com</h3>
+          <h3><i class="fa-solid fa-magnifying-glass"></i> เลือกเสียงจาก myinstants.com</h3>
           <button class="btn-close" id="btnCloseSoundBrowser">&times;</button>
         </div>
-        <p style="font-size: 11px; color: var(--pending, #f59e0b); margin: 0; line-height: 1.4;">⚠️ แนะนำให้อัพโหลดเสียงเป็น URL ส่วนตัว เนื่องจากเสียงจาก MyInstants อาจไม่เล่นบน Overlay ในบางครั้ง</p>
+        <p style="font-size: 11px; color: var(--pending, #f59e0b); margin: 0; line-height: 1.4;"><i class="fa-solid fa-triangle-exclamation"></i> แนะนำให้อัพโหลดเสียงเป็น URL ส่วนตัว เนื่องจากเสียงจาก MyInstants อาจไม่เล่นบน Overlay ในบางครั้ง</p>
       </div>
       <div class="modal-body">
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
@@ -1070,7 +1076,7 @@
   <div class="modal" id="downloadModal">
     <div class="modal-content" style="max-width: 480px;">
       <div class="modal-header">
-        <h3>📥 ดาวน์โหลดประวัติโดเนท</h3>
+        <h3><i class="fa-solid fa-download"></i> ดาวน์โหลดประวัติโดเนท</h3>
         <button class="btn-close" id="btnCloseDownload">&times;</button>
       </div>
       <div class="modal-body">
@@ -1088,11 +1094,11 @@
           </div>
         </div>
         <p id="downloadNote" style="color: #f87171; font-size: 11px; margin-top: 12px; display: none;">
-          ⚠️ ข้อมูลจะถูกรีเซททุก 3 เดือน — แนะนำให้ดาวน์โหลดเก็บไว้
+          <i class="fa-solid fa-triangle-exclamation"></i> ข้อมูลจะถูกรีเซททุก 3 เดือน — แนะนำให้ดาวน์โหลดเก็บไว้
         </p>
         <div style="display: flex; gap: 12px; margin-top: 20px;">
           <button class="btn btn-secondary" id="btnCancelDownload" style="flex: 1;">ยกเลิก</button>
-          <button class="btn btn-primary" id="btnConfirmDownload" style="flex: 1;">📥 ดาวน์โหลด CSV</button>
+          <button class="btn btn-primary" id="btnConfirmDownload" style="flex: 1;"><i class="fa-solid fa-download"></i> ดาวน์โหลด CSV</button>
         </div>
       </div>
     </div>

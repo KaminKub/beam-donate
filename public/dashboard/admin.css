@@ -167,6 +167,101 @@ body {
   font-size: 16px;
 }
 
+.menu-item[data-tab="dashboard"] .icon i { color: #818cf8; }
+.menu-item[data-tab="transactions"] .icon i { color: #34d399; }
+.menu-item[data-tab="overlay-config"] .icon i { color: #fbbf24; }
+.menu-item[data-tab="page-customization"] .icon i { color: #c084fc; }
+.menu-item[data-tab="account"] .icon i { color: #22d3ee; }
+.menu-item[data-tab="payment-setup"] .icon i { color: #f59e0b; }
+
+/* ========== Section Header Icon Colors ========== */
+.card-header h3 .fa-film,
+.settings-card-header h4 .fa-image,
+.preview-header h3 .fa-image,
+.card-header h3 .fa-user,
+.preview-header h3 .fa-tv { color: #22d3ee; }
+
+.settings-card-header h4 .fa-pen-to-square,
+.card-header h3 .fa-building-columns { color: #f59e0b; }
+
+.settings-card-header h4 .fa-hands-praying,
+.donor-avatar .fa-gift,
+.modal-header h3 .fa-gift { color: #f472b6; }
+
+.settings-card-header h4 .fa-link { color: #60a5fa; }
+
+.settings-card-header h4 .fa-palette { color: #c084fc; }
+
+.settings-card-header h4 .fa-volume-high { color: #fb923c; }
+
+.settings-card-header h4 .fa-shield-halved { color: #f87171; }
+
+.settings-card-header h4 .fa-comment,
+.modal-header h3 .fa-download { color: #4ade80; }
+
+.modal-header h3 .fa-magnifying-glass { color: #60a5fa; }
+
+.thank-you-text .fa-heart { color: #ef4444; }
+
+.search-group .fa-magnifying-glass { color: var(--text-muted); }
+
+/* ========== Main Header Button Icon Colors ========== */
+.main-header .btn-primary .fa-bolt,
+.mobile-quick-actions .btn-primary .fa-bolt { color: #fbbf24; }
+
+.main-header .btn-secondary .fa-link,
+.mobile-quick-actions .btn-secondary .fa-link { color: #60a5fa; }
+
+/* ========== End Section Header Icon Colors ========== */
+
+/* ========== Dashboard Card Icon Colors ========== */
+.api-notice .fa-info-circle { color: #60a5fa; }
+
+.btn-slipok-api .fa-external-link-alt { color: inherit; }
+
+.btn-settings .fa-chevron-down { color: inherit; }
+
+.panel-header .fa-mobile-alt { color: #22d3ee; }
+
+.panel-header .fa-wallet { color: #f59e0b; }
+
+.btn-sync-promptpay .fa-sync-alt { color: #60a5fa; }
+
+.settings-section h5 { color: var(--text-muted); }
+
+.switch-label .fa-lightbulb { color: #fbbf24; }
+
+.slipok-packages-link .fa-layer-group { color: #ffbc05; }
+
+/* ========== Social Icons Brand Colors ========== */
+.social-inputs-grid .fa-twitch { color: #9146ff; }
+.social-inputs-grid .fa-youtube { color: #ff0000; }
+.social-inputs-grid .fa-tiktok { color: #ff18ff; }
+.social-inputs-grid .fa-facebook { color: #1877f2; }
+.social-inputs-grid .fa-x-twitter { color: #e2e8f0; }
+.social-inputs-grid .fa-discord { color: #5865f2; }
+.social-inputs-grid .fa-instagram { color: #e4405f; }
+/* ============================================= */
+
+.dashboard-card .btn-icon-monitor .fa-arrow-up-right-from-square { color: inherit; }
+
+/* ========== Action Buttons & Filter Bar Icon Colors ========== */
+.action-buttons-grid .btn-secondary .fa-magnifying-glass { color: #60a5fa; }
+.action-buttons-grid .btn-primary .fa-bell { color: #fbbf24; }
+.action-buttons-grid .btn-primary .fa-check { color: #22c55e; }
+.action-buttons-grid .btn-success .fa-check { color: #ffffff; }
+
+.filter-bar .btn-icon-round .fa-arrow-rotate-right { color: #60a5fa; }
+.filter-bar .btn-icon-round .fa-download { color: #4ade80; }
+.filter-bar .btn-icon-round .fa-copy { color: #f59e0b; }
+.filter-bar .btn-icon-round .fa-up-right-from-square { color: #22d3ee; }
+
+.confirm-modal-content .confirm-actions .btn-danger { color: #fff; }
+
+/* =========================================== */
+
+/* =========================================== */
+
 .sidebar-footer {
   padding-top: 20px;
   border-top: 1px solid var(--border-color);
@@ -254,6 +349,12 @@ body {
   z-index: 2147483647 !important;
 }
 
+.btn-hamburger i {
+  display: block;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .btn-close-menu {
   display: none !important;
   position: absolute;
@@ -266,6 +367,10 @@ body {
   cursor: pointer;
   z-index: 2147483647 !important;
   transition: color 0.2s;
+}
+
+.btn-close-menu i {
+  pointer-events: none;
 }
 
 .desktop-only {
@@ -558,6 +663,10 @@ body {
   font-weight: 700;
 }
 
+.stat-icon i {
+  line-height: 1;
+}
+
 .stat-icon.amount {
   background: rgba(99, 102, 241, 0.15);
   color: #818cf8;
@@ -808,6 +917,11 @@ small.text-muted {
   color: var(--text-muted);
   font-size: 14px;
   margin-right: 10px;
+}
+
+.search-icon i {
+  display: block;
+  line-height: 1;
 }
 
 .search-group input {
@@ -1734,8 +1848,16 @@ label {
   border-left: 4px solid var(--success);
 }
 
+.notification.success i {
+  color: #22c55e;
+}
+
 .notification.error {
   border-left: 4px solid var(--failed);
+}
+
+.notification.error i {
+  color: #ef4444;
 }
 
 @keyframes notifyFadeIn {
@@ -2028,7 +2150,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary);
+  background: #22c55e;
   color: white;
   border-radius: 50%;
   font-size: 11px;
@@ -2207,6 +2329,65 @@ label {
 .btn-sync-promptpay:hover i {
   transform: rotate(180deg);
 }
+
+.btn-sync-promptpay.spinning {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn-sync-promptpay.spinning i {
+  animation: reloadSpin 1s linear infinite;
+}
+
+/* ========== Reload Preview Button (spinning arrow) ========== */
+.btn-reload-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+  backdrop-filter: blur(6px);
+}
+
+.btn-reload-preview:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.btn-reload-preview i {
+  font-size: 13px;
+  transition: transform 0.35s ease;
+}
+
+.btn-reload-preview:hover i {
+  transform: rotate(180deg);
+}
+
+.btn-reload-preview.spinning {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn-reload-preview.spinning i {
+  animation: reloadSpin 1s linear infinite;
+}
+
+@keyframes reloadSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ========== End Reload Button ========== */
 
 /* ========== Settings Panels Container ========== */
 /* ========== Settings Panel (Inside Payment Method Item) ========== */

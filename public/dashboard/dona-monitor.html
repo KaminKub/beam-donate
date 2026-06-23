@@ -213,6 +213,16 @@
       background: rgba(34, 197, 94, 0.2);
       color: #22c55e;
     }
+    /* ========== Dona-Monitor Icon Colors ========== */
+    .popup-header .fa-bolt { color: #1a1a2e; }
+    .auto-refresh-indicator .fa-clock { color: #818cf8; }
+    .popup-search-icon .fa-magnifying-glass { color: #64748b; }
+    .popup-btn-refire .fa-bell { color: #fbbf24; }
+    .popup-btn-force .fa-check { color: #22c55e; }
+    .confirm-modal-icon .fa-sack-dollar { color: #f59e0b; }
+    .confirm-modal-title .fa-circle-check { color: #22c55e; }
+    .empty-state .fa-triangle-exclamation { color: #f59e0b; margin-right: 4px; }
+    /* ========================================== */
     .popup-footer {
       display: flex;
       align-items: center;
@@ -342,18 +352,18 @@
     <div class="popup-header">
       <div class="popup-header-left">
         <h1><span class="highlight">TipKub</span> Dona-Monitor</h1>
-        <span class="auto-refresh-indicator" id="refreshIndicator">⏱ Auto 10s</span>
+        <span class="auto-refresh-indicator" id="refreshIndicator"><i class="fa-solid fa-clock"></i> Auto 10s</span>
       </div>
       <div class="popup-header-right">
-        <button class="btn-alert btn-alert-fire" id="btnQuickAlert">⚡ Quick Alert</button>
+        <button class="btn-alert btn-alert-fire" id="btnQuickAlert"><i class="fa-solid fa-bolt"></i> Quick Alert</button>
         <button class="btn btn-icon-round refresh-hover" id="btnRefresh" title="รีเฟรช"><i class="fa-solid fa-arrow-rotate-right"></i></button>
-        <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close">✕</button>
+        <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
 
     <div class="popup-filter-bar">
       <div class="popup-search-wrapper">
-        <span class="popup-search-icon">🔍</span>
+        <span class="popup-search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
         <input type="text" class="popup-search" id="inputSearch" placeholder="ค้นหาผู้บริจาค / Ref ID...">
       </div>
       <select class="popup-filter-select" id="selectStatus">
@@ -392,7 +402,7 @@
   <div class="modal" id="confirmModal">
     <div class="modal-content">
       <div class="confirm-modal-body">
-        <div class="confirm-modal-icon" id="confirmModalIcon">💰</div>
+        <div class="confirm-modal-icon" id="confirmModalIcon"><i class="fa-solid fa-sack-dollar"></i></div>
         <div class="confirm-modal-title" id="confirmModalTitle">ยืนยันการดำเนินการ</div>
         <div class="confirm-modal-text" id="confirmModalText">คุณแน่ใจหรือไม่?</div>
         <div class="confirm-modal-actions">
@@ -456,7 +466,7 @@
           render();
         } else if (res.status === 401 || res.status === 403) {
           document.querySelector('#transactionsTable tbody').innerHTML =
-            '<tr><td colspan="6" class="empty-state">⚠️ กรุณาเปิดหน้านี้จาก Dashboard / หมดเวลาเซสชัน</td></tr>';
+            '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i> กรุณาเปิดหน้านี้จาก Dashboard / หมดเวลาเซสชัน</td></tr>';
         }
       } catch (err) {
         console.error('Fetch error:', err);
@@ -496,9 +506,9 @@
         html += '<tr>';
         html += '<td class="col-status"><span class="' + badgeClass + '">' + statusLabel + '</span></td>';
         html += '<td class="col-actions"><div class="popup-action-btns">';
-        html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ">🔔</button>';
+        html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ"><i class="fa-solid fa-bell"></i></button>';
         if (t.status === 'pending') {
-          html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน">✔</button>';
+          html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน"><i class="fa-solid fa-check"></i></button>';
         }
         html += '</div></td>';
         html += '<td class="col-donor">' + escapedDonor + '</td>';
@@ -528,8 +538,8 @@
 
     function showConfirmModal(title, text, icon, onConfirm) {
       var modal = document.getElementById('confirmModal');
-      document.getElementById('confirmModalIcon').textContent = icon || '💰';
-      document.getElementById('confirmModalTitle').textContent = title;
+      document.getElementById('confirmModalIcon').innerHTML = icon || '<i class="fa-solid fa-sack-dollar"></i>';
+      document.getElementById('confirmModalTitle').innerHTML = title;
       document.getElementById('confirmModalText').textContent = text;
 
       modal.classList.add('active');
@@ -564,9 +574,9 @@
       var donorName = tx.donor || 'Anonymous';
       var amount = '฿' + (Number(tx.amount) || 0).toLocaleString();
       showConfirmModal(
-        '✅ ยืนยันการชำระเงินด้วยตนเอง',
+        '<i class="fa-solid fa-circle-check"></i> ยืนยันการชำระเงินด้วยตนเอง',
         'ระบบจะเปลี่ยนสถานะเป็นชำระสำเร็จ\n\nผู้โดเนท: ' + donorName + '\nจำนวน: ' + amount,
-        '💰',
+        '<i class="fa-solid fa-sack-dollar"></i>',
         async function() {
           try {
             var res = await fetch('/api/transactions/' + id + '/status', {
@@ -609,7 +619,7 @@
         countdown = REFRESH_SECONDS;
         fetchTransactions();
       }
-      document.getElementById('refreshIndicator').textContent = '⏱ ' + countdown + 's';
+      document.getElementById('refreshIndicator').innerHTML = '<i class="fa-solid fa-clock"></i> ' + countdown + 's';
     }
 
     function closeWindow() {
@@ -629,7 +639,7 @@
       btnRefresh.addEventListener('click', async function() {
         btnRefresh.classList.add('spinning');
         countdown = REFRESH_SECONDS;
-        document.getElementById('refreshIndicator').textContent = '⏱ ' + countdown + 's';
+      document.getElementById('refreshIndicator').innerHTML = '<i class="fa-solid fa-clock"></i> ' + countdown + 's';
         await fetchTransactions();
         btnRefresh.classList.remove('spinning');
         showNotification('รีเฟรชแล้ว', 'success');

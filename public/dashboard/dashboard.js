@@ -49,8 +49,8 @@ function showNotification(message, type = 'success') {
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
   
-  const icon = type === 'success' ? '✅' : '❌';
-  notification.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+  const iconClass = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
+  notification.innerHTML = `<span><i class="${iconClass}"></i></span> <span>${message}</span>`;
   
   container.appendChild(notification);
 
@@ -161,7 +161,11 @@ async function initializeDashboard() {
 
     const btnReloadPage = document.getElementById('btnReloadPagePreview');
     if (btnReloadPage) {
-      btnReloadPage.onclick = updatePagePreview;
+      btnReloadPage.onclick = () => {
+        btnReloadPage.classList.add('spinning');
+        updatePagePreview();
+        setTimeout(() => btnReloadPage.classList.remove('spinning'), 1200);
+      };
     }
 
     const btnQuickAlert = document.getElementById('btnQuickTestAlert');
@@ -173,8 +177,10 @@ async function initializeDashboard() {
     const btnReloadPreview = document.getElementById('btnReloadPreview');
     if (btnReloadPreview) {
       btnReloadPreview.onclick = () => {
+        btnReloadPreview.classList.add('spinning');
         const iframe = document.getElementById('overlayPreviewIframe');
         if (iframe) iframe.src = iframe.src;
+        setTimeout(() => btnReloadPreview.classList.remove('spinning'), 1200);
       };
     }
 
@@ -490,7 +496,11 @@ async function initializeDashboard() {
 
     const btnSyncSlipOk = document.getElementById('btnSyncSlipOkFromPromptPay');
     if (btnSyncSlipOk) {
-      btnSyncSlipOk.onclick = syncSlipOkFromPromptPay;
+      btnSyncSlipOk.onclick = () => {
+        btnSyncSlipOk.classList.add('spinning');
+        syncSlipOkFromPromptPay();
+        setTimeout(() => btnSyncSlipOk.classList.remove('spinning'), 1200);
+      };
     }
 
     if (btnSavePayment) {
@@ -562,6 +572,18 @@ function switchTab(tabId) {
     loadAccountInfo();
   }
   if (tabId === 'payment-setup') {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const imgs = document.querySelectorAll('#tab-payment-setup .card-icon img');
+        imgs.forEach(img => {
+          const src = img.getAttribute('src');
+          if (src) {
+            img.src = '';
+            img.src = src;
+          }
+        });
+      });
+    });
     loadPaymentSettings();
   }
 }
@@ -579,10 +601,10 @@ const btnConfirmCancel = document.getElementById('btnConfirmCancel');
 
 let currentConfirmAction = null;
 
-function showConfirmModal(title, text, icon = '⚠️', onConfirm = null, btnText = 'ยืนยัน', btnClass = 'btn-danger') {
-  confirmTitle.textContent = title;
+function showConfirmModal(title, text, icon = '<i class="fa-solid fa-triangle-exclamation"></i>', onConfirm = null, btnText = 'ยืนยัน', btnClass = 'btn-danger') {
+  confirmTitle.innerHTML = title;
   confirmText.textContent = text;
-  confirmIcon.textContent = icon;
+  confirmIcon.innerHTML = icon;
   currentConfirmAction = onConfirm;
   btnConfirmOk.textContent = btnText;
   btnConfirmOk.className = `btn ${btnClass}`;
@@ -673,15 +695,15 @@ function updateConnectionBtn(id, connected, authUrl, statusId) {
 async function handleAccountDeletion() {
   // Step 1: First confirmation
   showConfirmModal(
-    '⚠️ ลบบัญชีถาวร', 
+    '<i class="fa-solid fa-triangle-exclamation"></i> ลบบัญชีถาวร', 
     'คุณต้องการลบข้อมูลทั้งหมดของบัญชีนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้', 
-    '🗑️', 
+    '<i class="fa-solid fa-trash"></i>', 
     async () => {
       // Step 2: Second confirmation (Crucial)
       showConfirmModal(
-        '🚨 ยืนยันอีกครั้ง!', 
+        '<i class="fa-solid fa-circle-exclamation"></i> ยืนยันอีกครั้ง!', 
         'คุณมั่นใจจริงๆ ใช่ไหมว่าต้องการลบข้อมูลทั้งหมด? ข้อมูลทุกอย่างจะหายไปตลอดกาล!', 
-        '🔴', 
+        '<i class="fa-solid fa-circle" style="color:#ef4444;"></i>', 
         async () => {
           try {
              const response = await fetchWithCsrf('/api/user/delete', { method: 'DELETE' });
@@ -852,9 +874,9 @@ if (document.readyState === 'loading') {
 
 async function handleLogout() {
   showConfirmModal(
-    '👋 ออกจากระบบ', 
+    '<i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ', 
     'คุณต้องการออกจากระบบใช่หรือไม่?', 
-    '🚪', 
+    '<i class="fa-solid fa-door-open"></i>', 
     async () => {
       try {
         const res = await fetch('/api/logout', { method: 'POST' });
@@ -976,11 +998,11 @@ function renderFullTransactions(transactions) {
     
     let actionsHtml = '<div class="action-buttons-grid">';
     actionsHtml += t.status === 'successful' 
-      ? `<button class="btn btn-secondary btn-sm" onclick="inspectTransaction('${t.id}')">🔍 ดูรายละเอียด</button>`
+      ? `<button class="btn btn-secondary btn-sm" onclick="inspectTransaction('${t.id}')"><i class="fa-solid fa-magnifying-glass"></i> ดูรายละเอียด</button>`
       : '<div></div>';
-    actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')">🔔 ยิง Alert ซ้ำ</button>`;
+    actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')"><i class="fa-solid fa-bell"></i> ยิง Alert ซ้ำ</button>`;
     actionsHtml += t.status === 'pending'
-      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง">✔ ยืนยัน</button>`
+      ? `<button class="btn btn-primary btn-sm" style="background:var(--success);box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง"><i class="fa-solid fa-check"></i> ยืนยัน</button>`
       : '<div></div>';
     actionsHtml += '</div>';
 
@@ -1092,7 +1114,7 @@ if (downloadModal) {
 
     const btn = document.getElementById('btnConfirmDownload');
     btn.disabled = true;
-    btn.textContent = '⏳ กำลังดาวน์โหลด...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังดาวน์โหลด...';
 
     try {
       const response = await fetch(`/api/transactions/${username}/download?from=${fromDate}&to=${toDate}`);
@@ -1115,7 +1137,7 @@ if (downloadModal) {
       showNotification(err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = '📥 ดาวน์โหลด CSV';
+      btn.innerHTML = '<i class="fa-solid fa-download"></i> ดาวน์โหลด CSV';
     }
   };
 }
@@ -1137,9 +1159,9 @@ async function forceSuccessTransaction(id) {
   const amount = tx ? `฿${(Number(tx.amount) || 0).toLocaleString()}` : '';
   
   showConfirmModal(
-    '✅ ยืนยันการชำระเงินด้วยตนเอง',
+    `<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> ยืนยันการชำระเงินด้วยตนเอง`,
     `ระบบจะส่ง Alert และเปลี่ยนสถานะเป็นชำระสำเร็จ\n\nผู้โดเนท: ${donorName}\nจำนวน: ${amount}`,
-    '💰',
+    '<i class="fa-solid fa-sack-dollar"></i>',
     async () => {
       try {
         const response = await fetch(`/api/transactions/${id}/status`, {
@@ -1372,7 +1394,7 @@ async function loadOverlaySettings() {
       // Template Strings
       document.getElementById('inputMessageTemplate').value = s.messageTemplate;
       document.getElementById('inputAmountSuffix').value = s.amountSuffix || 'บาท';
-      document.getElementById('chkShowLabel').checked = s.showLabel !== undefined ? s.showLabel : true;
+      document.getElementById('chkShowLabel').checked = s.showLabel !== undefined ? s.showLabel : false;
        document.getElementById('chkShowDonorMessage').checked = s.showDonorMessage;
        document.getElementById('inputMinAmount').value = s.minAmount;
        
@@ -1472,7 +1494,7 @@ async function saveOverlaySettings() {
       body: JSON.stringify(payload)
     });
     if (res.ok) {
-      showNotification('💾 บันทึกสำเร็จ!🎉');
+      showNotification('บันทึกสำเร็จ!');
     }
   } catch (err) {
     showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');
@@ -1813,7 +1835,7 @@ async function loadMoreSounds() {
         <span style="flex:1;font-size:14px;">${escapeHtml(sound.name)}</span>
         <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
                 style="background:var(--bg-secondary,#1e293b);"
-                onclick="previewSound(this)">▶️ เล่น</button>
+                onclick="previewSound(this)"><i class="fa-solid fa-play"></i> เล่น</button>
         <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(sound.mp3Url)}"
                 onclick="selectSound(this)">เลือก</button>
       `;
@@ -1846,19 +1868,19 @@ async function loadSoundsViaClientParse(resultsDiv, directUrl) {
   resultsDiv.innerHTML = `
     <div style="padding:20px;text-align:center;">
       <div style="color:var(--text-muted);margin-bottom:12px;">
-        ⚠️ ไม่สามารถค้นหาอัตโนมัติได้กรุณาค้นหาด้วยวิธีนี้ <br>
+        <i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถค้นหาอัตโนมัติได้กรุณาค้นหาด้วยวิธีนี้ <br>
         กดคลิกขวาที่ Download MP3 > Copy Link > วางลิงก์เสียง
       </div>
       <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener"
          style="display:inline-block;padding:10px 20px;background:var(--primary,#667eea);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;margin-bottom:16px;">
-        🔗 เปิด myinstants.com ค้นหาเสียง
+         <i class="fa-solid fa-external-link-alt"></i> เปิด myinstants.com ค้นหาเสียง
       </a>
       <div style="display:flex;gap:8px;align-items:center;max-width:400px;margin:0 auto;">
         <input type="text" id="manualSoundUrl" class="form-control"
                placeholder="วาง URL เสียงจาก myinstants.com ที่นี่..."
                style="flex:1;font-size:13px;">
         <button class="btn btn-primary btn-sm" onclick="addManualSound()"
-                style="white-space:nowrap;">➕ เพิ่ม</button>
+                style="white-space:nowrap;"><i class="fa-solid fa-plus"></i> เพิ่ม</button>
       </div>
       <small style="color:var(--text-muted);display:block;margin-top:8px;">
         ตัวอย่าง: https://www.myinstants.com/media/sounds/aimaihwaelw.mp3
@@ -1910,7 +1932,7 @@ function addManualSound() {
     <span style="flex:1;font-size:14px;">${escapeHtml(name)}</span>
     <button class="btn btn-sm btn-play-sound" data-mp3="${escapeHtml(mp3Url)}"
             style="background:var(--bg-secondary,#1e293b);"
-            onclick="previewSound(this)">▶️ เล่น</button>
+            onclick="previewSound(this)"><i class="fa-solid fa-play"></i> เล่น</button>
     <button class="btn btn-sm btn-primary btn-select-sound" data-mp3="${escapeHtml(mp3Url)}"
             onclick="selectSound(this)">เลือก</button>
   `;
@@ -1951,7 +1973,7 @@ async function previewSound(btn) {
   // Stop any current playback
   soundPlayer.stop();
 
-  btn.textContent = '⏳ โหลด...';
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> โหลด...';
   btn.disabled = true;
 
   let hasError = false;
@@ -1961,11 +1983,11 @@ async function previewSound(btn) {
     // Play with caching (lazy load - only fetches on first play)
     const audio = await soundPlayer.play(url, { volume: 0.5 });
     
-    btn.textContent = '⏸️ หยุด';
+    btn.innerHTML = '<i class="fa-solid fa-pause"></i> หยุด';
     btn.disabled = false;
 
     audio.onended = () => { 
-      btn.textContent = '▶️ เล่น'; 
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> เล่น'; 
     };
     
     audio.onerror = () => { 
@@ -1973,7 +1995,7 @@ async function previewSound(btn) {
       if (errorTimeout) clearTimeout(errorTimeout);
       errorTimeout = setTimeout(() => {
         if (soundPlayer.isPlaying()) return; // Still playing, ignore error
-        btn.textContent = '❌ เล่นไม่ได้'; 
+        btn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> เล่นไม่ได้'; 
         btn.disabled = false;
         hasError = true;
       }, 500);
@@ -1989,10 +2011,10 @@ async function previewSound(btn) {
       }
       if (soundPlayer.isPlaying()) {
         soundPlayer.pause();
-        btn.textContent = '▶️ เล่น';
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> เล่น';
       } else {
         soundPlayer.resume();
-        btn.textContent = '⏸️ หยุด';
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> หยุด';
       }
     };
   } catch (err) {
@@ -2001,7 +2023,7 @@ async function previewSound(btn) {
     // Delay error display to prevent flicker
     if (errorTimeout) clearTimeout(errorTimeout);
     errorTimeout = setTimeout(() => {
-      btn.textContent = '❌ เล่นไม่ได้';
+      btn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> เล่นไม่ได้';
       btn.disabled = false;
       hasError = true;
     }, 500);
@@ -2027,15 +2049,15 @@ async function previewSound(btn) {
       if (errorTimeout) clearTimeout(errorTimeout);
       hasError = false;
       
-      btn.textContent = '⏸️ หยุด';
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i> หยุด';
       btn.disabled = false;
       
-      audio.onended = () => { btn.textContent = '▶️ เล่น'; };
+      audio.onended = () => { btn.innerHTML = '<i class="fa-solid fa-play"></i> เล่น'; };
       audio.onerror = () => { 
         if (errorTimeout) clearTimeout(errorTimeout);
         errorTimeout = setTimeout(() => {
           if (!audio.paused) return;
-          btn.textContent = '❌ เล่นไม่ได้'; 
+          btn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> เล่นไม่ได้'; 
         }, 500);
       };
       
@@ -2047,10 +2069,10 @@ async function previewSound(btn) {
         }
         if (!audio.paused) {
           audio.pause();
-          btn.textContent = '▶️ เล่น';
+          btn.innerHTML = '<i class="fa-solid fa-play"></i> เล่น';
         } else {
           audio.play();
-          btn.textContent = '⏸️ หยุด';
+          btn.innerHTML = '<i class="fa-solid fa-pause"></i> หยุด';
         }
       };
     } catch (fallbackErr) {
@@ -2463,7 +2485,7 @@ async function savePaymentSettings() {
     });
 
     if (response.ok) {
-      showNotification('💾 บันทึกการตั้งค่าการรับเงินสำเร็จ');
+      showNotification('บันทึกการตั้งค่าการรับเงินสำเร็จ');
     } else {
       const err = await response.json();
       throw new Error(err.error || 'บันทึกไม่สำเร็จ');
