@@ -1164,7 +1164,7 @@ async function forceSuccessTransaction(id) {
     '<i class="fa-solid fa-sack-dollar"></i>',
     async () => {
       try {
-        const response = await fetch(`/api/transactions/${id}/status`, {
+        const response = await fetchWithCsrf(`/api/transactions/${id}/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'successful' })
@@ -1191,7 +1191,7 @@ async function simulateTransactionAlert(id) {
     const tx = allTransactions.find(t => t.id === id);
     if (!tx) throw new Error('ไม่พบข้อมูลธุรกรรม');
     
-    const response = await fetch('/api/alerts/test', {
+    const response = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1300,7 +1300,7 @@ async function triggerRandomTestAlert() {
 
 async function simulateCustomAlert(donor, amount, message) {
   try {
-    const res = await fetch('/api/alerts/test', {
+    const res = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ donor, amount, message })
@@ -2362,7 +2362,7 @@ async function testSlipOkConnection() {
       promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || ''
     };
 
-    const response = await fetch('/api/payment/test-slipok', {
+    const response = await fetchWithCsrf('/api/payment/test-slipok', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2408,7 +2408,7 @@ async function testTrueMoneySlipOkConnection() {
       truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || ''
     };
 
-    const response = await fetch('/api/payment/test-slipok', {
+    const response = await fetchWithCsrf('/api/payment/test-slipok', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

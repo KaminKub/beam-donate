@@ -5,6 +5,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
+  // Exit so PM2/process manager can restart in a clean state.
+  // Continuing after an uncaught exception leaves the process in an undefined state.
+  process.exit(1);
 });
 
 require('dotenv').config();
@@ -100,10 +103,24 @@ const MIN_SUBMIT_TIME = 2000;     // Minimum 2 seconds for human
 const TOKEN_EXPIRY = 3600000;     // Token expires in 1 hour (page refresh)
 const HONEYPOT_FIELD = 'contact_email';
 
+function getPageTokenSecret() {
+  // Use MASTER_ENCRYPTION_KEY for signing anti-bot tokens.
+  // Rationale (per AGENTS.md): SESSION_SECRET may change with .env quoting fixes,
+  // which would invalidate all existing tokens cached on donate pages.
+  // MASTER_ENCRYPTION_KEY is stable across restarts and quoting fixes.
+  // Note: This is a deliberate exception to key-separation — the anti-bot token
+  // only protects against bot form submission, not high-value secrets, so the
+  // risk of dual-use is acceptable. Do NOT extend this pattern to other HMAC uses.
+  const masterKey = process.env.MASTER_ENCRYPTION_KEY;
+  if (masterKey) return masterKey;
+  // Fallback only during dev/misconfiguration
+  return process.env.SESSION_SECRET;
+}
+
 function generatePageToken() {
   const timestamp = Date.now();
   const nonce = crypto.randomBytes(4).toString('hex');
-  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET;
+  const secret = getPageTokenSecret();
   const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
@@ -118,7 +135,7 @@ function verifyPageToken(token) {
   const [ts, nonce, sig] = parts;
   const timestamp = parseInt(ts, 10);
   if (isNaN(timestamp)) return false;
-  const secret = process.env.MASTER_ENCRYPTION_KEY || process.env.SESSION_SECRET;
+  const secret = getPageTokenSecret();
   const hmac = crypto.createHmac('sha256', secret)
     .update(`${timestamp}:${nonce}`)
     .digest('hex')
@@ -197,7 +214,23 @@ let helmet;
 try { helmet = require('helmet'); } catch (e) {}
 if (helmet) {
   app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      // Allow inline styles/scripts (dashboard uses inline), own origin + https for assets,
+      // SSE + API calls to self, Google Fonts/TTS, Twitch/Streamlabs OAuth redirects.
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc: ["'self'", 'https://www.myinstants.com'],
+        mediaSrc: ["'self'", 'https://translate.google.com', 'https://www.myinstants.com', 'data:'],
+        frameAncestors: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'", 'https://streamlabs.com', 'https://id.twitch.tv']
+      }
+    },
     crossOriginEmbedderPolicy: false
   }));
   app.use(helmet.frameguard({ action: 'sameorigin' }));
@@ -223,6 +256,7 @@ const REQUIRED_ENV_VARS = [
   'STREAMLABS_CLIENT_SECRET',
   'STREAMLABS_CALLBACK_URL',
   'MASTER_ENCRYPTION_KEY',
+  'ENCRYPTION_SALT',
 ];
 
 const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
@@ -366,6 +400,52 @@ app.use(express.json({
   }
 }));
 
+// ========== Rate Limiters ==========
+// Defined here (before routes) to avoid temporal dead zone errors.
+const authLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  message: { error: 'การเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const createChargeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'กรุณารอสักครู่ก่อนสร้างรายการใหม่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many webhook requests' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Redirect authenticated users to their dashboard (used on landing/login/register pages).
+// Avoids the redundant "click login again" flow when a session cookie is still valid.
+async function redirectIfAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    try {
+      const actualUsername = await getActualUsername(req.user);
+      if (actualUsername) {
+        // Verify the user actually exists in DB (session may be stale after account deletion)
+        const streamer = await db.getStreamer(actualUsername);
+        if (streamer) {
+          return res.redirect(`/${actualUsername.toLowerCase()}/dashboard`);
+        }
+      }
+    } catch (err) {
+      console.error('redirectIfAuthenticated error:', err.message);
+    }
+  }
+  next();
+}
+
 // -----------------------------------------------------------------
 // [FIXED ROUTES] - Define these BEFORE dynamic routes and static serving
 // -----------------------------------------------------------------
@@ -376,14 +456,16 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  // Home/landing page always renders — no auto-redirect.
+  // Only the login/register buttons redirect authenticated users to their dashboard.
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-app.get('/login', (req, res) => {
+app.get('/login', redirectIfAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/login.html'));
 });
 
-app.get('/register', (req, res) => {
+app.get('/register', redirectIfAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/register.html'));
 });
 
@@ -398,7 +480,7 @@ app.get('/api/register/pending', (req, res) => {
   res.json(req.session.pendingUser);
 });
 
-app.post('/api/register/complete', async (req, res) => {
+app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
   console.log('🛡️ [Register Complete] Request received');
   
   if (!req.session.pendingUser) {
@@ -463,11 +545,11 @@ app.post('/api/register/complete', async (req, res) => {
   }
 });
 
-app.get('/auth/twitch', (req, res, next) => {
+app.get('/auth/twitch', authLimiter, (req, res, next) => {
   passport.authenticate('twitch')(req, res, next);
 });
 
-app.get('/auth/streamlabs', (req, res) => {
+app.get('/auth/streamlabs', authLimiter, (req, res) => {
   const clientId = process.env.STREAMLABS_CLIENT_ID;
   const callbackUrl = process.env.STREAMLABS_CALLBACK_URL;
   const scope = process.env.STREAMLABS_SCOPE || '';
@@ -483,7 +565,7 @@ app.get('/auth/streamlabs', (req, res) => {
 
   let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURI(callbackUrl)}&scope=${encodeURIComponent(scope).replace(/%20/g, '+')}&response_type=${responseType}&state=${state}`;
   
-  console.log(`🚀 Redirecting to Streamlabs: ${authUrl}`);
+  console.log(`🚀 Redirecting to Streamlabs OAuth (state=${state.substring(0, 8)}...)`);
   req.session.save((err) => {
     if (err) console.error('❌ Session save error before Streamlabs redirect:', err);
     res.redirect(authUrl);
@@ -563,8 +645,8 @@ app.get('/auth/twitch/callback',
 );
 
 app.get('/auth/streamlabs/callback', async (req, res) => {
-  console.log('📥 [Streamlabs] FULL query:', JSON.stringify(req.query));
   const { code, state, error, error_description } = req.query;
+  console.log('📥 [Streamlabs] Callback received — code:', code ? `${code.substring(0, 8)}...` : '(none)', 'state:', state ? `${state.substring(0, 8)}...` : '(none)', 'error:', error || '(none)');
 
   if (error) {
     console.error(`❌ Streamlabs returned error: ${error} - ${error_description || 'no description'}`);
@@ -593,9 +675,8 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
   try {
     // 1. Exchange code for access_token (v1.0 uses form-encoded body)
     console.log('🔑 [Streamlabs] Exchanging code for token...');
-    console.log('🔑 [Streamlabs] Client ID valid:', !!process.env.STREAMLABS_CLIENT_ID);
-    console.log('🔑 [Streamlabs] Client Secret valid:', !!process.env.STREAMLABS_CLIENT_SECRET);
-    console.log('🔑 [Streamlabs] Redirect URI:', process.env.STREAMLABS_CALLBACK_URL);
+    console.log('🔑 [Streamlabs] Client ID present:', !!process.env.STREAMLABS_CLIENT_ID);
+    console.log('🔑 [Streamlabs] Client Secret present:', !!process.env.STREAMLABS_CLIENT_SECRET);
     console.log('🔑 [Streamlabs] Code prefix:', code?.substring(0, 8) + '...');
 
     const payload = new URLSearchParams();
@@ -617,7 +698,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     const accessToken = response.data.access_token;
     const refreshToken = response.data.refresh_token;
     if (!accessToken) {
-      console.error('❌ [Streamlabs] Token response missing access_token:', JSON.stringify(response.data));
+      console.error('❌ [Streamlabs] Token response missing access_token. Available keys:', Object.keys(response.data).join(', '));
       throw new Error('No access token received from Streamlabs');
     }
 
@@ -634,7 +715,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 
     console.log('👤 [Streamlabs] User response status:', userResponse.status);
     console.log('👤 [Streamlabs] User response keys:', Object.keys(userResponse.data).join(', '));
-    console.log('👤 [Streamlabs] User data:', JSON.stringify(userResponse.data).substring(0, 300));
+    console.log('👤 [Streamlabs] User data fields:', Object.keys(userResponse.data).map(k => `${k}=${k === 'id' || k === 'username' ? userResponse.data[k] : '(redacted)'}`).join(', '));
 
     const userData = userResponse.data;
     const streamlabsId = userData.id;
@@ -718,10 +799,10 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 
   } catch (err) {
     console.error('💥 [Streamlabs] Callback Error:', err.message);
-    console.error('💥 [Streamlabs] Error stack:', err.stack?.substring(0, 500));
+    if (err.stack) console.error('💥 [Streamlabs] Error type:', err.code || err.constructor.name);
     if (err.response) {
       console.error('💥 [Streamlabs] Response status:', err.response.status);
-      console.error('💥 [Streamlabs] Response data:', JSON.stringify(err.response.data).substring(0, 500));
+      // Do NOT log err.response.data — it may contain access_token or other secrets.
     }
     res.redirect('/login-failed');
   }
@@ -762,7 +843,7 @@ app.get('/admin', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API: สร้าง Donation (Payment Link)
-app.post('/api/create-charge', async (req, res) => {
+app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
   try {
     const { amount, name, message, username } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
@@ -820,7 +901,7 @@ app.get('/api/charge/:id', async (req, res) => {
   }
 });
 
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', webhookLimiter, async (req, res) => {
   try {
     const signature = req.headers['x-beam-signature'];
     const webhookSecret = process.env.WEBHOOK_SECRET;
@@ -1110,7 +1191,8 @@ app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
     const deletedCount = await db.hardDeleteExpiredTransactions();
     res.json({ success: true, expired: expiredCount, deleted: deletedCount });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Cron cleanup-expired error:', err);
+    res.status(500).json({ error: 'Cleanup failed' });
   }
 });
 
@@ -1120,11 +1202,12 @@ app.post('/api/cron/cleanup-quarterly', checkCronAuth, async (req, res) => {
     const count = await db.hardDeleteOldTransactions(months);
     res.json({ success: true, deleted: count, months });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Cron cleanup-quarterly error:', err);
+    res.status(500).json({ error: 'Cleanup failed' });
   }
 });
 
-app.post('/api/transactions/:id/status', ensureAuthenticated, async (req, res) => {
+app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const validStatuses = ['pending', 'successful', 'failed'];
@@ -1386,7 +1469,7 @@ app.get('/api/tts', (req, res) => {
   }
 });
 
-app.post('/api/alerts/test', ensureAuthenticated, async (req, res) => {
+app.post('/api/alerts/test', ensureAuthenticated, csrfProtection, async (req, res) => {
   const { donor, amount, message } = req.body;
   
   try {
@@ -1410,6 +1493,14 @@ app.post('/api/alerts/test', ensureAuthenticated, async (req, res) => {
 
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) return next();
+  // For API/JSON requests, return 401 JSON instead of redirecting to /login.
+  // Browser navigations (non-XHR) still get the redirect for a friendly login page.
+  const isApiRequest = req.xhr
+    || (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html'))
+    || req.path.startsWith('/api/');
+  if (isApiRequest) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' });
+  }
   res.redirect('/login');
 }
 
@@ -1427,6 +1518,22 @@ function csrfProtection(req, res, next) {
     return res.status(403).json({ error: 'CSRF token invalid', code: 'CSRF_INVALID' });
   }
   next();
+}
+
+// Same-origin check — lightweight CSRF defense for endpoints that cannot use
+// the synchronizer-token pattern (e.g. before the user is authenticated).
+// Rejects cross-site POST/PUT/DELETE unless the Origin/Referer matches.
+function sameOriginCheck(req, res, next) {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  const origin = req.headers.origin || req.headers.referer;
+  if (!origin) return res.status(403).json({ error: 'Missing Origin header', code: 'CSRF_INVALID' });
+  let allowed = ALLOWED_ORIGINS;
+  try {
+    const parsed = new URL(origin);
+    const originHost = `${parsed.protocol}//${parsed.host}`;
+    if (allowed.includes(originHost)) return next();
+  } catch (e) {}
+  return res.status(403).json({ error: 'Cross-site requests not allowed', code: 'CSRF_INVALID' });
 }
 
 app.get('/api/csrf-token', ensureAuthenticated, (req, res) => {
@@ -1652,7 +1759,7 @@ app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async 
     res.json(responseData);
   } catch (err) {
     console.error('MyInstants search error:', err.message);
-    res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้', details: err.message });
+    res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้' });
   }
 });
 
@@ -1771,18 +1878,19 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       promptpay_phone: decrypted.promptpay_phone || '',
       promptpay_name: decrypted.promptpay_name || '',
       promptpay_enabled: decrypted.promptpay_enabled || 0,
-      tfp_api_key: decrypted.tfp_api_key || '',
-      tfp_api_secret: decrypted.tfp_api_secret || '',
+      // Censor secrets — frontend detects '*' to avoid overwriting on save.
+      tfp_api_key: censor(decrypted.tfp_api_key || ''),
+      tfp_api_secret: censor(decrypted.tfp_api_secret || ''),
       tfp_connected: decrypted.tfp_connected || 0,
       tfp_last_check: decrypted.tfp_last_check || '',
       promptpay_type: decrypted.promptpay_type || 'phone',
-      promptpay_value: decrypted.promptpay_value || '',
+      promptpay_value: censor(decrypted.promptpay_value || '', 3, 2),
       slipok_api: censor(decrypted.slipok_api || '', 8, 4),
       slipok_api_key: censor(decrypted.slipok_api_key || ''),
       slipok_connected: decrypted.slipok_connected || 0,
       slipok_last_check: decrypted.slipok_last_check || '',
       truemoney_enabled: decrypted.truemoney_enabled || 0,
-      truemoney_phone: decrypted.truemoney_phone || '',
+      truemoney_phone: censor(decrypted.truemoney_phone || '', 3, 2),
       truemoney_slipok_api: censor(decrypted.truemoney_slipok_api || '', 8, 4),
       truemoney_slipok_api_key: censor(decrypted.truemoney_slipok_api_key || ''),
       truemoney_slipok_connected: decrypted.truemoney_slipok_connected || 0,
@@ -1828,7 +1936,7 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
 });
 
 // POST /api/payment/test-tfp - Test TFP API connection
-app.post('/api/payment/test-slipok', ensureAuthenticated, async (req, res) => {
+app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const { slipok_api, slipok_api_key, method, promptpay_type, promptpay_value, truemoney_phone } = req.body;
     if (!slipok_api || !slipok_api_key) {
@@ -1911,7 +2019,11 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, async (req, res) => {
     } catch (ignore) {}
 
     const errorMsg = err.response
-      ? `SlipOK ตอบกลับ: ${err.response.status} ${JSON.stringify(err.response.data)}`
+      ? (err.response.status === 401 || err.response.status === 403
+          ? 'SlipOK API key ไม่ถูกต้องหรือไม่ได้รับอนุญาต'
+          : err.response.status === 429
+            ? 'SlipOK API ถูกใช้งานเกินโควต้า กรุณาตรวจสอบแพ็คเกจของคุณ'
+            : `SlipOK ตอบกลับ HTTP ${err.response.status}`)
       : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
         ? 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ SlipOK ได้'
         : err.code === 'ETIMEDOUT'
@@ -2068,7 +2180,7 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('Create PromptPay QR error:', err);
-    res.status(500).json({ error: err.message || 'ไม่สามารถสร้าง QR Code ได้' });
+    res.status(500).json({ error: 'ไม่สามารถสร้าง QR Code ได้' });
   }
 });
 
