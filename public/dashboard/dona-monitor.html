@@ -77,6 +77,27 @@
       color: #f87171;
       border: 1px solid rgba(239, 68, 68, 0.2);
     }
+    .popup-status-mini {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 16px;
+      background: rgba(15, 23, 42, 0.7);
+      font-size: 10px;
+      color: #64748b;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+    }
+    .status-mini-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4b5563;
+      flex-shrink: 0;
+    }
+    .status-mini-dot.online {
+      background: #22c55e;
+      box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+    }
     .auto-refresh-indicator {
       font-size: 10px;
       color: #64748b;
@@ -361,6 +382,11 @@
       </div>
     </div>
 
+    <div class="popup-status-mini" id="overlayStatusBar">
+      <span class="status-mini-dot" id="overlayStatusDot"></span>
+      <span id="overlayStatusText">ตรวจสอบสถานะ...</span>
+    </div>
+
     <div class="popup-filter-bar">
       <div class="popup-search-wrapper">
         <span class="popup-search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -503,6 +529,7 @@
       } catch (err) {
         console.error('Fetch error:', err);
       }
+      checkOverlayStatus();
     }
 
     function render() {
@@ -662,6 +689,27 @@
       }
     }
 
+    async function checkOverlayStatus() {
+      var dot = document.getElementById('overlayStatusDot');
+      var text = document.getElementById('overlayStatusText');
+      if (!dot || !text) return;
+      try {
+        var res = await fetch('/api/overlay/status/' + getUsername());
+        if (res.ok) {
+          var data = await res.json();
+          if (data.active) {
+            dot.classList.add('online');
+            text.textContent = 'โดขึ้นจอ · เปิดอยู่';
+            text.style.color = '#4ade80';
+            return;
+          }
+        }
+      } catch (e) {}
+      dot.classList.remove('online');
+      text.textContent = 'โดขึ้นจอ · ปิดอยู่';
+      text.style.color = '#64748b';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       if (window.opener) {
         document.getElementById('btnCloseWindow').style.display = 'inline-block';
@@ -683,6 +731,7 @@
       document.getElementById('selectStatus').addEventListener('change', render);
 
       fetchTransactions();
+      checkOverlayStatus();
       refreshInterval = setInterval(updateCountdown, 1000);
     });
   </script>
