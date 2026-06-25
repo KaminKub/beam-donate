@@ -259,6 +259,68 @@
       color: #818cf8;
       font-weight: 500;
     }
+
+    /* SlipOK Quota Monitor (minimal footer badge) */
+    .quota-monitor-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(99, 102, 241, 0.08);
+      font-size: 10px;
+      font-weight: 500;
+      color: #94a3b8;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .quota-monitor-badge:hover {
+      background: rgba(99, 102, 241, 0.18);
+    }
+    .quota-monitor-badge .fa-receipt {
+      font-size: 9px;
+      color: #818cf8;
+    }
+    .quota-monitor-text {
+      font-variant-numeric: tabular-nums;
+    }
+    .quota-monitor-bar-bg {
+      display: inline-block;
+      width: 28px;
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      vertical-align: middle;
+    }
+    .quota-monitor-bar {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+      background: #22c55e;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+    .quota-monitor-bar.warn { background: #eab308; }
+    .quota-monitor-bar.danger { background: #ef4444; }
+    .quota-monitor-refresh-icon {
+      font-size: 8px;
+      color: #64748b;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    .quota-monitor-badge:hover .quota-monitor-refresh-icon {
+      opacity: 1;
+      color: #818cf8;
+    }
+    .quota-monitor-refresh-icon.spinning {
+      animation: reloadSpin 1s linear infinite;
+    }
+    @keyframes reloadSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
     .popup-notification {
       position: fixed;
       bottom: 12px;
@@ -421,6 +483,14 @@
 
     <div class="popup-footer">
       <span>รายการ: <span class="count" id="rowCount">0</span></span>
+      <span class="quota-monitor-badge" id="quotaMonitorBadge" title="เครดิต SlipOK คงเหลือ — คลิกเพื่อรีเฟรช">
+        <i class="fa-solid fa-receipt"></i>
+        <span class="quota-monitor-text" id="quotaMonitorText">—/—</span>
+        <span class="quota-monitor-bar-bg">
+          <span class="quota-monitor-bar" id="quotaMonitorBar"></span>
+        </span>
+        <i class="fa-solid fa-rotate quota-monitor-refresh-icon" id="quotaMonitorRefreshIcon"></i>
+      </span>
       <span>TipKub Dona-Monitor v1.0</span>
     </div>
   </div>
@@ -710,6 +780,63 @@
       text.style.color = '#64748b';
     }
 
+    async function fetchMonitorQuota() {
+      var textEl = document.getElementById('quotaMonitorText');
+      var barEl = document.getElementById('quotaMonitorBar');
+      var badge = document.getElementById('quotaMonitorBadge');
+      var refreshIcon = document.getElementById('quotaMonitorRefreshIcon');
+      if (!textEl || !barEl) return;
+      if (refreshIcon) refreshIcon.classList.add('spinning');
+
+      try {
+        var res = await fetch('/api/payment/slipok-quota?method=promptpay');
+        if (res.status === 429) {
+          if (badge) badge.title = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+          return;
+        }
+        if (!res.ok) {
+          res = await fetch('/api/payment/slipok-quota?method=truemoney');
+          if (res.status === 429) {
+            if (badge) badge.title = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+            return;
+          }
+          if (!res.ok) { textEl.textContent = '—/—'; return; }
+        }
+        var result = await res.json();
+        if (!result.success) { textEl.textContent = '—/—'; return; }
+
+        var q = result.data;
+        var snapshot = result.data.snapshotTotal;
+        var remaining = q.quota || 0;
+        var specialQuota = q.specialQuota || 0;
+        var overQuota = q.overQuota || 0;
+
+        var totalPool, used;
+        if (snapshot && snapshot > 0) {
+          totalPool = Math.max(snapshot, remaining) + specialQuota;
+          used = Math.max(0, totalPool - remaining);
+        } else {
+          totalPool = remaining + specialQuota;
+          used = overQuota;
+        }
+        var ratio = totalPool > 0 ? used / totalPool : 0;
+
+        textEl.textContent = used + '/' + totalPool;
+        barEl.style.width = (ratio * 100) + '%';
+        barEl.className = ratio < 0.5 ? 'quota-monitor-bar'
+                        : ratio < 0.8 ? 'quota-monitor-bar warn'
+                        : 'quota-monitor-bar danger';
+
+        if (badge) badge.title = 'ใช้ไป ' + used + ' จาก ' + totalPool + ' ครั้ง — คลิกเพื่อรีเฟรช';
+      } catch (e) {
+        textEl.textContent = '—/—';
+      } finally {
+        setTimeout(function() {
+          if (refreshIcon) refreshIcon.classList.remove('spinning');
+        }, 1200);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       if (window.opener) {
         document.getElementById('btnCloseWindow').style.display = 'inline-block';
@@ -732,7 +859,10 @@
 
       fetchTransactions();
       checkOverlayStatus();
+      fetchMonitorQuota();
       refreshInterval = setInterval(updateCountdown, 1000);
+
+      document.getElementById('quotaMonitorBadge')?.addEventListener('click', fetchMonitorQuota);
     });
   </script>
 </body>

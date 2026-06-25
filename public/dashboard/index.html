@@ -112,20 +112,43 @@
             </div>
 
             <div class="stat-card">
-              <div class="stat-icon rate"><i class="fa-solid fa-chart-line"></i></div>
+              <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
               <div class="stat-info">
-                <h3>อัตราความสำเร็จ</h3>
-                <h2 id="statSuccessRate">0%</h2>
-                <span class="stat-label">Success Rate Ratio</span>
+                <h3>รายการรอ / ล้มเหลว</h3>
+                <h2 id="statPendingCount">0 / 0</h2>
+                <span class="stat-label">Pending / Failed</span>
               </div>
             </div>
 
-            <div class="stat-card">
-              <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="stat-card stat-card-slipok" id="statCardSlipok" role="button" tabindex="0"
+                 title="คลิกเพื่อรีเฟรชเครดิต SlipOK">
+              <div class="stat-icon slipok"><i class="fa-solid fa-receipt"></i></div>
               <div class="stat-info">
-                <h3>รายการรอ/ล้มเหลว</h3>
-                <h2 id="statPendingCount">0 / 0</h2>
-                <span class="stat-label">Pending / Failed</span>
+                <h3>SlipOK | โควต้า</h3>
+
+                <div class="slipok-dash-connected" id="slipokDashConnected">
+                  <div class="slipok-dash-usage">
+                    <span class="slipok-dash-label">ใช้ไป</span>
+                    <span class="slipok-dash-used" id="slipokDashUsed">—</span>
+                    <span class="slipok-dash-sep">/</span>
+                    <span class="slipok-dash-total" id="slipokDashTotal">—</span>
+                    <span class="slipok-dash-unit">ครั้ง</span>
+                  </div>
+                  <div class="slipok-dash-bar-bg">
+                    <div class="slipok-dash-bar" id="slipokDashBar"></div>
+                  </div>
+                  <span class="slipok-dash-meta" id="slipokDashMeta">กำลังโหลด...</span>
+                  <span class="slipok-dash-refresh-afford" aria-hidden="true">
+                    <i class="fa-solid fa-rotate"></i> คลิกเพื่อรีเฟรช
+                  </span>
+                </div>
+
+                <div class="slipok-dash-disconnected" id="slipokDashDisconnected" style="display: none;">
+                  <h2 class="slipok-dash-no-api">ยังไม่เชื่อมต่อ API</h2>
+                  <span class="slipok-dash-setup-link" onclick="event.stopPropagation(); switchTab('payment-setup');">
+                    คลิกตั้งค่า <i class="fa-solid fa-arrow-right"></i>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -537,6 +560,25 @@
                               </div>
                             </div>
                           </div>
+
+                          <div class="slipok-quota-mini" id="slipokQuotaMini" style="display: none;">
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">โควต้าคงเหลือ</span>
+                              <span class="quota-mini-value" id="slipokQuotaMiniValue">—</span>
+                            </div>
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">ใช้เกิน</span>
+                              <span class="quota-mini-value over" id="slipokOverQuotaMiniValue">0</span>
+                            </div>
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">หมดอายุ</span>
+                              <span class="quota-mini-value date" id="slipokEndDateMiniValue">—</span>
+                            </div>
+                            <button type="button" class="btn-quota-mini-refresh" id="btnRefreshSlipokQuotaMini">
+                              <i class="fas fa-sync-alt"></i> รีเฟรช
+                            </button>
+                            <span class="quota-mini-updated" id="slipokQuotaMiniUpdated"></span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -627,6 +669,25 @@
                                 <span id="trueMoneySlipOkStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
                               </div>
                             </div>
+                          </div>
+
+                          <div class="slipok-quota-mini" id="trueMoneySlipokQuotaMini" style="display: none;">
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">โควต้าคงเหลือ</span>
+                              <span class="quota-mini-value" id="trueMoneySlipokQuotaMiniValue">—</span>
+                            </div>
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">ใช้เกิน</span>
+                              <span class="quota-mini-value over" id="trueMoneySlipokOverQuotaMiniValue">0</span>
+                            </div>
+                            <div class="quota-mini-row">
+                              <span class="quota-mini-label">หมดอายุ</span>
+                              <span class="quota-mini-value date" id="trueMoneySlipokEndDateMiniValue">—</span>
+                            </div>
+                            <button type="button" class="btn-quota-mini-refresh" id="btnRefreshTrueMoneySlipokQuotaMini">
+                              <i class="fas fa-sync-alt"></i> รีเฟรช
+                            </button>
+                            <span class="quota-mini-updated" id="trueMoneySlipokQuotaMiniUpdated"></span>
                           </div>
                         </div>
                       </div>

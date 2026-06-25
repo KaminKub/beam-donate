@@ -712,6 +712,120 @@ body {
   color: #fbbf24;
 }
 
+.stat-icon.slipok {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+/* ========== SlipOK Stat Card ========== */
+.stat-card.stat-card-slipok {
+  cursor: pointer;
+}
+.stat-card.stat-card-slipok:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+.slipok-dash-usage {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+.slipok-dash-label {
+  font-size: 10px; font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.slipok-dash-used { color: #818cf8; }
+.slipok-dash-sep  { color: var(--text-muted); margin: 0 2px; }
+.slipok-dash-total{ color: #ffffff; }
+.slipok-dash-unit { font-size: 12px; font-weight: 400; color: var(--text-muted); margin-left: 3px; }
+
+.slipok-dash-bar-bg {
+  height: 4px; background: rgba(255,255,255,0.1);
+  border-radius: 2px; margin: 6px 0 4px; overflow: hidden;
+}
+.slipok-dash-bar {
+  height: 100%; border-radius: 2px;
+  transition: width 0.5s ease;
+}
+.slipok-dash-bar.green  { background: #22c55e; }
+.slipok-dash-bar.yellow { background: #eab308; }
+.slipok-dash-bar.red    { background: #ef4444; }
+
+.slipok-dash-meta {
+  font-size: 10px; color: var(--text-muted);
+  line-height: 1.4;
+}
+.slipok-dash-sep-dot {
+  margin: 0 4px; color: #555;
+}
+.slipok-dash-overrate {
+  color: #666; font-size: 9px;
+}
+
+.slipok-dash-refresh-afford {
+  display: block;
+  font-size: 9px;
+  color: #555;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.stat-card-slipok:hover .slipok-dash-refresh-afford {
+  opacity: 1;
+}
+.slipok-dash-refresh-afford .fa-rotate.spinning {
+  animation: reloadSpin 1s linear infinite;
+}
+
+.slipok-dash-disconnected {
+  text-align: center;
+}
+.slipok-dash-no-api {
+  font-size: 14px; color: var(--text-muted);
+  font-weight: 500; margin-bottom: 4px;
+}
+.slipok-dash-setup-link {
+  font-size: 11px; color: #818cf8; cursor: pointer;
+  transition: color 0.2s;
+}
+.slipok-dash-setup-link:hover { color: #a5b4fc; }
+
+/* ========== Quota Mini-Card (Payment Setup) ========== */
+.slipok-quota-mini {
+  background: var(--bg-secondary, #1a1a2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.quota-mini-row {
+  display: flex; justify-content: space-between;
+  padding: 3px 0;
+}
+.quota-mini-label { color: var(--text-muted); }
+.quota-mini-value { font-weight: 600; color: #fff; }
+.quota-mini-value.over { color: #ef4444; }
+.quota-mini-value.special { color: #f59e0b; }
+.quota-mini-value.date { font-size: 12px; color: var(--text-muted); }
+
+.btn-quota-mini-refresh {
+  background: none; border: none;
+  color: #818cf8; cursor: pointer;
+  font-size: 11px; padding: 3px 0;
+}
+.btn-quota-mini-refresh:hover { color: #a5b4fc; }
+.btn-quota-mini-refresh.spinning { pointer-events: none; }
+.btn-quota-mini-refresh.spinning i {
+  animation: reloadSpin 1s linear infinite;
+}
+.quota-mini-updated {
+  font-size: 10px; color: var(--text-muted); margin-left: 6px;
+}
+
 .stat-info h3 {
   font-size: 13px;
   font-weight: 500;

@@ -176,7 +176,9 @@ async function migrateDB() {
         truemoney_slipok_api_encrypted TEXT,
         truemoney_slipok_api_key_encrypted TEXT,
         truemoney_slipok_connected INTEGER DEFAULT 0,
-        truemoney_slipok_last_check TEXT
+        truemoney_slipok_last_check TEXT,
+        slipok_quota_total INTEGER,
+        truemoney_slipok_quota_total INTEGER
       )
     `);
 
@@ -296,7 +298,9 @@ async function migrateDB() {
       { name: 'truemoney_slipok_api_encrypted', type: 'TEXT' },
       { name: 'truemoney_slipok_api_key_encrypted', type: 'TEXT' },
       { name: 'truemoney_slipok_connected', type: 'INTEGER DEFAULT 0' },
-      { name: 'truemoney_slipok_last_check', type: 'TEXT' }
+      { name: 'truemoney_slipok_last_check', type: 'TEXT' },
+      { name: 'slipok_quota_total', type: 'INTEGER' },
+      { name: 'truemoney_slipok_quota_total', type: 'INTEGER' }
     ];
 
     for (const col of requiredCols) {
@@ -824,7 +828,9 @@ async function saveStreamer(data) {
                truemoney_slipok_api_encrypted = COALESCE(?, streamers.truemoney_slipok_api_encrypted),
                truemoney_slipok_api_key_encrypted = COALESCE(?, streamers.truemoney_slipok_api_key_encrypted),
                truemoney_slipok_connected = COALESCE(?, streamers.truemoney_slipok_connected),
-               truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check)
+               truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check),
+               slipok_quota_total = COALESCE(?, streamers.slipok_quota_total),
+               truemoney_slipok_quota_total = COALESCE(?, streamers.truemoney_slipok_quota_total)
                WHERE twitch_id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -901,6 +907,8 @@ async function saveStreamer(data) {
           finalData.truemoney_slipok_api_key_encrypted !== undefined ? finalData.truemoney_slipok_api_key_encrypted : null,
           finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : null,
           finalData.truemoney_slipok_last_check !== undefined ? finalData.truemoney_slipok_last_check : null,
+          finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
+          finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null,
           finalData.twitch_id || null
         ]
       });
@@ -916,8 +924,8 @@ async function saveStreamer(data) {
                profile_image_source, profile_image_value, profile_glow_color,
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
-              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -993,7 +1001,9 @@ async function saveStreamer(data) {
         finalData.truemoney_slipok_api_encrypted || null,
         finalData.truemoney_slipok_api_key_encrypted || null,
         finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : 0,
-        finalData.truemoney_slipok_last_check || null
+        finalData.truemoney_slipok_last_check || null,
+        finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
+        finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null
       ]
     });
 

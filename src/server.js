@@ -29,6 +29,7 @@ const OAuth2Strategy = require('passport-oauth2').Strategy;
 
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
@@ -275,6 +276,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  name: 'sessionId',
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -396,6 +398,7 @@ async function getActualUsername(user) {
 }
 
 app.use(express.json({
+  limit: '1mb',
   verify: (req, res, buf) => {
     req.rawBody = buf;
   }
@@ -425,6 +428,18 @@ const webhookLimiter = rateLimit({
   message: { error: 'Too many webhook requests' },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+const slipokQuotaLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn(`Rate limit hit on /api/payment/slipok-quota — IP: ${req.ip}`);
+    res.status(429).json({ error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' });
+  }
 });
 
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
@@ -1254,7 +1269,9 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       username: streamer.username,
       twitchId: streamer.twitch_id,
       streamlabsId: streamer.streamlabs_id,
-      email: req.user.email || 'Not provided'
+      email: req.user.email || 'Not provided',
+      slipok_connected: !!streamer.slipok_connected,
+      truemoney_slipok_connected: !!streamer.truemoney_slipok_connected
     });
   } catch (err) {
     console.error('Get user info error:', err);
@@ -1273,7 +1290,7 @@ app.post('/api/logout', (req, res) => {
         console.error('Session destroy error:', err);
         return res.status(500).json({ error: 'Failed to destroy session' });
       }
-      res.clearCookie('connect.sid');
+      res.clearCookie('sessionId');
       res.json({ success: true });
     });
   });
@@ -1298,7 +1315,7 @@ app.delete('/api/user/delete', ensureAuthenticated, csrfProtection, async (req, 
       if (err) console.error('Logout error during deletion:', err);
       req.session.destroy((sErr) => {
         if (sErr) console.error('Session destroy error during deletion:', sErr);
-        res.clearCookie('connect.sid');
+        res.clearCookie('sessionId');
         res.json({ success: true, message: 'Account deleted successfully' });
       });
     });
@@ -1955,9 +1972,9 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
     let realPromptpayType = promptpay_type || 'phone';
 
     if (slipok_api.includes('*') || slipok_api_key.includes('*')) {
-      const streamer = await db.getStreamer(actualUsername);
-      if (streamer) {
-        const decrypted = decryptPaymentFields(streamer);
+      const streamerForDecrypt = await db.getStreamer(actualUsername);
+      if (streamerForDecrypt) {
+        const decrypted = decryptPaymentFields(streamerForDecrypt);
         if (isTruemoney) {
           if (slipok_api.includes('*')) realApi = decrypted.truemoney_slipok_api || '';
           if (slipok_api_key.includes('*')) realApiKey = decrypted.truemoney_slipok_api_key || '';
@@ -1984,16 +2001,35 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       timeout: 10000
     });
 
+    const streamer = await db.getStreamer(actualUsername);
+
+    function inferBasePlan(quota) {
+      const plans = [100, 500, 2000, 5000, 10000];
+      for (const plan of plans) {
+        if (quota <= plan) return plan;
+      }
+      return Math.max(100, quota);
+    }
+
     if (isTruemoney) {
+      const currentQuota = response.data?.data?.quota || 0;
+      const existingTotal = streamer?.truemoney_slipok_quota_total || 0;
+      const candidate = inferBasePlan(currentQuota);
+      const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
         twitch_id: twitchId,
         truemoney_slipok_connected: 1,
         truemoney_slipok_last_check: new Date().toISOString(),
         truemoney_phone: realTruemoneyPhone,
         truemoney_slipok_api: realApi,
-        truemoney_slipok_api_key: realApiKey
+        truemoney_slipok_api_key: realApiKey,
+        truemoney_slipok_quota_total: newSnapshot
       });
     } else {
+      const currentQuota = response.data?.data?.quota || 0;
+      const existingTotal = streamer?.slipok_quota_total || 0;
+      const candidate = inferBasePlan(currentQuota);
+      const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
         twitch_id: twitchId,
         slipok_connected: 1,
@@ -2001,7 +2037,8 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
         promptpay_type: realPromptpayType,
         promptpay_value: realPromptpayValue,
         slipok_api: realApi,
-        slipok_api_key: realApiKey
+        slipok_api_key: realApiKey,
+        slipok_quota_total: newSnapshot
       });
     }
 
@@ -2032,6 +2069,83 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
           : `เกิดข้อผิดพลาด: ${err.message}`;
 
     res.status(502).json({ success: false, error: errorMsg });
+  }
+});
+
+// GET /api/payment/slipok-quota — fetch live quota from SlipOK (read-only, no CSRF needed)
+app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, async (req, res) => {
+  try {
+    const { method } = req.query;
+    const actualUsername = await getActualUsername(req.user);
+    const streamer = await db.getStreamer(actualUsername);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+
+    const decrypted = decryptPaymentFields(streamer);
+    const isTruemoney = method === 'truemoney';
+    const realApi = isTruemoney
+      ? decrypted.truemoney_slipok_api
+      : decrypted.slipok_api;
+    const realApiKey = isTruemoney
+      ? decrypted.truemoney_slipok_api_key
+      : decrypted.slipok_api_key;
+
+    if (!realApi || !realApiKey) {
+      return res.status(400).json({ error: 'ยังไม่ได้ตั้งค่า SlipOK API' });
+    }
+
+    const branchUrl = realApi.endsWith('/quota')
+      ? realApi.replace(/\/quota$/, '')
+      : realApi;
+    const quotaUrl = `${branchUrl}/quota`;
+
+    const response = await axios.get(quotaUrl, {
+      headers: { 'x-authorization': realApiKey },
+      timeout: 10000
+    });
+
+    const q = response.data?.data || {};
+    const quotaValue = q.quota || 0;
+
+    function inferBasePlan(quota) {
+      const plans = [100, 500, 2000, 5000, 10000];
+      for (const plan of plans) {
+        if (quota <= plan) return plan;
+      }
+      return Math.max(100, quota);
+    }
+
+    const twitchId = req.user.twitch_id || req.user.id;
+    if (isTruemoney) {
+      const existingTotal = streamer.truemoney_slipok_quota_total || 0;
+      if (!existingTotal) {
+        const inferred = inferBasePlan(quotaValue);
+        try { await db.saveStreamer({ twitch_id: twitchId, truemoney_slipok_quota_total: inferred }); } catch (e) {}
+      }
+    } else {
+      const existingTotal = streamer.slipok_quota_total || 0;
+      if (!existingTotal) {
+        const inferred = inferBasePlan(quotaValue);
+        try { await db.saveStreamer({ twitch_id: twitchId, slipok_quota_total: inferred }); } catch (e) {}
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        quota: q.quota ?? null,
+        overQuota: q.overQuota ?? 0,
+        specialQuota: q.specialQuota ?? 0,
+        endDate: q.endDate ?? null,
+        method: isTruemoney ? 'truemoney' : 'promptpay',
+        snapshotTotal: isTruemoney
+          ? (inferBasePlan(quotaValue) || streamer.truemoney_slipok_quota_total)
+          : (inferBasePlan(quotaValue) || streamer.slipok_quota_total)
+      }
+    });
+  } catch (err) {
+    console.error('SlipOK quota fetch error:', err.response?.status || 'NO_RESPONSE', err.message);
+    const status = err.response?.status || 500;
+    res.status(status).json({ error: 'ไม่สามารถดึงข้อมูลโควต้าได้' });
   }
 });
 
@@ -2448,6 +2562,20 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
     }
     res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลวิธีรับเงินได้' });
   }
+});
+
+// Custom 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Centralized error handler
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err.message);
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(err.stack);
+  }
+  res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
 if (typeof require !== 'undefined' && require.main === module) {

@@ -66,6 +66,7 @@ async function initializeDashboard() {
     // 1. Data Load
     console.log('📡 Triggering data loads...');
     fetchTransactions();
+    fetchUserPaymentStatus();
     loadPageSettings().catch(err => console.error('Initial settings load failed:', err));
 
     const btnMobileMenu = document.getElementById('btnMobileMenu');
@@ -507,6 +508,21 @@ async function initializeDashboard() {
       btnSavePayment.onclick = savePaymentSettings;
     }
 
+    const btnRefreshSlipokQuotaMini = document.getElementById('btnRefreshSlipokQuotaMini');
+    if (btnRefreshSlipokQuotaMini) {
+      btnRefreshSlipokQuotaMini.addEventListener('click', () => {
+        btnRefreshSlipokQuotaMini.classList.add('spinning');
+        fetchQuotaMini('promptpay');
+      });
+    }
+    const btnRefreshTrueMoneySlipokQuotaMini = document.getElementById('btnRefreshTrueMoneySlipokQuotaMini');
+    if (btnRefreshTrueMoneySlipokQuotaMini) {
+      btnRefreshTrueMoneySlipokQuotaMini.addEventListener('click', () => {
+        btnRefreshTrueMoneySlipokQuotaMini.classList.add('spinning');
+        fetchQuotaMini('truemoney');
+      });
+    }
+
     console.log('✅ initializeDashboard completed successfully');
   } catch (criticalErr) {
     console.error('💥 Critical error during dashboard initialization:', criticalErr);
@@ -938,14 +954,182 @@ function calculateStats(transactions) {
     }
   });
 
-  const totalCompleted = successCount + failedCount;
-  const successRate = totalCompleted > 0 ? Math.round((successCount / totalCompleted) * 100) : 0;
-
   // Render to DOM
   document.getElementById('statTotalAmount').textContent = `฿${totalAmount.toLocaleString('th-TH')}`;
   document.getElementById('statSuccessCount').textContent = successCount.toLocaleString();
-  document.getElementById('statSuccessRate').textContent = `${successRate}%`;
   document.getElementById('statPendingCount').textContent = `${pendingCount} / ${failedCount}`;
+}
+
+// ========== SlipOK Quota Dashboard Card ==========
+async function fetchUserPaymentStatus() {
+  try {
+    const response = await fetch('/api/user/me');
+    if (!response.ok) return;
+    const user = await response.json();
+
+    const connected = user.slipok_connected || user.truemoney_slipok_connected;
+    renderSlipokDashCard(connected);
+
+    if (connected) {
+      fetchSlipokDashQuota();
+    }
+  } catch (err) {
+    console.error('fetchUserPaymentStatus error:', err);
+  }
+}
+
+function renderSlipokDashCard(connected) {
+  const card = document.getElementById('statCardSlipok');
+  const connectedEl = document.getElementById('slipokDashConnected');
+  const disconnectedEl = document.getElementById('slipokDashDisconnected');
+
+  if (!card) return;
+
+  if (connected) {
+    connectedEl.style.display = 'block';
+    disconnectedEl.style.display = 'none';
+    card.onclick = () => fetchSlipokDashQuota(null, true);
+  } else {
+    connectedEl.style.display = 'none';
+    disconnectedEl.style.display = 'block';
+    card.onclick = (e) => {
+      e.stopPropagation();
+      switchTab('payment-setup');
+    };
+  }
+}
+
+async function fetchSlipokDashQuota(method, showFeedback) {
+  const usedEl = document.getElementById('slipokDashUsed');
+  const totalEl = document.getElementById('slipokDashTotal');
+  const barEl = document.getElementById('slipokDashBar');
+  const metaEl = document.getElementById('slipokDashMeta');
+  const affordEl = document.querySelector('.slipok-dash-refresh-afford .fa-rotate');
+
+  if (!method) {
+    if (affordEl) affordEl.classList.add('spinning');
+    const ok = await fetchSlipokDashQuota('promptpay', showFeedback);
+    if (!ok) await fetchSlipokDashQuota('truemoney', showFeedback);
+    if (metaEl && (!usedEl || usedEl.textContent === '—')) {
+      metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+    }
+    setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/payment/slipok-quota?method=${method}`);
+    if (response.status === 429) {
+      if (metaEl && method === 'truemoney') metaEl.textContent = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+      return false;
+    }
+    if (!response.ok) {
+      if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
+      return false;
+    }
+    const result = await response.json();
+    if (!result.success) {
+      if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
+      return false;
+    }
+
+    const quota = result.data;
+    const snapshotFromDb = result.data.snapshotTotal;
+    const remaining = quota.quota || 0;
+    const specialQuota = quota.specialQuota || 0;
+    const overQuota = quota.overQuota || 0;
+
+    let totalPool;
+    let used;
+    if (snapshotFromDb && snapshotFromDb > 0) {
+      totalPool = Math.max(snapshotFromDb, remaining) + specialQuota;
+      used = Math.max(0, totalPool - remaining);
+    } else {
+      totalPool = remaining + specialQuota;
+      used = overQuota;
+    }
+    const ratio = totalPool > 0 ? used / totalPool : 0;
+
+    if (usedEl) usedEl.textContent = used;
+    if (totalEl) totalEl.textContent = totalPool;
+
+    if (barEl) {
+      barEl.style.width = `${ratio * 100}%`;
+      barEl.className = 'slipok-dash-bar ' + (
+        ratio < 0.5 ? 'green' : ratio < 0.8 ? 'yellow' : 'red'
+      );
+    }
+
+    if (metaEl) {
+      const basePlan = snapshotFromDb && snapshotFromDb > 0 ? snapshotFromDb : totalPool;
+      const packageLabel = quota.packageName
+        || (basePlan <= 100 ? 'Free Plan' : basePlan <= 500 ? 'Basic' : 'Pro');
+      const endDate = quota.endDate
+        ? new Date(quota.endDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+        : '—';
+      metaEl.innerHTML = `${packageLabel}<span class="slipok-dash-sep-dot">·</span>รีเซท ${endDate}`;
+    }
+
+    const origText = affordEl ? affordEl.parentElement.innerHTML : '';
+    if (showFeedback && affordEl && affordEl.parentElement) {
+      affordEl.parentElement.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> อัปเดตแล้ว';
+      affordEl.parentElement.style.opacity = '1';
+    }
+    setTimeout(() => {
+      if (affordEl && affordEl.parentElement && showFeedback) {
+        affordEl.parentElement.innerHTML = origText;
+        affordEl.parentElement.style.opacity = '';
+      }
+    }, 2000);
+
+    return true;
+  } catch (err) {
+    console.error('fetchSlipokDashQuota error:', err.message);
+    if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+    return false;
+  }
+}
+
+// ========== SlipOK Quota Mini-Card (Payment Setup) ==========
+async function fetchQuotaMini(method) {
+  const prefix = method === 'truemoney' ? 'trueMoneySlipokQuota' : 'slipokQuota';
+  const card = document.getElementById(`${prefix}Mini`);
+  const valueEl = document.getElementById(`${prefix}MiniValue`);
+  const overEl = document.getElementById(`${prefix}OverQuotaMiniValue`);
+  const dateEl = document.getElementById(`${prefix}EndDateMiniValue`);
+  const updatedEl = document.getElementById(`${prefix}MiniUpdated`);
+  const btnRefresh = document.getElementById(method === 'truemoney' ? 'btnRefreshTrueMoneySlipokQuotaMini' : 'btnRefreshSlipokQuotaMini');
+
+  if (!card) return;
+  card.style.display = 'block';
+
+  try {
+    const response = await fetch(`/api/payment/slipok-quota?method=${method}`);
+    if (response.status === 429) {
+      if (updatedEl) updatedEl.textContent = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+      return;
+    }
+    if (!response.ok) { if (valueEl) valueEl.textContent = 'N/A'; return; }
+    const result = await response.json();
+    if (!result.success) { if (valueEl) valueEl.textContent = 'N/A'; return; }
+
+    const d = result.data;
+    if (valueEl) valueEl.textContent = d.quota ?? '—';
+    if (overEl) overEl.textContent = d.overQuota ?? '0';
+    if (dateEl) dateEl.textContent = d.endDate
+      ? new Date(d.endDate).toLocaleDateString('th-TH')
+      : '—';
+    if (updatedEl) updatedEl.textContent = `อัปเดตแล้ว ✓`;
+    setTimeout(() => {
+      if (updatedEl) updatedEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+    }, 2000);
+  } catch (err) {
+    console.error('fetchQuotaMini error:', err.message);
+    if (valueEl) valueEl.textContent = 'Error';
+  }
+  setTimeout(() => {
+    if (btnRefresh) btnRefresh.classList.remove('spinning');
+  }, 1200);
 }
 
 // ========== Render Tables ==========
@@ -2280,6 +2464,9 @@ async function loadPaymentSettings() {
     if (trueMoneyApiKey) trueMoneyApiKey.value = data.truemoney_slipok_api_key || '';
 
     updateTrueMoneySlipOkStatus(data.truemoney_slipok_connected, data.truemoney_slipok_last_check);
+
+    if (data.slipok_connected) fetchQuotaMini('promptpay');
+    if (data.truemoney_slipok_connected) fetchQuotaMini('truemoney');
   } catch (err) {
     console.error('Load payment settings error:', err);
   }
@@ -2372,6 +2559,7 @@ async function testSlipOkConnection() {
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK สำเร็จ — บันทึกข้อมูลเรียบร้อย');
       updateSlipOkStatus(true, new Date().toISOString());
+      fetchQuotaMini('promptpay');
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
     }
@@ -2418,6 +2606,7 @@ async function testTrueMoneySlipOkConnection() {
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ — บันทึกข้อมูลเรียบร้อย');
       updateTrueMoneySlipOkStatus(true, new Date().toISOString());
+      fetchQuotaMini('truemoney');
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
     }
