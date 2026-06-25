@@ -2004,7 +2004,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
     const streamer = await db.getStreamer(actualUsername);
 
     function inferBasePlan(quota) {
-      const plans = [100, 500, 2000, 5000, 10000];
+      const plans = [100, 500, 1000, 2000, 5000, 10000];
       for (const plan of plans) {
         if (quota <= plan) return plan;
       }
@@ -2107,7 +2107,7 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
     const quotaValue = q.quota || 0;
 
     function inferBasePlan(quota) {
-      const plans = [100, 500, 2000, 5000, 10000];
+      const plans = [100, 500, 1000, 2000, 5000, 10000];
       for (const plan of plans) {
         if (quota <= plan) return plan;
       }

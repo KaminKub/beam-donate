@@ -511,15 +511,13 @@ async function initializeDashboard() {
     const btnRefreshSlipokQuotaMini = document.getElementById('btnRefreshSlipokQuotaMini');
     if (btnRefreshSlipokQuotaMini) {
       btnRefreshSlipokQuotaMini.addEventListener('click', () => {
-        btnRefreshSlipokQuotaMini.classList.add('spinning');
-        fetchQuotaMini('promptpay');
+        fetchQuotaMini('promptpay', true);
       });
     }
     const btnRefreshTrueMoneySlipokQuotaMini = document.getElementById('btnRefreshTrueMoneySlipokQuotaMini');
     if (btnRefreshTrueMoneySlipokQuotaMini) {
       btnRefreshTrueMoneySlipokQuotaMini.addEventListener('click', () => {
-        btnRefreshTrueMoneySlipokQuotaMini.classList.add('spinning');
-        fetchQuotaMini('truemoney');
+        fetchQuotaMini('truemoney', true);
       });
     }
 
@@ -1050,6 +1048,8 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     }
     const ratio = totalPool > 0 ? used / totalPool : 0;
 
+    _cachedQuotaData = { ...quota, method: method };
+
     if (usedEl) usedEl.textContent = used;
     if (totalEl) totalEl.textContent = totalPool;
 
@@ -1063,7 +1063,7 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     if (metaEl) {
       const basePlan = snapshotFromDb && snapshotFromDb > 0 ? snapshotFromDb : totalPool;
       const packageLabel = quota.packageName
-        || (basePlan <= 100 ? 'Free Plan' : basePlan <= 500 ? 'Basic' : 'Pro');
+        || (basePlan <= 100 ? 'Free Plan' : basePlan <= 500 ? 'OK Start' : basePlan <= 1000 ? 'OK SME' : 'Enterprise');
       const endDate = quota.endDate
         ? new Date(quota.endDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
         : '—';
@@ -1091,45 +1091,78 @@ async function fetchSlipokDashQuota(method, showFeedback) {
 }
 
 // ========== SlipOK Quota Mini-Card (Payment Setup) ==========
-async function fetchQuotaMini(method) {
-  const prefix = method === 'truemoney' ? 'trueMoneySlipokQuota' : 'slipokQuota';
-  const card = document.getElementById(`${prefix}Mini`);
-  const valueEl = document.getElementById(`${prefix}MiniValue`);
-  const overEl = document.getElementById(`${prefix}OverQuotaMiniValue`);
-  const dateEl = document.getElementById(`${prefix}EndDateMiniValue`);
-  const updatedEl = document.getElementById(`${prefix}MiniUpdated`);
-  const btnRefresh = document.getElementById(method === 'truemoney' ? 'btnRefreshTrueMoneySlipokQuotaMini' : 'btnRefreshSlipokQuotaMini');
+let _cachedQuotaData = null;
+
+async function fetchQuotaMini(method, forceRefresh) {
+  const ids = method === 'truemoney' ? {
+    card: 'trueMoneySlipokQuotaMini',
+    value: 'trueMoneySlipokQuotaMiniValue',
+    over: 'trueMoneySlipokOverQuotaMiniValue',
+    date: 'trueMoneySlipokEndDateMiniValue',
+    updated: 'trueMoneySlipokQuotaMiniUpdated',
+    btn: 'btnRefreshTrueMoneySlipokQuotaMini'
+  } : {
+    card: 'slipokQuotaMini',
+    value: 'slipokQuotaMiniValue',
+    over: 'slipokOverQuotaMiniValue',
+    date: 'slipokEndDateMiniValue',
+    updated: 'slipokQuotaMiniUpdated',
+    btn: 'btnRefreshSlipokQuotaMini'
+  };
+
+  var card = document.getElementById(ids.card);
+  var valueEl = document.getElementById(ids.value);
+  var overEl = document.getElementById(ids.over);
+  var dateEl = document.getElementById(ids.date);
+  var updatedEl = document.getElementById(ids.updated);
+  var btnRefresh = document.getElementById(ids.btn);
 
   if (!card) return;
   card.style.display = 'block';
 
-  try {
-    const response = await fetch(`/api/payment/slipok-quota?method=${method}`);
-    if (response.status === 429) {
-      if (updatedEl) updatedEl.textContent = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+  var d = null;
+  var fetched = false;
+  if (!forceRefresh && _cachedQuotaData && _cachedQuotaData.method === method) {
+    d = _cachedQuotaData;
+  } else {
+    try {
+      var response = await fetch(`/api/payment/slipok-quota?method=${method}`);
+      if (response.status === 429) {
+        if (updatedEl) updatedEl.textContent = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
+        return;
+      }
+      if (!response.ok) { if (valueEl) valueEl.textContent = 'N/A'; return; }
+      var result = await response.json();
+      if (!result.success) { if (valueEl) valueEl.textContent = 'N/A'; return; }
+      d = result.data;
+      d.method = method;
+      _cachedQuotaData = d;
+      fetched = true;
+    } catch (err) {
+      console.error('fetchQuotaMini error:', err.message);
+      if (valueEl) valueEl.textContent = 'Error';
       return;
     }
-    if (!response.ok) { if (valueEl) valueEl.textContent = 'N/A'; return; }
-    const result = await response.json();
-    if (!result.success) { if (valueEl) valueEl.textContent = 'N/A'; return; }
-
-    const d = result.data;
-    if (valueEl) valueEl.textContent = d.quota ?? '—';
-    if (overEl) overEl.textContent = d.overQuota ?? '0';
-    if (dateEl) dateEl.textContent = d.endDate
-      ? new Date(d.endDate).toLocaleDateString('th-TH')
-      : '—';
-    if (updatedEl) updatedEl.textContent = `อัปเดตแล้ว ✓`;
-    setTimeout(() => {
-      if (updatedEl) updatedEl.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
-    }, 2000);
-  } catch (err) {
-    console.error('fetchQuotaMini error:', err.message);
-    if (valueEl) valueEl.textContent = 'Error';
   }
-  setTimeout(() => {
-    if (btnRefresh) btnRefresh.classList.remove('spinning');
-  }, 1200);
+
+  if (valueEl) valueEl.textContent = d.quota ?? '—';
+  if (overEl) overEl.textContent = d.overQuota ?? '0';
+  if (dateEl) dateEl.textContent = d.endDate
+    ? new Date(d.endDate).toLocaleDateString('th-TH')
+    : '—';
+  if (updatedEl && forceRefresh) {
+    updatedEl.textContent = 'อัปเดตแล้ว ✓';
+    setTimeout(function() {
+      if (updatedEl) updatedEl.textContent = 'อัปเดตล่าสุด: ' + new Date().toLocaleTimeString('th-TH');
+    }, 2000);
+  } else if (updatedEl && fetched) {
+    updatedEl.textContent = 'อัปเดตล่าสุด: ' + new Date().toLocaleTimeString('th-TH');
+  }
+
+  if (btnRefresh && forceRefresh) {
+    btnRefresh.classList.add('spinning');
+    setTimeout(function() { if (btnRefresh) btnRefresh.classList.remove('spinning'); }, 1200);
+  }
 }
 
 // ========== Render Tables ==========
@@ -2559,7 +2592,7 @@ async function testSlipOkConnection() {
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK สำเร็จ — บันทึกข้อมูลเรียบร้อย');
       updateSlipOkStatus(true, new Date().toISOString());
-      fetchQuotaMini('promptpay');
+      fetchQuotaMini('promptpay', true);
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
     }
@@ -2606,7 +2639,7 @@ async function testTrueMoneySlipOkConnection() {
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ — บันทึกข้อมูลเรียบร้อย');
       updateTrueMoneySlipOkStatus(true, new Date().toISOString());
-      fetchQuotaMini('truemoney');
+      fetchQuotaMini('truemoney', true);
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
     }
