@@ -196,13 +196,13 @@
                 <div class="instructions-steps">
                   <div class="step-num">1</div>
                   <p>เปิดโปรแกรม OBS -> กด **เครื่องหมาย +** ในช่อง Sources</p>
-                  
+
                   <div class="step-num">2</div>
                   <p>เลือก **Browser** ตั้งชื่อว่า "Beam Donation Alert"</p>
-                  
+
                   <div class="step-num">3</div>
                   <p>วาง URL ด้านบนในช่อง URL</p>
-                  
+
                   <div class="step-num">4</div>
                   <p>ตั้งค่า Width: **800** และ Height: **600** (หรือตามต้องการ)</p>
                 </div>
@@ -270,10 +270,12 @@
               <form id="pageSettingsForm">
                 
                 <!-- Card: Profile Customization -->
-                <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
+                <div class="dashboard-card settings-card panel-open">
+                  <div class="settings-card-header" data-target="panelProfile">
                     <h4><i class="fa-solid fa-image"></i> ปรับแต่งโปรไฟล์ (Profile Customization)</h4>
+                    <i class="fa-solid fa-chevron-down card-chevron"></i>
                   </div>
+                  <div class="card-body-panel" id="panelProfile">
                   <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
                       <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
                         <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px; border-radius: 50%;" alt="Profile Preview">
@@ -297,13 +299,16 @@
                         </div>
 
                   </div>
+                  </div><!-- /card-body-panel panelProfile -->
                 </div>
 
                 <!-- Card: Page Texts -->
                 <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
+                  <div class="settings-card-header" data-target="panelPageContent">
                     <h4><i class="fa-solid fa-pen-to-square"></i> ข้อความหน้าโดเนท (Page Content)</h4>
+                    <i class="fa-solid fa-chevron-down card-chevron"></i>
                   </div>
+                  <div class="card-body-panel" id="panelPageContent">
                   <div class="form-group">
                     <label for="inputPageTitle">ชื่อหน้าโดเนท (Page Title)</label>
                     <input type="text" id="inputPageTitle" class="form-control" placeholder="เช่น เลี้ยงกาแฟ KaminKub">
@@ -312,13 +317,16 @@
                     <label for="inputPageSubtitle">ข้อความแนะนำตัว (Subtitle)</label>
                     <textarea id="inputPageSubtitle" class="form-control" rows="2" placeholder="เช่น ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨"></textarea>
                   </div>
+                  </div><!-- /card-body-panel panelPageContent -->
                 </div>
 
                 <!-- Card: Thank You Message -->
                 <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
+                  <div class="settings-card-header" data-target="panelThankYou">
                     <h4><i class="fa-solid fa-hands-praying"></i> ข้อความขอบคุณ (Thank You Message)</h4>
+                    <i class="fa-solid fa-chevron-down card-chevron"></i>
                   </div>
+                  <div class="card-body-panel" id="panelThankYou">
                   <div class="form-group">
                     <label for="inputThankYouHeader">หัวข้อขอบคุณ (Header)</label>
                     <input type="text" id="inputThankYouHeader" class="form-control" placeholder="เช่น ขอบคุณที่สนับสนุน!">
@@ -327,13 +335,16 @@
                     <label for="inputThankYouSubtitle">ข้อความขอบคุณ (Subtitle)</label>
                     <textarea id="inputThankYouSubtitle" class="form-control" rows="2" placeholder="เช่น การสนับสนุนของคุณช่วยให้เราพัฒนาคอนเทนต์ต่อไปได้"></textarea>
                   </div>
+                  </div><!-- /card-body-panel panelThankYou -->
                 </div>
 
                 <!-- Card: Social Media Links -->
                 <div class="dashboard-card settings-card">
-                  <div class="settings-card-header">
+                  <div class="settings-card-header" data-target="panelSocialLinks">
                     <h4><i class="fa-solid fa-link"></i> ลิงก์โซเชียลมีเดีย (Social Links)</h4>
+                    <i class="fa-solid fa-chevron-down card-chevron"></i>
                   </div>
+                  <div class="card-body-panel" id="panelSocialLinks">
                      <div class="social-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                       <div class="form-group">
                         <label for="socialTwitch"><i class="fa-brands fa-twitch"></i> Twitch</label>
@@ -372,13 +383,14 @@
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div class="settings-actions">
-                    <button type="submit" class="btn btn-primary btn-large"><i class="fa-solid fa-floppy-disk"></i> บันทึกการปรับแต่งหน้าเว็บ</button>
-                  </div>
-                </form>
-              </div>
-              <div class="settings-preview-panel">
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary btn-large"><i class="fa-solid fa-floppy-disk"></i> บันทึกการปรับแต่งหน้าเว็บ</button>
+                </div>
+              </form>
+            </div>
+            <div class="settings-preview-panel">
                 <div class="dashboard-card preview-card">
                   <div class="preview-header">
                     <h3><i class="fa-solid fa-image"></i> พรีวิวหน้าโดเนท (Page Preview)</h3>
@@ -393,8 +405,6 @@
               </div>
             </div>
           </section>
-
-            </section>
 
          <!-- SECTION: USER ACCOUNT -->
           <section id="tab-account" class="tab-content">
@@ -713,11 +723,12 @@
                 <form id="overlaySettingsForm">
                   
                   <!-- Card: Visual Settings -->
-                  <div class="dashboard-card settings-card">
-                    <div class="settings-card-header">
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelStyleThemes">
                       <h4><i class="fa-solid fa-palette"></i> รูปแบบและธีมแสดงผล (Style & Themes)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
                     </div>
-                    
+                    <div class="card-body-panel" id="panelStyleThemes">
                     <div class="form-row">
                       <div class="form-group">
                         <label for="themeSelect">ธีมการแสดงผล</label>
@@ -822,14 +833,16 @@
                         <input type="range" id="sliderFontSize" name="fontSize" class="form-range" min="16" max="72" step="1" value="32">
                       </div>
                     </div>
+                    </div><!-- /card-body-panel panelStyleThemes -->
                   </div>
 
                   <!-- Card: Audio & TTS Settings -->
                   <div class="dashboard-card settings-card">
-                    <div class="settings-card-header">
+                    <div class="settings-card-header" data-target="panelSoundTts">
                       <h4><i class="fa-solid fa-volume-high"></i> เสียงแจ้งเตือนและระบบอ่านข้อความ (Sound & TTS AI)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
                     </div>
-
+                    <div class="card-body-panel" id="panelSoundTts">
                     <div class="form-row flex-align-center">
                       <div class="form-group">
                         <div class="switch-group">
@@ -907,14 +920,16 @@
                         </div>
                       </div>
                     </div>
+                    </div><!-- /card-body-panel panelSoundTts -->
                   </div>
 
                   <!-- Card: Profanity Filter Settings -->
                   <div class="dashboard-card settings-card">
-                    <div class="settings-card-header">
+                    <div class="settings-card-header" data-target="panelProfanity">
                       <h4><i class="fa-solid fa-shield-halved"></i> ระบบกรองคำหยาบคาย (Profanity Filter)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
                     </div>
-
+                    <div class="card-body-panel" id="panelProfanity">
                     <div class="form-row flex-align-center">
                       <div class="form-group">
                         <div class="switch-group">
@@ -948,14 +963,16 @@
                         </div>
                       </div>
                     </div>
+                    </div><!-- /card-body-panel panelProfanity -->
                   </div>
 
                   <!-- Card: Message Settings -->
                   <div class="dashboard-card settings-card">
-                    <div class="settings-card-header">
+                    <div class="settings-card-header" data-target="panelTextCustom">
                       <h4><i class="fa-solid fa-comment"></i> ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
                     </div>
-
+                    <div class="card-body-panel" id="panelTextCustom">
                     <div class="form-row">
                       <div class="form-group full-width">
                         <label for="inputMessageTemplate">รูปแบบประโยคแจ้งเตือน (Template)</label>
@@ -999,6 +1016,7 @@
                         <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
                       </div>
                     </div>
+                    </div><!-- /card-body-panel panelTextCustom -->
                   </div>
 
                   <!-- Actions block -->
@@ -1021,10 +1039,15 @@
                     <!-- Embed overlay path for interactive dynamic testing directly -->
                     <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
                   </div>
+                    <div class="copy-url-group">
+                      <input type="text" id="obsOverlayUrlPreview" readonly value="http://localhost:3000/overlay">
+                      <button class="btn btn-primary" id="btnCopyObsUrlPreview">คัดลอก</button>
+                      <button class="btn btn-secondary" id="btnOpenObsUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </div>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                     <span class="text-muted" style="font-size: 12px;">หมายเหตุ: ในระบบจริง OBS จะมีพื้นหลังโปร่งใส</span>
-                  </div>
+                    </div>
                 </div>
               </div>
 

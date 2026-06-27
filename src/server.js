@@ -46,7 +46,7 @@ const defaultSettings = {
   soundEnabled: true,
   soundChoice: 'chime', // chime, retro, modern, bell, none
   soundVolume: 0.5,
-  ttsEnabled: false,
+  ttsEnabled: true,
   ttsVolume: 0.8,
   ttsRate: 1.0,
   ttsLanguage: 'th-TH',
@@ -55,9 +55,10 @@ const defaultSettings = {
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks', // asterisks, polite, block
   messageTemplate: '{donor} ได้บริจาค {amount} บาท! 🎉',
+  showLabel: false,
   showDonorMessage: true,
   minAmount: 1, // Minimum amount to trigger alert
-  theme: 'glassmorphism', // glassmorphism, cyberpunk, minimal, custom
+  theme: 'text-only', // glassmorphism, cyberpunk, minimal, custom, text-only
   animation: 'slide-down', // slide-down, slide-up, fade, zoom
   fontFamily: 'Noto Sans Thai',
   primaryColor: '#667eea',
@@ -2589,17 +2590,11 @@ if (typeof require !== 'undefined' && require.main === module) {
     console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
   });
 
-  // Memory monitoring — log every 5 minutes
-  let lastMemLog = 0;
+  // Memory monitoring — emergency only
   setInterval(() => {
     const mem = process.memoryUsage();
     const rssMB = Math.round(mem.rss / 1024 / 1024);
     const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
-    const now = Date.now();
-    if (now - lastMemLog > 4 * 60 * 1000) {
-      console.log(`📊 Memory: RSS=${rssMB}MB heap=${heapMB}MB sseClients=${sseClients.length}`);
-      lastMemLog = now;
-    }
     // Emergency: log if memory spikes
     if (rssMB > 300) {
       console.warn(`⚠️ High memory usage: RSS=${rssMB}MB heap=${heapMB}MB sseClients=${sseClients.length}`);

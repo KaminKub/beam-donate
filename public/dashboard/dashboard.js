@@ -297,17 +297,47 @@ async function initializeDashboard() {
       };
     }
 
+    const btnCopyObsUrlPreview = document.getElementById('btnCopyObsUrlPreview');
+    const btnOpenObsUrlPreview = document.getElementById('btnOpenObsUrlPreview');
+
+    if (btnCopyObsUrlPreview) {
+      btnCopyObsUrlPreview.onclick = () => {
+        const copyText = document.getElementById('obsOverlayUrlPreview');
+        if (!copyText) return;
+        navigator.clipboard.writeText(copyText.value)
+          .then(() => {
+            const orig = btnCopyObsUrlPreview.textContent;
+            btnCopyObsUrlPreview.textContent = 'คัดลอกแล้ว!';
+            btnCopyObsUrlPreview.style.background = 'var(--success)';
+            setTimeout(() => {
+              btnCopyObsUrlPreview.textContent = orig;
+              btnCopyObsUrlPreview.style.background = '';
+            }, 1500);
+          })
+          .catch(err => { console.error('Failed to copy text: ', err); });
+      };
+    }
+
+    if (btnOpenObsUrlPreview) {
+      btnOpenObsUrlPreview.onclick = () => {
+        const urlInput = document.getElementById('obsOverlayUrlPreview');
+        if (urlInput && urlInput.value) {
+          window.open(urlInput.value, '_blank');
+        }
+      };
+    }
+
     async function updateObsUrl() {
       try {
-        console.log('🔑 Requesting OBS token...');
         const response = await fetch('/api/overlay/token');
         if (response.ok) {
           const { token } = await response.json();
+          const host = window.location.origin;
+          const url = `${host}/overlay?token=${token}`;
           const urlInput = document.getElementById('obsOverlayUrl');
-          if (urlInput) {
-            const host = window.location.origin;
-            urlInput.value = `${host}/overlay?token=${token}`;
-          }
+          if (urlInput) urlInput.value = url;
+          const urlInputPreview = document.getElementById('obsOverlayUrlPreview');
+          if (urlInputPreview) urlInputPreview.value = url;
         } else {
           console.warn(`⚠️ Token request failed: ${response.status}`);
         }
@@ -521,6 +551,7 @@ async function initializeDashboard() {
       });
     }
 
+    initCardPanels();
     console.log('✅ initializeDashboard completed successfully');
   } catch (criticalErr) {
     console.error('💥 Critical error during dashboard initialization:', criticalErr);
@@ -2316,6 +2347,64 @@ function handleSoundScroll(el) {
     loadMoreSounds();
   }
 }
+
+// ========== Expandable Settings Cards ==========
+
+function toggleCardPanel(card, panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  const isOpen = card.classList.contains('panel-open');
+
+  if (isOpen) {
+    panel.classList.remove('panel-opening');
+    panel.classList.add('panel-closing');
+    card.classList.remove('panel-open');
+    setTimeout(() => {
+      panel.style.display = 'none';
+      panel.classList.remove('panel-closing');
+    }, 300);
+  } else {
+    panel.style.display = 'block';
+    panel.classList.remove('panel-closing');
+    panel.classList.add('panel-opening');
+    card.classList.add('panel-open');
+    setTimeout(() => {
+      panel.classList.remove('panel-opening');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 400);
+  }
+}
+
+function initCardPanels() {
+  document.querySelectorAll('.settings-card').forEach(card => {
+    const header = card.querySelector('.settings-card-header');
+    const panelId = header?.dataset.target;
+    const panel = panelId ? document.getElementById(panelId) : null;
+    if (!panel) return;
+
+    if (card.classList.contains('panel-open')) {
+      panel.style.display = 'block';
+    } else {
+      panel.style.display = 'none';
+    }
+  });
+}
+
+document.addEventListener('click', (e) => {
+  const header = e.target.closest('.settings-card-header');
+  if (!header || !header.dataset.target) return;
+
+  const card = header.closest('.settings-card');
+  if (!card) return;
+
+  header.classList.remove('header-clicked');
+  void header.offsetWidth;
+  header.classList.add('header-clicked');
+  header.addEventListener('animationend', () => header.classList.remove('header-clicked'), { once: true });
+
+  toggleCardPanel(card, header.dataset.target);
+});
 
 // ========== Payment Settings Functions ==========
 
