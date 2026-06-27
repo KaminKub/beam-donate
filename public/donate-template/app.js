@@ -208,10 +208,16 @@ function renderSocialLinks(socials) {
   };
 
   activeLinks.forEach(([platform, url]) => {
+    // SEC-001 / SEC-012: Validate URL scheme and add noopener to prevent XSS and tab-nabbing
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return;
+    } catch { return; }
     const iconClass = SOCIAL_ICONS[platform] || 'fa-link';
     const a = document.createElement('a');
     a.href = url;
     a.target = '_blank';
+    a.rel = 'noopener noreferrer';
     a.className = `social-btn ${platform}`;
     
     const label = showLabels ? `<span class="social-label">${platformNames[platform] || platform}</span>` : '';

@@ -37,7 +37,17 @@ const PORT = process.env.PORT || 3000;
 const db = require('./database');
 const { encrypt, decrypt, censor } = require('./encryption');
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const ALLOWED_SLIP_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_SLIP_MIMES.has(file.mimetype)) {
+      return cb(new Error('Only image files are accepted (JPEG, PNG, GIF, WEBP)'));
+    }
+    cb(null, true);
+  }
+});
 db.initDB().catch(err => console.error('❌ Database connection failed:', err));
 
 // ค่าตั้งค่าเริ่มต้นของ Overlay
@@ -70,7 +80,9 @@ const defaultSettings = {
   fontSize: 48,
   customImageMode: 'emoji',
   customImageValue: '💝',
-  customSoundUrl: ''
+  customSoundUrl: '',
+  ttsReadDonor: true,
+  amountSuffix: 'บาท'
 };
 
 // ========== SSE Alert System ==========
@@ -517,6 +529,10 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
   if (!normalizedUsername || normalizedUsername.length < 3) {
     console.error(`❌ [Register Complete] Invalid username length: ${normalizedUsername}`);
     return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+  }
+  if (!/^[a-z0-9_]{3,30}$/.test(normalizedUsername)) {
+    console.error(`❌ [Register Complete] Invalid username characters: ${normalizedUsername}`);
+    return res.status(400).json({ error: 'Username must be 3–30 characters: a-z, 0-9, underscore only' });
   }
   
   try {
@@ -1198,7 +1214,11 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
 
 function checkCronAuth(req, res, next) {
   const token = req.query.token || (req.body && req.body.token);
-  if (token && process.env.CRON_SECRET && token === process.env.CRON_SECRET) return next();
+  if (token && process.env.CRON_SECRET) {
+    const a = Buffer.from(token);
+    const b = Buffer.from(process.env.CRON_SECRET);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();
+  }
   return res.status(403).json({ error: 'Forbidden' });
 }
 
@@ -1280,7 +1300,7 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', sameOriginCheck, (req, res) => {
   req.logout((err) => {
     if (err) {
       console.error('Logout error:', err);
@@ -1451,16 +1471,36 @@ app.get('/api/page/:username/settings', async (req, res) => {
   }
 });
 
+const SOCIAL_LINK_FIELDS = new Set(['social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook', 'social_x', 'social_discord', 'social_instagram']);
+
+function validateSocialUrl(url) {
+  if (!url) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const twitchId = req.user.twitch_id || req.user.id;
-    
+
     const safeBody = filterAllowedFields(req.body, PAGE_ALLOWED_FIELDS);
+
+    // SEC-001: Reject javascript: and other non-http(s) social URLs to prevent stored XSS
+    for (const field of SOCIAL_LINK_FIELDS) {
+      if (safeBody[field] && !validateSocialUrl(safeBody[field])) {
+        return res.status(400).json({ error: `Invalid URL in ${field}: only http/https allowed` });
+      }
+    }
+
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
       ...safeBody
     });
-    
+
     res.json({ success: true, settings: updatedStreamer });
   } catch (error) {
     console.error('Save page settings error:', error);
@@ -1468,13 +1508,26 @@ app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, 
   }
 });
 
-app.get('/api/tts', (req, res) => {
+// SEC-008: TTS rate limiter — unauthenticated endpoint needs protection against abuse
+const ttsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many TTS requests'
+});
+
+// SEC-008: Allowlist of valid BCP-47 language codes for Google TTS
+const ALLOWED_TTS_LANGS = new Set([
+  'th', 'en', 'ja', 'ko', 'zh-TW', 'zh', 'vi', 'id', 'ms', 'fr', 'de', 'es', 'ru', 'ar'
+]);
+
+app.get('/api/tts', ttsLimiter, (req, res) => {
   try {
     const text = req.query.text;
     const lang = req.query.lang || 'th';
     if (!text) return res.status(400).send('Text is required');
+    if (!ALLOWED_TTS_LANGS.has(lang)) return res.status(400).send('Invalid language');
     const encodedText = encodeURIComponent(text);
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`;
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(lang)}&client=tw-ob&q=${encodedText}`;
     const options = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' } };
     https.get(googleTtsUrl, options, (googleRes) => {
       if (googleRes.statusCode !== 200) return res.status(googleRes.statusCode).send('Error from cloud');
@@ -1954,6 +2007,18 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
   }
 });
 
+// SEC-003: Allowlist-based SSRF protection for SlipOK API URLs
+function validateSlipOkUrl(url) {
+  if (!url) throw new Error('SlipOK API URL is required');
+  let parsed;
+  try { parsed = new URL(url); } catch { throw new Error('SlipOK API URL is not a valid URL'); }
+  if (parsed.protocol !== 'https:') throw new Error('SlipOK API URL must use HTTPS');
+  const allowed = ['api.slipok.com'];
+  if (!allowed.includes(parsed.hostname)) {
+    throw new Error(`SlipOK API hostname not allowed: ${parsed.hostname}`);
+  }
+}
+
 // POST /api/payment/test-tfp - Test TFP API connection
 app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
@@ -1990,6 +2055,10 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
 
     if (!realApi || !realApiKey) {
       return res.status(400).json({ error: 'ไม่พบข้อมูล API ในระบบ กรุณากรอกใหม่' });
+    }
+
+    try { validateSlipOkUrl(realApi); } catch (e) {
+      return res.status(400).json({ error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
     }
 
     const branchUrl = realApi.endsWith('/quota') ? realApi.replace(/\/quota$/, '') : realApi;
@@ -2092,6 +2161,10 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
 
     if (!realApi || !realApiKey) {
       return res.status(400).json({ error: 'ยังไม่ได้ตั้งค่า SlipOK API' });
+    }
+
+    try { validateSlipOkUrl(realApi); } catch (e) {
+      return res.status(400).json({ error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
     }
 
     const branchUrl = realApi.endsWith('/quota')
@@ -2355,10 +2428,16 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
       return res.status(503).json({ success: false, errorCode: 'SLIPOK_NOT_CONFIGURED', error: 'ผู้ใช้ยังไม่ได้ตั้งค่า SlipOK API' });
     }
 
+    try { validateSlipOkUrl(slipOkApi); } catch (e) {
+      return res.status(400).json({ success: false, errorCode: 'SLIPOK_URL_INVALID', error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
+    }
+
     // Guard 1: Reject if transaction already successful (prevents re-verifying completed payments)
+    // SEC-002: Pre-load tx here so we can use tx.amount as authoritative expected amount below
+    let pendingTx = null;
     if (referenceId) {
-      const existingTx = await db.getTransactionById(referenceId);
-      if (existingTx && existingTx.status === 'successful') {
+      pendingTx = await db.getTransactionById(referenceId);
+      if (pendingTx && pendingTx.status === 'successful') {
         return res.json({ success: false, errorCode: 'ALREADY_VERIFIED', error: '✅ รายการนี้ได้รับการยืนยันเรียบร้อยแล้ว' });
       }
     }
@@ -2379,10 +2458,14 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
     const base64Image = slipFile.buffer.toString('base64');
     const branchUrl = slipOkApi.replace(/\/quota$/, '');
 
+    // SEC-002: Use server-stored tx.amount as authoritative amount — client-supplied
+    // amount=0 used to bypass the check when referenceId is present
+    const authoritativeAmount = pendingTx ? parseFloat(pendingTx.amount) : parseFloat(amount) || 0;
+
     try {
       const slipOkResponse = await axios.post(branchUrl, {
         files: base64Image,
-        amount: parseFloat(amount) || 0,
+        amount: authoritativeAmount,
         log: true
       }, {
         headers: {
@@ -2395,15 +2478,14 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
       const slipData = slipOkResponse.data;
       const d = slipData?.data;
       const slipAmount = d?.amount || 0;
-      const expectedAmount = parseFloat(amount) || 0;
 
       if (slipData && slipData.success && d) {
-        if (expectedAmount > 0 && Math.abs(slipAmount - expectedAmount) > 0.01) {
-          return res.json({ success: false, errorCode: 'AMOUNT_MISMATCH', error: `ยอดเงินในสลิป (${slipAmount}฿) ไม่ตรงกับยอดที่ต้องชำระ (${expectedAmount}฿)` });
+        if (authoritativeAmount > 0 && Math.abs(slipAmount - authoritativeAmount) > 0.01) {
+          return res.json({ success: false, errorCode: 'AMOUNT_MISMATCH', error: `ยอดเงินในสลิป (${slipAmount}฿) ไม่ตรงกับยอดที่ต้องชำระ (${authoritativeAmount}฿)` });
         }
 
         if (referenceId) {
-          const tx = await db.getTransactionById(referenceId);
+          const tx = pendingTx;
           if (tx) {
             await db.saveTransaction({
               id: referenceId,

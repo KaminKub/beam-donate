@@ -1103,10 +1103,11 @@ async function deleteStreamer(id) {
       args: [username]
     });
 
-    // 3. Delete session data for this user
+    // 3. Delete session data for this user (SEC-010: escape LIKE wildcards to prevent bulk logout)
+    const escapedUsername = username.replace(/%/g, '\\%').replace(/_/g, '\\_');
     await db.execute({
-      sql: "DELETE FROM sessions WHERE session LIKE ?",
-      args: [`%${username}%`]
+      sql: "DELETE FROM sessions WHERE session LIKE ? ESCAPE '\\'",
+      args: [`%${escapedUsername}%`]
     });
 
     // 4. Delete the streamer record
@@ -1138,10 +1139,11 @@ async function getSettings(username, defaultSettings) {
   const streamer = await getStreamer(username);
   if (!streamer) return defaultSettings;
 
-  // Merge and filter out null values to ensure defaults are used
+  // SEC-004: Only expose keys that exist in defaultSettings — prevents payment fields,
+  // auth tokens, and DB IDs from leaking via the public overlay-token endpoint.
   const merged = { ...defaultSettings };
   for (const [key, value] of Object.entries(streamer)) {
-    if (value !== null && value !== '') {
+    if (Object.prototype.hasOwnProperty.call(defaultSettings, key) && value !== null && value !== '') {
       merged[key] = value;
     }
   }

@@ -4,26 +4,23 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-/**
- * Encrypts text using AES-256-GCM
- * @param {string} text - Plain text to encrypt
- * @returns {string} - Encrypted string in format iv:authTag:encryptedData (base64)
- */
+// SEC-011: Derive key once at startup — scryptSync is ~200ms, calling it on every
+// encrypt/decrypt causes CPU saturation under concurrent requests.
+let _derivedKey = null;
+function getDerivedKey() {
+  if (_derivedKey) return _derivedKey;
+  const masterKey = process.env.MASTER_ENCRYPTION_KEY;
+  const salt = process.env.ENCRYPTION_SALT;
+  if (!masterKey) throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
+  if (!salt) throw new Error('ENCRYPTION_SALT is not defined in environment variables');
+  _derivedKey = crypto.scryptSync(masterKey, salt, 32);
+  return _derivedKey;
+}
+
 function encrypt(text) {
   if (!text) return null;
 
-  const masterKey = process.env.MASTER_ENCRYPTION_KEY;
-  const salt = process.env.ENCRYPTION_SALT;
-
-  if (!masterKey) {
-    throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
-  }
-  if (!salt) {
-    throw new Error('ENCRYPTION_SALT is not defined in environment variables');
-  }
-
-  // Ensure key is 32 bytes using the salt
-  const key = crypto.scryptSync(masterKey, salt, 32);
+  const key = getDerivedKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -43,22 +40,12 @@ function encrypt(text) {
 function decrypt(encryptedText) {
   if (!encryptedText) return null;
 
-  const masterKey = process.env.MASTER_ENCRYPTION_KEY;
-  const salt = process.env.ENCRYPTION_SALT;
-
-  if (!masterKey) {
-    throw new Error('MASTER_ENCRYPTION_KEY is not defined in environment variables');
-  }
-  if (!salt) {
-    throw new Error('ENCRYPTION_SALT is not defined in environment variables');
-  }
-
   const [ivBase64, authTagBase64, encryptedBase64] = encryptedText.split(':');
   if (!ivBase64 || !authTagBase64 || !encryptedBase64) {
     throw new Error('Invalid encrypted text format');
   }
 
-  const key = crypto.scryptSync(masterKey, salt, 32);
+  const key = getDerivedKey();
   const iv = Buffer.from(ivBase64, 'base64');
   const authTag = Buffer.from(authTagBase64, 'base64');
 
