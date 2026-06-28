@@ -50,12 +50,12 @@ const UPLOAD_ALLOWED_TYPES = {
   profile: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   header:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   pagebg:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
-  sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3', 'audio/wav'],
+  sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3'],
   video:   ['video/mp4', 'video/webm']
 };
 const UPLOAD_EXT_MAP = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/ogg': 'ogg',
   'video/mp4': 'mp4', 'video/webm': 'webm'
 };
 const UPLOAD_FOLDER_MAP = {
@@ -493,6 +493,14 @@ const webhookLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
   message: { error: 'Too many webhook requests' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const presignLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'อัปโหลดถี่เกินไป กรุณารอสักครู่' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -2745,16 +2753,28 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
   }
 });
 
+const UPLOAD_MAX_SIZES = {
+  avatar: 5 * 1024 * 1024,
+  profile: 5 * 1024 * 1024,
+  header: 5 * 1024 * 1024,
+  pagebg: 5 * 1024 * 1024,
+  sound: 1024 * 1024,
+  video: 5 * 1024 * 1024
+};
+
 // POST /api/upload/presign — generate Cloudflare R2 presigned upload URL
-app.post('/api/upload/presign', ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/upload/presign', presignLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
-    const { fileType, category, originalName, oldFileUrl } = req.body;
+    const { fileType, category, originalName, oldFileUrl, fileSize } = req.body;
 
     if (!category || !UPLOAD_ALLOWED_TYPES[category]) {
       return res.status(400).json({ error: 'category ไม่ถูกต้อง (avatar, sound, video)' });
     }
     if (!fileType || !UPLOAD_ALLOWED_TYPES[category].includes(fileType)) {
       return res.status(400).json({ error: `ประเภทไฟล์ไม่รองรับ: ${fileType}` });
+    }
+    if (fileSize !== undefined && fileSize > UPLOAD_MAX_SIZES[category]) {
+      return res.status(413).json({ error: `ไฟล์ใหญ่เกินกำหนด (สูงสุด ${Math.round(UPLOAD_MAX_SIZES[category] / 1024 / 1024)}MB)` });
     }
 
     const twitchId = req.user.twitch_id || req.user.id;

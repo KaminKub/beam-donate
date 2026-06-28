@@ -1819,7 +1819,7 @@ async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onSt
   const presignRes = await fetchWithCsrf('/api/upload/presign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileType: uploadMime, category, oldFileUrl: oldFileUrl || null })
+    body: JSON.stringify({ fileType: uploadMime, category, oldFileUrl: oldFileUrl || null, fileSize: uploadFile.size })
   });
   if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
   const { uploadUrl, fileUrl } = await presignRes.json();
@@ -1928,10 +1928,10 @@ async function handleAudioFileSelect(event) {
     if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; }
   };
 
-  const allowedFormats = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav'];
+  const allowedFormats = ['audio/mpeg', 'audio/mp3', 'audio/ogg'];
   const normalizedType = file.type === 'audio/mp3' ? 'audio/mpeg' : file.type;
   if (!allowedFormats.includes(file.type) && !allowedFormats.includes(normalizedType)) {
-    showNotification('รองรับเฉพาะไฟล์ .mp3, .ogg และ .wav เท่านั้น', 'error');
+    showNotification('รองรับเฉพาะไฟล์ .mp3 และ .ogg เท่านั้น', 'error');
     return;
   }
   if (file.size > 1024 * 1024) {
@@ -1944,7 +1944,7 @@ async function handleAudioFileSelect(event) {
     const presignRes = await fetchWithCsrf('/api/upload/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, oldFileUrl: soundUrlInput?.value || null })
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, oldFileUrl: soundUrlInput?.value || null, fileSize: file.size })
     });
     if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
     const { uploadUrl, fileUrl } = await presignRes.json();
