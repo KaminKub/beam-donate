@@ -1843,6 +1843,9 @@ async function handleImageFileSelect(event) {
     document.getElementById('btnClearCustomImage')?.style.setProperty('display', '');
     setStatus('อัปโหลดสำเร็จ!', '#22c55e');
     showNotification('อัปโหลดรูปภาพสำเร็จ');
+    fetchWithCsrf('/api/overlay/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customImageMode: 'upload', customImageValue: fileUrl }) })
+      .catch(e => console.warn('Auto-save customImage failed:', e.message));
   } catch (err) {
     console.error('Image upload error:', err);
     setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
@@ -1866,6 +1869,9 @@ async function handleProfileImageSelect(event) {
     document.getElementById('btnClearProfileImage')?.style.setProperty('display', '');
     setStatus('อัปโหลดสำเร็จ!', '#22c55e');
     showNotification('อัปโหลดรูปโปรไฟล์สำเร็จ');
+    fetchWithCsrf('/api/page/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_image_value: fileUrl, profile_image_source: 'custom' }) })
+      .catch(e => console.warn('Auto-save profileImage failed:', e.message));
   } catch (err) {
     console.error('Profile image upload error:', err);
     setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
@@ -1888,6 +1894,9 @@ async function handleHeaderBgSelect(event) {
     document.getElementById('btnClearHeaderBg')?.style.setProperty('display', '');
     setStatus('อัปโหลดสำเร็จ!', '#22c55e');
     showNotification('อัปโหลดภาพปก Header สำเร็จ');
+    fetchWithCsrf('/api/page/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ header_bg_url: fileUrl }) })
+      .catch(e => console.warn('Auto-save headerBg failed:', e.message));
   } catch (err) {
     console.error('Header BG upload error:', err);
     setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
@@ -1909,6 +1918,9 @@ async function handlePageBgSelect(event) {
     document.getElementById('btnClearPageBg')?.style.setProperty('display', '');
     setStatus('อัปโหลดสำเร็จ!', '#22c55e');
     showNotification('อัปโหลดภาพพื้นหลังสำเร็จ');
+    fetchWithCsrf('/api/page/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page_bg_url: fileUrl }) })
+      .catch(e => console.warn('Auto-save pageBg failed:', e.message));
   } catch (err) {
     console.error('Page BG upload error:', err);
     setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
@@ -1961,6 +1973,9 @@ async function handleAudioFileSelect(event) {
     if (currentWrap) currentWrap.style.display = 'flex';
     setStatus('อัปโหลดสำเร็จ!', '#22c55e');
     showNotification('อัปโหลดไฟล์เสียงสำเร็จ');
+    fetchWithCsrf('/api/overlay/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ soundChoice: 'upload_sound', customSoundUrl: fileUrl }) })
+      .catch(e => console.warn('Auto-save sound failed:', e.message));
   } catch (err) {
     console.error('Audio upload error:', err);
     setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
