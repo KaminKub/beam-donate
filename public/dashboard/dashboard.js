@@ -1934,8 +1934,8 @@ async function handleAudioFileSelect(event) {
     showNotification('รองรับเฉพาะไฟล์ .mp3, .ogg และ .wav เท่านั้น', 'error');
     return;
   }
-  if (file.size > 500 * 1024) {
-    showNotification('ไฟล์ต้องไม่เกิน 500KB เพื่อให้เสียงเด้งไวบน OBS', 'error');
+  if (file.size > 1024 * 1024) {
+    showNotification('ไฟล์ต้องไม่เกิน 1MB เพื่อให้เสียงเด้งไวบน OBS', 'error');
     return;
   }
 
