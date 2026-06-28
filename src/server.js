@@ -2775,13 +2775,19 @@ app.post('/api/upload/presign', ensureAuthenticated, csrfProtection, async (req,
     }
 
     // Delete previous R2 object when user replaces a file
+    // Security: validate key belongs to this user's folder before deleting (IDOR prevention)
     const r2Base = process.env.R2_PUBLIC_URL;
-    if (oldFileUrl && r2Base && String(oldFileUrl).startsWith(r2Base)) {
-      const oldKey = String(oldFileUrl).replace(r2Base + '/', '').split('?')[0];
-      try {
-        await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: oldKey }));
-      } catch (delErr) {
-        console.warn('R2 old file delete warning:', delErr.message);
+    if (oldFileUrl && r2Base && String(oldFileUrl).startsWith(r2Base + '/')) {
+      const oldKey = String(oldFileUrl).slice(r2Base.length + 1).split('?')[0];
+      const ownerPrefix = `${folder}/${streamer.id}`;
+      const isSafeKey = !oldKey.includes('..') && !oldKey.includes('//') &&
+        (oldKey.startsWith(ownerPrefix + '-') || oldKey.startsWith(ownerPrefix + '.'));
+      if (isSafeKey) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: oldKey }));
+        } catch (delErr) {
+          console.warn('R2 old file delete warning:', delErr.message);
+        }
       }
     }
 
