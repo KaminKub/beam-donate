@@ -1,3 +1,8 @@
+function escapeForHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ========== Local Configuration State ==========
 let overlaySettings = {
   duration: 8,
@@ -33,6 +38,9 @@ let overlaySettings = {
 // ========== Queue System ==========
 const alertQueue = [];
 let isShowing = false;
+
+// ========== Static Preview State ==========
+let staticPreviewEl = null;
 
 // ========== SSE Connection ==========
 let eventSource = null;
@@ -82,6 +90,9 @@ function applySettings(settings) {
   doc.style.setProperty('--font-size', `${overlaySettings.fontSize || 32}px`);
 
   console.log('⚡ Applied settings:', overlaySettings.theme, overlaySettings.animation);
+  if (!isShowing) {
+    requestAnimationFrame(() => showStaticPreview());
+  }
 }
 
 // Helper to convert hex color to rgba with transparency
@@ -171,6 +182,102 @@ function processQueue() {
   showAlert(alertData);
 }
 
+// ========== Static Preview (frozen idle state) ==========
+// Only active on /overlay with no token (dashboard iframe, not real OBS overlay)
+function isDashboardPreview() {
+  return !new URLSearchParams(window.location.search).get('token');
+}
+
+function showStaticPreview() {
+  if (isShowing || !isDashboardPreview()) return;
+
+  if (staticPreviewEl) {
+    staticPreviewEl.remove();
+    staticPreviewEl = null;
+  }
+
+  const template = document.getElementById('alertTemplate');
+  const container = document.getElementById('alertContainer');
+  if (!template || !container) return;
+
+  const clone = template.content.cloneNode(true);
+  const alertBox = clone.querySelector('.alert-box');
+
+  alertBox.classList.add(`theme-${overlaySettings.theme}`);
+  alertBox.classList.add('static-preview');
+
+  const sampleDonor = `<span class="highlight-donor">ผู้สนับสนุนลึกลับ</span>`;
+  const sampleAmount = '500';
+  const headerHtml = overlaySettings.messageTemplate
+    .replace(/{donor}/g, sampleDonor)
+    .replace(/{amount}/g, sampleAmount);
+
+  alertBox.querySelector('.donor-name').innerHTML = headerHtml;
+
+  const iconEmojiEl = alertBox.querySelector('.icon-emoji');
+  const iconContainer = alertBox.querySelector('.alert-icon');
+  const isTextOnly = overlaySettings.theme === 'text-only';
+
+  if (iconEmojiEl && iconContainer) {
+    iconEmojiEl.textContent = '';
+    if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
+      const img = document.createElement('img');
+      img.src = overlaySettings.customImageValue;
+      img.className = 'custom-alert-img';
+      iconEmojiEl.appendChild(img);
+      iconContainer.style.display = 'flex';
+    } else if (overlaySettings.customImageMode === 'emoji') {
+      if (overlaySettings.customImageValue) {
+        iconEmojiEl.textContent = overlaySettings.customImageValue;
+      } else {
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-heart';
+        iconEmojiEl.appendChild(icon);
+      }
+      iconContainer.style.display = isTextOnly ? 'none' : 'flex';
+    } else {
+      iconContainer.style.display = 'none';
+    }
+    if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
+      iconContainer.style.display = 'none';
+    }
+  }
+
+  const labelElement = alertBox.querySelector('.alert-label');
+  if (labelElement) {
+    const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : false;
+    const tempLower = overlaySettings.messageTemplate.toLowerCase();
+    if (!showLabelSetting || tempLower.includes('{amount}') || tempLower.includes('บริจาค') || tempLower.includes('donate')) {
+      labelElement.style.display = 'none';
+    } else {
+      labelElement.style.display = 'inline-block';
+      labelElement.textContent = 'บริจาค';
+    }
+  }
+
+  const amountSuffix = overlaySettings.amountSuffix || 'บาท';
+  alertBox.querySelector('.alert-amount').innerHTML = `<span class="highlight-amount shine-effect">${sampleAmount}</span> ${amountSuffix}</span>`;
+
+  const messageElement = alertBox.querySelector('.alert-message');
+  if (messageElement) {
+    messageElement.textContent = overlaySettings.showDonorMessage ? 'ขอบคุณสำหรับการสนับสนุน! 🎉' : '';
+  }
+
+  const progressEl = alertBox.querySelector('.alert-progress');
+  if (progressEl) progressEl.style.display = 'none';
+
+  alertBox.style.opacity = '0';
+  alertBox.style.transition = 'opacity 0.7s ease';
+  container.appendChild(alertBox);
+  staticPreviewEl = alertBox;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (staticPreviewEl === alertBox) alertBox.style.opacity = '1';
+    });
+  });
+}
+
 // ========== Show Alert Panel ==========
 // ========== Profanity Filter (Anti-Troll) ==========
 function filterProfanity(text) {
@@ -210,6 +317,14 @@ function filterProfanity(text) {
 }
 
 async function showAlert(data) {
+  if (staticPreviewEl) {
+    const el = staticPreviewEl;
+    staticPreviewEl = null;
+    el.style.transition = 'opacity 0.25s ease';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 280);
+  }
+
   const template = document.getElementById('alertTemplate');
   const clone = template.content.cloneNode(true);
   const alertBox = clone.querySelector('.alert-box');
@@ -222,18 +337,15 @@ async function showAlert(data) {
     // Format header text using template
     const amountFormatted = Number(data.amount).toLocaleString('th-TH', { minimumFractionDigits: 0 });
     
-    // สร้าง HTML สำหรับ Header โดยให้ไฮไลท์เฉพาะชื่อผู้บริจาค (ตามที่ผู้ใช้แจ้งให้แก้ส่วนจำนวนเงินกลับ)
-    const headerHtml = overlaySettings.messageTemplate
-      .replace(/{donor}/g, `<span class="highlight-donor">${data.donor || 'Anonymous'}</span>`)
-      .replace(/{amount}/g, amountFormatted);
-  
-    // กรองคำหยาบของหัวข้อ และข้อความส่วนตัวของผู้บริจาค
-    const filteredHeader = filterProfanity(headerHtml);
+    // สร้าง HTML สำหรับ Header — escape donor name ก่อน inject เพื่อป้องกัน XSS (SEC-003)
+    const filteredDonor = escapeForHtml(filterProfanity(data.donor || 'Anonymous'));
     const filteredMessage = filterProfanity(data.message || '');
-    const filteredDonor = filterProfanity(data.donor || 'Anonymous');
-  
+    const headerHtml = overlaySettings.messageTemplate
+      .replace(/{donor}/g, `<span class="highlight-donor">${filteredDonor}</span>`)
+      .replace(/{amount}/g, amountFormatted);
+
     // Set content
-    alertBox.querySelector('.donor-name').innerHTML = filteredHeader;
+    alertBox.querySelector('.donor-name').innerHTML = filterProfanity(headerHtml);
     
     // Handle Custom Icon/Image
     const iconEmojiEl = alertBox.querySelector('.icon-emoji');
@@ -241,19 +353,29 @@ async function showAlert(data) {
     const isTextOnly = alertBox.classList.contains('theme-text-only');
 
     if (iconEmojiEl && iconContainer) {
-      if (overlaySettings.customImageMode === 'url' && overlaySettings.customImageValue) {
-        iconEmojiEl.innerHTML = `<img src="${overlaySettings.customImageValue}" class="custom-alert-img">`;
+      iconEmojiEl.textContent = '';
+      if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
+        const img = document.createElement('img');
+        img.src = overlaySettings.customImageValue;
+        img.className = 'custom-alert-img';
+        iconEmojiEl.appendChild(img);
         iconContainer.style.display = 'flex';
       } else if (overlaySettings.customImageMode === 'emoji') {
-        iconEmojiEl.innerHTML = overlaySettings.customImageValue || '<i class="fa-solid fa-heart"></i>';
+        if (overlaySettings.customImageValue) {
+          iconEmojiEl.textContent = overlaySettings.customImageValue;
+        } else {
+          const icon = document.createElement('i');
+          icon.className = 'fa-solid fa-heart';
+          iconEmojiEl.appendChild(icon);
+        }
         // In Text Only theme, emojis/text icons are hidden
         iconContainer.style.display = isTextOnly ? 'none' : 'flex';
       } else {
         iconContainer.style.display = 'none';
       }
-      
-      // Special case: hide if URL is empty but mode is url
-      if (overlaySettings.customImageMode === 'url' && !overlaySettings.customImageValue) {
+
+      // Special case: hide if URL is empty but mode is url/upload
+      if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
         iconContainer.style.display = 'none';
       }
     }
@@ -306,26 +428,25 @@ async function showAlert(data) {
   }
 
     // Play Speech Synthesis (TTS) after a small delay
-    if (overlaySettings.ttsEnabled) {
-      let speakText = '';
-      if (overlaySettings.ttsReadDonor) {
-        // ลบ HTML tags ออกจาก filteredHeader ก่อนส่งไปอ่านออกเสียง
-        const cleanHeader = filteredHeader.replace(/<[^>]*>/g, '');
-        const amountSuffix = overlaySettings.amountSuffix || 'บาท';
-        // ใช้เฉพาะส่วนก่อนหน้าจำนวนเงินจาก template แล้วต่อด้วย amountFormatted และ amountSuffix เพื่อป้องกันคำซ้ำซ้อน
-        const headerPrefix = cleanHeader.split(amountFormatted)[0];
-        speakText = `${headerPrefix}${amountFormatted} ${amountSuffix}${data.message ? `. ฝากข้อความว่า ${filteredMessage}` : ''}`;
-      } else {
-        // อ่านเฉพาะข้อความผู้บริจาคเพียงอย่างเดียว
-        speakText = filteredMessage;
+    try {
+      if (overlaySettings.ttsEnabled) {
+        let speakText = '';
+        if (overlaySettings.ttsReadDonor) {
+          const cleanHeader = headerHtml.replace(/<[^>]*>/g, '');
+          const amountSuffix = overlaySettings.amountSuffix || 'บาท';
+          const headerPrefix = cleanHeader.split(amountFormatted)[0];
+          speakText = `${headerPrefix}${amountFormatted} ${amountSuffix}${data.message ? `. ฝากข้อความว่า ${filteredMessage}` : ''}`;
+        } else {
+          speakText = filteredMessage;
+        }
+        if (speakText && speakText.trim() !== '') {
+          setTimeout(() => {
+            speakMessage(speakText, overlaySettings.ttsLanguage, overlaySettings.ttsVolume, overlaySettings.ttsRate, overlaySettings.ttsVoice);
+          }, 200);
+        }
       }
-
-      // หากมีข้อความให้พูด จึงจะส่งไปที่ Speech Engine
-      if (speakText && speakText.trim() !== '') {
-        setTimeout(() => {
-          speakMessage(speakText, overlaySettings.ttsLanguage, overlaySettings.ttsVolume, overlaySettings.ttsRate, overlaySettings.ttsVoice);
-        }, 200);
-      }
+    } catch (err) {
+      console.error('TTS error:', err);
     }
 
   // Auto remove alert after duration
@@ -337,8 +458,11 @@ async function showAlert(data) {
     setTimeout(() => {
       alertBox.remove();
       isShowing = false;
-      processQueue(); // Loop to next in queue
-    }, 550); // Exit animation transition time
+      processQueue();
+      if (alertQueue.length === 0) {
+        setTimeout(showStaticPreview, 700);
+      }
+    }, 550);
   }, alertDurationMs);
 }
 
@@ -371,7 +495,7 @@ async function playNotificationSound(soundChoice, volume) {
         });
       });
     } 
-    else if (soundChoice === 'custom_url') {
+    else if (soundChoice === 'custom_url' || soundChoice === 'upload_sound') {
       return new Promise((resolve) => {
         if (!overlaySettings.customSoundUrl) {
           console.warn('Custom sound URL is empty');
@@ -381,7 +505,7 @@ async function playNotificationSound(soundChoice, volume) {
         audio.volume = Number(volume) || 0.5;
         audio.onended = resolve;
         audio.play().catch(err => {
-          console.warn('Custom URL sound playback failed:', err);
+          console.warn('Custom sound playback failed:', err);
           resolve();
         });
       });

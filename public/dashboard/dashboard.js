@@ -3,6 +3,32 @@ let allTransactions = [];
 let activeTab = 'dashboard';
 let _csrfToken = null;
 
+function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
+
+function setMediaPreview(imgEl, url) {
+  if (!imgEl || !url) return;
+  const vidId = imgEl.id + '_vid';
+  let vid = document.getElementById(vidId);
+  if (isWebm(url)) {
+    imgEl.style.display = 'none';
+    if (!vid) {
+      vid = document.createElement('video');
+      vid.id = vidId;
+      vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
+      if (imgEl.width) vid.width = imgEl.width;
+      if (imgEl.height) vid.height = imgEl.height;
+      vid.className = imgEl.className;
+      imgEl.insertAdjacentElement('afterend', vid);
+    }
+    vid.src = url;
+    vid.style.display = '';
+  } else {
+    if (vid) vid.style.display = 'none';
+    imgEl.src = url;
+    imgEl.style.display = '';
+  }
+}
+
 async function ensureCsrfToken() {
   if (_csrfToken) return _csrfToken;
   try {
@@ -148,17 +174,14 @@ async function initializeDashboard() {
       pageForm.onsubmit = savePageSettings;
     }
 
-    const btnApplyProfile = document.getElementById('btnApplyProfile');
-    if (btnApplyProfile) {
-      btnApplyProfile.onclick = () => {
-        const val = document.getElementById('profileImageValue');
-        if (val && val.value) {
-          document.getElementById('profilePreview').src = val.value;
-          document.getElementById('brandLogoImg').src = val.value;
-          showNotification('อัปเดตพรีวิวรูปภาพแล้ว');
-        }
-      };
-    }
+    const profileImageFileEl = document.getElementById('profileImageFile');
+    if (profileImageFileEl) profileImageFileEl.onchange = handleProfileImageSelect;
+
+    const headerBgFileEl = document.getElementById('headerBgFile');
+    if (headerBgFileEl) headerBgFileEl.onchange = handleHeaderBgSelect;
+
+    const pageBgFileEl = document.getElementById('pageBgFile');
+    if (pageBgFileEl) pageBgFileEl.onchange = handlePageBgSelect;
 
     // Header BG — URL input shows/hides controls + updates preview
     const headerBgUrlInput = document.getElementById('inputHeaderBgUrl');
@@ -184,35 +207,56 @@ async function initializeDashboard() {
       if (!headerBgDragPreview || !headerBgUrlInput) return;
       const url = headerBgUrlInput.value;
       if (!url) return;
-      headerBgDragPreview.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
-      const img = new Image();
-      img.onload = function () {
+      if (isWebm(url)) {
+        headerBgDragPreview.style.backgroundImage = 'none';
+        let vid = headerBgDragPreview.querySelector('video.header-bg-vid');
+        if (!vid) {
+          vid = document.createElement('video');
+          vid.className = 'header-bg-vid';
+          vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
+          Object.assign(vid.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' });
+          headerBgDragPreview.style.position = 'relative';
+          headerBgDragPreview.style.overflow = 'hidden';
+          headerBgDragPreview.insertBefore(vid, headerBgDragPreview.firstChild);
+        }
+        vid.src = url;
         if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-        const fitsNaturally = (img.naturalWidth / img.naturalHeight) >= HEADER_FIT_RATIO;
-        headerBgDragPreview.dataset.fitsNaturally = fitsNaturally ? '1' : '0';
+        headerBgDragPreview.dataset.fitsNaturally = '1';
         const hint = headerBgDragPreview.querySelector('[data-hint]');
-        if (fitsNaturally) {
-          headerBgDragPreview.style.backgroundSize = 'contain';
-          headerBgDragPreview.style.backgroundPosition = 'center center';
-          headerBgDragPreview.style.cursor = 'default';
-          if (hint) setHint(hint, 'fa-solid fa-check', '#4ade80', 'ภาพพอดีกับ Header อัตโนมัติ');
-        } else {
+        if (hint) setHint(hint, 'fa-solid fa-video', '#60a5fa', 'WebM Animation');
+      } else {
+        const vid = headerBgDragPreview.querySelector('video.header-bg-vid');
+        if (vid) vid.remove();
+        headerBgDragPreview.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+        const img = new Image();
+        img.onload = function () {
+          if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+          const fitsNaturally = (img.naturalWidth / img.naturalHeight) >= HEADER_FIT_RATIO;
+          headerBgDragPreview.dataset.fitsNaturally = fitsNaturally ? '1' : '0';
+          const hint = headerBgDragPreview.querySelector('[data-hint]');
+          if (fitsNaturally) {
+            headerBgDragPreview.style.backgroundSize = 'contain';
+            headerBgDragPreview.style.backgroundPosition = 'center center';
+            headerBgDragPreview.style.cursor = 'default';
+            if (hint) setHint(hint, 'fa-solid fa-check', '#4ade80', 'ภาพพอดีกับ Header อัตโนมัติ');
+          } else {
+            const y = headerBgYInput ? headerBgYInput.value : 0;
+            headerBgDragPreview.style.backgroundSize = 'cover';
+            headerBgDragPreview.style.backgroundPositionY = `${y}%`;
+            headerBgDragPreview.style.cursor = 'grab';
+            if (hint) setHint(hint, 'fa-solid fa-up-down', '#f59e0b', 'ลากขึ้น-ลงเพื่อปรับตำแหน่ง');
+          }
+        };
+        img.onerror = function () {
+          if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+          headerBgDragPreview.dataset.fitsNaturally = '0';
           const y = headerBgYInput ? headerBgYInput.value : 0;
           headerBgDragPreview.style.backgroundSize = 'cover';
           headerBgDragPreview.style.backgroundPositionY = `${y}%`;
           headerBgDragPreview.style.cursor = 'grab';
-          if (hint) setHint(hint, 'fa-solid fa-up-down', '#f59e0b', 'ลากขึ้น-ลงเพื่อปรับตำแหน่ง');
-        }
-      };
-      img.onerror = function () {
-        if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-        headerBgDragPreview.dataset.fitsNaturally = '0';
-        const y = headerBgYInput ? headerBgYInput.value : 0;
-        headerBgDragPreview.style.backgroundSize = 'cover';
-        headerBgDragPreview.style.backgroundPositionY = `${y}%`;
-        headerBgDragPreview.style.cursor = 'grab';
-      };
-      img.src = url;
+        };
+        img.src = url;
+      }
     }
 
     if (headerBgUrlInput && headerBgControlsDiv) {
@@ -329,6 +373,36 @@ async function initializeDashboard() {
         toggleCustomSoundUrlContainer(e.target.value);
       };
     }
+
+    const customImageModeEl = document.getElementById('customImageMode');
+    if (customImageModeEl) {
+      customImageModeEl.onchange = (e) => toggleCustomImageUI(e.target.value);
+    }
+
+    const customImageFileEl = document.getElementById('customImageFile');
+    if (customImageFileEl) {
+      customImageFileEl.onchange = handleImageFileSelect;
+    }
+
+    const uploadSoundFileEl = document.getElementById('uploadSoundFile');
+    if (uploadSoundFileEl) {
+      uploadSoundFileEl.onchange = handleAudioFileSelect;
+    }
+
+    const btnClearProfileEl = document.getElementById('btnClearProfileImage');
+    if (btnClearProfileEl) btnClearProfileEl.onclick = clearProfileImage;
+
+    const btnClearHeaderEl = document.getElementById('btnClearHeaderBg');
+    if (btnClearHeaderEl) btnClearHeaderEl.onclick = clearHeaderBg;
+
+    const btnClearPageBgEl = document.getElementById('btnClearPageBg');
+    if (btnClearPageBgEl) btnClearPageBgEl.onclick = clearPageBg;
+
+    const btnClearCustomImgEl = document.getElementById('btnClearCustomImage');
+    if (btnClearCustomImgEl) btnClearCustomImgEl.onclick = clearCustomImage;
+
+    const btnClearSoundEl = document.getElementById('btnClearUploadSound');
+    if (btnClearSoundEl) btnClearSoundEl.onclick = clearUploadSound;
 
     const btnBrowseSounds = document.getElementById('btnBrowseSounds');
     if (btnBrowseSounds) {
@@ -1694,9 +1768,289 @@ function toggleAudioSettingsRow(enabled) {
 }
 
 function toggleCustomSoundUrlContainer(choice) {
-  const container = document.getElementById('customSoundUrlContainer');
-  if (!container) return;
-  container.style.display = choice === 'custom_url' ? 'block' : 'none';
+  const urlContainer = document.getElementById('customSoundUrlContainer');
+  const uploadContainer = document.getElementById('uploadSoundContainer');
+  if (urlContainer) urlContainer.style.display = choice === 'custom_url' ? 'block' : 'none';
+  if (uploadContainer) uploadContainer.style.display = choice === 'upload_sound' ? 'block' : 'none';
+}
+
+function toggleCustomImageUI(mode, currentValue) {
+  const emojiWrap = document.getElementById('customImageEmojiWrap');
+  const uploadWrap = document.getElementById('customImageUploadWrap');
+  if (!emojiWrap || !uploadWrap) return;
+  if (mode === 'upload') {
+    emojiWrap.style.display = 'none';
+    uploadWrap.style.display = '';
+    const val = currentValue !== undefined ? currentValue : document.getElementById('customImageValue')?.value;
+    if (val && val.startsWith('http')) {
+      const preview = document.getElementById('customImagePreview');
+      if (preview) { setMediaPreview(preview, val); preview.style.display = isWebm(val) ? 'none' : 'block'; }
+    }
+  } else {
+    emojiWrap.style.display = '';
+    uploadWrap.style.display = 'none';
+  }
+}
+
+async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onStatus) {
+  const isAnimated = file.type === 'image/gif' || file.type === 'image/webp' || file.type === 'video/webm';
+  const maxBytes = isAnimated ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new Error(isAnimated
+      ? 'ไฟล์ภาพเคลื่อนไหวใหญ่เกินไป (จำกัดไม่เกิน 2MB)'
+      : 'ไฟล์ภาพใหญ่เกินไป (จำกัดไม่เกิน 5MB) กรุณาลดขนาดภาพก่อนนำมาอัปโหลด');
+  }
+  let uploadFile, uploadMime;
+  if (isAnimated) {
+    if (onStatus) onStatus('กำลังเตรียมไฟล์...');
+    uploadFile = file;
+    uploadMime = file.type;
+  } else {
+    if (onStatus) onStatus('กำลังบีบอัดรูปภาพ...');
+    uploadFile = await imageCompression(file, {
+      maxSizeMB: maxSizeMB || 0.2,
+      maxWidthOrHeight: maxWidthOrHeight || 1200,
+      useWebWorker: true,
+      fileType: 'image/webp'
+    });
+    uploadMime = 'image/webp';
+  }
+  if (onStatus) onStatus('กำลังขอ URL อัปโหลด...');
+  const presignRes = await fetchWithCsrf('/api/upload/presign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileType: uploadMime, category })
+  });
+  if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
+  const { uploadUrl, fileUrl } = await presignRes.json();
+  if (onStatus) onStatus('กำลังอัปโหลด...');
+  const putRes = await fetch(uploadUrl, { method: 'PUT', body: uploadFile, headers: { 'Content-Type': uploadMime } });
+  if (!putRes.ok) throw new Error('PUT ไม่สำเร็จ HTTP ' + putRes.status);
+  return fileUrl;
+}
+
+async function handleImageFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('customImageStatus');
+  const valueInput = document.getElementById('customImageValue');
+  const preview = document.getElementById('customImagePreview');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const fileUrl = await uploadImageToR2(file, 'avatar', 0.2, 800, setStatus);
+    if (valueInput) valueInput.value = fileUrl;
+    if (preview) { setMediaPreview(preview, fileUrl + '?t=' + Date.now()); preview.style.display = isWebm(fileUrl) ? 'none' : 'block'; }
+    document.getElementById('btnClearCustomImage')?.style.setProperty('display', '');
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดรูปภาพสำเร็จ');
+  } catch (err) {
+    console.error('Image upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function handleProfileImageSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('profileImageStatus');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const fileUrl = await uploadImageToR2(file, 'profile', 0.2, 800, setStatus);
+    document.getElementById('profileImageValue').value = fileUrl;
+    const cacheBust = fileUrl + '?t=' + Date.now();
+    const profilePreview = document.getElementById('profilePreview');
+    const brandLogoImg = document.getElementById('brandLogoImg');
+    if (profilePreview) setMediaPreview(profilePreview, cacheBust);
+    if (brandLogoImg) setMediaPreview(brandLogoImg, cacheBust);
+    document.getElementById('btnClearProfileImage')?.style.setProperty('display', '');
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดรูปโปรไฟล์สำเร็จ');
+  } catch (err) {
+    console.error('Profile image upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function handleHeaderBgSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('headerBgStatus');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const fileUrl = await uploadImageToR2(file, 'header', 0.5, 1920, setStatus);
+    const hiddenInput = document.getElementById('inputHeaderBgUrl');
+    if (hiddenInput) {
+      hiddenInput.value = fileUrl;
+      hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    document.getElementById('btnClearHeaderBg')?.style.setProperty('display', '');
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดภาพปก Header สำเร็จ');
+  } catch (err) {
+    console.error('Header BG upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function handlePageBgSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('pageBgStatus');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const fileUrl = await uploadImageToR2(file, 'pagebg', 0.5, 1920, setStatus);
+    const hiddenInput = document.getElementById('inputPageBgUrl');
+    if (hiddenInput) hiddenInput.value = fileUrl;
+    const pageBgPreview = document.getElementById('pageBgPreview');
+    if (pageBgPreview) { setMediaPreview(pageBgPreview, fileUrl + '?t=' + Date.now()); if (!isWebm(fileUrl)) pageBgPreview.style.display = 'block'; }
+    document.getElementById('btnClearPageBg')?.style.setProperty('display', '');
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดภาพพื้นหลังสำเร็จ');
+  } catch (err) {
+    console.error('Page BG upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function handleAudioFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('uploadSoundStatus');
+  const soundUrlInput = document.getElementById('customSoundUrl');
+  const currentNameEl = document.getElementById('uploadSoundCurrentName');
+  const currentWrap = document.getElementById('uploadSoundCurrentWrap');
+
+  const setStatus = (msg, color) => {
+    if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; }
+  };
+
+  const allowedFormats = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav'];
+  const normalizedType = file.type === 'audio/mp3' ? 'audio/mpeg' : file.type;
+  if (!allowedFormats.includes(file.type) && !allowedFormats.includes(normalizedType)) {
+    showNotification('รองรับเฉพาะไฟล์ .mp3, .ogg และ .wav เท่านั้น', 'error');
+    return;
+  }
+  if (file.size > 500 * 1024) {
+    showNotification('ไฟล์ต้องไม่เกิน 500KB เพื่อให้เสียงเด้งไวบน OBS', 'error');
+    return;
+  }
+
+  setStatus('กำลังขอ URL อัปโหลด...');
+  try {
+    const presignRes = await fetchWithCsrf('/api/upload/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound' })
+    });
+    if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
+    const { uploadUrl, fileUrl } = await presignRes.json();
+
+    setStatus('กำลังอัปโหลดไฟล์เสียง...');
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT', body: file,
+      headers: { 'Content-Type': normalizedType }
+    });
+    if (!putRes.ok) throw new Error('PUT ไม่สำเร็จ HTTP ' + putRes.status);
+
+    if (soundUrlInput) soundUrlInput.value = fileUrl;
+    if (currentNameEl) currentNameEl.textContent = `${file.name} (${Math.round(file.size / 1024)}KB)`;
+    if (currentWrap) currentWrap.style.display = 'flex';
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดไฟล์เสียงสำเร็จ');
+  } catch (err) {
+    console.error('Audio upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function clearProfileImage() {
+  document.getElementById('profileImageValue').value = '';
+  const profilePreview = document.getElementById('profilePreview');
+  if (profilePreview) {
+    setMediaPreview(profilePreview, '/avatar.jpg');
+    const vid = document.getElementById('profilePreview_vid');
+    if (vid) vid.style.display = 'none';
+  }
+  const brandLogo = document.getElementById('brandLogoImg');
+  if (brandLogo) setMediaPreview(brandLogo, '/avatar.jpg');
+  const fileInput = document.getElementById('profileImageFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('profileImageStatus');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('btnClearProfileImage');
+  if (btn) btn.style.display = 'none';
+}
+
+function clearHeaderBg() {
+  const urlInput = document.getElementById('inputHeaderBgUrl');
+  if (urlInput) {
+    urlInput.value = '';
+    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  const dragPreview = document.getElementById('headerBgDragPreview');
+  if (dragPreview) {
+    dragPreview.style.backgroundImage = 'none';
+    const vid = dragPreview.querySelector('video.header-bg-vid');
+    if (vid) vid.remove();
+  }
+  const fileInput = document.getElementById('headerBgFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('headerBgStatus');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('btnClearHeaderBg');
+  if (btn) btn.style.display = 'none';
+}
+
+function clearPageBg() {
+  const urlInput = document.getElementById('inputPageBgUrl');
+  if (urlInput) urlInput.value = '';
+  const preview = document.getElementById('pageBgPreview');
+  if (preview) {
+    preview.src = '';
+    preview.style.display = 'none';
+    const vid = document.getElementById('pageBgPreview_vid');
+    if (vid) vid.style.display = 'none';
+  }
+  const fileInput = document.getElementById('pageBgFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('pageBgStatus');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('btnClearPageBg');
+  if (btn) btn.style.display = 'none';
+}
+
+function clearCustomImage() {
+  const valueInput = document.getElementById('customImageValue');
+  if (valueInput) valueInput.value = '';
+  const preview = document.getElementById('customImagePreview');
+  if (preview) {
+    preview.src = '';
+    preview.style.display = 'none';
+    const vid = document.getElementById('customImagePreview_vid');
+    if (vid) vid.style.display = 'none';
+  }
+  const fileInput = document.getElementById('customImageFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('customImageStatus');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('btnClearCustomImage');
+  if (btn) btn.style.display = 'none';
+}
+
+function clearUploadSound() {
+  const urlInput = document.getElementById('customSoundUrl');
+  if (urlInput) urlInput.value = '';
+  const currentWrap = document.getElementById('uploadSoundCurrentWrap');
+  if (currentWrap) currentWrap.style.display = 'none';
+  const fileInput = document.getElementById('uploadSoundFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('uploadSoundStatus');
+  if (status) status.textContent = '';
 }
 
 function toggleProfanitySubSettings(enabled) {
@@ -1764,10 +2118,24 @@ async function loadOverlaySettings() {
        document.getElementById('chkShowDonorMessage').checked = s.showDonorMessage;
        document.getElementById('inputMinAmount').value = s.minAmount;
        
-       // Custom Visuals
-       document.getElementById('customImageMode').value = s.customImageMode || 'emoji';
+       // Custom Visuals — normalize legacy 'url' mode to 'upload'
+       const imgMode = s.customImageMode === 'url' ? 'upload' : (s.customImageMode || 'emoji');
+       document.getElementById('customImageMode').value = imgMode;
        document.getElementById('customImageValue').value = s.customImageValue || '🎁';
+       toggleCustomImageUI(imgMode, s.customImageValue);
        document.getElementById('customSoundUrl').value = s.customSoundUrl || '';
+       // Show current uploaded sound name if upload_sound mode
+       if (s.soundChoice === 'upload_sound' && s.customSoundUrl) {
+         const wrap = document.getElementById('uploadSoundCurrentWrap');
+         const nameEl = document.getElementById('uploadSoundCurrentName');
+         if (wrap) wrap.style.display = 'flex';
+         if (nameEl) nameEl.textContent = s.customSoundUrl.split('/').pop();
+       }
+       // Show clear button for custom image if upload mode with value
+       const loadedImgMode = s.customImageMode === 'url' ? 'upload' : (s.customImageMode || 'emoji');
+       const loadedImgVal = s.customImageValue || '';
+       document.getElementById('btnClearCustomImage')?.style.setProperty('display',
+         (loadedImgMode === 'upload' && loadedImgVal.startsWith('http')) ? '' : 'none');
        
        // Profanity Filter
        document.getElementById('chkProfanityFilterEnabled').checked = s.profanityFilterEnabled;
@@ -1947,9 +2315,20 @@ async function loadPageSettings() {
     }
     if (headerBgUrlEl) headerBgUrlEl.dispatchEvent(new Event('input'));
 
+    // Show pageBg preview if URL exists
+    if (data.pageBgUrl) {
+      const pageBgPreview = document.getElementById('pageBgPreview');
+      if (pageBgPreview) { setMediaPreview(pageBgPreview, data.pageBgUrl); if (!isWebm(data.pageBgUrl)) pageBgPreview.style.display = 'block'; }
+    }
+
     // Update Preview
-    document.getElementById('profilePreview').src = data.profileImage || '/avatar.jpg';
-    document.getElementById('brandLogoImg').src = data.profileImage || '/avatar.jpg';
+    setMediaPreview(document.getElementById('profilePreview'), data.profileImage || '/avatar.jpg');
+    setMediaPreview(document.getElementById('brandLogoImg'), data.profileImage || '/avatar.jpg');
+    // Show clear buttons for already-uploaded assets
+    const loadedProfileVal = document.getElementById('profileImageValue')?.value;
+    document.getElementById('btnClearProfileImage')?.style.setProperty('display', loadedProfileVal ? '' : 'none');
+    document.getElementById('btnClearHeaderBg')?.style.setProperty('display', (data.headerBgUrl || '') ? '' : 'none');
+    document.getElementById('btnClearPageBg')?.style.setProperty('display', (data.pageBgUrl || '') ? '' : 'none');
     
     if (data.profileGlowColor) {
       updateBrandGlow(data.profileGlowColor);

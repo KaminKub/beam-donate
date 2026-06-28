@@ -143,6 +143,8 @@ const pageSubtitle2 = document.getElementById('pageSubtitle2');
 const profileImage = document.getElementById('profileImage');
 const socialLinksContainer = document.getElementById('socialLinks');
 
+function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
+
 async function loadPageContent() {
   const username = window.location.pathname.split('/')[1];
   if (!username) return;
@@ -169,8 +171,25 @@ async function loadPageContent() {
       updateDonateButton();
       
        // Update profile image
-       profileImage.src = data.profileImage || '/avatar.jpg';
-       profileImage.style.display = 'block';
+       if (isWebm(data.profileImage)) {
+         let profileVid = document.getElementById('profileVideo');
+         if (!profileVid) {
+           profileVid = document.createElement('video');
+           profileVid.id = 'profileVideo';
+           profileVid.autoplay = true; profileVid.loop = true; profileVid.muted = true; profileVid.playsInline = true;
+           profileVid.className = profileImage.className;
+           profileVid.setAttribute('width', '190'); profileVid.setAttribute('height', '190');
+           profileImage.insertAdjacentElement('afterend', profileVid);
+         }
+         profileImage.style.display = 'none';
+         profileVid.src = data.profileImage;
+         profileVid.style.display = '';
+       } else {
+         const profileVid = document.getElementById('profileVideo');
+         if (profileVid) profileVid.style.display = 'none';
+         profileImage.src = data.profileImage || '/avatar.jpg';
+         profileImage.style.display = 'block';
+       }
        
        // Set glow color CSS variable
        if (data.profileGlowColor) {
@@ -199,36 +218,57 @@ async function loadPageContent() {
                styleEl.id = 'header-bg-dynamic';
                document.head.appendChild(styleEl);
              }
-             styleEl.textContent = `
-               .header {
-                 position: relative;
-                 margin: -35px -30px 0 -30px;
-                 padding: 35px 30px 25px;
+             if (isWebm(data.headerBgUrl)) {
+               styleEl.textContent = `
+                 .header { position: relative; margin: -35px -30px 0 -30px; padding: 35px 30px 25px; overflow: hidden; }
+                 #step-amount .header .glowing-avatar { margin-top: 80px; }
+                 #step-payment-method .header, #step-qr .header, #step-truemoney .header { padding-top: 180px; }
+                 .header > * { position: relative; z-index: 1; }
+                 #header-bg-video { position: absolute; top: 0; left: 0; right: 0; height: 170px; width: 100%; object-fit: cover; object-position: center ${y}%; z-index: 0; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); }
+               `;
+               let headerVid = document.getElementById('header-bg-video');
+               if (!headerVid) {
+                 headerVid = document.createElement('video');
+                 headerVid.id = 'header-bg-video';
+                 headerVid.autoplay = true; headerVid.loop = true; headerVid.muted = true; headerVid.playsInline = true;
+                 const header = document.querySelector('.header');
+                 if (header) header.insertBefore(headerVid, header.firstChild);
                }
-               #step-amount .header .glowing-avatar {
-                 margin-top: 80px;
-               }
-               #step-payment-method .header,
-               #step-qr .header,
-               #step-truemoney .header {
-                 padding-top: 180px;
-               }
-               .header::before {
-                 content: '';
-                 position: absolute;
-                 top: 0;
-                 left: 0;
-                 right: 0;
-                 height: 170px;
-                 background-image: url("${safeUrl}");
-                 background-size: cover;
-                 background-position: center ${y}%;
-                 -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
-                 mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
-                 z-index: 0;
-               }
-               .header > * { position: relative; z-index: 1; }
-             `;
+               headerVid.src = data.headerBgUrl;
+             } else {
+               const headerVid = document.getElementById('header-bg-video');
+               if (headerVid) headerVid.remove();
+               styleEl.textContent = `
+                 .header {
+                   position: relative;
+                   margin: -35px -30px 0 -30px;
+                   padding: 35px 30px 25px;
+                 }
+                 #step-amount .header .glowing-avatar {
+                   margin-top: 80px;
+                 }
+                 #step-payment-method .header,
+                 #step-qr .header,
+                 #step-truemoney .header {
+                   padding-top: 180px;
+                 }
+                 .header::before {
+                   content: '';
+                   position: absolute;
+                   top: 0;
+                   left: 0;
+                   right: 0;
+                   height: 170px;
+                   background-image: url("${safeUrl}");
+                   background-size: cover;
+                   background-position: center ${y}%;
+                   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+                   mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+                   z-index: 0;
+                 }
+                 .header > * { position: relative; z-index: 1; }
+               `;
+             }
            }
          } catch(e) {}
        }
@@ -237,26 +277,37 @@ async function loadPageContent() {
            const u = new URL(data.pageBgUrl);
            if (u.protocol === 'https:' || u.protocol === 'http:') {
              const safeUrl = data.pageBgUrl.replace(/"/g, '%22');
-             let bgDiv = document.getElementById('page-bg-layer');
-             if (!bgDiv) {
-               bgDiv = document.createElement('div');
-               bgDiv.id = 'page-bg-layer';
-               document.body.insertBefore(bgDiv, document.body.firstChild);
+             if (isWebm(data.pageBgUrl)) {
+               const bgDiv = document.getElementById('page-bg-layer');
+               if (bgDiv) bgDiv.style.display = 'none';
+               let bgVid = document.getElementById('page-bg-video');
+               if (!bgVid) {
+                 bgVid = document.createElement('video');
+                 bgVid.id = 'page-bg-video';
+                 bgVid.autoplay = true; bgVid.loop = true; bgVid.muted = true; bgVid.playsInline = true;
+                 Object.assign(bgVid.style, {
+                   position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                   zIndex: '-1', objectFit: 'cover', opacity: '0.1', pointerEvents: 'none'
+                 });
+                 document.body.insertBefore(bgVid, document.body.firstChild);
+               }
+               bgVid.src = data.pageBgUrl;
+             } else {
+               const bgVid = document.getElementById('page-bg-video');
+               if (bgVid) bgVid.remove();
+               let bgDiv = document.getElementById('page-bg-layer');
+               if (!bgDiv) {
+                 bgDiv = document.createElement('div');
+                 bgDiv.id = 'page-bg-layer';
+                 document.body.insertBefore(bgDiv, document.body.firstChild);
+               }
+               Object.assign(bgDiv.style, {
+                 position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                 zIndex: '-1', backgroundImage: `url("${safeUrl}")`, backgroundSize: 'cover',
+                 backgroundPosition: 'center', backgroundRepeat: 'no-repeat', opacity: '0.1', pointerEvents: 'none',
+                 display: ''
+               });
              }
-             Object.assign(bgDiv.style, {
-               position: 'fixed',
-               top: '0',
-               left: '0',
-               width: '100%',
-               height: '100%',
-               zIndex: '-1',
-               backgroundImage: `url("${safeUrl}")`,
-               backgroundSize: 'cover',
-               backgroundPosition: 'center',
-               backgroundRepeat: 'no-repeat',
-               opacity: '0.1',
-               pointerEvents: 'none'
-             });
            }
          } catch(e) {}
        }

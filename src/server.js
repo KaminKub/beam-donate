@@ -23,6 +23,8 @@ const session = require('express-session');
 const TursoStore = require('./sessionStore');
 const passport = require('passport');
 const rateLimit = require('express-rate-limit');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
@@ -32,6 +34,57 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+
+// ========== Cloudflare R2 (S3-compatible) ==========
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+  }
+});
+
+const UPLOAD_ALLOWED_TYPES = {
+  avatar:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
+  profile: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
+  header:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
+  pagebg:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
+  sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3', 'audio/wav'],
+  video:   ['video/mp4', 'video/webm']
+};
+const UPLOAD_EXT_MAP = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav',
+  'video/mp4': 'mp4', 'video/webm': 'webm'
+};
+const UPLOAD_FOLDER_MAP = {
+  avatar: 'avatars', profile: 'profiles', header: 'headers', pagebg: 'pagebg',
+  sound: 'sounds', video: 'videos'
+};
+
+async function uploadBufferToR2(buffer, key, contentType) {
+  await s3Client.send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType
+  }));
+  return `${process.env.R2_PUBLIC_URL}/${key}`;
+}
+
+async function uploadAvatarFromUrl(imageUrl, twitchId) {
+  try {
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 10000 });
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const ext = contentType.includes('webp') ? 'webp' : contentType.includes('png') ? 'png' : 'jpg';
+    const key = `avatars/twitch_${twitchId}.${ext}`;
+    return await uploadBufferToR2(Buffer.from(response.data), key, contentType);
+  } catch (err) {
+    console.error('❌ R2 avatar upload failed:', err.message);
+    return null;
+  }
+}
 
 // Setup SQLite Database (Turso Cloud)
 const db = require('./database');
@@ -233,13 +286,14 @@ if (helmet) {
       // SSE + API calls to self, Google Fonts/TTS, Twitch/Streamlabs OAuth redirects.
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", 'https://www.myinstants.com'],
-        mediaSrc: ["'self'", 'https://translate.google.com', 'https://www.myinstants.com', 'data:'],
+        connectSrc: ["'self'", 'https://www.myinstants.com', 'https://*.r2.cloudflarestorage.com', 'https://cdn.jsdelivr.net'],
+        workerSrc: ["'self'", 'blob:'],
+        mediaSrc: ["'self'", 'https://translate.google.com', 'https://www.myinstants.com', 'data:', process.env.R2_PUBLIC_URL || 'https://pub-db8500a3bce347deb31e3ac1eb556de8.r2.dev'],
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -545,7 +599,17 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
   
     const pending = req.session.pendingUser;
     console.log(`💾 [Register Complete] Saving user...`, { twitchId: pending.twitchId, streamlabsId: pending.streamlabsId, username: normalizedUsername, hasProfileImage: !!pending.profileImage });
-    
+
+    // Upload Twitch avatar to R2 on first registration (Approach 2: cache to R2)
+    let avatarUrl = pending.profileImage || null;
+    if (avatarUrl && avatarUrl.startsWith('http') && pending.twitchId) {
+      const r2Url = await uploadAvatarFromUrl(avatarUrl, pending.twitchId);
+      if (r2Url) {
+        avatarUrl = r2Url;
+        console.log(`📸 [Register Complete] Avatar cached to R2: ${r2Url}`);
+      }
+    }
+
     const newUser = await db.saveStreamer({
       twitch_id: pending.twitchId || null,
       streamlabs_id: pending.streamlabsId || null,
@@ -555,8 +619,8 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       username: normalizedUsername,
       overlay_token: crypto.randomBytes(16).toString('hex'),
       is_active: 1,
-      profile_image_value: pending.profileImage || null,
-      profile_image_source: pending.profileImage ? (pending.streamlabsId ? 'streamlabs' : 'twitch') : null
+      profile_image_value: avatarUrl,
+      profile_image_source: avatarUrl ? (pending.streamlabsId ? 'streamlabs' : 'twitch') : null
     });
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
@@ -1415,6 +1479,15 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
     const twitchId = req.user.twitch_id || req.user.id;
     
     const safeBody = filterAllowedFields(req.body, OVERLAY_ALLOWED_FIELDS);
+
+    // SEC-002: Reject non-audio or non-http(s) customSoundUrl to prevent stored XSS
+    if (safeBody.customSoundUrl !== undefined) {
+      const audioCheck = validateAudioUrl(safeBody.customSoundUrl);
+      if (!audioCheck.valid) {
+        return res.status(400).json({ error: audioCheck.message });
+      }
+    }
+
     const updatedStreamer = await db.saveStreamer({
       twitch_id: twitchId,
       ...safeBody
@@ -1485,6 +1558,26 @@ function validateSocialUrl(url) {
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
     return false;
+  }
+}
+
+// SEC-002: Validate sound alert URL — must be http(s) and end with an audio extension
+function validateAudioUrl(url) {
+  if (!url) return { valid: true };
+  url = url.trim();
+  if (url.length > 2048) return { valid: false, message: 'URL ยาวเกินไป' };
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return { valid: false, message: 'ลิงก์ URL ไม่ถูกต้อง' };
+    }
+    const p = parsed.pathname.toLowerCase();
+    if (!p.endsWith('.mp3') && !p.endsWith('.ogg') && !p.endsWith('.wav')) {
+      return { valid: false, message: 'ลิงก์ปลายทางต้องเป็นไฟล์ .mp3, .ogg หรือ .wav เท่านั้น' };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, message: 'รูปแบบลิงก์ URL ไม่ถูกต้อง' };
   }
 }
 
@@ -2649,6 +2742,42 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       return res.status(502).json({ error: 'ระบบฐานข้อมูลขัดข้องชั่วคราว' });
     }
     res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลวิธีรับเงินได้' });
+  }
+});
+
+// POST /api/upload/presign — generate Cloudflare R2 presigned upload URL
+app.post('/api/upload/presign', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { fileType, category } = req.body;
+
+    if (!category || !UPLOAD_ALLOWED_TYPES[category]) {
+      return res.status(400).json({ error: 'category ไม่ถูกต้อง (avatar, sound, video)' });
+    }
+    if (!fileType || !UPLOAD_ALLOWED_TYPES[category].includes(fileType)) {
+      return res.status(400).json({ error: `ประเภทไฟล์ไม่รองรับ: ${fileType}` });
+    }
+
+    const twitchId = req.user.twitch_id || req.user.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+
+    const ext = UPLOAD_EXT_MAP[fileType] || 'bin';
+    const folder = UPLOAD_FOLDER_MAP[category];
+    const key = `${folder}/${streamer.id}.${ext}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      ContentType: fileType
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
+    const fileUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+
+    res.json({ uploadUrl, fileUrl });
+  } catch (err) {
+    console.error('❌ Presign error:', err);
+    res.status(500).json({ error: 'ไม่สามารถสร้าง URL อัปโหลดได้' });
   }
 });
 

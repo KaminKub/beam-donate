@@ -3027,3 +3027,43 @@ label {
   border-bottom-width: 1px;
   margin-bottom: 8px;
 }
+
+/* ========== Upload Clear Button ========== */
+.btn-clear-upload {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(239,68,68,0.45);
+}
+.btn-clear-upload:hover {
+  background: #dc2626;
+  transform: scale(1.15);
+}
+.avatar-preview-wrapper .btn-clear-upload {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+.header-bg-clear-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}

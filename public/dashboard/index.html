@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link rel="stylesheet" href="/dashboard/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
   <!-- Preload payment logos so they load even when tab-payment-setup is display:none -->
@@ -279,6 +280,7 @@
                   <div class="profile-edit-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px;">
                       <div class="avatar-preview-wrapper" style="position: relative; width: 150px; height: 150px;">
                         <img id="profilePreview" src="/avatar.jpg" class="glowing-avatar" style="width: 150px; height: 150px; border-radius: 50%;" alt="Profile Preview">
+                        <button type="button" id="btnClearProfileImage" class="btn-clear-upload" style="display:none;" title="ลบรูปโปรไฟล์"><i class="fa-solid fa-xmark"></i></button>
                       </div>
 
 
@@ -291,11 +293,17 @@
                       </div>
                       
                        <div id="profileSourceContainer" style="display: flex; width: 100%; gap: 15px; flex-direction: column;">
+                          <input type="hidden" id="profileImageValue">
                           <div class="form-group">
-                            <label for="profileImageValue">URL รูปภาพโปรไฟล์</label>
-                            <input type="text" id="profileImageValue" class="form-control" placeholder="ระบุ URL ของรูปภาพ (เช่น https://.../image.jpg)">
+                            <label><i class="fa-solid fa-upload" style="color:#60a5fa"></i> เปลี่ยนรูปโปรไฟล์ <small style="color:var(--text-muted)">(ไม่เกิน 5MB | ภาพเคลื่อนไหว 2MB )</small></label>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                              <label for="profileImageFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-camera"></i> เลือกรูปโปรไฟล์
+                              </label>
+                              <input type="file" id="profileImageFile" accept="image/*,video/webm" style="display:none;">
+                              <span id="profileImageStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                            </div>
                           </div>
-                          <button type="button" id="btnApplyProfile" class="btn btn-secondary">อัปเดตพรีวิวรูปภาพ</button>
                         </div>
 
                   </div>
@@ -324,20 +332,39 @@
                           <div id="headerBgSpinner" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:2;">
                             <i class="fa-solid fa-spinner fa-spin" style="font-size:26px;color:#a855f7;"></i>
                           </div>
+                          <button type="button" id="btnClearHeaderBg" class="btn-clear-upload header-bg-clear-btn" style="display:none;" title="ลบภาพปก Header"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <input type="hidden" id="inputHeaderBgY" value="0">
                         <small class="text-muted" style="display:block;margin-top:4px;">ตำแหน่ง Y: <span id="headerBgYDisplay">0</span>%</small>
                       </div>
                     </div>
                     <div class="form-group">
-                      <label for="inputHeaderBgUrl"><i class="fa-solid fa-image" style="color:#60a5fa"></i> URL ภาพปก Header</label>
-                      <input type="url" id="inputHeaderBgUrl" class="form-control" placeholder="https://example.com/header.jpg">
-                      <small class="text-muted">ภาพพื้นหลังของส่วนหัวในหน้าโดเนท — ขยายเต็มขอบ card พร้อม fade ด้านล่าง</small>
+                      <label><i class="fa-solid fa-image" style="color:#60a5fa"></i> ภาพปก Header <small style="color:var(--text-muted)">(สูงสุด 5MB | ภาพเคลื่อนไหว 2MB )</small></label>
+                      <input type="hidden" id="inputHeaderBgUrl">
+                      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                        <label for="headerBgFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                          <i class="fa-solid fa-upload"></i> อัพโหลดภาพปก
+                        </label>
+                        <input type="file" id="headerBgFile" accept="image/*,video/webm" style="display:none;">
+                        <span id="headerBgStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                      </div>
+                      <small class="text-muted" style="display:block;margin-top:4px;">ภาพพื้นหลังของส่วนหัวในหน้าโดเนท — ขยายเต็มขอบ card พร้อม fade ด้านล่าง</small>
                     </div>
                     <div class="form-group">
-                      <label for="inputPageBgUrl"><i class="fa-solid fa-layer-group" style="color:#a855f7"></i> URL ภาพพื้นหลังหน้า</label>
-                      <input type="url" id="inputPageBgUrl" class="form-control" placeholder="https://example.com/background.jpg">
-                      <small class="text-muted">ภาพพื้นหลังของทั้งหน้าโดเนท — แสดงที่ opacity ต่ำ</small>
+                      <label><i class="fa-solid fa-layer-group" style="color:#a855f7"></i> ภาพพื้นหลังหน้า <small style="color:var(--text-muted)">(สูงสุด 5MB | ภาพเคลื่อนไหว 2MB )</small></label>
+                      <input type="hidden" id="inputPageBgUrl">
+                      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                        <div style="position:relative;display:inline-block;">
+                          <img id="pageBgPreview" src="" alt="" width="120" height="60" style="border-radius:8px;object-fit:cover;display:none;">
+                          <button type="button" id="btnClearPageBg" class="btn-clear-upload" style="display:none;position:absolute;top:-8px;right:-8px;" title="ลบภาพพื้นหลัง"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <label for="pageBgFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                          <i class="fa-solid fa-upload"></i> อัพโหลดภาพพื้นหลัง
+                        </label>
+                        <input type="file" id="pageBgFile" accept="image/*,video/webm" style="display:none;">
+                        <span id="pageBgStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                      </div>
+                      <small class="text-muted" style="display:block;margin-top:4px;">ภาพพื้นหลังของทั้งหน้าโดเนท — แสดงที่ opacity ต่ำ</small>
                     </div>
                   </div>
                 </div>
@@ -798,14 +825,31 @@
                        <div class="form-group">
                          <label for="customImageMode">โหมดรูปภาพ Alert</label>
 <select id="customImageMode" name="customImageMode" class="form-select">
-                            <option value="emoji">ใช้ Emoji (เริ่มต้น)</option>
-                            <option value="url">ใช้ URL รูปภาพภายนอก</option>
+                            <option value="emoji">ใช้ Emoji</option>
+                            <option value="upload">อัพโหลดรูปภาพเอง</option>
                           </select>
-
                        </div>
                        <div class="form-group">
-                         <label for="customImageValue">URL รูปภาพ / Emoji</label>
-                         <input type="text" id="customImageValue" name="customImageValue" class="form-control" placeholder="ใส่ URL หรือ Emoji เช่น 🎁">
+                         <!-- Emoji mode -->
+                         <div id="customImageEmojiWrap">
+                           <label for="customImageValue">Emoji</label>
+                           <input type="text" id="customImageValue" name="customImageValue" class="form-control" placeholder="ใส่ Emoji เช่น 🎁">
+                         </div>
+                         <!-- Upload mode -->
+                         <div id="customImageUploadWrap" style="display:none;">
+                           <label>รูปภาพ Alert <small style="color:var(--text-muted)">(สูงสุด 5MB | ภาพเคลื่อนไหว 2MB )</small></label>
+                           <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                             <div style="position:relative;display:inline-block;">
+                               <img id="customImagePreview" src="" alt="preview" width="64" height="64" style="border-radius:8px;object-fit:cover;display:none;">
+                               <button type="button" id="btnClearCustomImage" class="btn-clear-upload" style="display:none;position:absolute;top:-8px;right:-8px;" title="ลบรูปภาพ Alert"><i class="fa-solid fa-xmark"></i></button>
+                             </div>
+                             <label for="customImageFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                               <i class="fa-solid fa-upload"></i> เลือกรูปภาพ
+                             </label>
+                             <input type="file" id="customImageFile" accept="image/*,video/webm" style="display:none;">
+                             <span id="customImageStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                           </div>
+                         </div>
                        </div>
                      </div>
 
@@ -903,8 +947,8 @@
                            <option value="retro">Retro Arcade (เสียงสล๊อตแมชชีน 8-bit)</option>
                            <option value="modern">Modern Pad Synth (เสียงซินธ์อุ่นๆ ทันสมัย)</option>
                             <option value="bell">Soft Bell Resonator (เสียงกระดิ่งคริสตัลคู่)</option>
-                            <option value="custom">เสียงจั้มสแกร์</option>
                             <option value="custom_url">เสียงแบบกำหนดเอง (ใส่ลิงก์ URL ภายนอก)</option>
+                            <option value="upload_sound">อัพโหลดเสียงเอง</option>
                           </select>
 
                        </div>
@@ -915,6 +959,21 @@
                           <button type="button" id="btnBrowseSounds" class="btn btn-secondary" style="margin-top: 8px; width: 100%;">
                             <i class="fa-solid fa-magnifying-glass"></i> เลือกเสียงจาก myinstants.com
                           </button>
+                        </div>
+
+                        <div class="form-group" id="uploadSoundContainer" style="display: none;">
+                          <label>อัพโหลดเสียงแจ้งเตือน <small style="color:var(--text-muted)">(.mp3 หรือ .ogg, สูงสุด 500KB)</small></label>
+                          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                            <div id="uploadSoundCurrentWrap" style="display:none;align-items:center;gap:8px;">
+                              <span id="uploadSoundCurrentName" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-music"></i> </span>
+                              <button type="button" id="btnClearUploadSound" class="btn-clear-upload" title="ลบไฟล์เสียง"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <label for="uploadSoundFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                              <i class="fa-solid fa-music"></i> เลือกไฟล์เสียง
+                            </label>
+                            <input type="file" id="uploadSoundFile" accept="audio/mpeg,audio/ogg,.mp3,.ogg" style="display:none;">
+                            <span id="uploadSoundStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                          </div>
                         </div>
 
                        <div class="form-group">

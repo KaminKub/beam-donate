@@ -466,6 +466,14 @@ body {
   100% { transform: scaleX(0); }
 }
 
+/* ========== Static Preview (idle frozen state) ========== */
+.alert-box.static-preview {
+  opacity: 1;
+}
+.alert-box.static-preview .alert-progress {
+  display: none !important;
+}
+
 /* ========== Particles ========== */
 .particle {
   position: absolute;
