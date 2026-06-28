@@ -2748,7 +2748,7 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
 // POST /api/upload/presign — generate Cloudflare R2 presigned upload URL
 app.post('/api/upload/presign', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
-    const { fileType, category } = req.body;
+    const { fileType, category, originalName, oldFileUrl } = req.body;
 
     if (!category || !UPLOAD_ALLOWED_TYPES[category]) {
       return res.status(400).json({ error: 'category ไม่ถูกต้อง (avatar, sound, video)' });
@@ -2763,7 +2763,27 @@ app.post('/api/upload/presign', ensureAuthenticated, csrfProtection, async (req,
 
     const ext = UPLOAD_EXT_MAP[fileType] || 'bin';
     const folder = UPLOAD_FOLDER_MAP[category];
-    const key = `${folder}/${streamer.id}.${ext}`;
+
+    // Sound: preserve original filename (prefixed with streamer ID to prevent cross-user collision)
+    // Images/video: use timestamp to avoid browser cache issues on re-upload
+    let key;
+    if (category === 'sound' && originalName) {
+      const safeName = String(originalName).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+      key = `${folder}/${streamer.id}-${safeName}`;
+    } else {
+      key = `${folder}/${streamer.id}-${Date.now()}.${ext}`;
+    }
+
+    // Delete previous R2 object when user replaces a file
+    const r2Base = process.env.R2_PUBLIC_URL;
+    if (oldFileUrl && r2Base && String(oldFileUrl).startsWith(r2Base)) {
+      const oldKey = String(oldFileUrl).replace(r2Base + '/', '').split('?')[0];
+      try {
+        await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: oldKey }));
+      } catch (delErr) {
+        console.warn('R2 old file delete warning:', delErr.message);
+      }
+    }
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,

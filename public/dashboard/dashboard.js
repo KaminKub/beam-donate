@@ -1792,7 +1792,7 @@ function toggleCustomImageUI(mode, currentValue) {
   }
 }
 
-async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onStatus) {
+async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onStatus, oldFileUrl) {
   const isAnimated = file.type === 'image/gif' || file.type === 'image/webp' || file.type === 'video/webm';
   const maxBytes = isAnimated ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
   if (file.size > maxBytes) {
@@ -1819,7 +1819,7 @@ async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onSt
   const presignRes = await fetchWithCsrf('/api/upload/presign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileType: uploadMime, category })
+    body: JSON.stringify({ fileType: uploadMime, category, oldFileUrl: oldFileUrl || null })
   });
   if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
   const { uploadUrl, fileUrl } = await presignRes.json();
@@ -1837,7 +1837,7 @@ async function handleImageFileSelect(event) {
   const preview = document.getElementById('customImagePreview');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'avatar', 0.2, 800, setStatus);
+    const fileUrl = await uploadImageToR2(file, 'avatar', 0.2, 800, setStatus, valueInput?.value || null);
     if (valueInput) valueInput.value = fileUrl;
     if (preview) { setMediaPreview(preview, fileUrl + '?t=' + Date.now()); preview.style.display = isWebm(fileUrl) ? 'none' : 'block'; }
     document.getElementById('btnClearCustomImage')?.style.setProperty('display', '');
@@ -1856,7 +1856,7 @@ async function handleProfileImageSelect(event) {
   const status = document.getElementById('profileImageStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'profile', 0.2, 800, setStatus);
+    const fileUrl = await uploadImageToR2(file, 'profile', 0.2, 800, setStatus, document.getElementById('profileImageValue')?.value || null);
     document.getElementById('profileImageValue').value = fileUrl;
     const cacheBust = fileUrl + '?t=' + Date.now();
     const profilePreview = document.getElementById('profilePreview');
@@ -1879,7 +1879,7 @@ async function handleHeaderBgSelect(event) {
   const status = document.getElementById('headerBgStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'header', 0.5, 1920, setStatus);
+    const fileUrl = await uploadImageToR2(file, 'header', 0.5, 1920, setStatus, document.getElementById('inputHeaderBgUrl')?.value || null);
     const hiddenInput = document.getElementById('inputHeaderBgUrl');
     if (hiddenInput) {
       hiddenInput.value = fileUrl;
@@ -1901,7 +1901,7 @@ async function handlePageBgSelect(event) {
   const status = document.getElementById('pageBgStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'pagebg', 0.5, 1920, setStatus);
+    const fileUrl = await uploadImageToR2(file, 'pagebg', 0.5, 1920, setStatus, document.getElementById('inputPageBgUrl')?.value || null);
     const hiddenInput = document.getElementById('inputPageBgUrl');
     if (hiddenInput) hiddenInput.value = fileUrl;
     const pageBgPreview = document.getElementById('pageBgPreview');
@@ -1944,7 +1944,7 @@ async function handleAudioFileSelect(event) {
     const presignRes = await fetchWithCsrf('/api/upload/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileType: normalizedType, category: 'sound' })
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, oldFileUrl: soundUrlInput?.value || null })
     });
     if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
     const { uploadUrl, fileUrl } = await presignRes.json();
