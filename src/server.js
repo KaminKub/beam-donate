@@ -2794,23 +2794,6 @@ app.post('/api/upload/presign', presignLimiter, ensureAuthenticated, csrfProtect
       key = `${folder}/${streamer.id}-${Date.now()}.${ext}`;
     }
 
-    // Delete previous R2 object when user replaces a file
-    // Security: validate key belongs to this user's folder before deleting (IDOR prevention)
-    const r2Base = process.env.R2_PUBLIC_URL;
-    if (oldFileUrl && r2Base && String(oldFileUrl).startsWith(r2Base + '/')) {
-      const oldKey = String(oldFileUrl).slice(r2Base.length + 1).split('?')[0];
-      const ownerPrefix = `${folder}/${streamer.id}`;
-      const isSafeKey = !oldKey.includes('..') && !oldKey.includes('//') &&
-        (oldKey.startsWith(ownerPrefix + '-') || oldKey.startsWith(ownerPrefix + '.'));
-      if (isSafeKey) {
-        try {
-          await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: oldKey }));
-        } catch (delErr) {
-          console.warn('R2 old file delete warning:', delErr.message);
-        }
-      }
-    }
-
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: key,
@@ -2824,6 +2807,44 @@ app.post('/api/upload/presign', presignLimiter, ensureAuthenticated, csrfProtect
   } catch (err) {
     console.error('❌ Presign error:', err);
     res.status(500).json({ error: 'ไม่สามารถสร้าง URL อัปโหลดได้' });
+  }
+});
+
+// POST /api/upload/delete-file — delete old R2 object after successful upload
+app.post('/api/upload/delete-file', presignLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { fileUrl, category } = req.body;
+    if (!category || !UPLOAD_FOLDER_MAP[category]) {
+      return res.status(400).json({ deleted: false, reason: 'invalid_category' });
+    }
+    if (!fileUrl) return res.json({ deleted: false, reason: 'no_url' });
+
+    const r2Base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+    if (!r2Base || !String(fileUrl).startsWith(r2Base + '/')) {
+      return res.json({ deleted: false, reason: 'not_r2_url' });
+    }
+
+    const twitchId = req.user.twitch_id || req.user.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (!streamer) return res.status(404).json({ deleted: false, reason: 'user_not_found' });
+
+    const folder = UPLOAD_FOLDER_MAP[category];
+    const key = String(fileUrl).slice(r2Base.length + 1).split('?')[0];
+    const ownerPrefix = `${folder}/${streamer.id}`;
+    const isSafeKey = !key.includes('..') && !key.includes('//') &&
+      (key.startsWith(ownerPrefix + '-') || key.startsWith(ownerPrefix + '.'));
+
+    if (!isSafeKey) {
+      console.warn(`R2 delete blocked — key "${key}" not owned by streamer ${streamer.id} (expected prefix "${ownerPrefix}-")`);
+      return res.json({ deleted: false, reason: 'not_owner' });
+    }
+
+    await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key }));
+    console.log(`🗑️ R2 deleted: ${key}`);
+    res.json({ deleted: true });
+  } catch (err) {
+    console.error('❌ R2 delete-file error:', err.message);
+    res.status(500).json({ deleted: false, reason: 'server_error', error: err.message });
   }
 });
 

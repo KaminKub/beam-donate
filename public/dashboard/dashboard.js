@@ -1792,7 +1792,19 @@ function toggleCustomImageUI(mode, currentValue) {
   }
 }
 
-async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onStatus, oldFileUrl) {
+function deleteOldR2File(fileUrl, category) {
+  if (!fileUrl || !fileUrl.startsWith('http')) return;
+  fetchWithCsrf('/api/upload/delete-file', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileUrl, category })
+  }).then(r => r.json()).then(d => {
+    if (d.deleted) console.log('🗑️ R2 old file deleted:', fileUrl);
+    else console.warn('R2 delete skipped:', d.reason, fileUrl);
+  }).catch(e => console.warn('R2 delete-file call failed:', e.message));
+}
+
+async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onStatus) {
   const isAnimated = file.type === 'image/gif' || file.type === 'image/webp' || file.type === 'video/webm';
   const maxBytes = isAnimated ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
   if (file.size > maxBytes) {
@@ -1819,7 +1831,7 @@ async function uploadImageToR2(file, category, maxSizeMB, maxWidthOrHeight, onSt
   const presignRes = await fetchWithCsrf('/api/upload/presign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileType: uploadMime, category, oldFileUrl: oldFileUrl || null, fileSize: uploadFile.size })
+    body: JSON.stringify({ fileType: uploadMime, category, fileSize: uploadFile.size })
   });
   if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
   const { uploadUrl, fileUrl } = await presignRes.json();
@@ -1837,7 +1849,9 @@ async function handleImageFileSelect(event) {
   const preview = document.getElementById('customImagePreview');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'avatar', 0.2, 800, setStatus, valueInput?.value || null);
+    const urlToDelete = valueInput?.value || null;
+    const fileUrl = await uploadImageToR2(file, 'avatar', 0.2, 800, setStatus);
+    deleteOldR2File(urlToDelete, 'avatar');
     if (valueInput) valueInput.value = fileUrl;
     if (preview) { setMediaPreview(preview, fileUrl + '?t=' + Date.now()); preview.style.display = isWebm(fileUrl) ? 'none' : 'block'; }
     document.getElementById('btnClearCustomImage')?.style.setProperty('display', '');
@@ -1859,7 +1873,9 @@ async function handleProfileImageSelect(event) {
   const status = document.getElementById('profileImageStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'profile', 0.2, 800, setStatus, document.getElementById('profileImageValue')?.value || null);
+    const urlToDelete = document.getElementById('profileImageValue')?.value || null;
+    const fileUrl = await uploadImageToR2(file, 'profile', 0.2, 800, setStatus);
+    deleteOldR2File(urlToDelete, 'profile');
     document.getElementById('profileImageValue').value = fileUrl;
     const cacheBust = fileUrl + '?t=' + Date.now();
     const profilePreview = document.getElementById('profilePreview');
@@ -1885,7 +1901,9 @@ async function handleHeaderBgSelect(event) {
   const status = document.getElementById('headerBgStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'header', 0.5, 1920, setStatus, document.getElementById('inputHeaderBgUrl')?.value || null);
+    const urlToDelete = document.getElementById('inputHeaderBgUrl')?.value || null;
+    const fileUrl = await uploadImageToR2(file, 'header', 0.5, 1920, setStatus);
+    deleteOldR2File(urlToDelete, 'header');
     const hiddenInput = document.getElementById('inputHeaderBgUrl');
     if (hiddenInput) {
       hiddenInput.value = fileUrl;
@@ -1910,7 +1928,9 @@ async function handlePageBgSelect(event) {
   const status = document.getElementById('pageBgStatus');
   const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
   try {
-    const fileUrl = await uploadImageToR2(file, 'pagebg', 0.5, 1920, setStatus, document.getElementById('inputPageBgUrl')?.value || null);
+    const urlToDelete = document.getElementById('inputPageBgUrl')?.value || null;
+    const fileUrl = await uploadImageToR2(file, 'pagebg', 0.5, 1920, setStatus);
+    deleteOldR2File(urlToDelete, 'pagebg');
     const hiddenInput = document.getElementById('inputPageBgUrl');
     if (hiddenInput) hiddenInput.value = fileUrl;
     const pageBgPreview = document.getElementById('pageBgPreview');
@@ -1951,12 +1971,13 @@ async function handleAudioFileSelect(event) {
     return;
   }
 
+  const soundUrlToDelete = soundUrlInput?.value || null;
   setStatus('กำลังขอ URL อัปโหลด...');
   try {
     const presignRes = await fetchWithCsrf('/api/upload/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, oldFileUrl: soundUrlInput?.value || null, fileSize: file.size })
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, fileSize: file.size })
     });
     if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
     const { uploadUrl, fileUrl } = await presignRes.json();
@@ -1968,6 +1989,7 @@ async function handleAudioFileSelect(event) {
     });
     if (!putRes.ok) throw new Error('PUT ไม่สำเร็จ HTTP ' + putRes.status);
 
+    deleteOldR2File(soundUrlToDelete, 'sound');
     if (soundUrlInput) soundUrlInput.value = fileUrl;
     if (currentNameEl) currentNameEl.textContent = `${file.name} (${Math.round(file.size / 1024)}KB)`;
     if (currentWrap) currentWrap.style.display = 'flex';
