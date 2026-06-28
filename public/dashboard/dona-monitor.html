@@ -438,6 +438,7 @@
         <span class="auto-refresh-indicator" id="refreshIndicator"><i class="fa-solid fa-clock"></i> Auto 10s</span>
       </div>
       <div class="popup-header-right">
+        <a href="#" id="btnOpenDashboard" target="_blank" rel="noopener" class="btn btn-icon-round" title="เปิด Dashboard"><i class="fa-solid fa-gauge"></i></a>
         <button class="btn-alert btn-alert-fire" id="btnQuickAlert"><i class="fa-solid fa-bolt"></i> Quick Alert</button>
         <button class="btn btn-icon-round refresh-hover" id="btnRefresh" title="รีเฟรช"><i class="fa-solid fa-arrow-rotate-right"></i></button>
         <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close"><i class="fa-solid fa-xmark"></i></button>
@@ -841,6 +842,9 @@
       if (window.opener) {
         document.getElementById('btnCloseWindow').style.display = 'inline-block';
       }
+
+      var dashBtn = document.getElementById('btnOpenDashboard');
+      if (dashBtn) dashBtn.href = '/' + getUsername() + '/dashboard';
 
       var btnRefresh = document.getElementById('btnRefresh');
       btnRefresh.addEventListener('click', async function() {

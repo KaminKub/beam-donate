@@ -160,6 +160,124 @@ async function initializeDashboard() {
       };
     }
 
+    // Header BG — URL input shows/hides controls + updates preview
+    const headerBgUrlInput = document.getElementById('inputHeaderBgUrl');
+    const headerBgControlsDiv = document.getElementById('headerBgControls');
+    const headerBgDragPreview = document.getElementById('headerBgDragPreview');
+    const headerBgYInput = document.getElementById('inputHeaderBgY');
+    const headerBgYDisp = document.getElementById('headerBgYDisplay');
+    const headerBgSpinner = document.getElementById('headerBgSpinner');
+
+    // Header display ratio: card max-width 440px / header height 170px
+    const HEADER_FIT_RATIO = (440 / 170) * 0.9; // ~2.33 — images this wide or wider fit naturally
+
+    function setHint(hint, iconClass, iconColor, text) {
+      hint.textContent = '';
+      const icon = document.createElement('i');
+      icon.className = iconClass;
+      icon.style.color = iconColor;
+      hint.appendChild(icon);
+      hint.appendChild(document.createTextNode(' ' + text));
+    }
+
+    function updateHeaderBgPreview() {
+      if (!headerBgDragPreview || !headerBgUrlInput) return;
+      const url = headerBgUrlInput.value;
+      if (!url) return;
+      headerBgDragPreview.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+      const img = new Image();
+      img.onload = function () {
+        if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+        const fitsNaturally = (img.naturalWidth / img.naturalHeight) >= HEADER_FIT_RATIO;
+        headerBgDragPreview.dataset.fitsNaturally = fitsNaturally ? '1' : '0';
+        const hint = headerBgDragPreview.querySelector('[data-hint]');
+        if (fitsNaturally) {
+          headerBgDragPreview.style.backgroundSize = 'contain';
+          headerBgDragPreview.style.backgroundPosition = 'center center';
+          headerBgDragPreview.style.cursor = 'default';
+          if (hint) setHint(hint, 'fa-solid fa-check', '#4ade80', 'ภาพพอดีกับ Header อัตโนมัติ');
+        } else {
+          const y = headerBgYInput ? headerBgYInput.value : 0;
+          headerBgDragPreview.style.backgroundSize = 'cover';
+          headerBgDragPreview.style.backgroundPositionY = `${y}%`;
+          headerBgDragPreview.style.cursor = 'grab';
+          if (hint) setHint(hint, 'fa-solid fa-up-down', '#f59e0b', 'ลากขึ้น-ลงเพื่อปรับตำแหน่ง');
+        }
+      };
+      img.onerror = function () {
+        if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+        headerBgDragPreview.dataset.fitsNaturally = '0';
+        const y = headerBgYInput ? headerBgYInput.value : 0;
+        headerBgDragPreview.style.backgroundSize = 'cover';
+        headerBgDragPreview.style.backgroundPositionY = `${y}%`;
+        headerBgDragPreview.style.cursor = 'grab';
+      };
+      img.src = url;
+    }
+
+    if (headerBgUrlInput && headerBgControlsDiv) {
+      let headerBgDebounce = null;
+      headerBgUrlInput.addEventListener('input', () => {
+        const hasUrl = !!headerBgUrlInput.value;
+        headerBgControlsDiv.classList.toggle('is-open', hasUrl);
+        clearTimeout(headerBgDebounce);
+        if (hasUrl) {
+          if (headerBgSpinner) headerBgSpinner.style.display = 'flex';
+          headerBgDebounce = setTimeout(updateHeaderBgPreview, 400);
+        } else {
+          if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+        }
+      });
+    }
+
+    // Drag-to-position on headerBgDragPreview
+    if (headerBgDragPreview && headerBgYInput) {
+      let isDraggingBg = false;
+      let bgDragStartY = 0;
+      let bgDragStartPosY = 0;
+
+      function applyBgY(newY) {
+        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+        const clamped = Math.max(0, Math.min(100, newY));
+        headerBgYInput.value = clamped;
+        headerBgDragPreview.style.backgroundPositionY = `${clamped}%`;
+        if (headerBgYDisp) headerBgYDisp.textContent = Math.round(clamped);
+      }
+
+      headerBgDragPreview.addEventListener('mousedown', (e) => {
+        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+        isDraggingBg = true;
+        bgDragStartY = e.clientY;
+        bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
+        headerBgDragPreview.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!isDraggingBg) return;
+        applyBgY(bgDragStartPosY + (e.clientY - bgDragStartY) * 0.5);
+      });
+      document.addEventListener('mouseup', () => {
+        if (isDraggingBg) {
+          isDraggingBg = false;
+          if (headerBgDragPreview.dataset.fitsNaturally !== '1') headerBgDragPreview.style.cursor = 'grab';
+        }
+      });
+
+      // Touch support
+      headerBgDragPreview.addEventListener('touchstart', (e) => {
+        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+        isDraggingBg = true;
+        bgDragStartY = e.touches[0].clientY;
+        bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('touchmove', (e) => {
+        if (!isDraggingBg) return;
+        applyBgY(bgDragStartPosY + (e.touches[0].clientY - bgDragStartY) * 0.5);
+      }, { passive: false });
+      document.addEventListener('touchend', () => { isDraggingBg = false; });
+    }
+
     const btnReloadPage = document.getElementById('btnReloadPagePreview');
     if (btnReloadPage) {
       btnReloadPage.onclick = () => {
@@ -1785,6 +1903,9 @@ async function loadPageSettings() {
       inputThankYouSubtitle: 'thankYouSubtitle',
       profileImageValue: 'profileImageValue',
       profileGlowColor: 'profileGlowColor',
+      inputHeaderBgUrl: 'headerBgUrl',
+      inputPageBgUrl: 'pageBgUrl',
+      inputHeaderBgY: 'headerBgY',
     };
 
     Object.entries(mapping).forEach(([id, apiKey]) => {
@@ -1815,6 +1936,16 @@ async function loadPageSettings() {
         if (input) input.value = data.socials[socialKey] || '';
       });
     }
+
+    // Sync Y + show/hide controls + init drag preview
+    const headerBgYEl = document.getElementById('inputHeaderBgY');
+    const headerBgUrlEl = document.getElementById('inputHeaderBgUrl');
+    if (headerBgYEl) {
+      headerBgYEl.value = data.headerBgY != null ? data.headerBgY : 0;
+      const disp = document.getElementById('headerBgYDisplay');
+      if (disp) disp.textContent = headerBgYEl.value;
+    }
+    if (headerBgUrlEl) headerBgUrlEl.dispatchEvent(new Event('input'));
 
     // Update Preview
     document.getElementById('profilePreview').src = data.profileImage || '/avatar.jpg';
@@ -1854,6 +1985,9 @@ async function savePageSettings(e) {
     social_instagram: document.getElementById('socialInstagram')?.value || '',
     profile_image_value: document.getElementById('profileImageValue')?.value || '',
     profile_glow_color: document.getElementById('profileGlowColor')?.value || '',
+    header_bg_url: document.getElementById('inputHeaderBgUrl')?.value || '',
+    page_bg_url: document.getElementById('inputPageBgUrl')?.value || '',
+    header_bg_y: parseInt(document.getElementById('inputHeaderBgY')?.value || '0', 10),
   };
   
   // Only add profile_image_source if the element exists to avoid overwriting with empty string

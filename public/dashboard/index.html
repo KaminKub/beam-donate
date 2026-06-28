@@ -198,7 +198,7 @@
                   <p>เปิดโปรแกรม OBS -> กด **เครื่องหมาย +** ในช่อง Sources</p>
 
                   <div class="step-num">2</div>
-                  <p>เลือก **Browser** ตั้งชื่อว่า "Beam Donation Alert"</p>
+                  <p>เลือก **Browser** ตั้งชื่อว่า "TipKub Alert"</p>
 
                   <div class="step-num">3</div>
                   <p>วาง URL ด้านบนในช่อง URL</p>
@@ -300,6 +300,46 @@
 
                   </div>
                   </div><!-- /card-body-panel panelProfile -->
+                </div>
+
+                <!-- Card: Background Images -->
+                <div class="dashboard-card settings-card">
+                  <div class="settings-card-header" data-target="panelBgImages">
+                    <h4><i class="fa-solid fa-panorama" style="color:#a855f7"></i> ภาพปก Header และพื้นหลัง</h4>
+                    <i class="fa-solid fa-chevron-down card-chevron"></i>
+                  </div>
+                  <div class="card-body-panel" id="panelBgImages">
+                    <div id="headerBgControls">
+                      <div class="form-group">
+                        <label><i class="fa-solid fa-hand-pointer" style="color:#f59e0b"></i> ตัวอย่างภาพปก Header</label>
+                        <div id="headerBgDragPreview" style="
+                          width:100%; aspect-ratio:440/170; border-radius:12px; overflow:hidden;
+                          cursor:grab; background-size:cover; background-position:center 0%;
+                          background-repeat:no-repeat; background-color:rgba(255,255,255,0.05);
+                          border:2px solid rgba(255,255,255,0.1); position:relative; user-select:none;
+                        ">
+                          <div data-hint style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:rgba(255,255,255,0.85);font-size:11px;padding:3px 12px;border-radius:20px;pointer-events:none;white-space:nowrap;">
+                            <i class="fa-solid fa-up-down" style="color:#f59e0b"></i> ลากขึ้น-ลงเพื่อปรับตำแหน่ง
+                          </div>
+                          <div id="headerBgSpinner" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:2;">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size:26px;color:#a855f7;"></i>
+                          </div>
+                        </div>
+                        <input type="hidden" id="inputHeaderBgY" value="0">
+                        <small class="text-muted" style="display:block;margin-top:4px;">ตำแหน่ง Y: <span id="headerBgYDisplay">0</span>%</small>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="inputHeaderBgUrl"><i class="fa-solid fa-image" style="color:#60a5fa"></i> URL ภาพปก Header</label>
+                      <input type="url" id="inputHeaderBgUrl" class="form-control" placeholder="https://example.com/header.jpg">
+                      <small class="text-muted">ภาพพื้นหลังของส่วนหัวในหน้าโดเนท — ขยายเต็มขอบ card พร้อม fade ด้านล่าง</small>
+                    </div>
+                    <div class="form-group">
+                      <label for="inputPageBgUrl"><i class="fa-solid fa-layer-group" style="color:#a855f7"></i> URL ภาพพื้นหลังหน้า</label>
+                      <input type="url" id="inputPageBgUrl" class="form-control" placeholder="https://example.com/background.jpg">
+                      <small class="text-muted">ภาพพื้นหลังของทั้งหน้าโดเนท — แสดงที่ opacity ต่ำ</small>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Card: Page Texts -->

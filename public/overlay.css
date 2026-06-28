@@ -57,9 +57,9 @@ body {
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.336);
 }
 
-/* Text Outline / Stroke for Glassmorphism Theme */
-.alert-box.theme-glassmorphism .alert-info * {
-  -webkit-text-stroke: 1px #000000;
+/* Text Outline / Stroke — all themes */
+.alert-box .alert-info * {
+  -webkit-text-stroke: 2px #000000;
   paint-order: stroke fill;
 }
 

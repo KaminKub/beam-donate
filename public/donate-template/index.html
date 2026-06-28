@@ -39,37 +39,37 @@
     <!-- หน้าเลือกจำนวนเงิน -->
     <div id="step-amount" class="step active">
       <div class="card glass-card">
-<div class="header">
-   <h1 id="pageTitle">กำลังโหลด...</h1>
-   <img src="avatar.jpg" id="profileImage" class="glowing-avatar" alt="Profile">
-   <div id="socialLinks" class="social-links-grid">
-     <a href="https://twitch.tv/kaminkub" target="_blank" class="social-btn twitch">
-       <i class="fa-brands fa-twitch"></i>
-     </a>
-     <a href="https://youtube.com/@kaminkub" target="_blank" class="social-btn youtube">
-       <i class="fa-brands fa-youtube"></i>
-     </a>
-     <a href="https://discord.gg/RfxgxrAEvn" target="_blank" class="social-btn discord">
-       <i class="fa-brands fa-discord"></i>
-     </a>
-     <a href="https://www.facebook.com/LodastGamer" target="_blank" class="social-btn facebook">
-       <i class="fa-brands fa-facebook"></i>
-     </a>
-     <a href="https://www.tiktok.com/@KaminKub" target="_blank" class="social-btn tiktok">
-       <i class="fa-brands fa-tiktok"></i>
-     </a>
-     </div>
-     <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px;">
-           <p id="pageSubtitle" class="subtitle">ขอบคุณที่หลงเข้ามาหน้าเลี้ยงกาแฟนี้</p>
-         <p id="pageSubtitle2" class="subtitle">ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨</p>
+        <div class="header">
+          <img src="avatar.jpg" id="profileImage" class="glowing-avatar" alt="Profile" width="190" height="190">
+          <h1 id="pageTitle">กำลังโหลด...</h1>
+          <div id="socialLinks" class="social-links-grid">
+            <a href="https://twitch.tv/kaminkub" target="_blank" class="social-btn twitch">
+              <i class="fa-brands fa-twitch"></i>
+            </a>
+            <a href="https://youtube.com/@kaminkub" target="_blank" class="social-btn youtube">
+              <i class="fa-brands fa-youtube"></i>
+            </a>
+            <a href="https://discord.gg/RfxgxrAEvn" target="_blank" class="social-btn discord">
+              <i class="fa-brands fa-discord"></i>
+            </a>
+            <a href="https://www.facebook.com/LodastGamer" target="_blank" class="social-btn facebook">
+              <i class="fa-brands fa-facebook"></i>
+            </a>
+            <a href="https://www.tiktok.com/@KaminKub" target="_blank" class="social-btn tiktok">
+              <i class="fa-brands fa-tiktok"></i>
+            </a>
+          </div>
+          <div class="subtitle-group">
+            <p id="pageSubtitle" class="subtitle">ขอบคุณที่หลงเข้ามาหน้าเลี้ยงกาแฟนี้</p>
+            <p id="pageSubtitle2" class="subtitle">ทุกการสนับสนุนคือกำลังใจที่มีค่าสำหรับผม✨</p>
+          </div>
+          <button id="statusBtn" class="status-btn">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText">ตรวจสอบสถานะ...</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-ccw" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
+          </button>
+        </div>
 
-    </button>
-      <button id="statusBtn" class="status-btn">
-        <div id="statusDot" class="status-dot"></div>
-        <span id="statusText">ตรวจสอบสถานะ...</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-ccw" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
-    </div>
-</div>
         <div class="custom-amount">
           <div class="amount-options">
             <button class="amount-btn" data-amount="10">
@@ -99,26 +99,28 @@
         <div class="donor-info">
           <label for="donorName">ชื่อผู้บริจาค (จะโชว์บนหน้าจอสตรีม)</label>
           <input type="text" id="donorName" placeholder="ระบุชื่อของคุณ (เช่น น้องเป็ดใจดี)...">
-          
           <label for="donorMessage">ข้อความของคุณ (จะถูกอ่านออกเสียงโดย AI)</label>
           <textarea id="donorMessage" placeholder="ฝากข้อความถึงเราที่นี่..." rows="2"></textarea>
         </div>
-    <p id="statusNote" class="status-note" style="display: none;">
-        <span class="note-dot"></span>
+
+        <p id="statusNote" class="status-note" style="display: none;">
+          <span class="note-dot"></span>
           <span>หมายเหตุ: สถานะขณะนี้ <span class="note-highlight">'โดขึ้นจอ | ปิดอยู่'</span> ค่าโดเนทจะส่งถึงปกติ เพียงแต่จะไม่แจ้งเตือนขึ้นจอขณะไลฟ์สด</span>
-      </p>
+        </p>
+
         <button id="btnDonate" class="btn-primary" disabled>
           ดำเนินการต่อ
         </button>
-      </div>
+
         <div style="text-align: center; margin: 20px auto;">
           <a style="font-size: 18px; color: #979797;">จัดทำโดย</a>
-            <h2 style="margin: 3px 0;">
+          <h2 style="margin: 3px 0;">
             <a href="/" style="text-decoration: none; font-size: 31px;">
-                <span class="highlight-amount">TipKub</span>
-              </a>
-            </h2>
+              <span class="highlight-amount">TipKub</span>
+            </a>
+          </h2>
         </div>
+      </div>
     </div>  <!-- end step-amount -->
 
     <!-- หน้าเลือกวิธีชำระเงิน -->

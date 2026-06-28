@@ -185,6 +185,81 @@ async function loadPageContent() {
        if (favicon) {
          favicon.href = data.profileImage || '/avatar.jpg';
        }
+
+       // Apply custom background images (validate protocol before use)
+       if (data.headerBgUrl) {
+         try {
+           const u = new URL(data.headerBgUrl);
+           if (u.protocol === 'https:' || u.protocol === 'http:') {
+             const safeUrl = data.headerBgUrl.replace(/"/g, '%22');
+             const y = data.headerBgY != null ? data.headerBgY : 0;
+             let styleEl = document.getElementById('header-bg-dynamic');
+             if (!styleEl) {
+               styleEl = document.createElement('style');
+               styleEl.id = 'header-bg-dynamic';
+               document.head.appendChild(styleEl);
+             }
+             styleEl.textContent = `
+               .header {
+                 position: relative;
+                 margin: -35px -30px 0 -30px;
+                 padding: 35px 30px 25px;
+               }
+               #step-amount .header .glowing-avatar {
+                 margin-top: 80px;
+               }
+               #step-payment-method .header,
+               #step-qr .header,
+               #step-truemoney .header {
+                 padding-top: 180px;
+               }
+               .header::before {
+                 content: '';
+                 position: absolute;
+                 top: 0;
+                 left: 0;
+                 right: 0;
+                 height: 170px;
+                 background-image: url("${safeUrl}");
+                 background-size: cover;
+                 background-position: center ${y}%;
+                 -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+                 mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+                 z-index: 0;
+               }
+               .header > * { position: relative; z-index: 1; }
+             `;
+           }
+         } catch(e) {}
+       }
+       if (data.pageBgUrl) {
+         try {
+           const u = new URL(data.pageBgUrl);
+           if (u.protocol === 'https:' || u.protocol === 'http:') {
+             const safeUrl = data.pageBgUrl.replace(/"/g, '%22');
+             let bgDiv = document.getElementById('page-bg-layer');
+             if (!bgDiv) {
+               bgDiv = document.createElement('div');
+               bgDiv.id = 'page-bg-layer';
+               document.body.insertBefore(bgDiv, document.body.firstChild);
+             }
+             Object.assign(bgDiv.style, {
+               position: 'fixed',
+               top: '0',
+               left: '0',
+               width: '100%',
+               height: '100%',
+               zIndex: '-1',
+               backgroundImage: `url("${safeUrl}")`,
+               backgroundSize: 'cover',
+               backgroundPosition: 'center',
+               backgroundRepeat: 'no-repeat',
+               opacity: '0.1',
+               pointerEvents: 'none'
+             });
+           }
+         } catch(e) {}
+       }
     }
   } catch (error) {
     console.error('Error loading page content:', error);

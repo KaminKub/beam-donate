@@ -46,6 +46,10 @@
              profileImg.style.display = 'block';
            }
 
+           if (data.profileGlowColor) {
+             document.documentElement.style.setProperty('--avatar-glow-color', data.profileGlowColor);
+           }
+
            document.getElementById('thankYouHeader').textContent = data.thankYouHeader || 'ขอบคุณมากครับ!';
            document.getElementById('thankYouSubtitle').textContent = data.thankYouSubtitle || 'สำหรับการสนับสนุนของคุณ ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨';
          }

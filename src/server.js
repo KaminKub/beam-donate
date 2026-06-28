@@ -1405,7 +1405,8 @@ const PAGE_ALLOWED_FIELDS = [
   'page_title', 'page_subtitle', 'thank_you_header', 'thank_you_subtitle',
   'profile_image_value', 'profile_image_source', 'profile_glow_color',
   'social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook',
-  'social_x', 'social_discord', 'social_instagram'
+  'social_x', 'social_discord', 'social_instagram',
+  'header_bg_url', 'page_bg_url', 'header_bg_y', 'header_bg_zoom'
 ];
 
 app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
@@ -1446,6 +1447,10 @@ app.get('/api/page/:username/settings', async (req, res) => {
       thankYouHeader: streamer.thank_you_header || 'ขอบคุณสำหรับการสนับสนุน!',
       thankYouSubtitle: streamer.thank_you_subtitle || 'การสนับสนุนของคุณช่วยให้เราพัฒนาคอนเทนต์ต่อไปได้',
       minAmount: streamer.minAmount != null ? streamer.minAmount : 1,
+      headerBgUrl: streamer.header_bg_url || '',
+      pageBgUrl: streamer.page_bg_url || '',
+      headerBgY: streamer.header_bg_y != null ? streamer.header_bg_y : 50,
+      headerBgZoom: streamer.header_bg_zoom != null ? streamer.header_bg_zoom : 100,
       socials: {
         twitch: streamer.social_twitch,
         youtube: streamer.social_youtube,
@@ -1471,7 +1476,7 @@ app.get('/api/page/:username/settings', async (req, res) => {
   }
 });
 
-const SOCIAL_LINK_FIELDS = new Set(['social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook', 'social_x', 'social_discord', 'social_instagram']);
+const SOCIAL_LINK_FIELDS = new Set(['social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook', 'social_x', 'social_discord', 'social_instagram', 'header_bg_url', 'page_bg_url']);
 
 function validateSocialUrl(url) {
   if (!url) return true;
