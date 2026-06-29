@@ -865,7 +865,7 @@ body {
   border-radius: 16px;
   padding: 24px;
   box-shadow: var(--card-shadow);
-  margin-bottom: 20px;
+  margin: 20px;
 }
 
 .card-header {
@@ -3066,4 +3066,75 @@ label {
   top: 8px;
   right: 8px;
   z-index: 3;
+}
+
+/* ========== Widget Sub-Tab Toggle ========== */
+.widget-subtab-toggle {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 24px;
+}
+.subtab-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#btnSubtabAlert.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+#btnSubtabAlert:hover:not(.active) {
+  border-color: #fbbf24;
+  color: #f59e0b;
+}
+#btnSubtabGoal.active {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+}
+#btnSubtabGoal:hover:not(.active) {
+  border-color: #86efac;
+  color: #4ade80;
+}
+
+/* ========== Goal Quick-Add Buttons ========== */
+.btn-goal-quick {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+.btn-goal-quick[data-val^="-"] {
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.25);
+}
+.btn-goal-quick[data-val^="-"]:hover {
+  background: rgba(239,68,68,0.2);
+  border-color: #ef4444;
+}
+.btn-goal-quick:not([data-val^="-"]) {
+  background: rgba(74,222,128,0.1);
+  color: #4ade80;
+  border-color: rgba(74,222,128,0.25);
+}
+.btn-goal-quick:not([data-val^="-"]):hover {
+  background: rgba(74,222,128,0.2);
+  border-color: #4ade80;
 }

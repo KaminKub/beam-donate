@@ -309,11 +309,30 @@ async function loadPageContent() {
                });
              }
            }
-         } catch(e) {}
-       }
+          } catch(e) {}
+        }
+
+        // Load donation goal bar
+        loadGoal(username);
     }
   } catch (error) {
     console.error('Error loading page content:', error);
+  }
+}
+
+async function loadGoal(username) {
+  try {
+    const data = await fetch(`/api/page/${username}/goal`).then(r => r.json());
+    if (!data.enabled || !data.showOnDonate) return;
+    const pct = Math.min(100, data.amount > 0 ? (data.current / data.amount) * 100 : 0);
+    document.getElementById('donateGoalLabel').textContent = data.label;
+    document.getElementById('donateGoalFill').style.width = pct + '%';
+    document.getElementById('donateGoalFill').style.background = data.barColor || '#7c3aed';
+    document.getElementById('donateGoalAmounts').textContent =
+      `${data.current.toLocaleString('th-TH')} / ${data.amount.toLocaleString('th-TH')} บาท`;
+    document.getElementById('goalBarSection').style.display = '';
+  } catch (e) {
+    // Silent fail — goal bar is decorative
   }
 }
 

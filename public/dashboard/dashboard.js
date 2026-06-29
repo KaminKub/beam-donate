@@ -604,6 +604,163 @@ async function initializeDashboard() {
         saveOverlaySettings();
       };
     }
+
+    // Widget sub-tab toggle: Alert vs Goal
+    const btnSubtabAlert = document.getElementById('btnSubtabAlert');
+    const btnSubtabGoal = document.getElementById('btnSubtabGoal');
+    if (btnSubtabAlert && btnSubtabGoal) {
+      btnSubtabAlert.addEventListener('click', () => {
+        document.getElementById('overlaySettingsForm').style.display = '';
+        document.getElementById('goalSettingsPanel').style.display = 'none';
+        document.getElementById('alertPreviewCard').style.display = '';
+        document.getElementById('goalPreviewCard').style.display = 'none';
+        btnSubtabAlert.classList.add('active');
+        btnSubtabGoal.classList.remove('active');
+      });
+      btnSubtabGoal.addEventListener('click', () => {
+        document.getElementById('overlaySettingsForm').style.display = 'none';
+        document.getElementById('goalSettingsPanel').style.display = '';
+        document.getElementById('alertPreviewCard').style.display = 'none';
+        document.getElementById('goalPreviewCard').style.display = '';
+        btnSubtabAlert.classList.remove('active');
+        btnSubtabGoal.classList.add('active');
+        loadGoalSettings();
+      });
+    }
+
+    // Goal color picker <-> hex text sync
+    const goalColorPicker = document.getElementById('inputGoalBarColor');
+    const goalColorTxt = document.getElementById('txtGoalBarColor');
+    if (goalColorPicker && goalColorTxt) {
+      goalColorPicker.oninput = (e) => { goalColorTxt.value = e.target.value; };
+      goalColorTxt.oninput = (e) => {
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) {
+          goalColorPicker.value = e.target.value;
+        }
+      };
+    }
+
+    // Goal adjust button
+    async function applyGoalDelta(delta) {
+      if (isNaN(delta) || delta === 0) return;
+      const res = await fetchWithCsrf('/api/goal/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta })
+      });
+      if (!res.ok) {
+        showNotification('ปรับยอดไม่สำเร็จ', 'error');
+        return;
+      }
+      const data = await res.json();
+      const amount = parseFloat(document.getElementById('inputGoalAmount').value);
+      updateGoalPreview(data.current, amount);
+    }
+
+    const btnGoalAdjust = document.getElementById('btnGoalAdjust');
+    if (btnGoalAdjust) {
+      btnGoalAdjust.addEventListener('click', async () => {
+        const delta = parseFloat(document.getElementById('inputGoalDelta').value);
+        if (isNaN(delta)) { showNotification('ระบุจำนวนก่อน', 'error'); return; }
+        await applyGoalDelta(delta);
+        document.getElementById('inputGoalDelta').value = '';
+      });
+    }
+
+    // Quick-add buttons (+100, +500, +1000, -100)
+    document.querySelectorAll('.btn-goal-quick').forEach(btn => {
+      btn.addEventListener('click', () => applyGoalDelta(parseFloat(btn.dataset.val)));
+    });
+
+    // Goal reset button
+    const btnGoalReset = document.getElementById('btnGoalReset');
+    if (btnGoalReset) {
+      btnGoalReset.addEventListener('click', async () => {
+        if (!confirm('รีเซ็ตยอดโดเนทปัจจุบันเป็น 0?')) return;
+        await fetchWithCsrf('/api/goal/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        });
+        const amount = parseFloat(document.getElementById('inputGoalAmount').value);
+        updateGoalPreview(0, amount);
+      });
+    }
+
+    // Save goal settings button
+    const btnSaveGoal = document.getElementById('btnSaveGoalSettings');
+    if (btnSaveGoal) {
+      btnSaveGoal.addEventListener('click', async () => {
+        const chkEndDate = document.getElementById('chkGoalEndDate');
+        const endDateVal = chkEndDate && chkEndDate.checked
+          ? (document.getElementById('inputGoalEndDate').value || '')
+          : '';
+        const payload = {
+          goal_enabled: document.getElementById('chkGoalEnabled').checked ? 1 : 0,
+          goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
+          goal_label: document.getElementById('inputGoalLabel').value.trim(),
+          goal_amount: parseFloat(document.getElementById('inputGoalAmount').value) || 5000,
+          goal_bar_color: document.getElementById('inputGoalBarColor').value,
+          goal_bar_text: (document.getElementById('inputGoalBarText') || {}).value ?? '{เปอร์เซนต์}',
+          goal_subtitle1: (document.getElementById('inputGoalSubtitle1') || {}).value ?? '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+          goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? 'ปิดหลอดใน {วันคงเหลือ} วัน',
+          goal_end_date: endDateVal,
+        };
+        const res = await fetchWithCsrf('/api/overlay/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showNotification('บันทึกการตั้งค่าหลอดโดเนทแล้ว', 'success');
+          await loadGoalSettings();
+        } else {
+          showNotification('ไม่สามารถบันทึกได้', 'error');
+        }
+      });
+    }
+
+    // End date toggle → show/hide date + subtitle2 section
+    const chkGoalEndDate = document.getElementById('chkGoalEndDate');
+    if (chkGoalEndDate) {
+      chkGoalEndDate.addEventListener('change', () => {
+        const section = document.getElementById('goalEndDateSection');
+        if (section) section.style.display = chkGoalEndDate.checked ? '' : 'none';
+      });
+    }
+
+    // Copy goal bar URL button (right preview card)
+    const btnCopyObsGoalUrlPreview = document.getElementById('btnCopyObsGoalUrlPreview');
+    if (btnCopyObsGoalUrlPreview) {
+      btnCopyObsGoalUrlPreview.addEventListener('click', () => {
+        const urlInput = document.getElementById('obsGoalBarUrlPreview');
+        if (urlInput && urlInput.value) {
+          navigator.clipboard.writeText(urlInput.value);
+          showNotification('คัดลอก URL แล้ว', 'info');
+        }
+      });
+    }
+
+    // Open goal bar URL in new tab
+    const btnOpenObsGoalUrlPreview = document.getElementById('btnOpenObsGoalUrlPreview');
+    if (btnOpenObsGoalUrlPreview) {
+      btnOpenObsGoalUrlPreview.addEventListener('click', () => {
+        const urlInput = document.getElementById('obsGoalBarUrlPreview');
+        if (urlInput && urlInput.value) window.open(urlInput.value, '_blank');
+      });
+    }
+
+    // Reload goal bar preview iframe
+    const btnReloadGoalPreview = document.getElementById('btnReloadGoalPreview');
+    if (btnReloadGoalPreview) {
+      btnReloadGoalPreview.addEventListener('click', () => {
+        btnReloadGoalPreview.classList.add('spinning');
+        const iframe = document.getElementById('goalBarPreviewIframe');
+        if (iframe && iframe.src !== 'about:blank') iframe.src = iframe.src;
+        setTimeout(() => btnReloadGoalPreview.classList.remove('spinning'), 1200);
+      });
+    }
+
     const btnLogout = document.getElementById('btnLogout');
     if (btnLogout) {
       btnLogout.onclick = handleLogout;
@@ -2195,6 +2352,64 @@ async function loadOverlaySettings() {
   } catch (err) {
     console.error('Failed to load overlay settings:', err);
   }
+}
+
+async function loadGoalSettings() {
+  try {
+    const [settingsRes, tokenRes] = await Promise.all([
+      fetch('/api/overlay/settings'),
+      fetch('/api/overlay/token')
+    ]);
+    if (!settingsRes.ok) return;
+    const data = await settingsRes.json();
+    const color = data.goal_bar_color || '#4ade80';
+
+    document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
+    document.getElementById('chkGoalShowOnDonate').checked = !!data.goal_show_on_donate;
+    document.getElementById('inputGoalLabel').value = data.goal_label || 'ค่ากาแฟ';
+    document.getElementById('inputGoalAmount').value = data.goal_amount || 5000;
+    document.getElementById('inputGoalBarColor').value = color;
+    const txtColor = document.getElementById('txtGoalBarColor');
+    if (txtColor) txtColor.value = color;
+
+    const barTextEl = document.getElementById('inputGoalBarText');
+    if (barTextEl) barTextEl.value = data.goal_bar_text !== undefined ? data.goal_bar_text : '{เปอร์เซนต์}';
+    const sub1El = document.getElementById('inputGoalSubtitle1');
+    if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
+    const sub2El = document.getElementById('inputGoalSubtitle2');
+    if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน';
+
+    const hasEndDate = !!(data.goal_end_date);
+    const chkEndDate = document.getElementById('chkGoalEndDate');
+    const endDateSection = document.getElementById('goalEndDateSection');
+    const endDateInput = document.getElementById('inputGoalEndDate');
+    if (chkEndDate) chkEndDate.checked = hasEndDate;
+    if (endDateSection) endDateSection.style.display = hasEndDate ? '' : 'none';
+    if (endDateInput && data.goal_end_date) {
+      // datetime-local needs format YYYY-MM-DDTHH:MM
+      endDateInput.value = data.goal_end_date.slice(0, 16);
+    }
+
+    updateGoalPreview(data.goal_current || 0, data.goal_amount || 5000);
+
+    if (tokenRes.ok) {
+      const { token } = await tokenRes.json();
+      const goalBarUrl = `${location.origin}/goal-bar?token=${token}`;
+      const obsUrlEl = document.getElementById('obsGoalBarUrlPreview');
+      if (obsUrlEl) obsUrlEl.value = goalBarUrl;
+      const iframe = document.getElementById('goalBarPreviewIframe');
+      if (iframe) iframe.src = goalBarUrl;
+    }
+  } catch (err) {
+    console.error('Failed to load goal settings:', err);
+  }
+}
+
+function updateGoalPreview(current, amount) {
+  const curEl = document.getElementById('spanGoalCurrent');
+  const amtEl = document.getElementById('spanGoalAmount');
+  if (curEl) curEl.textContent = (current || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
+  if (amtEl) amtEl.textContent = (amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
 }
 
 // Color picker bindings (Hex inputs <-> Color box picker)

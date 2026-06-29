@@ -183,7 +183,17 @@ async function migrateDB() {
         header_bg_url TEXT,
         page_bg_url TEXT,
         header_bg_y INTEGER DEFAULT 50,
-        header_bg_zoom INTEGER DEFAULT 100
+        header_bg_zoom INTEGER DEFAULT 100,
+        goal_enabled INTEGER DEFAULT 0,
+        goal_amount REAL DEFAULT 5000,
+        goal_current REAL DEFAULT 0,
+        goal_label TEXT DEFAULT 'ค่ากาแฟ',
+        goal_bar_color TEXT DEFAULT '#4ade80',
+        goal_show_on_donate INTEGER DEFAULT 1,
+        goal_end_date TEXT DEFAULT NULL,
+        goal_bar_text TEXT DEFAULT '{เปอร์เซนต์}',
+        goal_subtitle1 TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+        goal_subtitle2 TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'
       )
     `);
 
@@ -310,7 +320,17 @@ async function migrateDB() {
       { name: 'header_bg_url', type: 'TEXT' },
       { name: 'page_bg_url', type: 'TEXT' },
       { name: 'header_bg_y', type: 'INTEGER DEFAULT 50' },
-      { name: 'header_bg_zoom', type: 'INTEGER DEFAULT 100' }
+      { name: 'header_bg_zoom', type: 'INTEGER DEFAULT 100' },
+      { name: 'goal_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'goal_amount', type: 'REAL DEFAULT 5000' },
+      { name: 'goal_current', type: 'REAL DEFAULT 0' },
+      { name: 'goal_label', type: "TEXT DEFAULT 'เป้าหมายโดเนท'" },
+      { name: 'goal_bar_color', type: "TEXT DEFAULT '#4ade80'" },
+      { name: 'goal_show_on_donate', type: 'INTEGER DEFAULT 1' },
+      { name: 'goal_end_date', type: 'TEXT DEFAULT NULL' },
+      { name: 'goal_bar_text', type: "TEXT DEFAULT '{เปอร์เซนต์}'" },
+      { name: 'goal_subtitle1', type: "TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿'" },
+      { name: 'goal_subtitle2', type: "TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'" }
     ];
 
     for (const col of requiredCols) {
@@ -845,7 +865,17 @@ async function saveStreamer(data) {
                header_bg_url = COALESCE(?, streamers.header_bg_url),
                page_bg_url = COALESCE(?, streamers.page_bg_url),
                header_bg_y = COALESCE(?, streamers.header_bg_y),
-               header_bg_zoom = COALESCE(?, streamers.header_bg_zoom)
+               header_bg_zoom = COALESCE(?, streamers.header_bg_zoom),
+               goal_enabled = COALESCE(?, streamers.goal_enabled),
+               goal_amount = COALESCE(?, streamers.goal_amount),
+               goal_current = COALESCE(?, streamers.goal_current),
+               goal_label = COALESCE(?, streamers.goal_label),
+               goal_bar_color = COALESCE(?, streamers.goal_bar_color),
+               goal_show_on_donate = COALESCE(?, streamers.goal_show_on_donate),
+               goal_end_date = COALESCE(?, streamers.goal_end_date),
+               goal_bar_text = COALESCE(?, streamers.goal_bar_text),
+               goal_subtitle1 = COALESCE(?, streamers.goal_subtitle1),
+               goal_subtitle2 = COALESCE(?, streamers.goal_subtitle2)
                WHERE twitch_id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -929,6 +959,16 @@ async function saveStreamer(data) {
           finalData.page_bg_url !== undefined ? finalData.page_bg_url : null,
           finalData.header_bg_y !== undefined ? finalData.header_bg_y : null,
           finalData.header_bg_zoom !== undefined ? finalData.header_bg_zoom : null,
+          finalData.goal_enabled !== undefined ? (finalData.goal_enabled ? 1 : 0) : null,
+          finalData.goal_amount !== undefined ? finalData.goal_amount : null,
+          finalData.goal_current !== undefined ? finalData.goal_current : null,
+          finalData.goal_label !== undefined ? finalData.goal_label : null,
+          finalData.goal_bar_color !== undefined ? finalData.goal_bar_color : null,
+          finalData.goal_show_on_donate !== undefined ? (finalData.goal_show_on_donate ? 1 : 0) : null,
+          finalData.goal_end_date !== undefined ? finalData.goal_end_date : null,
+          finalData.goal_bar_text !== undefined ? finalData.goal_bar_text : null,
+          finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : null,
+          finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : null,
           finalData.twitch_id || null
         ]
       });
@@ -945,8 +985,8 @@ async function saveStreamer(data) {
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1029,7 +1069,17 @@ async function saveStreamer(data) {
         finalData.header_bg_url || null,
         finalData.page_bg_url || null,
         finalData.header_bg_y !== undefined ? finalData.header_bg_y : 50,
-        finalData.header_bg_zoom !== undefined ? finalData.header_bg_zoom : 100
+        finalData.header_bg_zoom !== undefined ? finalData.header_bg_zoom : 100,
+        finalData.goal_enabled !== undefined ? (finalData.goal_enabled ? 1 : 0) : 0,
+        finalData.goal_amount !== undefined ? finalData.goal_amount : 5000,
+        finalData.goal_current !== undefined ? finalData.goal_current : 0,
+        finalData.goal_label || 'ค่ากาแฟ',
+        finalData.goal_bar_color || '#4ade80',
+        finalData.goal_show_on_donate !== undefined ? (finalData.goal_show_on_donate ? 1 : 0) : 1,
+        finalData.goal_end_date !== undefined ? finalData.goal_end_date : null,
+        finalData.goal_bar_text !== undefined ? finalData.goal_bar_text : '{เปอร์เซนต์}',
+        finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+        finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน'
       ]
     });
 
@@ -1364,6 +1414,34 @@ async function getAllR2Refs(r2PublicUrl) {
   return refs;
 }
 
+async function updateGoalCurrent(streamerId, additionalAmount) {
+  await ensureConnected();
+  if (isFallback || !db) return null;
+  await db.execute({
+    sql: 'UPDATE streamers SET goal_current = goal_current + ? WHERE id = ?',
+    args: [additionalAmount, streamerId]
+  });
+  const row = await db.execute({
+    sql: 'SELECT goal_current, goal_amount, goal_label, goal_bar_color FROM streamers WHERE id = ?',
+    args: [streamerId]
+  });
+  return row.rows[0] || null;
+}
+
+async function resetGoalCurrent(streamerId) {
+  await ensureConnected();
+  if (isFallback || !db) return null;
+  await db.execute({
+    sql: 'UPDATE streamers SET goal_current = 0 WHERE id = ?',
+    args: [streamerId]
+  });
+  const row = await db.execute({
+    sql: 'SELECT goal_current, goal_amount, goal_label, goal_bar_color FROM streamers WHERE id = ?',
+    args: [streamerId]
+  });
+  return row.rows[0] || null;
+}
+
 module.exports = {
   initDB,
   getDB,
@@ -1386,6 +1464,8 @@ module.exports = {
   getStreamerByToken,
   getDecryptedStreamer,
   saveStreamer,
+  updateGoalCurrent,
+  resetGoalCurrent,
   deleteStreamer,
   resolveProfileImage,
   getAllR2Refs

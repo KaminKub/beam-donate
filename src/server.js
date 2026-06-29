@@ -152,7 +152,17 @@ const defaultSettings = {
   customSoundUrl: '',
   ttsReadDonor: true,
   ttsPrefixEnabled: true,
-  amountSuffix: 'บาท'
+  amountSuffix: 'บาท',
+  goal_enabled: false,
+  goal_amount: 5000,
+  goal_current: 0,
+  goal_label: 'ค่ากาแฟ',
+  goal_bar_color: '#4ade80',
+  goal_show_on_donate: true,
+  goal_end_date: '',
+  goal_bar_text: '{เปอร์เซนต์}',
+  goal_subtitle1: '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+  goal_subtitle2: 'ปิดหลอดใน {วันคงเหลือ} วัน'
 };
 
 // ========== SSE Alert System ==========
@@ -266,6 +276,31 @@ function broadcastAlert(username, alertData) {
     }
     return true;
   });
+}
+
+function broadcastGoalUpdate(username, streamer) {
+  if (!streamer.goal_enabled) return;
+  const payload = JSON.stringify({
+    type: 'goal_update',
+    current: streamer.goal_current,
+    amount: streamer.goal_amount,
+    label: streamer.goal_label,
+    barColor: streamer.goal_bar_color,
+    barText: streamer.goal_bar_text,
+    subtitle1: streamer.goal_subtitle1,
+    subtitle2: streamer.goal_subtitle2,
+    endDate: streamer.goal_end_date
+  });
+  sseClients
+    .filter(c => c.username === username)
+    .forEach(c => {
+      try {
+        c.res.write(`data: ${payload}\n\n`);
+        c.lastActivity = Date.now();
+      } catch (err) {
+        console.error(`❌ [BroadcastGoal] Failed to write to client ${username}:`, err.message);
+      }
+    });
 }
 
 async function logTransaction(data) {
@@ -532,6 +567,14 @@ const slipokQuotaLimiter = rateLimit({
     console.warn(`Rate limit hit on /api/payment/slipok-quota — IP: ${req.ip}`);
     res.status(429).json({ error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' });
   }
+});
+
+const goalPublicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
@@ -938,6 +981,10 @@ app.get('/thank-you', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/thank-you.html'));
 });
 
+app.get('/goal-bar', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/goal-bar/index.html'));
+});
+
 app.get('/overlay', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/overlay.html'));
 });
@@ -1066,6 +1113,20 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
         message: txDetails.message || charge.description || '',
         timestamp: new Date().toISOString()
       });
+
+      // Update donation goal if enabled
+      const finalAmount = amount || txDetails.amount || 0;
+      if (txDetails.streamer_username && finalAmount > 0) {
+        try {
+          const streamer = await db.getStreamer(txDetails.streamer_username);
+          if (streamer && streamer.goal_enabled) {
+            const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
+            broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
+          }
+        } catch (e) {
+          console.error('Goal update after webhook failed:', e.message);
+        }
+      }
     }
     res.json({ received: true });
   } catch (error) {
@@ -1537,7 +1598,10 @@ const OVERLAY_ALLOWED_FIELDS = [
   'ttsEnabled', 'ttsReadDonor', 'ttsPrefixEnabled', 'ttsLanguage', 'ttsVolume', 'ttsRate',
   'messageTemplate', 'amountSuffix', 'showLabel', 'showDonorMessage', 'minAmount',
   'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
-  'customImageMode', 'customImageValue'
+  'customImageMode', 'customImageValue',
+  'goal_enabled', 'goal_amount', 'goal_current',
+  'goal_label', 'goal_bar_color', 'goal_show_on_donate',
+  'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -1573,6 +1637,60 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
   } catch (error) {
     console.error('Save settings error:', error);
     res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าได้' });
+  }
+});
+
+app.post('/api/goal/adjust', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { delta } = req.body;
+    if (typeof delta !== 'number') return res.status(400).json({ error: 'invalid delta' });
+    const twitchId = req.user.twitch_id || req.user.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (!streamer) return res.status(404).json({ error: 'streamer not found' });
+    const updated = await db.updateGoalCurrent(streamer.id, delta);
+    const actualUsername = await getActualUsername(req.user);
+    broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: updated.goal_current });
+    res.json({ success: true, current: updated.goal_current });
+  } catch (error) {
+    console.error('Goal adjust error:', error);
+    res.status(500).json({ error: 'ไม่สามารถปรับยอดได้' });
+  }
+});
+
+app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const twitchId = req.user.twitch_id || req.user.id;
+    const streamer = await db.getStreamerByTwitchId(twitchId);
+    if (!streamer) return res.status(404).json({ error: 'streamer not found' });
+    const updated = await db.resetGoalCurrent(streamer.id);
+    const actualUsername = await getActualUsername(req.user);
+    broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: 0 });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Goal reset error:', error);
+    res.status(500).json({ error: 'ไม่สามารถรีเซ็ตได้' });
+  }
+});
+
+app.get('/api/page/:username/goal', goalPublicLimiter, async (req, res) => {
+  try {
+    const streamer = await db.getStreamer(req.params.username);
+    if (!streamer) return res.json({ enabled: false });
+    res.json({
+      enabled: !!streamer.goal_enabled,
+      current: streamer.goal_current,
+      amount: streamer.goal_amount,
+      label: streamer.goal_label,
+      barColor: streamer.goal_bar_color,
+      showOnDonate: !!streamer.goal_show_on_donate,
+      barText: streamer.goal_bar_text,
+      subtitle1: streamer.goal_subtitle1,
+      subtitle2: streamer.goal_subtitle2,
+      endDate: streamer.goal_end_date
+    });
+  } catch (err) {
+    console.error('Goal state error:', err.message);
+    res.json({ enabled: false });
   }
 });
 
@@ -2676,6 +2794,19 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
               amount: tx.amount,
               message: tx.message
             });
+
+            // Update donation goal if enabled
+            if (tx.streamer_username && tx.amount > 0) {
+              try {
+                const goalStreamer = await db.getStreamer(tx.streamer_username);
+                if (goalStreamer && goalStreamer.goal_enabled) {
+                  const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, tx.amount);
+                  broadcastGoalUpdate(goalStreamer.username, { ...goalStreamer, ...goalUpdated });
+                }
+              } catch (e) {
+                console.error('Goal update after slip verify failed:', e.message);
+              }
+            }
           }
         } else if (isTruemoney) {
           const referenceIdNew = `truemoney-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -2700,6 +2831,20 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
             amount: parseFloat(amount) || 0,
             message: ''
           });
+
+          // Update donation goal if enabled
+          const finalAmount = parseFloat(amount) || 0;
+          if (username && finalAmount > 0) {
+            try {
+              const goalStreamer = await db.getStreamer(username);
+              if (goalStreamer && goalStreamer.goal_enabled) {
+                const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, finalAmount);
+                broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
+              }
+            } catch (e) {
+              console.error('Goal update after truemoney verify failed:', e.message);
+            }
+          }
         }
 
         return res.json({

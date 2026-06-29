@@ -38,7 +38,7 @@
           <span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span> ประวัติโดเนท
         </button>
         <button class="menu-item" data-tab="overlay-config">
-          <span class="icon"><i class="fa-solid fa-bell"></i></span> ปรับแต่งวิดเจ็ต
+          <span class="icon"><i class="fa-solid fa-puzzle-piece"></i></span> Widgets
         </button>
          <button class="menu-item" data-tab="page-customization">
            <span class="icon"><i class="fa-solid fa-palette"></i></span> แต่งหน้าโดเนท
@@ -787,6 +787,14 @@
               
               <!-- Left Form Panels -->
               <div class="settings-panel-scroll">
+                <div class="widget-subtab-toggle">
+                  <button type="button" id="btnSubtabAlert" class="subtab-btn active">
+                    <i class="fa-solid fa-bell"></i> แจ้งเตือนโดเนท
+                  </button>
+                  <button type="button" id="btnSubtabGoal" class="subtab-btn">
+                    <i class="fa-solid fa-trophy"></i> หลอดโดเนท
+                  </button>
+                </div>
                 <form id="overlaySettingsForm">
                   
                   <!-- Card: Visual Settings -->
@@ -1133,30 +1141,192 @@
                   </div>
 
                 </form>
+
+                <!-- Goal Settings Panel (hidden by default) -->
+                <div id="goalSettingsPanel" style="display:none;">
+
+                  <!-- Card 1: General Settings -->
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelGoalGeneral">
+                      <h4><i class="fa-solid fa-sliders" style="color:#60a5fa"></i> ตั้งค่าทั่วไป</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelGoalGeneral">
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkGoalEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-trophy" style="color:#4ade80"></i> เปิดใช้หลอดโดเนท</span>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkGoalShowOnDonate">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="inputGoalLabel">ชื่อเป้าหมาย</label>
+                          <input type="text" id="inputGoalLabel" class="form-control" maxlength="40" placeholder="เป้าหมายโดเนท">
+                        </div>
+                        <div class="form-group">
+                          <label for="inputGoalAmount">จำนวนเป้าหมาย (บาท)</label>
+                          <input type="number" id="inputGoalAmount" class="form-control" min="1" placeholder="5000">
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label>สีแถบ Progress</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="inputGoalBarColor" value="#4ade80">
+                            <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="inputGoalBarText">ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(เคลื่อนไปกับปลายหลอด)</span></label>
+                          <input type="text" id="inputGoalBarText" class="form-control" maxlength="60" placeholder="{เปอร์เซนต์}">
+                          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+                            <i class="fa-solid fa-brackets-curly" style="color:#a78bfa"></i>
+                            ตัวแปร: <code>{เปอร์เซนต์}</code> &nbsp;<code>{ยอดปัจจุบัน}</code> &nbsp;<code>{ยอดเป้าหมาย}</code> &nbsp;<code>{วันคงเหลือ}</code>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="inputGoalSubtitle1">ข้อความใต้หลอด (ซ้าย / กลาง)</label>
+                          <input type="text" id="inputGoalSubtitle1" class="form-control" maxlength="80" placeholder="{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿">
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <div class="switch-group" style="margin-bottom:10px;">
+                            <label class="switch">
+                              <input type="checkbox" id="chkGoalEndDate">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-calendar-days" style="color:#f59e0b"></i> กำหนดวันสิ้นสุด (countdown)</span>
+                          </div>
+                           <div id="goalEndDateSection" style="display:none;">
+                             <input type="datetime-local" id="inputGoalEndDate" class="form-control" style="margin-bottom:10px;">
+                             <label for="inputGoalSubtitle2">ข้อความใต้หลอด (ขวา — แสดงเมื่อมีวันสิ้นสุด)</label>
+                             <input type="text" id="inputGoalSubtitle2" class="form-control" maxlength="80" placeholder="ปิดหลอดใน {วันคงเหลือ} วัน" style="margin-top:6px;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 2: Current Progress & Adjust -->
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelGoalProgress">
+                      <h4><i class="fa-solid fa-chart-simple" style="color:#4ade80"></i> ยอดปัจจุบัน & ปรับยอด</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelGoalProgress">
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <!-- ยอดปัจจุบัน -->
+                          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:16px;">
+                            <span id="spanGoalCurrent" style="font-size:1.6em;font-weight:800;color:#4ade80">0</span>
+                            <span style="color:var(--text-muted);font-size:1em">/</span>
+                            <span id="spanGoalAmount" style="color:var(--text-muted);font-size:1em">0</span>
+                            <span style="color:var(--text-muted);font-size:0.85em">บาท</span>
+                          </div>
+                          <!-- ปุ่ม Quick Add -->
+                          <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <button type="button" class="btn-goal-quick" data-val="10">+10</button>
+                            <button type="button" class="btn-goal-quick" data-val="50">+50</button>
+                            <button type="button" class="btn-goal-quick" data-val="100">+100</button>
+                            <button type="button" class="btn-goal-quick" data-val="-10">−10</button>
+                          </div>
+                          <!-- กรอกเองแบบ custom -->
+                          <div style="display:flex;gap:8px;align-items:center;">
+                            <div style="flex:1;position:relative;">
+                              <input type="number" id="inputGoalDelta" class="form-control" placeholder="ระบุจำนวน">
+                              <span style="position:absolute;right:40px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--text-muted);pointer-events:none;">บาท</span>
+                            </div>
+                            <button type="button" id="btnGoalAdjust" class="btn btn-primary" style="white-space:nowrap;padding:10px 20px;">
+                              <i class="fa-solid fa-plus-minus"></i> ปรับยอด
+                            </button>
+                          </div>
+                          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+                            <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
+                            ตัวอย่าง: พิมพ์ <strong>200</strong> เพื่อ บวก 200 บาท &nbsp;|&nbsp; พิมพ์ <strong>-100</strong> เพื่อ ลบ 100 บาท
+                          </div>
+                          <!-- รีเซ็ต -->
+                          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e2e8f0);">
+                            <button type="button" id="btnGoalReset" class="btn btn-outline-danger" style="width:100%;">
+                              <i class="fa-solid fa-rotate-left"></i> รีเซ็ตยอดกลับเป็น 0
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Save Button -->
+                  <div class="settings-actions">
+                    <button type="button" id="btnSaveGoalSettings" class="btn btn-primary btn-large w-100">
+                      <i class="fa-solid fa-floppy-disk"></i> บันทึกและซิงค์การตั้งค่า
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Right Live Preview panel -->
               <div class="settings-preview-panel">
-                <div class="dashboard-card preview-card">
+
+                <!-- Alert Preview Card (active by default) -->
+                <div id="alertPreviewCard" class="dashboard-card preview-card">
                   <div class="preview-header">
                     <h3><i class="fa-solid fa-tv"></i> หน้าจอจำลองสด (Live Overlay Preview)</h3>
                     <span class="badge badge-success">SSE Connected</span>
                   </div>
                   <p class="preview-hint">เมื่อกด "ยิงทดสอบ Alert" ด้านซ้าย หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
                   <div class="preview-iframe-wrapper">
-                    <!-- Embed overlay path for interactive dynamic testing directly -->
                     <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
                   </div>
-                    <div class="copy-url-group">
-                      <input type="text" id="obsOverlayUrlPreview" readonly value="http://localhost:3000/overlay">
-                      <button class="btn btn-primary" id="btnCopyObsUrlPreview">คัดลอก</button>
-                      <button class="btn btn-secondary" id="btnOpenObsUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  <div class="copy-url-group">
+                    <input type="text" id="obsOverlayUrlPreview" readonly value="http://localhost:3000/overlay">
+                    <button class="btn btn-primary" id="btnCopyObsUrlPreview">คัดลอก</button>
+                    <button class="btn btn-secondary" id="btnOpenObsUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
                   </div>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                     <span class="text-muted" style="font-size: 12px;">หมายเหตุ: ในระบบจริง OBS จะมีพื้นหลังโปร่งใส</span>
-                    </div>
+                  </div>
                 </div>
+
+                <!-- Goal Preview Card (shown when SubtabGoal active) -->
+                <div id="goalPreviewCard" class="dashboard-card preview-card" style="display:none;">
+                  <div class="preview-header">
+                    <h3><i class="fa-solid fa-trophy" style="color:#4ade80"></i> พรีวิว Goal Bar</h3>
+                  </div>
+                  <p class="preview-hint">ตัวอย่างที่ OBS จะแสดง — Background โปร่งใสใน OBS จริง</p>
+                  <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
+                    <iframe id="goalBarPreviewIframe" src="about:blank" style="width:100%;height:130px;border:none;" title="Goal Bar Preview"></iframe>
+                  </div>
+                  <div class="copy-url-group">
+                    <input type="text" id="obsGoalBarUrlPreview" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
+                    <button class="btn btn-primary" id="btnCopyObsGoalUrlPreview">คัดลอก</button>
+                    <button class="btn btn-secondary" id="btnOpenObsGoalUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 500×130px, background transparent</span>
+                  </div>
+                </div>
+
               </div>
 
             </div>
