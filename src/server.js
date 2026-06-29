@@ -1370,8 +1370,12 @@ app.post('/api/cron/cleanup-r2-orphans', checkCronAuth, async (req, res) => {
       }
     }
 
+    const referenced = allObjects
+      .filter(o => !skipped.includes(o.key) && !orphans.includes(o.key))
+      .map(o => o.key);
     console.log(`[R2 cleanup] scanned=${allObjects.length} orphans=${orphans.length} deleted=${deleted} dryRun=${dryRun}`);
-    res.json({ scanned: allObjects.length, orphans: orphans.length, deleted, skipped: skipped.length, dryRun });
+    res.json({ scanned: allObjects.length, orphans: orphans.length, deleted, skipped: skipped.length, dryRun,
+      ...(req.query.verbose === 'true' && { orphanKeys: orphans, skippedKeys: skipped, referencedKeys: referenced }) });
   } catch (err) {
     console.error('Cron cleanup-r2-orphans error:', err);
     res.status(500).json({ error: 'R2 cleanup failed' });
