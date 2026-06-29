@@ -1339,7 +1339,14 @@ async function getAllR2Refs(r2PublicUrl) {
   if (isFallback || !db) return new Set();
 
   const result = await db.execute(
-    'SELECT customImageValue, customSoundUrl, alert_sound_url, profile_image_value, header_bg_url, page_bg_url FROM streamers'
+    `SELECT
+      CASE WHEN customImageMode NOT IN ('emoji', 'text') THEN customImageValue ELSE NULL END AS customImageValue,
+      CASE WHEN soundChoice = 'custom' THEN customSoundUrl ELSE NULL END AS customSoundUrl,
+      alert_sound_url,
+      profile_image_value,
+      header_bg_url,
+      page_bg_url
+    FROM streamers`
   );
   const refs = new Set();
   for (const row of result.rows) {

@@ -1352,7 +1352,6 @@ app.post('/api/cron/cleanup-r2-orphans', checkCronAuth, async (req, res) => {
     const skipped = [];
 
     for (const obj of allObjects) {
-      if (obj.key.startsWith('avatars/twitch_')) { skipped.push(obj.key); continue; }
       if (now - new Date(obj.lastModified).getTime() < GRACE_MS) { skipped.push(obj.key); continue; }
       const fullUrl = `${r2PublicUrl}/${obj.key}`;
       if (dbRefs.has(fullUrl)) continue;
