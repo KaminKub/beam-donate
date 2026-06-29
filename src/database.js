@@ -1334,6 +1334,24 @@ async function getTransactionsByDateRange(username, fromDate, toDate) {
   return result.rows;
 }
 
+async function getAllR2Refs(r2PublicUrl) {
+  await ensureConnected();
+  if (isFallback || !db) return new Set();
+
+  const result = await db.execute(
+    'SELECT customImageValue, customSoundUrl, alert_sound_url, profile_image_value, header_bg_url, page_bg_url FROM streamers'
+  );
+  const refs = new Set();
+  for (const row of result.rows) {
+    for (const val of Object.values(row)) {
+      if (typeof val === 'string' && val.startsWith(r2PublicUrl)) {
+        refs.add(val.split('?')[0]);
+      }
+    }
+  }
+  return refs;
+}
+
 module.exports = {
   initDB,
   getDB,
@@ -1357,5 +1375,6 @@ module.exports = {
   getDecryptedStreamer,
   saveStreamer,
   deleteStreamer,
-  resolveProfileImage
+  resolveProfileImage,
+  getAllR2Refs
 };

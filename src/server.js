@@ -23,7 +23,7 @@ const session = require('express-session');
 const TursoStore = require('./sessionStore');
 const passport = require('passport');
 const rateLimit = require('express-rate-limit');
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const TwitchStrategy = require('passport-twitch-new').Strategy;
@@ -84,6 +84,22 @@ async function uploadAvatarFromUrl(imageUrl, twitchId) {
     console.error('❌ R2 avatar upload failed:', err.message);
     return null;
   }
+}
+
+async function listAllR2Objects() {
+  const objects = [];
+  let continuationToken;
+  do {
+    const res = await s3Client.send(new ListObjectsV2Command({
+      Bucket: process.env.R2_BUCKET_NAME,
+      ContinuationToken: continuationToken,
+    }));
+    for (const obj of res.Contents ?? []) {
+      objects.push({ key: obj.Key, lastModified: obj.LastModified });
+    }
+    continuationToken = res.NextContinuationToken;
+  } while (continuationToken);
+  return objects;
 }
 
 // Setup SQLite Database (Turso Cloud)
@@ -1313,6 +1329,53 @@ app.post('/api/cron/cleanup-quarterly', checkCronAuth, async (req, res) => {
   } catch (err) {
     console.error('Cron cleanup-quarterly error:', err);
     res.status(500).json({ error: 'Cleanup failed' });
+  }
+});
+
+app.post('/api/cron/cleanup-r2-orphans', checkCronAuth, async (req, res) => {
+  try {
+    const dryRun = req.query.dryRun === 'true';
+    const GRACE_MS = 60 * 60 * 1000;
+    const r2PublicUrl = process.env.R2_PUBLIC_URL;
+
+    if (!r2PublicUrl || !process.env.R2_BUCKET_NAME) {
+      return res.status(500).json({ error: 'R2 not configured' });
+    }
+
+    const [allObjects, dbRefs] = await Promise.all([
+      listAllR2Objects(),
+      db.getAllR2Refs(r2PublicUrl),
+    ]);
+
+    const now = Date.now();
+    const orphans = [];
+    const skipped = [];
+
+    for (const obj of allObjects) {
+      if (obj.key.startsWith('avatars/twitch_')) { skipped.push(obj.key); continue; }
+      if (now - new Date(obj.lastModified).getTime() < GRACE_MS) { skipped.push(obj.key); continue; }
+      const fullUrl = `${r2PublicUrl}/${obj.key}`;
+      if (dbRefs.has(fullUrl)) continue;
+      orphans.push(obj.key);
+    }
+
+    let deleted = 0;
+    if (!dryRun) {
+      for (const key of orphans) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key }));
+          deleted++;
+        } catch (err) {
+          console.error('[R2 cleanup] delete failed:', key, err.message);
+        }
+      }
+    }
+
+    console.log(`[R2 cleanup] scanned=${allObjects.length} orphans=${orphans.length} deleted=${deleted} dryRun=${dryRun}`);
+    res.json({ scanned: allObjects.length, orphans: orphans.length, deleted, skipped: skipped.length, dryRun });
+  } catch (err) {
+    console.error('Cron cleanup-r2-orphans error:', err);
+    res.status(500).json({ error: 'R2 cleanup failed' });
   }
 });
 
