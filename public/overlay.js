@@ -14,6 +14,7 @@ let overlaySettings = {
   ttsRate: 1.0,
   ttsLanguage: 'th-TH',
   ttsVoice: 'default',
+  ttsPrefixEnabled: true,
   profanityFilterEnabled: true,
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks',
@@ -435,7 +436,7 @@ async function showAlert(data) {
           const cleanHeader = headerHtml.replace(/<[^>]*>/g, '');
           const amountSuffix = overlaySettings.amountSuffix || 'บาท';
           const headerPrefix = cleanHeader.split(amountFormatted)[0];
-          speakText = `${headerPrefix}${amountFormatted} ${amountSuffix}${data.message ? `. ฝากข้อความว่า ${filteredMessage}` : ''}`;
+          speakText = `${headerPrefix}${amountFormatted} ${amountSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
         } else {
           speakText = filteredMessage;
         }

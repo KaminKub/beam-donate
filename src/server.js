@@ -151,6 +151,7 @@ const defaultSettings = {
   customImageValue: '💝',
   customSoundUrl: '',
   ttsReadDonor: true,
+  ttsPrefixEnabled: true,
   amountSuffix: 'บาท'
 };
 
@@ -1533,7 +1534,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'theme', 'animation', 'fontFamily', 'duration', 'particleCount', 'fontSize',
   'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
   'soundEnabled', 'soundChoice', 'soundVolume', 'customSoundUrl',
-  'ttsEnabled', 'ttsReadDonor', 'ttsLanguage', 'ttsVolume', 'ttsRate',
+  'ttsEnabled', 'ttsReadDonor', 'ttsPrefixEnabled', 'ttsLanguage', 'ttsVolume', 'ttsRate',
   'messageTemplate', 'amountSuffix', 'showLabel', 'showDonorMessage', 'minAmount',
   'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
   'customImageMode', 'customImageValue'

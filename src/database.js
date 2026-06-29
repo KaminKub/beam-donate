@@ -106,6 +106,7 @@ async function migrateDB() {
         ttsRate REAL DEFAULT 1.0,
         ttsLanguage TEXT DEFAULT 'th-TH',
         ttsVoice TEXT,
+        ttsPrefixEnabled INTEGER DEFAULT 1,
 
         profanityFilterEnabled INTEGER DEFAULT 1,
         profanityWords TEXT,
@@ -262,6 +263,7 @@ async function migrateDB() {
       { name: 'streamlabs_username', type: 'TEXT' },
       { name: 'ttsReadDonor', type: 'INTEGER DEFAULT 1' },
       { name: 'ttsVoice', type: 'TEXT' },
+      { name: 'ttsPrefixEnabled', type: 'INTEGER DEFAULT 1' },
       { name: 'amountSuffix', type: "TEXT DEFAULT 'บาท'" },
       { name: 'showLabel', type: 'INTEGER DEFAULT 1' },
       { name: 'page_title', type: 'TEXT' },
@@ -779,6 +781,7 @@ async function saveStreamer(data) {
               ttsRate = COALESCE(?, streamers.ttsRate),
               ttsLanguage = COALESCE(?, streamers.ttsLanguage),
               ttsVoice = COALESCE(?, streamers.ttsVoice),
+              ttsPrefixEnabled = COALESCE(?, streamers.ttsPrefixEnabled),
               profanityFilterEnabled = COALESCE(?, streamers.profanityFilterEnabled),
               profanityWords = COALESCE(?, streamers.profanityWords),
               profanityReplaceStyle = COALESCE(?, streamers.profanityReplaceStyle),
@@ -861,6 +864,7 @@ async function saveStreamer(data) {
           finalData.ttsRate !== undefined ? finalData.ttsRate : null,
           finalData.ttsLanguage !== undefined ? finalData.ttsLanguage : null,
           finalData.ttsVoice !== undefined ? finalData.ttsVoice : null,
+          finalData.ttsPrefixEnabled !== undefined ? (finalData.ttsPrefixEnabled ? 1 : 0) : null,
           finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : null,
           finalData.profanityWords !== undefined ? finalData.profanityWords : null,
           finalData.profanityReplaceStyle !== undefined ? finalData.profanityReplaceStyle : null,
@@ -931,7 +935,7 @@ async function saveStreamer(data) {
   } else {
      await db.execute({
        sql: `INSERT INTO streamers (twitch_id, streamlabs_id, streamlabs_username, username, discord_webhook_url, overlay_token, is_active, 
-             duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, 
+             duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, ttsPrefixEnabled,
              profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
              theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
              customImageMode, customImageValue, customSoundUrl, alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
@@ -942,7 +946,7 @@ async function saveStreamer(data) {
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -961,6 +965,7 @@ async function saveStreamer(data) {
         finalData.ttsRate !== undefined ? finalData.ttsRate : 1.0,
         finalData.ttsLanguage || 'th-TH',
         finalData.ttsVoice || null,
+        finalData.ttsPrefixEnabled !== undefined ? (finalData.ttsPrefixEnabled ? 1 : 0) : 1,
         finalData.profanityFilterEnabled !== undefined ? (finalData.profanityFilterEnabled ? 1 : 0) : 1,
         finalData.profanityWords || null,
         finalData.profanityReplaceStyle || 'asterisks',

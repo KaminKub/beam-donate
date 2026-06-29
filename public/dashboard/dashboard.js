@@ -2142,7 +2142,8 @@ async function loadOverlaySettings() {
       // TTS Checkboxes
       document.getElementById('chkTtsEnabled').checked = s.ttsEnabled;
       document.getElementById('chkTtsReadDonor').checked = s.ttsReadDonor !== undefined ? s.ttsReadDonor : true;
- 
+      document.getElementById('chkTtsPrefixEnabled').checked = s.ttsPrefixEnabled !== undefined ? s.ttsPrefixEnabled : true;
+
       document.getElementById('sliderTtsVolume').value = s.ttsVolume;
       document.getElementById('lblTtsVolume').textContent = Math.round(s.ttsVolume * 100);
       document.getElementById('sliderTtsRate').value = s.ttsRate;
@@ -2242,6 +2243,7 @@ async function saveOverlaySettings() {
      
      ttsEnabled: document.getElementById('chkTtsEnabled').checked,
      ttsReadDonor: document.getElementById('chkTtsReadDonor').checked,
+     ttsPrefixEnabled: document.getElementById('chkTtsPrefixEnabled').checked,
      ttsLanguage: 'th-TH',
      ttsVolume: parseFloat(document.getElementById('sliderTtsVolume').value),
      ttsRate: parseFloat(document.getElementById('sliderTtsRate').value),
