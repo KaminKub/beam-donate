@@ -616,6 +616,7 @@ async function initializeDashboard() {
         document.getElementById('goalPreviewCard').style.display = 'none';
         btnSubtabAlert.classList.add('active');
         btnSubtabGoal.classList.remove('active');
+        activateOverlayPreview();
       });
       btnSubtabGoal.addEventListener('click', () => {
         document.getElementById('overlaySettingsForm').style.display = 'none';
@@ -625,6 +626,7 @@ async function initializeDashboard() {
         btnSubtabAlert.classList.remove('active');
         btnSubtabGoal.classList.add('active');
         loadGoalSettings();
+        deactivateOverlayPreview();
       });
     }
 
@@ -697,7 +699,9 @@ async function initializeDashboard() {
           : '';
         const payload = {
           goal_enabled: document.getElementById('chkGoalEnabled').checked ? 1 : 0,
+          goal_anim_sound: document.getElementById('chkGoalAnimSound').checked ? 1 : 0,
           goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
+          goal_bar_position: document.getElementById('selectGoalBarPosition').value || 'top',
           goal_label: document.getElementById('inputGoalLabel').value.trim(),
           goal_amount: parseFloat(document.getElementById('inputGoalAmount').value) || 5000,
           goal_bar_color: document.getElementById('inputGoalBarColor').value,
@@ -958,6 +962,13 @@ function switchTab(tabId) {
   }
   if (tabId === 'overlay-config') {
     loadOverlaySettings();
+    const alertBtn = document.getElementById('btnSubtabAlert');
+    if (alertBtn && alertBtn.classList.contains('active')) {
+      activateOverlayPreview();
+    }
+  }
+  if (tabId !== 'overlay-config') {
+    deactivateOverlayPreview();
   }
   if (tabId === 'page-customization') {
     loadPageSettings();
@@ -980,6 +991,21 @@ function switchTab(tabId) {
     });
     loadPaymentSettings();
   }
+}
+
+// ========== Overlay Preview Iframe Control ==========
+function activateOverlayPreview() {
+  const iframe = document.getElementById('overlayPreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.src = '/overlay';
+  }
+}
+
+function deactivateOverlayPreview() {
+  const iframe = document.getElementById('overlayPreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
 }
 
 // ========== Navigation (Tab Switching) ==========
@@ -2365,7 +2391,13 @@ async function loadGoalSettings() {
     const color = data.goal_bar_color || '#4ade80';
 
     document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
+    document.getElementById('chkGoalAnimSound').checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
     document.getElementById('chkGoalShowOnDonate').checked = !!data.goal_show_on_donate;
+    const posEl = document.getElementById('selectGoalBarPosition');
+    if (posEl) {
+      posEl.value = data.goal_bar_position || 'top';
+      posEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     document.getElementById('inputGoalLabel').value = data.goal_label || 'ค่ากาแฟ';
     document.getElementById('inputGoalAmount').value = data.goal_amount || 5000;
     document.getElementById('inputGoalBarColor').value = color;
@@ -2398,7 +2430,7 @@ async function loadGoalSettings() {
       const obsUrlEl = document.getElementById('obsGoalBarUrlPreview');
       if (obsUrlEl) obsUrlEl.value = goalBarUrl;
       const iframe = document.getElementById('goalBarPreviewIframe');
-      if (iframe) iframe.src = goalBarUrl;
+      if (iframe) iframe.src = `${location.origin}/goal-bar`;
     }
   } catch (err) {
     console.error('Failed to load goal settings:', err);

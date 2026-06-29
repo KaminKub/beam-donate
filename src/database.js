@@ -193,7 +193,9 @@ async function migrateDB() {
         goal_end_date TEXT DEFAULT NULL,
         goal_bar_text TEXT DEFAULT '{เปอร์เซนต์}',
         goal_subtitle1 TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-        goal_subtitle2 TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'
+        goal_subtitle2 TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน',
+        goal_anim_sound INTEGER DEFAULT 1,
+        goal_bar_position TEXT DEFAULT 'top'
       )
     `);
 
@@ -330,7 +332,9 @@ async function migrateDB() {
       { name: 'goal_end_date', type: 'TEXT DEFAULT NULL' },
       { name: 'goal_bar_text', type: "TEXT DEFAULT '{เปอร์เซนต์}'" },
       { name: 'goal_subtitle1', type: "TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿'" },
-      { name: 'goal_subtitle2', type: "TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'" }
+      { name: 'goal_subtitle2', type: "TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'" },
+      { name: 'goal_anim_sound', type: 'INTEGER DEFAULT 1' },
+      { name: 'goal_bar_position', type: "TEXT DEFAULT 'top'" }
     ];
 
     for (const col of requiredCols) {
@@ -875,7 +879,9 @@ async function saveStreamer(data) {
                goal_end_date = COALESCE(?, streamers.goal_end_date),
                goal_bar_text = COALESCE(?, streamers.goal_bar_text),
                goal_subtitle1 = COALESCE(?, streamers.goal_subtitle1),
-               goal_subtitle2 = COALESCE(?, streamers.goal_subtitle2)
+               goal_subtitle2 = COALESCE(?, streamers.goal_subtitle2),
+               goal_anim_sound = COALESCE(?, streamers.goal_anim_sound),
+               goal_bar_position = COALESCE(?, streamers.goal_bar_position)
                WHERE twitch_id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -969,6 +975,8 @@ async function saveStreamer(data) {
           finalData.goal_bar_text !== undefined ? finalData.goal_bar_text : null,
           finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : null,
           finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : null,
+          finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : null,
+          finalData.goal_bar_position !== undefined ? finalData.goal_bar_position : null,
           finalData.twitch_id || null
         ]
       });
@@ -985,8 +993,8 @@ async function saveStreamer(data) {
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_bar_position)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1079,7 +1087,9 @@ async function saveStreamer(data) {
         finalData.goal_end_date !== undefined ? finalData.goal_end_date : null,
         finalData.goal_bar_text !== undefined ? finalData.goal_bar_text : '{เปอร์เซนต์}',
         finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-        finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน'
+        finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน',
+        finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : 1,
+        finalData.goal_bar_position || 'top'
       ]
     });
 

@@ -162,7 +162,9 @@ const defaultSettings = {
   goal_end_date: '',
   goal_bar_text: '{เปอร์เซนต์}',
   goal_subtitle1: '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-  goal_subtitle2: 'ปิดหลอดใน {วันคงเหลือ} วัน'
+  goal_subtitle2: 'ปิดหลอดใน {วันคงเหลือ} วัน',
+  goal_anim_sound: true,
+  goal_bar_position: 'top'
 };
 
 // ========== SSE Alert System ==========
@@ -260,7 +262,12 @@ function checkAntiBot(req, res) {
 // ========== End Anti-Bot ==========
 
 function broadcastAlert(username, alertData) {
-  const data = JSON.stringify(alertData);
+  let payload = alertData;
+  if (alertData.type === 'donation') {
+    const overlayOnline = sseClients.some(c => c.username === username && c.source === 'overlay');
+    payload = { ...alertData, overlayOnline };
+  }
+  const data = JSON.stringify(payload);
   console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
   
   sseClients = sseClients.filter(client => {
@@ -1184,6 +1191,7 @@ async function ensureUserOwner(req, res, next) {
 
 app.get('/api/alerts/stream', async (req, res) => {
   const token = req.query.token;
+  const source = req.query.source || 'unknown';
   let authenticatedUser = null;
   let authMethod = null;
 
@@ -1227,7 +1235,7 @@ app.get('/api/alerts/stream', async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*', 'X-Accel-Buffering': 'no' });
   res.write(`data: ${JSON.stringify({ type: 'connected', message: `Overlay connected as ${authenticatedUser || 'Unknown'}` })}\n\n`);
   
-  const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now };
+  const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now, source };
   sseClients.push(clientObj);
   
   // Clear any pending disconnect log for this user (quick reconnect < 5s)
@@ -1269,7 +1277,7 @@ app.get('/api/overlay/status', ensureAuthenticated, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     
-    const isActive = sseClients.some(client => client.username === actualUsername && client.authMethod === 'token');
+    const isActive = sseClients.some(client => client.username === actualUsername && client.authMethod === 'token' && client.source === 'overlay');
     res.json({ active: isActive });
   } catch (err) {
     console.error('Get overlay status error:', err);
@@ -1283,7 +1291,7 @@ app.get('/api/overlay/status/:username', async (req, res) => {
     const { username } = req.params;
     if (!username) return res.status(400).json({ active: false, error: 'missing username' });
     const isActive = sseClients.some(client => 
-      client.username === username.toLowerCase() && client.authMethod === 'token'
+      client.username === username.toLowerCase() && client.authMethod === 'token' && client.source === 'overlay'
     );
     res.json({ active: isActive });
   } catch (err) {
@@ -1462,7 +1470,6 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
 
     const updatedTx = await db.saveTransaction({ ...tx, id, status });
     if (status === 'successful') {
-      // Refresh txDetails to get the most recent data for broadcasting
       const txDetails = await db.getTransactionById(id);
       broadcastAlert(txDetails.streamer_username, {
         type: 'donation',
@@ -1472,6 +1479,19 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
         timestamp: new Date().toISOString(),
         isManualTrigger: true
       });
+
+      const finalAmount = updatedTx.amount || 0;
+      if (txDetails.streamer_username && finalAmount > 0) {
+        try {
+          const streamer = await db.getStreamer(txDetails.streamer_username);
+          if (streamer && streamer.goal_enabled) {
+            const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
+            broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
+          }
+        } catch (e) {
+          console.error('Goal update after manual confirm failed:', e.message);
+        }
+      }
     }
     res.json({ success: true, transaction: updatedTx });
   } catch (err) {
@@ -1601,7 +1621,8 @@ const OVERLAY_ALLOWED_FIELDS = [
   'customImageMode', 'customImageValue',
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
-  'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2'
+  'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
+  'goal_anim_sound', 'goal_bar_position'
 ];
 
 const PAGE_ALLOWED_FIELDS = [

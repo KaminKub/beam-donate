@@ -1165,11 +1165,29 @@
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
+                              <input type="checkbox" id="chkGoalAnimSound" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
                               <input type="checkbox" id="chkGoalShowOnDonate">
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
                           </div>
+                        </div>
+                        <div class="form-group">
+                          <label for="selectGoalBarPosition"><i class="fa-solid fa-arrows-up-down" style="color:#a78bfa"></i> ตำแหน่งหลอดโดเนท</label>
+                          <select id="selectGoalBarPosition" class="form-select">
+                            <option value="top">บนสุด</option>
+                            <option value="bottom">ล่างสุด</option>
+                          </select>
                         </div>
                       </div>
                       <div class="form-row">
@@ -1294,7 +1312,7 @@
                   </div>
                   <p class="preview-hint">เมื่อกด "ยิงทดสอบ Alert" ด้านซ้าย หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
                   <div class="preview-iframe-wrapper">
-                    <iframe src="/overlay" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
+                    <iframe src="about:blank" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
                   </div>
                   <div class="copy-url-group">
                     <input type="text" id="obsOverlayUrlPreview" readonly value="http://localhost:3000/overlay">
@@ -1314,16 +1332,20 @@
                   </div>
                   <p class="preview-hint">ตัวอย่างที่ OBS จะแสดง — Background โปร่งใสใน OBS จริง</p>
                   <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
-                    <iframe id="goalBarPreviewIframe" src="about:blank" style="width:100%;height:130px;border:none;" title="Goal Bar Preview"></iframe>
+                    <iframe id="goalBarPreviewIframe" src="about:blank" style="width:100%;height:250px;border:none;" title="Goal Bar Preview"></iframe>
                   </div>
                   <div class="copy-url-group">
                     <input type="text" id="obsGoalBarUrlPreview" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
                     <button class="btn btn-primary" id="btnCopyObsGoalUrlPreview">คัดลอก</button>
                     <button class="btn btn-secondary" id="btnOpenObsGoalUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
                   </div>
+                  <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+                    <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
+                    เพิ่ม <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;bottom</code> ต่อท้าย URL เพื่อให้หลอดโดเนทอยู่ล่างสุดของจอ
+                  </p>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 500×130px, background transparent</span>
+                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 600×250px, background transparent</span>
                   </div>
                 </div>
 

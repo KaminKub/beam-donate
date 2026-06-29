@@ -1,6 +1,10 @@
 (function() {
-  const token = new URLSearchParams(location.search).get('token');
-  if (!token) return;
+  const _params = new URLSearchParams(location.search);
+  const token = _params.get('token') || '';
+  // URL param overrides DB setting: ?bottom or ?position=bottom
+  const urlPosition = _params.has('bottom') || _params.get('position') === 'bottom'
+    ? 'bottom'
+    : _params.get('position') === 'top' ? 'top' : null;
 
   let barColor = '#4ade80';
   let goalAmount = 0;
@@ -20,6 +24,10 @@
   let animDuration = 800;
   let animFrameId = null;
   let isFirstUpdate = true;
+  let pendingGoalUpdate = null;
+  let alertDurationMs = 8000;
+  let isWaitingForOverlay = false;
+  let overlayWaitTimer = null;
 
   const wrapper = document.getElementById('goalBarWrapper');
   const labelEl = document.getElementById('goalLabel');
@@ -116,9 +124,18 @@
     }
   }
 
+  function applyBarPosition(pos) {
+    const isBottom = pos === 'bottom';
+    wrapper.classList.toggle('position-bottom', isBottom);
+    document.body.classList.toggle('position-bottom', isBottom);
+  }
+
   async function init() {
     try {
-      const res = await fetch(`/api/overlay/settings?token=${encodeURIComponent(token)}`);
+      const settingsUrl = token
+        ? `/api/overlay/settings?token=${encodeURIComponent(token)}`
+        : '/api/overlay/settings';
+      const res = await fetch(settingsUrl);
       if (!res.ok) return;
       const data = await res.json();
 
@@ -127,6 +144,13 @@
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
       document.documentElement.style.setProperty('--bar-color', color);
+
+      alertDurationMs = (Number(data.duration) || 8) * 1000;
+
+      applyBarPosition(urlPosition || data.goal_bar_position || 'top');
+      if (typeof window.setGoalAnimSound === 'function') {
+        window.setGoalAnimSound(data.goal_anim_sound !== 0 && data.goal_anim_sound !== false);
+      }
 
       updateBar(
         data.goal_current || 0,
@@ -148,15 +172,56 @@
   function connectSSE() {
     if (eventSource) eventSource.close();
 
-    eventSource = new EventSource(`/api/alerts/stream?token=${encodeURIComponent(token)}`);
+    const streamUrl = token
+      ? `/api/alerts/stream?token=${encodeURIComponent(token)}&source=goal-bar`
+      : '/api/alerts/stream?source=goal-bar';
+    eventSource = new EventSource(streamUrl);
 
     eventSource.onmessage = function(e) {
       try {
         const data = JSON.parse(e.data);
+        if (data.type === 'donation') {
+          const delay = (data.overlayOnline && alertDurationMs > 0) ? alertDurationMs : 0;
+          if (delay > 0) {
+            isWaitingForOverlay = true;
+            clearTimeout(overlayWaitTimer);
+            overlayWaitTimer = setTimeout(() => {
+              isWaitingForOverlay = false;
+              if (typeof window.triggerDonationAnimation === 'function') {
+                window.triggerDonationAnimation(data.amount || 0);
+              }
+            }, delay);
+          } else {
+            if (typeof window.triggerDonationAnimation === 'function') {
+              window.triggerDonationAnimation(data.amount || 0);
+            }
+          }
+        }
+        if (data.type === 'settings_update' && data.settings) {
+          const s = data.settings;
+          applyBarPosition(urlPosition || s.goal_bar_position || 'top');
+          if (typeof window.setGoalAnimSound === 'function') {
+            window.setGoalAnimSound(s.goal_anim_sound !== 0 && s.goal_anim_sound !== false);
+          }
+        }
         if (data.type === 'goal_update') {
-          updateBar(data.current, data.amount, data.label, data.barColor, data.barText, data.subtitle1, data.subtitle2, data.endDate);
+          const busy = isWaitingForOverlay ||
+            (typeof window.isGoalAnimating === 'function' && window.isGoalAnimating());
+          if (busy) {
+            pendingGoalUpdate = data;
+          } else {
+            updateBar(data.current, data.amount, data.label, data.barColor, data.barText, data.subtitle1, data.subtitle2, data.endDate);
+          }
         }
       } catch (err) {}
+    };
+
+    window.onGoalAnimationComplete = function() {
+      if (pendingGoalUpdate) {
+        const d = pendingGoalUpdate;
+        pendingGoalUpdate = null;
+        updateBar(d.current, d.amount, d.label, d.barColor, d.barText, d.subtitle1, d.subtitle2, d.endDate);
+      }
     };
 
     eventSource.onopen = function() {

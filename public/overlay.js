@@ -119,8 +119,8 @@ function connectSSE() {
   const token = urlParams.get('token');
   
   const streamUrl = token 
-    ? `${baseUrl}/api/alerts/stream?token=${encodeURIComponent(token)}`
-    : `${baseUrl}/api/alerts/stream`;
+    ? `${baseUrl}/api/alerts/stream?token=${encodeURIComponent(token)}&source=overlay`
+    : `${baseUrl}/api/alerts/stream?source=overlay`;
 
   eventSource = new EventSource(streamUrl);
 
