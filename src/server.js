@@ -1197,10 +1197,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     const streamlabsName = platform.platformName || userData.username;
     const profileImage = platform.platformImage || userData.profile_image || '/avatar.jpg';
 
-    console.log('👤 [Streamlabs] Parsed - platformType:', streamlabsPlatform, 'hasId:', !!streamlabsId, 'hasName:', !!streamlabsName);
-
     // 3. DB Logic: Upsert / Linking
-    console.log('🗄️ [Streamlabs] Checking DB...');
     
     // Check if there's an existing authenticated session (e.g. logged in via Twitch)
     if (req.isAuthenticated()) {
