@@ -261,6 +261,15 @@ function checkAntiBot(req, res) {
 }
 // ========== End Anti-Bot ==========
 
+// ── Broadcast matrix ──────────────────────────────────────────────────
+// broadcastAlert()       → real clients (overlay, goal-bar, dona-monitor)
+//                          MUST exclude ALL demo-* sources
+// broadcastGoalUpdate()  → real goal-bar clients
+//                          MUST exclude ALL demo-* sources
+// broadcastDemoAlert()   → demo-overlay + demo-goal-bar only
+// broadcastDemoGoalBar() → demo-goal-bar only
+// When adding a new SSE source: update ALL four functions above.
+// ──────────────────────────────────────────────────────────────────────
 function broadcastAlert(username, alertData) {
   let payload = alertData;
   if (alertData.type === 'donation') {
