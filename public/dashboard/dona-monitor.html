@@ -531,6 +531,11 @@
 
     async function fetchWithCsrf(url, options) {
       options = options || {};
+      var method = (options.method || 'GET').toUpperCase();
+      if (window.DEMO_MODE && method !== 'GET' && !url.startsWith('/api/demo/')) {
+        showNotification('Demo Mode — ไม่สามารถดำเนินการนี้ได้', 'error');
+        return { ok: false, status: 403, json: async function() { return {}; } };
+      }
       var token = await ensureCsrfToken();
       var headers = Object.assign({}, options.headers || {});
       if (token) headers['X-CSRF-Token'] = token;
@@ -549,6 +554,7 @@
     }
 
     function getUsername() {
+      if (window.DEMO_STREAMER) return window.DEMO_STREAMER;
       var parts = window.location.pathname.split('/');
       return parts[1];
     }
@@ -586,7 +592,8 @@
     async function fetchTransactions() {
       var username = getUsername();
       try {
-        var res = await fetch('/api/transactions/' + username);
+        var apiUrl = window.DEMO_MODE ? '/api/demo/transactions' : '/api/transactions/' + username;
+        var res = await fetch(apiUrl);
         if (res.ok) {
           allTransactions = await res.json();
           allTransactions.sort(function(a, b) {
@@ -654,7 +661,8 @@
       var tx = allTransactions.find(function(t) { return t.id === id; });
       if (!tx) return;
       try {
-        var res = await fetchWithCsrf('/api/alerts/test', {
+        var alertEndpoint = window.DEMO_MODE ? '/api/demo/alerts/test' : '/api/alerts/test';
+        var res = await fetchWithCsrf(alertEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donor: tx.donor, amount: tx.amount, message: tx.message })
@@ -699,6 +707,7 @@
     }
 
     async function forceSuccess(id) {
+      if (window.DEMO_MODE) { showNotification('Demo Mode — ไม่สามารถยืนยันสลิปได้', 'error'); return; }
       var tx = allTransactions.find(function(t) { return t.id === id; });
       if (!tx) return;
       var donorName = tx.donor || 'Anonymous';
@@ -731,7 +740,8 @@
       var message = messages[Math.floor(Math.random() * messages.length)];
       var amount = amounts[Math.floor(Math.random() * amounts.length)];
       try {
-        var res = await fetchWithCsrf('/api/alerts/test', {
+        var quickEndpoint = window.DEMO_MODE ? '/api/demo/alerts/test' : '/api/alerts/test';
+        var res = await fetchWithCsrf(quickEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donor: donor, amount: amount, message: message })

@@ -1406,7 +1406,7 @@ async function getAllR2Refs(r2PublicUrl) {
   const result = await db.execute(
     `SELECT
       CASE WHEN customImageMode NOT IN ('emoji', 'text') THEN customImageValue ELSE NULL END AS customImageValue,
-      CASE WHEN soundChoice = 'custom' THEN customSoundUrl ELSE NULL END AS customSoundUrl,
+      customSoundUrl,
       alert_sound_url,
       profile_image_value,
       header_bg_url,

@@ -3,6 +3,8 @@ function escapeForHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const DEMO_MODE_OVERLAY = window.DEMO_MODE === true;
+
 // ========== Local Configuration State ==========
 let overlaySettings = {
   duration: 8,
@@ -53,7 +55,9 @@ async function loadInitialSettings() {
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    const settingsUrl = token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings';
+    const settingsUrl = DEMO_MODE_OVERLAY
+      ? '/api/demo/overlay/settings'
+      : (token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings');
     
     console.log(`📡 Attempting to load settings from: ${settingsUrl}`);
     
@@ -118,9 +122,11 @@ function connectSSE() {
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get('token');
   
-  const streamUrl = token 
-    ? `${baseUrl}/api/alerts/stream?token=${encodeURIComponent(token)}&source=overlay`
-    : `${baseUrl}/api/alerts/stream?source=overlay`;
+  const streamUrl = DEMO_MODE_OVERLAY
+    ? `${baseUrl}/api/demo/alerts/stream`
+    : (token
+      ? `${baseUrl}/api/alerts/stream?token=${encodeURIComponent(token)}&source=overlay`
+      : `${baseUrl}/api/alerts/stream?source=overlay`);
 
   eventSource = new EventSource(streamUrl);
 

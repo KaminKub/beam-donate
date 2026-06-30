@@ -186,10 +186,30 @@
      .demo-btn-container {
        margin-top: 2rem;
        display: flex;
-       justify-content: center;
+       flex-direction: column;
+       align-items: center;
+       gap: 0.6rem;
        animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
        animation-delay: 0.8s;
        opacity: 0;
+     }
+     .btn-demo-dashboard {
+       padding: 0.35rem 0.85rem;
+       font-size: 0.78rem;
+       opacity: 0.55;
+       background: rgba(102, 126, 234, 0.15);
+       border: 1px solid rgba(165, 180, 252, 0.3);
+       color: white;
+       border-radius: 8px;
+       text-decoration: none;
+       backdrop-filter: blur(10px);
+       transition: opacity 0.2s, transform 0.2s, background 0.2s;
+       display: inline-block;
+     }
+     .btn-demo-dashboard:hover {
+       opacity: 0.85;
+       background: rgba(102, 126, 234, 0.28);
+       transform: translateY(-2px);
      }
        .highlight-amount {
         background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
@@ -261,6 +281,9 @@
     <div class="demo-btn-container">
       <a href="/kaminkub" class="btn btn-secondary btn-small" style="width: fit-content;" target="_blank">
         ตัวอย่างหน้าโดเนท
+      </a>
+      <a href="/demo/dashboard" class="btn-demo-dashboard" target="_blank">
+        <i class="fa-solid fa-gauge" style="font-size:0.75rem;"></i> ตัวอย่าง Dashboard
       </a>
     </div>
     <footer style="margin-top: 3rem; width: 100%; text-align: center; opacity: 0.6; font-size: 0.8rem;">

@@ -269,9 +269,10 @@ function broadcastAlert(username, alertData) {
   }
   const data = JSON.stringify(payload);
   console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
-  
+
   sseClients = sseClients.filter(client => {
-    if (client.username === username) {
+    // Never send real broadcasts to demo-overlay clients (they have their own channel)
+    if (client.username === username && client.source !== 'demo-overlay') {
       try {
         client.res.write(`data: ${data}\n\n`);
         client.lastActivity = Date.now();
@@ -279,6 +280,23 @@ function broadcastAlert(username, alertData) {
       } catch (err) {
         console.error(`❌ [Broadcast] Failed to write to client ${username}:`, err.message);
         return false; // Remove dead client
+      }
+    }
+    return true;
+  });
+}
+
+// Demo-only broadcast: sends ONLY to demo-overlay clients, never touches real overlay
+function broadcastDemoAlert(username, alertData) {
+  const data = JSON.stringify(alertData);
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'demo-overlay') {
+      try {
+        client.res.write(`data: ${data}\n\n`);
+        client.lastActivity = Date.now();
+        return true;
+      } catch (err) {
+        return false;
       }
     }
     return true;
@@ -419,6 +437,8 @@ app.use(passport.session());
 
 // SECURITY: Block direct access to /dashboard via express.static, but allow static assets
 app.use((req, res, next) => {
+  // Exclude /demo/* from auth guard — demo dashboard is intentionally public
+  if (req.path.startsWith('/demo/')) return next();
   if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
     if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
       return res.redirect('/login');
@@ -584,6 +604,29 @@ const goalPublicLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const demoRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('⏱️ Demo rate limit hit IP:', req.ip);
+    res.status(429).json({ error: 'Too many requests' });
+  }
+});
+
+// Strict limiter for demo alert — prevents spamming KaminKub's live overlay
+const demoAlertLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('⏱️ Demo alert rate limit hit IP:', req.ip);
+    res.status(429).json({ error: 'ส่ง Alert บ่อยเกินไป กรุณารอสักครู่' });
+  }
+});
+
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
 // Avoids the redundant "click login again" flow when a session cookie is still valid.
 async function redirectIfAuthenticated(req, res, next) {
@@ -603,6 +646,164 @@ async function redirectIfAuthenticated(req, res, next) {
   }
   next();
 }
+
+// -----------------------------------------------------------------
+// [DEMO DASHBOARD] - Public read-only preview (no auth required)
+// -----------------------------------------------------------------
+
+function applyDemoMask(row) {
+  // Allowlist: new schema columns are safe-by-default (not exposed unless explicitly added here)
+  const ALLOWED_DEMO_FIELDS = new Set([
+    // Overlay alert settings
+    'duration', 'particleCount', 'fontSize',
+    'soundEnabled', 'soundChoice', 'soundVolume', 'alert_sound_url', 'customSoundUrl',
+    'ttsEnabled', 'ttsVolume', 'ttsRate', 'ttsLanguage', 'ttsVoice',
+    'ttsReadDonor', 'ttsPrefixEnabled',
+    'showLabel', 'showDonorMessage',
+    'messageTemplate', 'amountSuffix', 'minAmount',
+    'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
+    'theme', 'fontFamily', 'animation',
+    'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
+    'customImageMode', 'customImageValue',
+    // Page customization
+    'page_title', 'page_subtitle', 'thank_you_header', 'thank_you_subtitle',
+    'profile_image_source', 'profile_image_value', 'profile_glow_color',
+    'header_bg_url', 'page_bg_url', 'header_bg_y', 'header_bg_zoom',
+    // Social links (public info)
+    'social_twitch', 'social_youtube', 'social_tiktok',
+    'social_facebook', 'social_x', 'social_discord', 'social_instagram',
+    // Payment method status indicators (no credentials)
+    'payment_method', 'promptpay_enabled', 'promptpay_type',
+    'tfp_connected', 'tfp_last_check',
+    'slipok_connected', 'slipok_last_check', 'slipok_quota_total',
+    'truemoney_enabled', 'truemoney_slipok_connected',
+    'truemoney_slipok_last_check', 'truemoney_slipok_quota_total',
+    // Goal bar
+    'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
+    'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
+    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_bar_position',
+    // Streamlabs display name (not tokens)
+    'streamlabs_username',
+  ]);
+  const masked = {};
+  for (const k of ALLOWED_DEMO_FIELDS) {
+    if (k in row) masked[k] = row[k];
+  }
+  masked._isDemo = true;
+  masked.username = 'KaminKub';
+  return masked;
+}
+
+app.get('/demo/dashboard', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/dashboard/index.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace(
+    '<head>',
+    '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="KaminKub";</script>'
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
+const DEMO_STREAMER_USERNAME = 'kaminkub';
+
+app.get('/api/demo/settings', demoRateLimiter, async (req, res) => {
+  try {
+    const row = await db.getStreamer(DEMO_STREAMER_USERNAME);
+    if (!row) return res.status(503).json({ error: 'Demo data unavailable' });
+    const masked = applyDemoMask(row);
+    res.json(masked);
+  } catch (e) {
+    console.error('💥 Demo settings error:', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Return static mock transactions — never expose real donor data in demo
+const DEMO_MOCK_TRANSACTIONS = [
+  { id: 'demo-001', donor: 'นักผจญภัย123', amount: 500,  message: 'สู้ๆ นะครับ!',        status: 'successful', payment_method: 'promptpay', createdAt: new Date(Date.now() - 5 * 60000).toISOString() },
+  { id: 'demo-002', donor: 'ขอบคุณมาก',   amount: 100,  message: '',                     status: 'successful', payment_method: 'promptpay', createdAt: new Date(Date.now() - 15 * 60000).toISOString() },
+  { id: 'demo-003', donor: 'สมชาย',        amount: 1000, message: 'เก่งมากเลยครับ 🔥',   status: 'successful', payment_method: 'truemoney', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
+  { id: 'demo-004', donor: 'Anonymous',     amount: 50,   message: 'ขอให้สนุกกับการสตรีม', status: 'successful', payment_method: 'promptpay', createdAt: new Date(Date.now() - 60 * 60000).toISOString() },
+  { id: 'demo-005', donor: 'แฟนคลับ',      amount: 200,  message: '',                     status: 'pending',    payment_method: 'promptpay', createdAt: new Date(Date.now() - 90 * 60000).toISOString() },
+];
+
+app.get('/api/demo/transactions', demoRateLimiter, (req, res) => {
+  res.json(DEMO_MOCK_TRANSACTIONS);
+});
+
+app.post('/api/demo/alerts/test', demoRateLimiter, demoAlertLimiter, (req, res) => {
+  const { donor, amount, message } = req.body || {};
+  const alertData = {
+    type: 'donation',
+    donor:   String(donor  || 'ผู้เยี่ยมชม Demo').slice(0, 50),
+    amount:  Math.min(Math.max(Number(amount) || 100, 1), 5000),
+    message: String(message || '').slice(0, 100),
+    timestamp: new Date().toISOString()
+  };
+  // Use demo-only broadcast — must NOT reach real overlay
+  broadcastDemoAlert(DEMO_STREAMER_USERNAME, alertData);
+  res.json({ success: true, alert: alertData });
+});
+
+app.get('/demo/dona-monitor', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/dashboard/dona-monitor.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace(
+    '<head>',
+    '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>'
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
+app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
+  try {
+    const row = await db.getStreamer(DEMO_STREAMER_USERNAME);
+    if (!row) return res.status(503).json({ error: 'Demo data unavailable' });
+    res.json(applyDemoMask(row));
+  } catch (e) {
+    console.error('💥 Demo overlay settings error:', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+const MAX_DEMO_SSE_CLIENTS = 50;
+const MAX_DEMO_SSE_PER_IP = 3;
+
+app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
+  const demoClients = sseClients.filter(c => c.source === 'demo-overlay');
+  if (demoClients.length >= MAX_DEMO_SSE_CLIENTS) {
+    return res.status(503).json({ error: 'Too many demo connections' });
+  }
+  const clientIp = req.ip;
+  const ipCount = demoClients.filter(c => c.ip === clientIp).length;
+  if (ipCount >= MAX_DEMO_SSE_PER_IP) {
+    return res.status(429).json({ error: 'Too many connections from your IP' });
+  }
+  const now = Date.now();
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Demo overlay connected' })}\n\n`);
+  const clientObj = { res, validated: false, username: DEMO_STREAMER_USERNAME, authMethod: 'demo', lastActivity: now, source: 'demo-overlay', ip: clientIp };
+  sseClients.push(clientObj);
+  req.on('close', () => {
+    const idx = sseClients.indexOf(clientObj);
+    if (idx !== -1) sseClients.splice(idx, 1);
+  });
+});
+
+app.get('/demo/overlay', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/overlay.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
 
 // -----------------------------------------------------------------
 // [FIXED ROUTES] - Define these BEFORE dynamic routes and static serving

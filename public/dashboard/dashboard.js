@@ -1,4 +1,7 @@
 // ========== DOM Elements & Global State ==========
+const DEMO_MODE = window.DEMO_MODE === true;
+const DEMO_STREAMER = window.DEMO_STREAMER || 'KaminKub';
+
 let allTransactions = [];
 let activeTab = 'dashboard';
 let _csrfToken = null;
@@ -42,6 +45,13 @@ async function ensureCsrfToken() {
 }
 
 async function fetchWithCsrf(url, options = {}) {
+  // DEMO MODE: block all non-GET except /api/demo/* endpoints
+  if (DEMO_MODE && options.method && options.method.toUpperCase() !== 'GET') {
+    if (!url.startsWith('/api/demo/')) {
+      showNotification('Demo Mode — ไม่สามารถบันทึกได้', 'info');
+      return { ok: false, status: 403, json: async () => ({}), _demoBlocked: true };
+    }
+  }
   const token = await ensureCsrfToken();
   const headers = { ...(options.headers || {}) };
   if (token) headers['X-CSRF-Token'] = token;
@@ -74,9 +84,14 @@ function showNotification(message, type = 'success') {
 
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
-  
+
   const iconClass = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
-  notification.innerHTML = `<span><i class="${iconClass}"></i></span> <span>${message}</span>`;
+  const iconSpan = document.createElement('span');
+  iconSpan.innerHTML = `<i class="${iconClass}"></i>`;
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = message;
+  notification.appendChild(iconSpan);
+  notification.appendChild(msgSpan);
   
   container.appendChild(notification);
 
@@ -89,6 +104,107 @@ function showNotification(message, type = 'success') {
 async function initializeDashboard() {
   console.log('🚀 Starting initializeDashboard...');
   try {
+    if (DEMO_MODE) {
+      // Tab switching + mobile menu (normally set up later in normal flow)
+      const wrapper = document.querySelector('.admin-wrapper');
+      const btnMobileMenu = document.getElementById('btnMobileMenu');
+      if (btnMobileMenu && wrapper) {
+        btnMobileMenu.onclick = () => wrapper.classList.toggle('mobile-menu-active');
+      }
+      const btnCloseMobileMenu = document.getElementById('btnCloseMobileMenu');
+      if (btnCloseMobileMenu && wrapper) {
+        btnCloseMobileMenu.onclick = () => wrapper.classList.remove('mobile-menu-active');
+      }
+      document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (wrapper) wrapper.classList.remove('mobile-menu-active');
+          const tab = e.currentTarget.getAttribute('data-tab');
+          if (tab) switchTab(tab);
+        });
+      });
+
+      await loadDemoSettings();
+      await loadDemoTransactions();
+      applyDemoRestrictions();
+      injectDemoBanner();
+
+      // Donate page links → KaminKub's real page
+      ['btnOpenDonateDesktop', 'btnOpenDonateMobile'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.href = '/kaminkub';
+      });
+
+      // Quick Alert buttons → fire real alert via demo endpoint
+      const demoAlertHandler = async () => {
+        const names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง', 'SuraGaming 🎮', 'ผู้สนับสนุนลึกลับ'];
+        const msgs = ['สู้ๆ นะครับ! 💪', 'ขอเพลงชิลๆ เพลงนึงค่าา 🎵', 'ระบบใหม่เฟี้ยวมากครับ! ✨', 'บริจาคค่าน้ำเก๊กฮวยเย็นๆ 🍺', 'ชอบเว็บนี้มาก 🚀'];
+        const amounts = [50, 100, 250, 500, 1000];
+        const donor   = names[Math.floor(Math.random() * names.length)];
+        const message = msgs[Math.floor(Math.random() * msgs.length)];
+        const amount  = amounts[Math.floor(Math.random() * amounts.length)];
+        try {
+          const res = await fetch('/api/demo/alerts/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ donor, amount, message })
+          });
+          if (res.ok) showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
+          else if (res.status === 429) showNotification('ส่ง Alert บ่อยเกินไป กรุณารอสักครู่', 'error');
+        } catch (e) { console.error('Demo alert failed:', e); }
+      };
+      ['btnQuickTestAlert', 'btnQuickTestAlertMobile'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.cursor = '';
+        btn.onclick = demoAlertHandler;
+      });
+
+      // Overlay subtab buttons (Alert vs Goal)
+      const demoSubtabAlert = document.getElementById('btnSubtabAlert');
+      const demoSubtabGoal  = document.getElementById('btnSubtabGoal');
+      if (demoSubtabAlert) {
+        demoSubtabAlert.addEventListener('click', () => {
+          document.getElementById('overlaySettingsForm')?.style.setProperty('display', '');
+          document.getElementById('goalSettingsPanel')?.style.setProperty('display', 'none');
+          document.getElementById('alertPreviewCard')?.style.setProperty('display', '');
+          document.getElementById('goalPreviewCard')?.style.setProperty('display', 'none');
+          demoSubtabAlert.classList.add('active');
+          if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
+          activateOverlayPreview();
+        });
+      }
+      if (demoSubtabGoal) {
+        demoSubtabGoal.addEventListener('click', () => {
+          document.getElementById('overlaySettingsForm')?.style.setProperty('display', 'none');
+          document.getElementById('goalSettingsPanel')?.style.setProperty('display', '');
+          document.getElementById('alertPreviewCard')?.style.setProperty('display', 'none');
+          document.getElementById('goalPreviewCard')?.style.setProperty('display', '');
+          if (demoSubtabAlert) demoSubtabAlert.classList.remove('active');
+          demoSubtabGoal.classList.add('active');
+          deactivateOverlayPreview();
+        });
+      }
+
+      // Override global transaction functions for demo safety
+      window.forceSuccessTransaction = () => showNotification('Demo Mode — ไม่สามารถยืนยันสลิปได้', 'info');
+      window.simulateTransactionAlert = async (id) => {
+        const tx = allTransactions.find(t => t.id === id);
+        if (!tx) return;
+        try {
+          await fetch('/api/demo/alerts/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ donor: tx.donor, amount: tx.amount, message: tx.message })
+          });
+          showNotification('ส่ง Alert ซ้ำแล้ว!', 'success');
+        } catch (e) { console.error('Demo re-alert failed:', e); }
+      };
+
+      return;
+    }
+
     // 1. Data Load
     console.log('📡 Triggering data loads...');
     fetchTransactions();
@@ -918,6 +1034,372 @@ if (document.readyState === 'loading') {
   initializeDashboard();
 }
 
+// ========== Demo Mode ==========
+
+async function loadDemoSettings() {
+  try {
+    const res = await fetch('/api/demo/settings');
+    if (!res.ok) {
+      showNotification('ไม่สามารถโหลดข้อมูล Demo ได้', 'error');
+      return;
+    }
+    const data = await res.json();
+    loadOverlaySettingsFromData(data);
+    loadPageSettingsFromData(data);
+    loadDemoAccountInfo(data);
+    loadDemoPaymentInfo(data);
+  } catch (e) {
+    console.error('Demo settings load failed:', e);
+    showNotification('เกิดข้อผิดพลาดในการโหลด Demo', 'error');
+  }
+}
+
+function loadDemoAccountInfo(data) {
+  const el = document.getElementById('accUsername');
+  if (el) el.textContent = data.username || 'KaminKub';
+  // Twitch = connected (KaminKub uses Twitch login)
+  if (typeof updateConnectionBtn === 'function') {
+    updateConnectionBtn('btnConnectTwitch', true, '/auth/twitch', 'statusTwitch');
+  }
+  // Streamlabs = disabled (same as real code)
+  const slBtn = document.getElementById('btnConnectStreamlabs');
+  const slStatus = document.getElementById('statusStreamlabs');
+  if (slBtn) { slBtn.innerHTML = 'รออัปเดต'; slBtn.classList.add('btn-disconnected'); slBtn.style.pointerEvents = 'none'; slBtn.onclick = null; }
+  if (slStatus) slStatus.textContent = 'รออัปเดต';
+}
+
+function loadDemoPaymentInfo(data) {
+  document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+  if (data.promptpay_enabled) document.getElementById('cardPromptPay')?.classList.add('active');
+  if (data.truemoney_enabled) document.getElementById('cardTrueMoney')?.classList.add('active');
+
+  const promptpayType = document.getElementById('inputPromptPayType');
+  if (promptpayType) {
+    promptpayType.value = data.promptpay_type || 'phone';
+    promptpayType.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  // Sensitive fields show censored placeholder
+  const censor = '●●●●●●●●';
+  const promptpayInput = document.getElementById('inputPromptPay');
+  if (promptpayInput) { promptpayInput.value = censor; promptpayInput.disabled = true; }
+
+  if (typeof updateSlipOkStatus === 'function') updateSlipOkStatus(data.slipok_connected, data.slipok_last_check);
+  const slipOkApi = document.getElementById('inputSlipOkApi');
+  const slipOkApiKey = document.getElementById('inputSlipOkApiKey');
+  if (slipOkApi) { slipOkApi.value = censor; slipOkApi.disabled = true; }
+  if (slipOkApiKey) { slipOkApiKey.value = censor; slipOkApiKey.disabled = true; }
+
+  if (typeof updateTrueMoneySlipOkStatus === 'function') updateTrueMoneySlipOkStatus(data.truemoney_slipok_connected, data.truemoney_slipok_last_check);
+  const trueMoneyPhone = document.getElementById('inputTrueMoneyPhone');
+  const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
+  const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
+  if (trueMoneyPhone) { trueMoneyPhone.value = censor; trueMoneyPhone.disabled = true; }
+  if (trueMoneyApi) { trueMoneyApi.value = censor; trueMoneyApi.disabled = true; }
+  if (trueMoneyApiKey) { trueMoneyApiKey.value = censor; trueMoneyApiKey.disabled = true; }
+}
+
+function loadOverlaySettingsFromData(data) {
+  const sliderDuration = document.getElementById('sliderDuration');
+  if (sliderDuration && data.duration !== undefined) {
+    sliderDuration.value = data.duration;
+    const lbl = document.getElementById('lblDuration');
+    if (lbl) lbl.textContent = data.duration;
+  }
+  const sliderParticles = document.getElementById('sliderParticles');
+  if (sliderParticles && data.particleCount !== undefined) {
+    sliderParticles.value = data.particleCount;
+    const lbl = document.getElementById('lblParticles');
+    if (lbl) lbl.textContent = data.particleCount;
+  }
+
+  const checkboxMap = {
+    chkSoundEnabled: 'soundEnabled',
+    chkTtsEnabled: 'ttsEnabled',
+    chkTtsReadDonor: 'ttsReadDonor',
+    chkTtsPrefixEnabled: 'ttsPrefixEnabled',
+    chkShowLabel: 'showLabel',
+    chkShowDonorMessage: 'showDonorMessage',
+    chkProfanityFilterEnabled: 'profanityFilterEnabled',
+  };
+  for (const [id, key] of Object.entries(checkboxMap)) {
+    const el = document.getElementById(id);
+    if (el && data[key] !== undefined) el.checked = !!data[key];
+  }
+
+  const textMap = {
+    inputMessageTemplate: 'messageTemplate',
+    inputAmountSuffix: 'amountSuffix',
+    inputMinAmount: 'minAmount',
+    inputProfanityWords: 'profanityWords',
+  };
+  for (const [id, key] of Object.entries(textMap)) {
+    const el = document.getElementById(id);
+    if (el && data[key] !== undefined) el.value = data[key];
+  }
+
+  const selectMap = {
+    themeSelect: 'theme',
+    fontSelect: 'fontFamily',
+    animSelect: 'animation',
+    soundChoiceSelect: 'soundChoice',
+    profanityReplaceStyleSelect: 'profanityReplaceStyle',
+  };
+  for (const [id, key] of Object.entries(selectMap)) {
+    const el = document.getElementById(id);
+    if (el && data[key] !== undefined) {
+      el.value = data[key];
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  // Sound/TTS/Profanity sub-section visibility (mirrors loadOverlaySettings logic)
+  if (typeof toggleCustomSoundUrlContainer === 'function') toggleCustomSoundUrlContainer(data.soundChoice);
+  if (typeof toggleTtsSubSettings === 'function') toggleTtsSubSettings(data.ttsEnabled);
+  if (typeof toggleAudioSettingsRow === 'function') toggleAudioSettingsRow(data.soundEnabled);
+  if (typeof toggleProfanitySubSettings === 'function') toggleProfanitySubSettings(data.profanityFilterEnabled);
+
+  // Custom image/sound display
+  const imgMode = data.customImageMode === 'url' ? 'upload' : (data.customImageMode || 'emoji');
+  const customImageModeEl = document.getElementById('customImageMode');
+  if (customImageModeEl) {
+    customImageModeEl.value = imgMode;
+    customImageModeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const customImageValueEl = document.getElementById('customImageValue');
+  if (customImageValueEl) customImageValueEl.value = data.customImageValue || '🎁';
+  if (typeof toggleCustomImageUI === 'function') toggleCustomImageUI(imgMode, data.customImageValue);
+  const customSoundUrlEl = document.getElementById('customSoundUrl');
+  if (customSoundUrlEl) customSoundUrlEl.value = data.customSoundUrl || '';
+
+  // sliders missing from original: fontSize, soundVolume, ttsVolume, ttsRate
+  const sliderFontSize = document.getElementById('sliderFontSize');
+  if (sliderFontSize && data.fontSize !== undefined) {
+    sliderFontSize.value = data.fontSize;
+    const lbl = document.getElementById('lblFontSize');
+    if (lbl) lbl.textContent = data.fontSize;
+  }
+  const sliderSoundVolume = document.getElementById('sliderSoundVolume');
+  if (sliderSoundVolume && data.soundVolume !== undefined) {
+    sliderSoundVolume.value = data.soundVolume;
+    const lbl = document.getElementById('lblSoundVolume');
+    if (lbl) lbl.textContent = Math.round(data.soundVolume * 100);
+  }
+  const sliderTtsVolume = document.getElementById('sliderTtsVolume');
+  if (sliderTtsVolume && data.ttsVolume !== undefined) {
+    sliderTtsVolume.value = data.ttsVolume;
+    const lbl = document.getElementById('lblTtsVolume');
+    if (lbl) lbl.textContent = Math.round(data.ttsVolume * 100);
+  }
+  const sliderTtsRate = document.getElementById('sliderTtsRate');
+  if (sliderTtsRate && data.ttsRate !== undefined) {
+    sliderTtsRate.value = data.ttsRate;
+    const lbl = document.getElementById('lblTtsRate');
+    if (lbl) lbl.textContent = data.ttsRate.toFixed(1);
+  }
+
+  const colorMap = {
+    colorPrimary: 'primaryColor', txtPrimary: 'primaryColor',
+    colorSecondary: 'secondaryColor', txtSecondary: 'secondaryColor',
+    colorText: 'textColor', txtText: 'textColor',
+    txtBg: 'backgroundColor',
+  };
+  for (const [id, key] of Object.entries(colorMap)) {
+    const el = document.getElementById(id);
+    if (el && data[key] !== undefined) el.value = data[key];
+  }
+}
+
+function loadPageSettingsFromData(data) {
+  // Text fields (snake_case from demo API)
+  const fieldMap = {
+    inputPageTitle:        'page_title',
+    inputPageSubtitle:     'page_subtitle',
+    inputThankYouHeader:   'thank_you_header',
+    inputThankYouSubtitle: 'thank_you_subtitle',
+  };
+  for (const [id, apiKey] of Object.entries(fieldMap)) {
+    const el = document.getElementById(id);
+    if (el && data[apiKey] !== undefined) el.value = data[apiKey] || '';
+  }
+
+  // Profile image
+  const profileImageUrl = data.profile_image_value || '/avatar.jpg';
+  const profileImageValueEl = document.getElementById('profileImageValue');
+  if (profileImageValueEl) profileImageValueEl.value = data.profile_image_value || '';
+  setMediaPreview(document.getElementById('profilePreview'), profileImageUrl);
+  setMediaPreview(document.getElementById('brandLogoImg'), profileImageUrl);
+
+  // Profile glow color
+  const glowColor = data.profile_glow_color || '#005704';
+  const glowPicker = document.getElementById('profileGlowColor');
+  const glowText = document.getElementById('txtProfileGlowColor');
+  if (glowPicker) glowPicker.value = glowColor;
+  if (glowText) glowText.value = glowColor;
+  updateBrandGlow(glowColor);
+
+  // Header background
+  const headerBgEl = document.getElementById('inputHeaderBgUrl');
+  if (headerBgEl) {
+    headerBgEl.value = data.header_bg_url || '';
+    headerBgEl.dispatchEvent(new Event('input'));
+  }
+  const headerBgYEl = document.getElementById('inputHeaderBgY');
+  if (headerBgYEl) {
+    headerBgYEl.value = data.header_bg_y != null ? data.header_bg_y : 0;
+    const disp = document.getElementById('headerBgYDisplay');
+    if (disp) disp.textContent = headerBgYEl.value;
+  }
+
+  // Page background
+  const pageBgEl = document.getElementById('inputPageBgUrl');
+  if (pageBgEl) pageBgEl.value = data.page_bg_url || '';
+  if (data.page_bg_url) {
+    const pageBgPreview = document.getElementById('pageBgPreview');
+    if (pageBgPreview) {
+      setMediaPreview(pageBgPreview, data.page_bg_url);
+      if (!isWebm(data.page_bg_url)) pageBgPreview.style.display = 'block';
+    }
+  }
+
+  // Social links
+  const socialMap = {
+    socialTwitch:    'social_twitch',
+    socialYoutube:   'social_youtube',
+    socialTiktok:    'social_tiktok',
+    socialFacebook:  'social_facebook',
+    socialX:         'social_x',
+    socialDiscord:   'social_discord',
+    socialInstagram: 'social_instagram',
+  };
+  for (const [id, key] of Object.entries(socialMap)) {
+    const el = document.getElementById(id);
+    if (el) el.value = data[key] || '';
+  }
+
+  // Donate page preview iframe
+  const iframe = document.getElementById('pagePreviewIframe');
+  if (iframe) iframe.src = '/kaminkub';
+}
+
+const DEMO_TRANSACTIONS = [
+  { id: 1, donor_name: 'Viewer_ABC', amount: 99,   message: 'เป็นกำลังใจนะครับ!',  created_at: '2026-06-29T20:14:00Z', status: 'confirmed' },
+  { id: 2, donor_name: 'FanNo1',     amount: 500,  message: 'ขอเพลงหน่อยครับ 555', created_at: '2026-06-29T19:05:00Z', status: 'confirmed' },
+  { id: 3, donor_name: 'SuperFan',   amount: 1000, message: 'ไปเที่ยวด้วยกันนะ!',  created_at: '2026-06-28T22:30:00Z', status: 'confirmed' },
+  { id: 4, donor_name: 'Anonymous',  amount: 20,   message: '',                    created_at: '2026-06-28T18:00:00Z', status: 'confirmed' },
+  { id: 5, donor_name: 'StreamFan2', amount: 200,  message: 'ขอบคุณที่สตรีม!',     created_at: '2026-06-27T21:45:00Z', status: 'confirmed' },
+];
+
+async function loadDemoTransactions() {
+  try {
+    const res = await fetch('/api/demo/transactions');
+    if (res.ok) {
+      const txs = await res.json();
+      txs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      allTransactions = txs;
+      calculateStats(txs);
+      renderRecentTransactions(txs);
+      renderFullTransactions(txs);
+      return;
+    }
+  } catch (e) {
+    console.error('Demo transactions fetch failed:', e);
+  }
+  // Fallback to static data if API fails
+  allTransactions = DEMO_TRANSACTIONS;
+  calculateStats(DEMO_TRANSACTIONS);
+  renderRecentTransactions(DEMO_TRANSACTIONS);
+  renderFullTransactions(DEMO_TRANSACTIONS);
+}
+
+function demoEscapeHTML(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function applyDemoRestrictions() {
+  // Block save buttons
+  document.querySelectorAll('[id^="btn"][id*="Save"]').forEach(btn => {
+    btn.disabled = true;
+    btn.title = 'Demo Mode — สมัครสมาชิกเพื่อบันทึก';
+    btn.style.opacity = '0.6';
+    btn.style.cursor = 'not-allowed';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      showNotification('Demo Mode — สมัครสมาชิกเพื่อตั้งค่าของคุณเอง', 'info');
+    };
+  });
+
+  // Block upload file inputs
+  ['profileImageFile', 'headerBgFile', 'pageBgFile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = true;
+    const wrap = el.closest('.upload-btn') || el.parentElement;
+    if (wrap) { wrap.style.opacity = '0.5'; wrap.style.pointerEvents = 'none'; wrap.title = 'Demo Mode — ไม่สามารถอัปโหลดได้'; }
+  });
+
+  // Block connection test buttons
+  ['btnTestSlipOk', 'btnTestTrueMoneySlipOk'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.onclick = (e) => { e.preventDefault(); showNotification('Demo Mode — ไม่สามารถทดสอบการเชื่อมต่อได้', 'info'); };
+  });
+
+  // Block download CSV
+  ['btnDownloadTransactions', 'btnDownloadFromNote'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.onclick = (e) => { e.preventDefault(); showNotification('Demo Mode — ไม่สามารถดาวน์โหลดได้', 'info'); };
+  });
+
+  // Block confirm modal OK (defense-in-depth — fetchWithCsrf already blocks writes)
+  const btnConfirmOk = document.getElementById('btnConfirmOk');
+  if (btnConfirmOk) {
+    btnConfirmOk.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const modal = document.getElementById('confirmModal');
+      if (modal) modal.style.display = 'none';
+      showNotification('Demo Mode — ไม่สามารถดำเนินการนี้ได้', 'info');
+    };
+  }
+
+  // Hide logout + account delete (no session in demo)
+  const logoutBtn = document.getElementById('btnLogout');
+  if (logoutBtn) logoutBtn.style.display = 'none';
+  const btnDeleteAccount = document.getElementById('btnDeleteAccount');
+  if (btnDeleteAccount) btnDeleteAccount.style.display = 'none';
+}
+
+function injectDemoBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'demoBanner';
+  banner.style.cssText = `
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #1a1a1a; text-align: center; padding: 8px 16px;
+    font-weight: 600; font-size: 14px; z-index: 100;
+    position: sticky; top: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  `;
+  banner.innerHTML = `
+    <i class="fa-solid fa-eye" style="color:#1a1a1a;"></i>
+    ตัวอย่าง Dashboard — ข้อมูลของ ${demoEscapeHTML(DEMO_STREAMER)} (อ่านอย่างเดียว)
+    <a href="/login" style="margin-left:16px; background:#1a1a1a; color:#f59e0b;
+       padding:4px 12px; border-radius:6px; text-decoration:none; font-size:13px;
+       display:inline-block;">
+      <i class="fa-solid fa-right-to-bracket"></i> สมัคร / เข้าสู่ระบบ
+    </a>
+  `;
+  document.body.prepend(banner);
+}
+
 // ========== Navigation (Tab Switching) ==========
 function switchTab(tabId) {
   activeTab = tabId;
@@ -961,7 +1443,7 @@ function switchTab(tabId) {
     fetchTransactions();
   }
   if (tabId === 'overlay-config') {
-    loadOverlaySettings();
+    if (!DEMO_MODE) loadOverlaySettings();
     const alertBtn = document.getElementById('btnSubtabAlert');
     if (alertBtn && alertBtn.classList.contains('active')) {
       activateOverlayPreview();
@@ -971,10 +1453,10 @@ function switchTab(tabId) {
     deactivateOverlayPreview();
   }
   if (tabId === 'page-customization') {
-    loadPageSettings();
+    if (!DEMO_MODE) loadPageSettings();
   }
   if (tabId === 'account') {
-    loadAccountInfo();
+    if (!DEMO_MODE) loadAccountInfo();
   }
   if (tabId === 'payment-setup') {
     requestAnimationFrame(() => {
@@ -989,7 +1471,7 @@ function switchTab(tabId) {
         });
       });
     });
-    loadPaymentSettings();
+    if (!DEMO_MODE) loadPaymentSettings();
   }
 }
 
@@ -998,7 +1480,7 @@ function activateOverlayPreview() {
   const iframe = document.getElementById('overlayPreviewIframe');
   if (!iframe) return;
   if (!iframe.src || iframe.src.includes('about:blank')) {
-    iframe.src = '/overlay';
+    iframe.src = DEMO_MODE ? '/demo/overlay' : '/overlay';
   }
 }
 
@@ -1313,6 +1795,7 @@ async function handleLogout() {
 }
 
 async function fetchTransactions() {
+  if (DEMO_MODE) return loadDemoTransactions();
   try {
     const pathParts = window.location.pathname.split('/');
     const username = pathParts[1];
