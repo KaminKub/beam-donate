@@ -286,11 +286,17 @@ function broadcastAlert(username, alertData) {
   });
 }
 
-// Demo-only broadcast: sends ONLY to demo-overlay clients, never touches real overlay
+// Demo-only broadcast: sends to ALL demo clients (overlay + goal-bar), never touches real clients
 function broadcastDemoAlert(username, alertData) {
-  const data = JSON.stringify(alertData);
+  let payload = alertData;
+  if (alertData.type === 'donation') {
+    const overlayOnline = sseClients.some(c => c.username === username && c.source === 'demo-overlay');
+    payload = { ...alertData, overlayOnline };
+  }
+  const data = JSON.stringify(payload);
+  const allowedSources = new Set(['demo-overlay', 'demo-goal-bar']);
   sseClients = sseClients.filter(client => {
-    if (client.username === username && client.source === 'demo-overlay') {
+    if (client.username === username && allowedSources.has(client.source)) {
       try {
         client.res.write(`data: ${data}\n\n`);
         client.lastActivity = Date.now();
