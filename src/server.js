@@ -271,8 +271,9 @@ function broadcastAlert(username, alertData) {
   console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
 
   sseClients = sseClients.filter(client => {
-    // Never send real broadcasts to demo-overlay clients (they have their own channel)
-    if (client.username === username && client.source !== 'demo-overlay') {
+    // Never send real broadcasts to any demo client (demo-overlay or demo-goal-bar)
+    const isDemo = client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
+    if (client.username === username && !isDemo) {
       try {
         client.res.write(`data: ${data}\n\n`);
         client.lastActivity = Date.now();
@@ -340,7 +341,7 @@ function broadcastGoalUpdate(username, streamer) {
     endDate: streamer.goal_end_date
   });
   sseClients
-    .filter(c => c.username === username)
+    .filter(c => c.username === username && c.source !== 'demo-overlay' && c.source !== 'demo-goal-bar')
     .forEach(c => {
       try {
         c.res.write(`data: ${payload}\n\n`);
@@ -846,7 +847,7 @@ app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => 
   const goalData = {
     type: 'goal_update',
     current: Math.max(0, Math.min(parseFloat(current) || 0, 99999)),
-    amount:  Math.max(1, parseFloat(amount)  || 5000),
+    amount:  Math.max(1, Math.min(parseFloat(amount)  || 5000, 9999999)),
     label:   String(label   || 'ค่ากาแฟ').slice(0, 60),
     barColor: String(barColor || '#4ade80').slice(0, 20),
     barText:  String(barText  || '{เปอร์เซนต์}').slice(0, 60),
