@@ -616,14 +616,36 @@ function generateQRImage(qrData) {
   qrLoading.style.display = 'block';
   qrImage.style.display = 'none';
 
+  const qrSlowHint = document.getElementById('qrSlowHint');
+  if (qrSlowHint) qrSlowHint.style.display = 'none';
+
+  const slowTimer = setTimeout(() => {
+    if (qrSlowHint) qrSlowHint.style.display = 'block';
+  }, 8000);
+
+  const btnReloadQR = document.getElementById('btnReloadQR');
+  if (btnReloadQR) {
+    btnReloadQR.onclick = () => {
+      clearTimeout(slowTimer);
+      if (qrSlowHint) qrSlowHint.style.display = 'none';
+      generateQRImage(qrData);
+    };
+  }
+
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
   qrImage.src = qrUrl;
   qrImage.onload = () => {
+    clearTimeout(slowTimer);
+    if (qrSlowHint) qrSlowHint.style.display = 'none';
     qrLoading.style.display = 'none';
     qrImage.style.display = 'block';
   };
   qrImage.onerror = () => {
-    qrLoading.innerHTML = '<p>ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่</p>';
+    clearTimeout(slowTimer);
+    if (qrSlowHint) qrSlowHint.style.display = 'none';
+    const errMsg = document.createElement('p');
+    errMsg.textContent = 'ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่';
+    qrLoading.replaceChildren(errMsg);
   };
 }
 

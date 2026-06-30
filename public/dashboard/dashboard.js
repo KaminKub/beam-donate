@@ -6,6 +6,24 @@ let allTransactions = [];
 let activeTab = 'dashboard';
 let _csrfToken = null;
 
+// Popup OAuth callback: if this page opened as popup result, notify parent then close
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('sl_linked') !== '1') return;
+  params.delete('sl_linked');
+  const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  history.replaceState({}, '', clean);
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage({ type: 'sl_linked', success: true }, window.location.origin);
+      window.close();
+      return;
+    } catch (e) {}
+  }
+  // Not in popup — switch to conn-platform after dashboard init
+  window._slLinkedOnLoad = true;
+}());
+
 function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
 
 function setMediaPreview(imgEl, url) {
@@ -155,6 +173,7 @@ async function initializeDashboard() {
         }
       });
 
+      initHeaderBgPreview();
       await loadDemoSettings();
       await loadDemoTransactions();
       applyDemoRestrictions();
@@ -370,144 +389,148 @@ async function initializeDashboard() {
     const pageBgFileEl = document.getElementById('pageBgFile');
     if (pageBgFileEl) pageBgFileEl.onchange = handlePageBgSelect;
 
-    // Header BG — URL input shows/hides controls + updates preview
-    const headerBgUrlInput = document.getElementById('inputHeaderBgUrl');
-    const headerBgControlsDiv = document.getElementById('headerBgControls');
-    const headerBgDragPreview = document.getElementById('headerBgDragPreview');
-    const headerBgYInput = document.getElementById('inputHeaderBgY');
-    const headerBgYDisp = document.getElementById('headerBgYDisplay');
-    const headerBgSpinner = document.getElementById('headerBgSpinner');
+    function initHeaderBgPreview() {
+      // Header BG — URL input shows/hides controls + updates preview
+      const headerBgUrlInput = document.getElementById('inputHeaderBgUrl');
+      const headerBgControlsDiv = document.getElementById('headerBgControls');
+      const headerBgDragPreview = document.getElementById('headerBgDragPreview');
+      const headerBgYInput = document.getElementById('inputHeaderBgY');
+      const headerBgYDisp = document.getElementById('headerBgYDisplay');
+      const headerBgSpinner = document.getElementById('headerBgSpinner');
 
-    // Header display ratio: card max-width 440px / header height 170px
-    const HEADER_FIT_RATIO = (440 / 170) * 0.9; // ~2.33 — images this wide or wider fit naturally
+      // Header display ratio: card max-width 440px / header height 170px
+      const HEADER_FIT_RATIO = (440 / 170) * 0.9; // ~2.33 — images this wide or wider fit naturally
 
-    function setHint(hint, iconClass, iconColor, text) {
-      hint.textContent = '';
-      const icon = document.createElement('i');
-      icon.className = iconClass;
-      icon.style.color = iconColor;
-      hint.appendChild(icon);
-      hint.appendChild(document.createTextNode(' ' + text));
-    }
+      function setHint(hint, iconClass, iconColor, text) {
+        hint.textContent = '';
+        const icon = document.createElement('i');
+        icon.className = iconClass;
+        icon.style.color = iconColor;
+        hint.appendChild(icon);
+        hint.appendChild(document.createTextNode(' ' + text));
+      }
 
-    function updateHeaderBgPreview() {
-      if (!headerBgDragPreview || !headerBgUrlInput) return;
-      const url = headerBgUrlInput.value;
-      if (!url) return;
-      if (isWebm(url)) {
-        headerBgDragPreview.style.backgroundImage = 'none';
-        let vid = headerBgDragPreview.querySelector('video.header-bg-vid');
-        if (!vid) {
-          vid = document.createElement('video');
-          vid.className = 'header-bg-vid';
-          vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
-          Object.assign(vid.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' });
-          headerBgDragPreview.style.position = 'relative';
-          headerBgDragPreview.style.overflow = 'hidden';
-          headerBgDragPreview.insertBefore(vid, headerBgDragPreview.firstChild);
-        }
-        vid.src = url;
-        if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-        headerBgDragPreview.dataset.fitsNaturally = '1';
-        const hint = headerBgDragPreview.querySelector('[data-hint]');
-        if (hint) setHint(hint, 'fa-solid fa-video', '#60a5fa', 'WebM Animation');
-      } else {
-        const vid = headerBgDragPreview.querySelector('video.header-bg-vid');
-        if (vid) vid.remove();
-        headerBgDragPreview.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
-        const img = new Image();
-        img.onload = function () {
+      function updateHeaderBgPreview() {
+        if (!headerBgDragPreview || !headerBgUrlInput) return;
+        const url = headerBgUrlInput.value;
+        if (!url) return;
+        if (isWebm(url)) {
+          headerBgDragPreview.style.backgroundImage = 'none';
+          let vid = headerBgDragPreview.querySelector('video.header-bg-vid');
+          if (!vid) {
+            vid = document.createElement('video');
+            vid.className = 'header-bg-vid';
+            vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
+            Object.assign(vid.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' });
+            headerBgDragPreview.style.position = 'relative';
+            headerBgDragPreview.style.overflow = 'hidden';
+            headerBgDragPreview.insertBefore(vid, headerBgDragPreview.firstChild);
+          }
+          vid.src = url;
           if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-          const fitsNaturally = (img.naturalWidth / img.naturalHeight) >= HEADER_FIT_RATIO;
-          headerBgDragPreview.dataset.fitsNaturally = fitsNaturally ? '1' : '0';
+          headerBgDragPreview.dataset.fitsNaturally = '1';
           const hint = headerBgDragPreview.querySelector('[data-hint]');
-          if (fitsNaturally) {
-            headerBgDragPreview.style.backgroundSize = 'contain';
-            headerBgDragPreview.style.backgroundPosition = 'center center';
-            headerBgDragPreview.style.cursor = 'default';
-            if (hint) setHint(hint, 'fa-solid fa-check', '#4ade80', 'ภาพพอดีกับ Header อัตโนมัติ');
-          } else {
+          if (hint) setHint(hint, 'fa-solid fa-video', '#60a5fa', 'WebM Animation');
+        } else {
+          const vid = headerBgDragPreview.querySelector('video.header-bg-vid');
+          if (vid) vid.remove();
+          headerBgDragPreview.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+          const img = new Image();
+          img.onload = function () {
+            if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+            const fitsNaturally = (img.naturalWidth / img.naturalHeight) >= HEADER_FIT_RATIO;
+            headerBgDragPreview.dataset.fitsNaturally = fitsNaturally ? '1' : '0';
+            const hint = headerBgDragPreview.querySelector('[data-hint]');
+            if (fitsNaturally) {
+              headerBgDragPreview.style.backgroundSize = 'contain';
+              headerBgDragPreview.style.backgroundPosition = 'center center';
+              headerBgDragPreview.style.cursor = 'default';
+              if (hint) setHint(hint, 'fa-solid fa-check', '#4ade80', 'ภาพพอดีกับ Header อัตโนมัติ');
+            } else {
+              const y = headerBgYInput ? headerBgYInput.value : 0;
+              headerBgDragPreview.style.backgroundSize = 'cover';
+              headerBgDragPreview.style.backgroundPositionY = `${y}%`;
+              headerBgDragPreview.style.cursor = 'grab';
+              if (hint) setHint(hint, 'fa-solid fa-up-down', '#f59e0b', 'ลากขึ้น-ลงเพื่อปรับตำแหน่ง');
+            }
+          };
+          img.onerror = function () {
+            if (headerBgSpinner) headerBgSpinner.style.display = 'none';
+            headerBgDragPreview.dataset.fitsNaturally = '0';
             const y = headerBgYInput ? headerBgYInput.value : 0;
             headerBgDragPreview.style.backgroundSize = 'cover';
             headerBgDragPreview.style.backgroundPositionY = `${y}%`;
             headerBgDragPreview.style.cursor = 'grab';
-            if (hint) setHint(hint, 'fa-solid fa-up-down', '#f59e0b', 'ลากขึ้น-ลงเพื่อปรับตำแหน่ง');
+          };
+          img.src = url;
+        }
+      }
+
+      if (headerBgUrlInput && headerBgControlsDiv) {
+        let headerBgDebounce = null;
+        headerBgUrlInput.addEventListener('input', () => {
+          const hasUrl = !!headerBgUrlInput.value;
+          headerBgControlsDiv.classList.toggle('is-open', hasUrl);
+          clearTimeout(headerBgDebounce);
+          if (hasUrl) {
+            if (headerBgSpinner) headerBgSpinner.style.display = 'flex';
+            headerBgDebounce = setTimeout(updateHeaderBgPreview, 400);
+          } else {
+            if (headerBgSpinner) headerBgSpinner.style.display = 'none';
           }
-        };
-        img.onerror = function () {
-          if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-          headerBgDragPreview.dataset.fitsNaturally = '0';
-          const y = headerBgYInput ? headerBgYInput.value : 0;
-          headerBgDragPreview.style.backgroundSize = 'cover';
-          headerBgDragPreview.style.backgroundPositionY = `${y}%`;
-          headerBgDragPreview.style.cursor = 'grab';
-        };
-        img.src = url;
+        });
+      }
+
+      // Drag-to-position on headerBgDragPreview
+      if (headerBgDragPreview && headerBgYInput) {
+        let isDraggingBg = false;
+        let bgDragStartY = 0;
+        let bgDragStartPosY = 0;
+
+        function applyBgY(newY) {
+          if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+          const clamped = Math.max(0, Math.min(100, newY));
+          headerBgYInput.value = clamped;
+          headerBgDragPreview.style.backgroundPositionY = `${clamped}%`;
+          if (headerBgYDisp) headerBgYDisp.textContent = Math.round(clamped);
+        }
+
+        headerBgDragPreview.addEventListener('mousedown', (e) => {
+          if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+          isDraggingBg = true;
+          bgDragStartY = e.clientY;
+          bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
+          headerBgDragPreview.style.cursor = 'grabbing';
+          e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+          if (!isDraggingBg) return;
+          applyBgY(bgDragStartPosY + (e.clientY - bgDragStartY) * 0.5);
+        });
+        document.addEventListener('mouseup', () => {
+          if (isDraggingBg) {
+            isDraggingBg = false;
+            if (headerBgDragPreview.dataset.fitsNaturally !== '1') headerBgDragPreview.style.cursor = 'grab';
+          }
+        });
+
+        // Touch support
+        headerBgDragPreview.addEventListener('touchstart', (e) => {
+          if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
+          isDraggingBg = true;
+          bgDragStartY = e.touches[0].clientY;
+          bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
+          e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('touchmove', (e) => {
+          if (!isDraggingBg) return;
+          applyBgY(bgDragStartPosY + (e.touches[0].clientY - bgDragStartY) * 0.5);
+        }, { passive: false });
+        document.addEventListener('touchend', () => { isDraggingBg = false; });
       }
     }
 
-    if (headerBgUrlInput && headerBgControlsDiv) {
-      let headerBgDebounce = null;
-      headerBgUrlInput.addEventListener('input', () => {
-        const hasUrl = !!headerBgUrlInput.value;
-        headerBgControlsDiv.classList.toggle('is-open', hasUrl);
-        clearTimeout(headerBgDebounce);
-        if (hasUrl) {
-          if (headerBgSpinner) headerBgSpinner.style.display = 'flex';
-          headerBgDebounce = setTimeout(updateHeaderBgPreview, 400);
-        } else {
-          if (headerBgSpinner) headerBgSpinner.style.display = 'none';
-        }
-      });
-    }
-
-    // Drag-to-position on headerBgDragPreview
-    if (headerBgDragPreview && headerBgYInput) {
-      let isDraggingBg = false;
-      let bgDragStartY = 0;
-      let bgDragStartPosY = 0;
-
-      function applyBgY(newY) {
-        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
-        const clamped = Math.max(0, Math.min(100, newY));
-        headerBgYInput.value = clamped;
-        headerBgDragPreview.style.backgroundPositionY = `${clamped}%`;
-        if (headerBgYDisp) headerBgYDisp.textContent = Math.round(clamped);
-      }
-
-      headerBgDragPreview.addEventListener('mousedown', (e) => {
-        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
-        isDraggingBg = true;
-        bgDragStartY = e.clientY;
-        bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
-        headerBgDragPreview.style.cursor = 'grabbing';
-        e.preventDefault();
-      });
-      document.addEventListener('mousemove', (e) => {
-        if (!isDraggingBg) return;
-        applyBgY(bgDragStartPosY + (e.clientY - bgDragStartY) * 0.5);
-      });
-      document.addEventListener('mouseup', () => {
-        if (isDraggingBg) {
-          isDraggingBg = false;
-          if (headerBgDragPreview.dataset.fitsNaturally !== '1') headerBgDragPreview.style.cursor = 'grab';
-        }
-      });
-
-      // Touch support
-      headerBgDragPreview.addEventListener('touchstart', (e) => {
-        if (headerBgDragPreview.dataset.fitsNaturally === '1') return;
-        isDraggingBg = true;
-        bgDragStartY = e.touches[0].clientY;
-        bgDragStartPosY = parseFloat(headerBgYInput.value) || 0;
-        e.preventDefault();
-      }, { passive: false });
-      document.addEventListener('touchmove', (e) => {
-        if (!isDraggingBg) return;
-        applyBgY(bgDragStartPosY + (e.touches[0].clientY - bgDragStartY) * 0.5);
-      }, { passive: false });
-      document.addEventListener('touchend', () => { isDraggingBg = false; });
-    }
+    initHeaderBgPreview();
 
     const btnReloadPage = document.getElementById('btnReloadPagePreview');
     if (btnReloadPage) {
@@ -1094,6 +1117,13 @@ async function initializeDashboard() {
     }
 
     initCardPanels();
+
+    if (window._slLinkedOnLoad) {
+      window._slLinkedOnLoad = false;
+      switchTab('conn-platform');
+      showNotification('เชื่อมต่อ Streamlabs สำเร็จ', 'success');
+    }
+
     console.log('✅ initializeDashboard completed successfully');
   } catch (criticalErr) {
     console.error('💥 Critical error during dashboard initialization:', criticalErr);
@@ -1181,11 +1211,10 @@ function loadDemoAccountInfo(data) {
   if (typeof updateConnectionBtn === 'function') {
     updateConnectionBtn('btnConnectTwitch', true, '/auth/twitch', 'statusTwitch');
   }
-  // Streamlabs = disabled (same as real code)
-  const slBtn = document.getElementById('btnConnectStreamlabs');
-  const slStatus = document.getElementById('statusStreamlabs');
-  if (slBtn) { slBtn.innerHTML = 'รออัปเดต'; slBtn.classList.add('btn-disconnected'); slBtn.style.pointerEvents = 'none'; slBtn.onclick = null; }
-  if (slStatus) slStatus.textContent = 'รออัปเดต';
+  // Demo user has no Streamlabs linked
+  if (typeof updateConnectionBtn === 'function') {
+    updateConnectionBtn('btnConnectStreamlabs', false, '/auth/streamlabs', 'statusStreamlabs');
+  }
 }
 
 function loadDemoPaymentInfo(data) {
@@ -1742,16 +1771,8 @@ async function loadAccountInfo() {
 
       // Handle Twitch Connection
       updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch');
-      // Handle Streamlabs Connection (TEMPORARILY DISABLED - OAuth config pending)
-      const slBtn = document.getElementById('btnConnectStreamlabs');
-      const slStatus = document.getElementById('statusStreamlabs');
-      if (slBtn) {
-        slBtn.innerHTML = 'รออัปเดต';
-        slBtn.classList.add('btn-disconnected');
-        slBtn.style.pointerEvents = 'none';
-        slBtn.onclick = null;
-      }
-      if (slStatus) slStatus.textContent = 'รออัปเดต';
+      // Handle Streamlabs Connection
+      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs');
 
     } else {
       throw new Error('Failed to load account info');
@@ -1788,8 +1809,80 @@ function updateConnectionBtn(id, connected, authUrl, statusId) {
       statusEl.textContent = 'ยังไม่ได้เชื่อมต่อ';
       statusEl.classList.remove('connected');
     }
-    btn.onclick = () => window.location.href = authUrl;
+    if (id === 'btnConnectStreamlabs') {
+      btn.onclick = () => openStreamlabsPopup(btn, statusEl, row);
+    } else {
+      btn.onclick = () => window.location.href = authUrl;
+    }
   }
+}
+
+const SL_POPUP_TIMEOUT_MS = 90 * 1000; // 90s — covers login+2FA worst case on mobile
+
+function openStreamlabsPopup(btn, statusEl, row) {
+  const prevHTML = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ...';
+  btn.disabled = true;
+
+  // Hint: cancel button shown while waiting
+  const hint = document.createElement('div');
+  hint.id = 'slConnectHint';
+  hint.style.cssText = 'margin-top:8px;text-align:center;font-size:0.78rem;color:#94a3b8;';
+  hint.innerHTML = 'ค้างนาน? <button id="btnSlCancel" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-left:4px;">ยกเลิก</button>';
+  btn.insertAdjacentElement('afterend', hint);
+  document.getElementById('btnSlCancel').onclick = () => { cleanup(); resetBtn(); };
+
+  const popup = window.open(
+    '/auth/streamlabs?mode=popup',
+    'sl_oauth',
+    'width=600,height=700,scrollbars=yes,resizable=yes'
+  );
+
+  let done = false;
+
+  function onMessage(event) {
+    if (event.origin !== window.location.origin) return;
+    if (!event.data || event.data.type !== 'sl_linked') return;
+    done = true;
+    cleanup();
+    if (event.data.success) {
+      loadAccountInfo();
+      showNotification('เชื่อมต่อ Streamlabs สำเร็จ', 'success');
+    } else {
+      resetBtn();
+    }
+  }
+
+  function resetBtn() {
+    btn.innerHTML = prevHTML;
+    btn.disabled = false;
+  }
+
+  function cleanup() {
+    clearInterval(pollTimer);
+    clearTimeout(timeoutTimer);
+    window.removeEventListener('message', onMessage);
+    document.getElementById('slConnectHint')?.remove();
+  }
+
+  // Poll for popup closure (desktop: works reliably)
+  const pollTimer = setInterval(() => {
+    if (popup && popup.closed) {
+      cleanup();
+      if (!done) resetBtn();
+    }
+  }, 500);
+
+  // Timeout fallback for mobile (popup becomes new tab — closed check never fires)
+  const timeoutTimer = setTimeout(() => {
+    if (!done) {
+      cleanup();
+      resetBtn();
+      showNotification('หมดเวลา — หากเห็นหน้า Streamlabs ให้ปิดแท็บนั้นแล้วกดเชื่อมต่ออีกครั้ง', 'error');
+    }
+  }, SL_POPUP_TIMEOUT_MS);
+
+  window.addEventListener('message', onMessage);
 }
 
 async function handleAccountDeletion() {

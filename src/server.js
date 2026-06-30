@@ -897,7 +897,7 @@ app.get('/register/setup', (req, res) => {
 });
 
 app.get('/api/register/pending', (req, res) => {
-  console.log('📋 [Register Pending] Session pendingUser:', req.session.pendingUser ? JSON.stringify({ streamlabsId: !!req.session.pendingUser.streamlabsId, twitchId: !!req.session.pendingUser.twitchId, streamlabsName: req.session.pendingUser.streamlabsName, profileImage: !!req.session.pendingUser.profileImage }) : '(none)');
+  console.log('📋 [Register Pending] Session pendingUser:', req.session.pendingUser ? JSON.stringify({ hasTwitchId: !!req.session.pendingUser.twitchId, hasStreamlabsId: !!req.session.pendingUser.streamlabsId, platform: req.session.pendingUser.streamlabsPlatform || 'unknown', hasName: !!req.session.pendingUser.streamlabsName, hasProfileImage: !!req.session.pendingUser.profileImage }) : '(none)');
   if (!req.session.pendingUser) return res.status(401).json({ error: 'Unauthorized' });
   res.json(req.session.pendingUser);
 });
@@ -937,12 +937,13 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
     }
   
     const pending = req.session.pendingUser;
-    console.log(`💾 [Register Complete] Saving user...`, { twitchId: pending.twitchId, streamlabsId: pending.streamlabsId, username: normalizedUsername, hasProfileImage: !!pending.profileImage });
+    console.log(`💾 [Register Complete] Saving user...`, { hasTwitchId: !!pending.twitchId, hasStreamlabsId: !!pending.streamlabsId, platform: pending.streamlabsPlatform || 'unknown', username: normalizedUsername, hasProfileImage: !!pending.profileImage });
 
     // Upload Twitch avatar to R2 on first registration (Approach 2: cache to R2)
     let avatarUrl = pending.profileImage || null;
-    if (avatarUrl && avatarUrl.startsWith('http') && pending.twitchId) {
-      const r2Url = await uploadAvatarFromUrl(avatarUrl, pending.twitchId);
+    const avatarUploadId = pending.twitchId || (pending.streamlabsPlatform === 'twitch' ? pending.streamlabsId : null);
+    if (avatarUrl && avatarUrl.startsWith('http') && avatarUploadId) {
+      const r2Url = await uploadAvatarFromUrl(avatarUrl, avatarUploadId);
       if (r2Url) {
         avatarUrl = r2Url;
         console.log(`📸 [Register Complete] Avatar cached to R2: ${r2Url}`);
@@ -950,7 +951,7 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
     }
 
     const newUser = await db.saveStreamer({
-      twitch_id: pending.twitchId || null,
+      twitch_id: pending.twitchId || (pending.streamlabsPlatform === 'twitch' ? pending.streamlabsId : null),
       streamlabs_id: pending.streamlabsId || null,
       streamlabs_username: pending.streamlabsUsername || null,
       streamlabs_access_token: pending.streamlabs_access_token || null,
@@ -959,7 +960,7 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       overlay_token: crypto.randomBytes(16).toString('hex'),
       is_active: 1,
       profile_image_value: avatarUrl,
-      profile_image_source: avatarUrl ? (pending.streamlabsId ? 'streamlabs' : 'twitch') : null
+      profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null
     });
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
@@ -998,10 +999,11 @@ app.get('/auth/streamlabs', authLimiter, (req, res) => {
 
   const state = crypto.randomBytes(16).toString('hex');
   req.session.oauthState = state;
+  req.session.slOauthMode = req.query.mode === 'popup' ? 'popup' : 'full';
 
-  let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURI(callbackUrl)}&scope=${encodeURIComponent(scope).replace(/%20/g, '+')}&response_type=${responseType}&state=${state}`;
-  
-  console.log(`🚀 Redirecting to Streamlabs OAuth (state=${state.substring(0, 8)}...)`);
+  let authUrl = `https://streamlabs.com/api/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=${encodeURIComponent(scope).replace(/%20/g, '+')}&response_type=${responseType}&state=${state}`;
+
+  console.log(`🚀 Redirecting to Streamlabs OAuth (state=${state.substring(0, 8)}..., mode=${req.session.slOauthMode})`);
   req.session.save((err) => {
     if (err) console.error('❌ Session save error before Streamlabs redirect:', err);
     res.redirect(authUrl);
@@ -1039,7 +1041,7 @@ app.get('/auth/twitch/callback',
       if (!existingUser) {
         existingUser = await db.getStreamer(twitchName);
         if (existingUser) {
-          console.log(`🔗 Linking existing account for ${twitchName} with Twitch ID ${twitchId}`);
+          console.log(`🔗 Linking existing account for ${twitchName}`);
           await db.saveStreamer({
             ...existingUser,
             twitch_id: twitchId
@@ -1079,6 +1081,46 @@ app.get('/auth/twitch/callback',
     }
   }
 );
+
+function extractPlatformFromStreamlabs(userData) {
+  const PLATFORM_KEYS = ['twitch', 'youtube', 'tiktok', 'facebook'];
+
+  // Format A: flat platform sub-objects
+  for (const key of PLATFORM_KEYS) {
+    const p = userData[key];
+    if (p && p.id) {
+      return {
+        platformId: String(p.id),
+        platformType: key,
+        platformName: p.display_name || p.name || p.username || p.title || null,
+        platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || null
+      };
+    }
+  }
+
+  // Format B: nested `platforms` object
+  if (userData.platforms && typeof userData.platforms === 'object') {
+    for (const key of PLATFORM_KEYS) {
+      const p = userData.platforms[key];
+      if (p && p.id) {
+        return {
+          platformId: String(p.id),
+          platformType: key,
+          platformName: p.display_name || p.name || p.username || null,
+          platformImage: null
+        };
+      }
+    }
+  }
+
+  // Format C fallback: Streamlabs internal ID (may be null — caller handles)
+  return {
+    platformId: userData.id ? String(userData.id) : null,
+    platformType: 'streamlabs',
+    platformName: userData.username || null,
+    platformImage: userData.profile_image || null
+  };
+}
 
 app.get('/auth/streamlabs/callback', async (req, res) => {
   const { code, state, error, error_description } = req.query;
@@ -1151,46 +1193,72 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 
     console.log('👤 [Streamlabs] User response status:', userResponse.status);
     console.log('👤 [Streamlabs] User response keys:', Object.keys(userResponse.data).join(', '));
-    console.log('👤 [Streamlabs] User data fields:', Object.keys(userResponse.data).map(k => `${k}=${k === 'id' || k === 'username' ? userResponse.data[k] : '(redacted)'}`).join(', '));
+    console.log('👤 [Streamlabs] User data keys:', Object.keys(userResponse.data).join(', '));
 
     const userData = userResponse.data;
-    const streamlabsId = userData.id;
-    const streamlabsName = userData.username;
-    const profileImage = userData.profile_image || '/avatar.jpg';
 
-    console.log('👤 [Streamlabs] Parsed - ID:', streamlabsId, 'Username:', streamlabsName, 'Image:', profileImage ? '(present)' : '(missing)');
+    const platform = extractPlatformFromStreamlabs(userData);
+    console.log('🔗 [Streamlabs] Platform extracted: type=%s hasId=%s hasName=%s hasImage=%s', platform.platformType, !!platform.platformId, !!platform.platformName, !!platform.platformImage);
 
-    if (!streamlabsId) {
-      console.error('❌ [Streamlabs] No streamlabs ID in profile response');
-      throw new Error('No Streamlabs ID received from profile API');
+    if (!platform.platformId) {
+      console.error('❌ [Streamlabs] No platform ID. userData keys:', Object.keys(userData).join(', '));
+      throw new Error('No identifiable platform ID from Streamlabs profile');
     }
+
+    const streamlabsId = platform.platformId;
+    const streamlabsPlatform = platform.platformType;
+    const streamlabsName = platform.platformName || userData.username;
+    const profileImage = platform.platformImage || userData.profile_image || '/avatar.jpg';
+
+    console.log('👤 [Streamlabs] Parsed - platformType:', streamlabsPlatform, 'hasId:', !!streamlabsId, 'hasName:', !!streamlabsName);
 
     // 3. DB Logic: Upsert / Linking
     console.log('🗄️ [Streamlabs] Checking DB...');
     
     // Check if there's an existing authenticated session (e.g. logged in via Twitch)
     if (req.isAuthenticated()) {
-      const currentUserId = req.user.id || req.user.twitch_id;
-      console.log('🔗 [Streamlabs] User already authenticated, looking up by:', currentUserId);
-      const existingUser = await db.getStreamerById(currentUserId);
+      const u = req.user;
+      console.log('🔗 [Streamlabs] User already authenticated — hasTwitchId:', !!u.twitch_id, 'hasStreamlabsId:', !!u.streamlabs_id, 'username:', u.username);
+      let existingUser = null;
+      if (u.twitch_id) existingUser = await db.getStreamerByTwitchId(String(u.twitch_id));
+      if (!existingUser && u.streamlabs_id) existingUser = await db.getStreamerByStreamlabsId(String(u.streamlabs_id));
+      if (!existingUser && u.username) existingUser = await db.getStreamer(u.username);
+      console.log('🔗 [Streamlabs] Authenticated lookup result:', existingUser ? existingUser.username : 'not found');
       
       if (existingUser) {
-        console.log(`🔗 [Streamlabs] Linking Streamlabs ID ${streamlabsId} to user ${existingUser.username}`);
-        await db.saveStreamer({
+        console.log(`🔗 [Streamlabs] Linking platform=${streamlabsPlatform} to user ${existingUser.username}`);
+        const linkedUser = await db.saveStreamer({
           ...existingUser,
+          twitch_id: existingUser.twitch_id || (streamlabsPlatform === 'twitch' ? streamlabsId : null),
           streamlabs_id: streamlabsId,
           streamlabs_username: streamlabsName,
           streamlabs_access_token: accessToken,
           streamlabs_refresh_token: refreshToken
         });
-        return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+        const isPopup = req.session.slOauthMode === 'popup';
+        delete req.session.slOauthMode;
+        req.login(linkedUser, (loginErr) => {
+          if (loginErr) console.error('❌ [Streamlabs] Session refresh error after link:', loginErr);
+          req.session.save(() => {
+            const dest = `/${existingUser.username.toLowerCase()}/dashboard`;
+            res.redirect(isPopup ? `${dest}?sl_linked=1` : dest);
+          });
+        });
+        return;
       }
     }
 
-    // Check if this Streamlabs ID already exists in our DB
-    console.log('🔍 [Streamlabs] Looking up by streamlabsId:', streamlabsId);
-    const existingUser = await db.getStreamerByStreamlabsId(streamlabsId);
-    console.log('🔍 [Streamlabs] Existing user:', existingUser ? existingUser.username : 'none');
+    // Check if user exists — try platform-native ID first
+    let existingUser = null;
+    if (streamlabsPlatform === 'twitch') {
+      existingUser = await db.getStreamerByTwitchId(streamlabsId);
+      if (!existingUser) {
+        existingUser = await db.getStreamerByStreamlabsId(streamlabsId);
+      }
+    } else {
+      existingUser = await db.getStreamerByStreamlabsId(streamlabsId);
+    }
+    console.log('🔍 [Streamlabs] Lookup result (platform=%s):', streamlabsPlatform, existingUser ? `Found: ${existingUser.username}` : 'Not found');
 
     if (existingUser) {
       console.log(`✅ [Streamlabs] Returning user ${existingUser.username}. Updating tokens...`);
@@ -1213,9 +1281,10 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       });
     } else {
       // 4. New User Flow: Store in session and send to registration setup
-      console.log(`🆕 [Streamlabs] New user: ${streamlabsName}. Storing in session...`);
+      console.log(`🆕 [Streamlabs] New user via ${streamlabsPlatform}. Storing in session...`);
        req.session.pendingUser = {
          streamlabsId: streamlabsId,
+         streamlabsPlatform: streamlabsPlatform,
          streamlabsUsername: streamlabsName,
          streamlabsName: streamlabsName,
          profileImage: profileImage,

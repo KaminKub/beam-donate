@@ -786,9 +786,11 @@ async function saveStreamer(data) {
      overlay_token: overlayToken
    };
   
+  let savedId;
   if (existing) {
+      savedId = existing.id;
       await db.execute({
-        sql: `UPDATE streamers SET 
+        sql: `UPDATE streamers SET
                twitch_id = COALESCE(?, streamers.twitch_id),
                streamlabs_id = COALESCE(?, streamers.streamlabs_id),
                streamlabs_username = COALESCE(?, streamers.streamlabs_username),
@@ -981,7 +983,7 @@ async function saveStreamer(data) {
         ]
       });
   } else {
-     await db.execute({
+     const _insertResult = await db.execute({
        sql: `INSERT INTO streamers (twitch_id, streamlabs_id, streamlabs_username, username, discord_webhook_url, overlay_token, is_active, 
              duration, soundEnabled, soundChoice, soundVolume, ttsEnabled, ttsReadDonor, ttsVolume, ttsRate, ttsLanguage, ttsVoice, ttsPrefixEnabled,
              profanityFilterEnabled, profanityWords, profanityReplaceStyle, messageTemplate, amountSuffix, showLabel, showDonorMessage, minAmount, 
@@ -1092,11 +1094,12 @@ async function saveStreamer(data) {
         finalData.goal_bar_position || 'top'
       ]
     });
+    savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
 
   }
 
   // Never expose OAuth tokens (now encrypted at rest) back to callers
-  const returned = { ...finalData, overlay_token: overlayToken };
+  const returned = { ...finalData, overlay_token: overlayToken, id: savedId };
   delete returned.streamlabs_access_token;
   delete returned.streamlabs_refresh_token;
   return returned;

@@ -207,6 +207,12 @@
           <div id="qrLoading" class="loading">
             <div class="spinner"></div>
             <p>กำลังสร้าง QR Code...</p>
+            <div id="qrSlowHint" style="display:none; margin-top:12px; text-align:center;">
+              <p style="margin:0 0 8px; font-size:0.85rem; color:#6b7280;">รอนานไปหรือเปล่า?</p>
+              <button id="btnReloadQR" class="btn-primary" style="padding:8px 20px; font-size:0.9rem;">
+                <i class="fa-solid fa-rotate"></i> โหลด QR ใหม่
+              </button>
+            </div>
           </div>
           <img id="qrImage" src="" alt="QR Code" style="display: none;">
         </div>

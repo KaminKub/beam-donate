@@ -2257,17 +2257,17 @@ label {
   gap: 16px;
 }
 
-/* Desktop: Grid layout 3 columns */
+/* Desktop: 2 columns, single row, centered */
 @media (min-width: 769px) {
   .payment-methods-list {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    justify-content: center;
     gap: 16px;
-    align-items: stretch;
   }
   
   .payment-method-item {
-    height: 100%;
+    flex: 1 1 0;
+    max-width: 360px;
   }
   
   .payment-method-card {

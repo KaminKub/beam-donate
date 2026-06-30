@@ -8,7 +8,7 @@
 - **SlipOK Slip Verification** — ระบบหลัก ตรวจสอบสลิปโอนเงินอัตโนมัติผ่าน SlipOK API (รองรับ JPG, PNG, WEBP, JFIF)
 - **PromptPay Direct** — QR Code EMVCo โอนตรงเข้าบัญชีพร้อมเพย์ของผู้ใช้ (เบอร์โทร / เลขบัตร / e-Wallet ID)
 - **TrueMoney Wallet** — รับเงินผ่านวอลเลท ตรวจสอบสลิปด้วย SlipOK API (เช่นเดียวกับพร้อมเพย์)
-- **Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก ไม่เปิดเผยตัวตนผู้รับ (กำลังพัฒนา แทนที่ Beam Donate)
+- ~~**Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก~~ **ยกเลิกแล้ว (2026-06-30)**: FFP ไม่อนุมัติ API โค้ดถูกเก็บไว้ดู `.agents/guides/FFP_REACTIVATION_GUIDE.md`
 
 ### Live Donation Alert (OBS Overlay)
 - แสดง Alert แบบ Real-time บน OBS/Stream ผ่าน Server-Sent Events (SSE)
@@ -83,7 +83,7 @@ beam-donate/
 │   ├── thank-you.html         # หน้าขอบคุณหลังโอนเงินสำเร็จ
 │   ├── cookie-consent.js      # Cookie Consent Banner
 │   ├── Image/                 # ไอคอน/โลโก้ วิธีชำระเงิน
-│   │   ├── FFP-logo.png
+│   │   ├── FFP-logo.png  (เก็บไว้ — FFP decommissioned)
 │   │   ├── QR-PromptPay.png
 │   │   ├── TrueWallate.png
 │   │   └── icon-thaiqr.png
@@ -261,11 +261,9 @@ http://localhost:3000
 5. SlipOK คืนข้อมูลธุรกรรม (จำนวนเงิน, ธนาคาร, ผู้โอน, ผู้รับ)
 6. ระบบตรวจสอบยอดเงิน + บัญชีผู้รับ → ยืนยันการบริจาค + ยิง Alert
 
-### Feel Free Pay (FFP) (กำลังพัฒนา)
-ระบบรับเงินทางเลือกที่จะมาแทนที่ Beam Donate
-- ผู้โดเนทไม่เห็นชื่อหรือข้อมูลส่วนตัวของผู้รับเงิน
-- เงินจะเข้าผ่าน FFP โดยตรง ไม่ผ่านแพลตฟอร์ม
-- กำลังรอ API จาก FFP เพื่อเริ่มการพัฒนา
+### ~~Feel Free Pay (FFP)~~ — ยกเลิกแล้ว (2026-06-30)
+FFP ไม่อนุมัติให้ใช้ API กับโปรเจคนี้ โค้ดทั้งหมดถูก comment/skip ไว้ (ไม่ลบ)  
+หากต้องการกลับมาเปิดใช้งานอีกครั้ง อ่าน `.agents/guides/FFP_REACTIVATION_GUIDE.md`
 
 ### การเข้ารหัสข้อมูล
 ข้อมูลสำคัญทั้งหมดเข้ารหัสด้วย **AES-256-GCM** ก่อนบันทึกลงฐานข้อมูล:
