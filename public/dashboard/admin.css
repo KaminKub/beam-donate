@@ -2257,19 +2257,23 @@ label {
   gap: 16px;
 }
 
-/* Desktop: 2 columns, single row, centered */
+/* Desktop: 2 cards side by side, centered */
 @media (min-width: 769px) {
   .payment-methods-list {
-    display: flex;
+    flex-direction: row;
     justify-content: center;
-    gap: 16px;
+    align-items: flex-start;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
   }
-  
+
   .payment-method-item {
     flex: 1 1 0;
+    min-width: 0;
     max-width: 360px;
   }
-  
+
   .payment-method-card {
     min-height: 280px;
     display: flex;

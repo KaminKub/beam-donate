@@ -1152,10 +1152,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 
   try {
     // 1. Exchange code for access_token (v1.0 uses form-encoded body)
-    console.log('🔑 [Streamlabs] Exchanging code for token...');
-    console.log('🔑 [Streamlabs] Client ID present:', !!process.env.STREAMLABS_CLIENT_ID);
-    console.log('🔑 [Streamlabs] Client Secret present:', !!process.env.STREAMLABS_CLIENT_SECRET);
-    console.log('🔑 [Streamlabs] Code prefix:', code?.substring(0, 8) + '...');
 
     const payload = new URLSearchParams();
     payload.append('grant_type', 'authorization_code');
@@ -1170,9 +1166,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       }
     });
 
-    console.log('🔑 [Streamlabs] Token response status:', response.status);
-    console.log('🔑 [Streamlabs] Token response keys:', Object.keys(response.data).join(', '));
-
     const accessToken = response.data.access_token;
     const refreshToken = response.data.refresh_token;
     if (!accessToken) {
@@ -1183,7 +1176,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     console.log('✅ [Streamlabs] Token obtained successfully');
 
     // 2. Get user profile info using access_token
-    console.log('👤 [Streamlabs] Fetching user profile...');
     const userResponse = await axios.get('https://streamlabs.com/api/v2.0/user', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1191,14 +1183,9 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       }
     });
 
-    console.log('👤 [Streamlabs] User response status:', userResponse.status);
-    console.log('👤 [Streamlabs] User response keys:', Object.keys(userResponse.data).join(', '));
-    console.log('👤 [Streamlabs] User data keys:', Object.keys(userResponse.data).join(', '));
-
     const userData = userResponse.data;
 
     const platform = extractPlatformFromStreamlabs(userData);
-    console.log('🔗 [Streamlabs] Platform extracted: type=%s hasId=%s hasName=%s hasImage=%s', platform.platformType, !!platform.platformId, !!platform.platformName, !!platform.platformImage);
 
     if (!platform.platformId) {
       console.error('❌ [Streamlabs] No platform ID. userData keys:', Object.keys(userData).join(', '));
