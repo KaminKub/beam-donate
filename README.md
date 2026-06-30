@@ -8,7 +8,7 @@
 - **SlipOK Slip Verification** — ระบบหลัก ตรวจสอบสลิปโอนเงินอัตโนมัติผ่าน SlipOK API (รองรับ JPG, PNG, WEBP, JFIF)
 - **PromptPay Direct** — QR Code EMVCo โอนตรงเข้าบัญชีพร้อมเพย์ของผู้ใช้ (เบอร์โทร / เลขบัตร / e-Wallet ID)
 - **TrueMoney Wallet** — รับเงินผ่านวอลเลท ตรวจสอบสลิปด้วย SlipOK API (เช่นเดียวกับพร้อมเพย์)
-- ~~**Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก~~ **ยกเลิกแล้ว (2026-06-30)**: FFP ไม่อนุมัติ API โค้ดถูกเก็บไว้ดู `.agents/guides/FFP_REACTIVATION_GUIDE.md`
+- ~~**Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก~~ **ยกเลิกแล้ว (2026-06-30)**: FFP ไม่อนุมัติ API โค้ดถูกเก็บไว้ดู 
 
 ### Live Donation Alert (OBS Overlay)
 - แสดง Alert แบบ Real-time บน OBS/Stream ผ่าน Server-Sent Events (SSE)
@@ -263,7 +263,7 @@ http://localhost:3000
 
 ### ~~Feel Free Pay (FFP)~~ — ยกเลิกแล้ว (2026-06-30)
 FFP ไม่อนุมัติให้ใช้ API กับโปรเจคนี้ โค้ดทั้งหมดถูก comment/skip ไว้ (ไม่ลบ)  
-หากต้องการกลับมาเปิดใช้งานอีกครั้ง อ่าน `.agents/guides/FFP_REACTIVATION_GUIDE.md`
+หากต้องการกลับมาเปิดใช้งานอีกครั้ง อ่าน
 
 ### การเข้ารหัสข้อมูล
 ข้อมูลสำคัญทั้งหมดเข้ารหัสด้วย **AES-256-GCM** ก่อนบันทึกลงฐานข้อมูล:
