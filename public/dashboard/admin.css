@@ -1999,6 +1999,13 @@ label {
   .payment-method-card p {
     font-size: 13px;
   }
+
+  /* Demo banner offset: push fixed header below sticky banner.
+     admin-wrapper shifts down by banner height (in flow), so
+     content-container padding-top stays 230px — no double-count. */
+  body.demo-mode-active .header-sticky-group {
+    top: var(--demo-banner-h, 40px);
+  }
 }
 /* ========== Custom Notifications ========== */
 .notification-container {

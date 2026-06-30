@@ -123,6 +123,16 @@ async function initializeDashboard() {
         });
       });
 
+      // Close sidebar when tapping outside (mobile UX parity with normal mode)
+      document.addEventListener('click', (event) => {
+        const sidebar = document.querySelector('.admin-sidebar');
+        if (wrapper && wrapper.classList.contains('mobile-menu-active')) {
+          if (sidebar && !sidebar.contains(event.target) && event.target !== btnMobileMenu) {
+            wrapper.classList.remove('mobile-menu-active');
+          }
+        }
+      });
+
       await loadDemoSettings();
       await loadDemoTransactions();
       applyDemoRestrictions();
@@ -1461,6 +1471,10 @@ function injectDemoBanner() {
     </a>
   `;
   document.body.prepend(banner);
+  // Expose banner height so mobile CSS can offset the fixed header below it
+  const bannerH = banner.offsetHeight || 40;
+  document.documentElement.style.setProperty('--demo-banner-h', bannerH + 'px');
+  document.body.classList.add('demo-mode-active');
 }
 
 // ========== Navigation (Tab Switching) ==========
