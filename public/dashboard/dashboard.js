@@ -101,6 +101,28 @@ function showNotification(message, type = 'success') {
   }, 5000);
 }
 
+// ========== Demo Goal State (module-level so loadDemoGoalSettingsFromData can seed it) ==========
+const demoGoalState = {
+  current: 0,
+  amount: 5000,
+  label: 'ค่ากาแฟ',
+  barColor: '#4ade80',
+  barText: '{เปอร์เซนต์}',
+  subtitle1: '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+  subtitle2: ''
+};
+
+async function sendDemoGoalUpdate() {
+  try {
+    await fetch('/api/demo/goal/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...demoGoalState })
+    });
+    updateGoalPreview(demoGoalState.current, demoGoalState.amount);
+  } catch (e) { console.error('Demo goal update failed:', e); }
+}
+
 async function initializeDashboard() {
   console.log('🚀 Starting initializeDashboard...');
   try {
@@ -196,6 +218,25 @@ async function initializeDashboard() {
           deactivateOverlayPreview();
         });
       }
+
+      // Activate goal subtab by default so visitors see the donation bar first
+      if (demoSubtabGoal) {
+        document.getElementById('overlaySettingsForm')?.style.setProperty('display', 'none');
+        document.getElementById('goalSettingsPanel')?.style.setProperty('display', '');
+        document.getElementById('alertPreviewCard')?.style.setProperty('display', 'none');
+        document.getElementById('goalPreviewCard')?.style.setProperty('display', '');
+        demoSubtabGoal.classList.add('active');
+        if (demoSubtabAlert) demoSubtabAlert.classList.remove('active');
+      }
+
+      // Demo goal bar quick-add buttons: call /api/demo/goal/test instead of blocked fetchWithCsrf
+      document.querySelectorAll('.btn-goal-quick').forEach(btn => {
+        btn.onclick = async () => {
+          const delta = parseFloat(btn.dataset.val) || 0;
+          demoGoalState.current = Math.max(0, demoGoalState.current + delta);
+          await sendDemoGoalUpdate();
+        };
+      });
 
       // Override global transaction functions for demo safety
       window.forceSuccessTransaction = () => showDemoBlockModal();
@@ -1067,10 +1108,61 @@ async function loadDemoSettings() {
     loadPageSettingsFromData(data);
     loadDemoAccountInfo(data);
     loadDemoPaymentInfo(data);
+    loadDemoGoalSettingsFromData(data);
   } catch (e) {
     console.error('Demo settings load failed:', e);
     showNotification('เกิดข้อผิดพลาดในการโหลด Demo', 'error');
   }
+}
+
+function loadDemoGoalSettingsFromData(data) {
+  const chkEnabled = document.getElementById('chkGoalEnabled');
+  if (chkEnabled) chkEnabled.checked = !!data.goal_enabled;
+  const chkSound = document.getElementById('chkGoalAnimSound');
+  if (chkSound) chkSound.checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
+  const chkShowOnDonate = document.getElementById('chkGoalShowOnDonate');
+  if (chkShowOnDonate) chkShowOnDonate.checked = !!data.goal_show_on_donate;
+
+  const posEl = document.getElementById('selectGoalBarPosition');
+  if (posEl) {
+    posEl.value = data.goal_bar_position || 'top';
+    posEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const labelEl = document.getElementById('inputGoalLabel');
+  if (labelEl) labelEl.value = data.goal_label || 'ค่ากาแฟ';
+  const amountEl = document.getElementById('inputGoalAmount');
+  if (amountEl) amountEl.value = data.goal_amount || 5000;
+  const colorEl = document.getElementById('inputGoalBarColor');
+  if (colorEl) colorEl.value = data.goal_bar_color || '#4ade80';
+  const txtColor = document.getElementById('txtGoalBarColor');
+  if (txtColor) txtColor.value = data.goal_bar_color || '#4ade80';
+  const barTextEl = document.getElementById('inputGoalBarText');
+  if (barTextEl) barTextEl.value = data.goal_bar_text !== undefined ? data.goal_bar_text : '{เปอร์เซนต์}';
+  const sub1El = document.getElementById('inputGoalSubtitle1');
+  if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
+  const sub2El = document.getElementById('inputGoalSubtitle2');
+  if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน';
+
+  const current = data.goal_current || 0;
+  const amount  = data.goal_amount  || 5000;
+  updateGoalPreview(current, amount);
+
+  // Seed module-level state so quick-add buttons start from real current value
+  demoGoalState.current   = current;
+  demoGoalState.amount    = amount;
+  demoGoalState.label     = data.goal_label     || 'ค่ากาแฟ';
+  demoGoalState.barColor  = data.goal_bar_color  || '#4ade80';
+  demoGoalState.barText   = data.goal_bar_text   !== undefined ? data.goal_bar_text   : '{เปอร์เซนต์}';
+  demoGoalState.subtitle1 = data.goal_subtitle1  !== undefined ? data.goal_subtitle1  : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
+  demoGoalState.subtitle2 = data.goal_subtitle2  !== undefined ? data.goal_subtitle2  : '';
+
+  // Load goal bar iframe with demo endpoint
+  const iframe = document.getElementById('goalBarPreviewIframe');
+  if (iframe) iframe.src = '/demo/goal-bar';
+
+  // Seed URL input with demo info (no real token needed)
+  const obsUrlEl = document.getElementById('obsGoalBarUrlPreview');
+  if (obsUrlEl) obsUrlEl.value = `${location.origin}/demo/goal-bar`;
 }
 
 function loadDemoAccountInfo(data) {

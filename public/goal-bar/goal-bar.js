@@ -132,14 +132,15 @@
 
   async function init() {
     try {
-      const settingsUrl = token
-        ? `/api/overlay/settings?token=${encodeURIComponent(token)}`
-        : '/api/overlay/settings';
+      const isDemo = window.DEMO_MODE === true;
+      const settingsUrl = isDemo
+        ? '/api/demo/overlay/settings'
+        : (token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings');
       const res = await fetch(settingsUrl);
       if (!res.ok) return;
       const data = await res.json();
 
-      if (!data.goal_enabled) return;
+      if (!data.goal_enabled && !isDemo) return;
 
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
@@ -172,9 +173,10 @@
   function connectSSE() {
     if (eventSource) eventSource.close();
 
-    const streamUrl = token
-      ? `/api/alerts/stream?token=${encodeURIComponent(token)}&source=goal-bar`
-      : '/api/alerts/stream?source=goal-bar';
+    const isDemo = window.DEMO_MODE === true;
+    const streamUrl = isDemo
+      ? '/api/demo/alerts/stream?source=demo-goal-bar'
+      : (token ? `/api/alerts/stream?token=${encodeURIComponent(token)}&source=goal-bar` : '/api/alerts/stream?source=goal-bar');
     eventSource = new EventSource(streamUrl);
 
     eventSource.onmessage = function(e) {

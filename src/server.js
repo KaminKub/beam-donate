@@ -303,6 +303,23 @@ function broadcastDemoAlert(username, alertData) {
   });
 }
 
+// Demo goal bar broadcast: sends ONLY to demo-goal-bar clients
+function broadcastDemoGoalBar(username, goalData) {
+  const data = JSON.stringify(goalData);
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'demo-goal-bar') {
+      try {
+        client.res.write(`data: ${data}\n\n`);
+        client.lastActivity = Date.now();
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 function broadcastGoalUpdate(username, streamer) {
   if (!streamer.goal_enabled) return;
   const payload = JSON.stringify({
@@ -771,8 +788,11 @@ app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
 const MAX_DEMO_SSE_CLIENTS = 50;
 const MAX_DEMO_SSE_PER_IP = 3;
 
+const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar']);
+
 app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
-  const demoClients = sseClients.filter(c => c.source === 'demo-overlay');
+  const clientSource = ALLOWED_DEMO_SOURCES.has(req.query.source) ? req.query.source : 'demo-overlay';
+  const demoClients = sseClients.filter(c => ALLOWED_DEMO_SOURCES.has(c.source));
   if (demoClients.length >= MAX_DEMO_SSE_CLIENTS) {
     return res.status(503).json({ error: 'Too many demo connections' });
   }
@@ -788,8 +808,8 @@ app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no'
   });
-  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Demo overlay connected' })}\n\n`);
-  const clientObj = { res, validated: false, username: DEMO_STREAMER_USERNAME, authMethod: 'demo', lastActivity: now, source: 'demo-overlay', ip: clientIp };
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Demo connected' })}\n\n`);
+  const clientObj = { res, validated: false, username: DEMO_STREAMER_USERNAME, authMethod: 'demo', lastActivity: now, source: clientSource, ip: clientIp };
   sseClients.push(clientObj);
   req.on('close', () => {
     const idx = sseClients.indexOf(clientObj);
@@ -803,6 +823,33 @@ app.get('/demo/overlay', demoRateLimiter, (req, res) => {
   const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(injected);
+});
+
+app.get('/demo/goal-bar', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/goal-bar/index.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
+// Demo goal bar test — broadcasts goal_update to demo-goal-bar SSE clients
+const demoGoalLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => {
+  const { current, amount, label, barColor, barText, subtitle1, subtitle2 } = req.body || {};
+  const goalData = {
+    type: 'goal_update',
+    current: Math.max(0, Math.min(parseFloat(current) || 0, 99999)),
+    amount:  Math.max(1, parseFloat(amount)  || 5000),
+    label:   String(label   || 'ค่ากาแฟ').slice(0, 60),
+    barColor: String(barColor || '#4ade80').slice(0, 20),
+    barText:  String(barText  || '{เปอร์เซนต์}').slice(0, 60),
+    subtitle1: String(subtitle1 || '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿').slice(0, 80),
+    subtitle2: String(subtitle2 || '').slice(0, 80),
+    endDate: null
+  };
+  broadcastDemoGoalBar(DEMO_STREAMER_USERNAME, goalData);
+  res.json({ success: true });
 });
 
 // -----------------------------------------------------------------
