@@ -219,14 +219,15 @@ async function initializeDashboard() {
         });
       }
 
-      // Activate goal subtab by default so visitors see the donation bar first
-      if (demoSubtabGoal) {
-        document.getElementById('overlaySettingsForm')?.style.setProperty('display', 'none');
-        document.getElementById('goalSettingsPanel')?.style.setProperty('display', '');
-        document.getElementById('alertPreviewCard')?.style.setProperty('display', 'none');
-        document.getElementById('goalPreviewCard')?.style.setProperty('display', '');
-        demoSubtabGoal.classList.add('active');
-        if (demoSubtabAlert) demoSubtabAlert.classList.remove('active');
+      // Activate alert subtab by default so visitors see alert settings first
+      if (demoSubtabAlert) {
+        document.getElementById('overlaySettingsForm')?.style.setProperty('display', '');
+        document.getElementById('goalSettingsPanel')?.style.setProperty('display', 'none');
+        document.getElementById('alertPreviewCard')?.style.setProperty('display', '');
+        document.getElementById('goalPreviewCard')?.style.setProperty('display', 'none');
+        demoSubtabAlert.classList.add('active');
+        if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
+        activateOverlayPreview();
       }
 
       // Demo goal bar quick-add buttons: call /api/demo/goal/test instead of blocked fetchWithCsrf
