@@ -205,6 +205,7 @@ async function initializeDashboard() {
           demoSubtabAlert.classList.add('active');
           if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
           activateOverlayPreview();
+          deactivateGoalBarPreview();
         });
       }
       if (demoSubtabGoal) {
@@ -216,6 +217,7 @@ async function initializeDashboard() {
           if (demoSubtabAlert) demoSubtabAlert.classList.remove('active');
           demoSubtabGoal.classList.add('active');
           deactivateOverlayPreview();
+          activateGoalBarPreview();
         });
       }
 
@@ -228,6 +230,7 @@ async function initializeDashboard() {
         demoSubtabAlert.classList.add('active');
         if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
         activateOverlayPreview();
+        deactivateGoalBarPreview();
       }
 
       // Set demo overlay URLs to production domain instead of localhost:3000
@@ -801,6 +804,7 @@ async function initializeDashboard() {
         btnSubtabAlert.classList.add('active');
         btnSubtabGoal.classList.remove('active');
         activateOverlayPreview();
+        deactivateGoalBarPreview();
       });
       btnSubtabGoal.addEventListener('click', () => {
         document.getElementById('overlaySettingsForm').style.display = 'none';
@@ -811,6 +815,7 @@ async function initializeDashboard() {
         btnSubtabGoal.classList.add('active');
         loadGoalSettings();
         deactivateOverlayPreview();
+        activateGoalBarPreview();
       });
     }
 
@@ -1163,10 +1168,6 @@ function loadDemoGoalSettingsFromData(data) {
   demoGoalState.barText   = data.goal_bar_text   !== undefined ? data.goal_bar_text   : '{เปอร์เซนต์}';
   demoGoalState.subtitle1 = data.goal_subtitle1  !== undefined ? data.goal_subtitle1  : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
   demoGoalState.subtitle2 = data.goal_subtitle2  !== undefined ? data.goal_subtitle2  : '';
-
-  // Load goal bar iframe with demo endpoint
-  const iframe = document.getElementById('goalBarPreviewIframe');
-  if (iframe) iframe.src = '/demo/goal-bar';
 
   // Seed URL input with demo info (no real token needed)
   const obsUrlEl = document.getElementById('obsGoalBarUrlPreview');
@@ -1622,12 +1623,17 @@ function switchTab(tabId) {
   if (tabId === 'overlay-config') {
     if (!DEMO_MODE) loadOverlaySettings();
     const alertBtn = document.getElementById('btnSubtabAlert');
+    const goalBtn  = document.getElementById('btnSubtabGoal');
     if (alertBtn && alertBtn.classList.contains('active')) {
       activateOverlayPreview();
+    }
+    if (goalBtn && goalBtn.classList.contains('active')) {
+      activateGoalBarPreview();
     }
   }
   if (tabId !== 'overlay-config') {
     deactivateOverlayPreview();
+    deactivateGoalBarPreview();
   }
   if (tabId === 'page-customization') {
     if (!DEMO_MODE) loadPageSettings();
@@ -1663,6 +1669,21 @@ function activateOverlayPreview() {
 
 function deactivateOverlayPreview() {
   const iframe = document.getElementById('overlayPreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
+}
+
+// ========== Goal Bar Preview Iframe Control ==========
+function activateGoalBarPreview() {
+  const iframe = document.getElementById('goalBarPreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.src = DEMO_MODE ? '/demo/goal-bar' : `${location.origin}/goal-bar`;
+  }
+}
+
+function deactivateGoalBarPreview() {
+  const iframe = document.getElementById('goalBarPreviewIframe');
   if (!iframe) return;
   iframe.src = 'about:blank';
 }
@@ -3089,8 +3110,6 @@ async function loadGoalSettings() {
       const goalBarUrl = `${location.origin}/goal-bar?token=${token}`;
       const obsUrlEl = document.getElementById('obsGoalBarUrlPreview');
       if (obsUrlEl) obsUrlEl.value = goalBarUrl;
-      const iframe = document.getElementById('goalBarPreviewIframe');
-      if (iframe) iframe.src = `${location.origin}/goal-bar`;
     }
   } catch (err) {
     console.error('Failed to load goal settings:', err);
