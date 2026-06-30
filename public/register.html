@@ -261,8 +261,9 @@
       if (checkbox.checked) {
         btnTwitch.classList.remove('btn-disabled');
         btnTwitch.style.pointerEvents = 'auto';
-        btnStreamlabs.classList.remove('btn-disabled');
-        btnStreamlabs.style.pointerEvents = 'auto';
+        // Streamlabs temporarily disabled - TODO: re-enable when OAuth approved
+        btnStreamlabs.classList.add('btn-disabled');
+        btnStreamlabs.style.pointerEvents = 'none';
       } else {
         btnTwitch.classList.add('btn-disabled');
         btnStreamlabs.classList.add('btn-disabled');
