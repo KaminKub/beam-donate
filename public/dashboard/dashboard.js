@@ -222,6 +222,8 @@ async function initializeDashboard() {
       }
 
       // Activate alert subtab by default so visitors see alert settings first
+      // NOTE: do NOT call activateOverlayPreview() here — iframe must only load
+      // when user actually navigates to the overlay-config tab (switchTab handles it)
       if (demoSubtabAlert) {
         document.getElementById('overlaySettingsForm')?.style.setProperty('display', '');
         document.getElementById('goalSettingsPanel')?.style.setProperty('display', 'none');
@@ -229,8 +231,6 @@ async function initializeDashboard() {
         document.getElementById('goalPreviewCard')?.style.setProperty('display', 'none');
         demoSubtabAlert.classList.add('active');
         if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
-        activateOverlayPreview();
-        deactivateGoalBarPreview();
       }
 
       // Set demo overlay URLs to production domain instead of localhost:3000
@@ -2610,10 +2610,15 @@ async function simulateCustomAlert(donor, amount, message) {
       body: JSON.stringify({ donor, amount, message })
     });
     if (res.ok) {
-      console.log('Fired test alert');
+      showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
+    } else if (res.status === 429) {
+      showNotification('ส่ง Alert บ่อยเกินไป กรุณารอสักครู่', 'error');
+    } else {
+      showNotification('ส่ง Alert ไม่สำเร็จ', 'error');
     }
   } catch (err) {
     console.error('Failed to trigger test alert:', err);
+    showNotification('ส่ง Alert ไม่สำเร็จ', 'error');
   }
 }
 
