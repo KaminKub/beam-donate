@@ -188,7 +188,7 @@ async function initializeDashboard() {
       }
 
       // Override global transaction functions for demo safety
-      window.forceSuccessTransaction = () => showNotification('Demo Mode — ไม่สามารถยืนยันสลิปได้', 'info');
+      window.forceSuccessTransaction = () => showDemoBlockModal();
       window.simulateTransactionAlert = async (id) => {
         const tx = allTransactions.find(t => t.id === id);
         if (!tx) return;
@@ -201,6 +201,15 @@ async function initializeDashboard() {
           showNotification('ส่ง Alert ซ้ำแล้ว!', 'success');
         } catch (e) { console.error('Demo re-alert failed:', e); }
       };
+
+      // Prevent form submit buttons from reloading the page — show demo modal instead
+      const overlayForm = document.getElementById('overlaySettingsForm');
+      if (overlayForm) overlayForm.onsubmit = (e) => { e.preventDefault(); showDemoBlockModal(); };
+      const pageForm = document.getElementById('pageSettingsForm');
+      if (pageForm) pageForm.onsubmit = (e) => { e.preventDefault(); showDemoBlockModal(); };
+
+      // Enable payment panel expand/collapse so visitors can browse settings
+      setupDemoPaymentHandlers();
 
       return;
     }
@@ -1319,16 +1328,13 @@ function demoEscapeHTML(str) {
 }
 
 function applyDemoRestrictions() {
-  // Block save buttons
+  // Block save buttons — show modal instead of small notification
   document.querySelectorAll('[id^="btn"][id*="Save"]').forEach(btn => {
     btn.disabled = true;
     btn.title = 'Demo Mode — สมัครสมาชิกเพื่อบันทึก';
     btn.style.opacity = '0.6';
     btn.style.cursor = 'not-allowed';
-    btn.onclick = (e) => {
-      e.preventDefault();
-      showNotification('Demo Mode — สมัครสมาชิกเพื่อตั้งค่าของคุณเอง', 'info');
-    };
+    btn.onclick = (e) => { e.preventDefault(); showDemoBlockModal(); };
   });
 
   // Block upload file inputs
@@ -1360,23 +1366,80 @@ function applyDemoRestrictions() {
     btn.onclick = (e) => { e.preventDefault(); showNotification('Demo Mode — ไม่สามารถดาวน์โหลดได้', 'info'); };
   });
 
-  // Block confirm modal OK (defense-in-depth — fetchWithCsrf already blocks writes)
-  const btnConfirmOk = document.getElementById('btnConfirmOk');
-  if (btnConfirmOk) {
-    btnConfirmOk.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const modal = document.getElementById('confirmModal');
-      if (modal) modal.style.display = 'none';
-      showNotification('Demo Mode — ไม่สามารถดำเนินการนี้ได้', 'info');
-    };
-  }
-
   // Hide logout + account delete (no session in demo)
   const logoutBtn = document.getElementById('btnLogout');
   if (logoutBtn) logoutBtn.style.display = 'none';
   const btnDeleteAccount = document.getElementById('btnDeleteAccount');
   if (btnDeleteAccount) btnDeleteAccount.style.display = 'none';
+}
+
+function showDemoBlockModal() {
+  showConfirmModal(
+    '<i class="fa-solid fa-eye" style="color:#f59e0b;margin-right:8px;"></i>ตัวอย่าง Dashboard',
+    'นี่คือหน้าสาธิต — ไม่สามารถบันทึกข้อมูลได้\n\nสมัครสมาชิกฟรีเพื่อตั้งค่าหน้าโดเนทของคุณเอง',
+    '<i class="fa-solid fa-lock" style="color:#f59e0b;"></i>',
+    () => { window.location.href = '/login'; },
+    'สมัคร / เข้าสู่ระบบ ฟรี',
+    'btn-primary'
+  );
+}
+
+function setupDemoPaymentHandlers() {
+  // Card toggle (visual selection only — no save)
+  document.querySelectorAll('.payment-method-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-settings')) return;
+      const method = card.getAttribute('data-method');
+      if (method === 'ffp') return;
+      card.classList.toggle('active');
+      if (card.classList.contains('active')) showSelectionBubble(card, 'เลือกแล้ว');
+    });
+  });
+
+  // Settings button — open panel for browsing (no active-card requirement in demo)
+  document.querySelectorAll('.btn-settings').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const targetPanelId = btn.getAttribute('data-target');
+      const card = btn.closest('.payment-method-card');
+      if (!card.classList.contains('active')) {
+        card.classList.add('active');
+      }
+      const isOpen = btn.classList.contains('panel-open');
+      if (isOpen) {
+        closeSettingsPanel(targetPanelId);
+        btn.classList.remove('panel-open');
+        card.classList.remove('panel-open');
+      } else {
+        openSettingsPanel(targetPanelId);
+        btn.classList.add('panel-open');
+        card.classList.add('panel-open');
+        setTimeout(() => {
+          const panel = document.getElementById(targetPanelId);
+          if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+      }
+    });
+  });
+
+  // Close panel buttons
+  document.querySelectorAll('.btn-close-panel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetPanelId = btn.getAttribute('data-target');
+      closeSettingsPanel(targetPanelId);
+      const settingsBtn = document.querySelector(`.btn-settings[data-target="${targetPanelId}"]`);
+      if (settingsBtn) {
+        settingsBtn.classList.remove('panel-open');
+        settingsBtn.closest('.payment-method-card')?.classList.remove('panel-open');
+      }
+    });
+  });
+
+  // PromptPay type dropdown
+  const promptpayTypeSelect = document.getElementById('inputPromptPayType');
+  if (promptpayTypeSelect) {
+    promptpayTypeSelect.addEventListener('change', updatePromptPayPlaceholder);
+  }
 }
 
 function injectDemoBanner() {
