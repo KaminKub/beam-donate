@@ -1771,16 +1771,8 @@ async function loadAccountInfo() {
 
       // Handle Twitch Connection
       updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch');
-      // Handle Streamlabs Connection (TEMPORARILY DISABLED - OAuth config pending)
-      const slBtn = document.getElementById('btnConnectStreamlabs');
-      const slStatus = document.getElementById('statusStreamlabs');
-      if (slBtn) {
-        slBtn.textContent = 'รออัปเดต';
-        slBtn.classList.add('btn-disconnected');
-        slBtn.style.pointerEvents = 'none';
-        slBtn.onclick = null;
-      }
-      if (slStatus) slStatus.textContent = 'รออัปเดต';
+      // Handle Streamlabs Connection
+      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs');
 
     } else {
       throw new Error('Failed to load account info');
