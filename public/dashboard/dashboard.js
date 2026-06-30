@@ -230,6 +230,13 @@ async function initializeDashboard() {
         activateOverlayPreview();
       }
 
+      // Set demo overlay URLs to production domain instead of localhost:3000
+      const demoOverlayUrl = `${location.origin}/demo/overlay`;
+      const obsUrlLeft = document.getElementById('obsOverlayUrl');
+      if (obsUrlLeft) obsUrlLeft.value = demoOverlayUrl;
+      const obsUrlPreview = document.getElementById('obsOverlayUrlPreview');
+      if (obsUrlPreview) obsUrlPreview.value = demoOverlayUrl;
+
       // Demo goal bar quick-add buttons: call /api/demo/goal/test instead of blocked fetchWithCsrf
       document.querySelectorAll('.btn-goal-quick').forEach(btn => {
         btn.onclick = async () => {
