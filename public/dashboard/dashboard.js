@@ -889,15 +889,23 @@ async function initializeDashboard() {
     // Goal reset button
     const btnGoalReset = document.getElementById('btnGoalReset');
     if (btnGoalReset) {
-      btnGoalReset.addEventListener('click', async () => {
-        if (!confirm('รีเซ็ตยอดโดเนทปัจจุบันเป็น 0?')) return;
-        await fetchWithCsrf('/api/goal/reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}'
-        });
-        const amount = parseFloat(document.getElementById('inputGoalAmount').value);
-        updateGoalPreview(0, amount);
+      btnGoalReset.addEventListener('click', () => {
+        showConfirmModal(
+          'รีเซ็ตยอดโดเนท',
+          'คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตยอดโดเนทปัจจุบันเป็น 0?',
+          '<i class="fa-solid fa-rotate-left"></i>',
+          async () => {
+            await fetchWithCsrf('/api/goal/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}'
+            });
+            const amount = parseFloat(document.getElementById('inputGoalAmount').value);
+            updateGoalPreview(0, amount);
+          },
+          'รีเซ็ต',
+          'btn-danger'
+        );
       });
     }
 
