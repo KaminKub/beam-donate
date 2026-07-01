@@ -1404,10 +1404,8 @@ app.get('/alert-test', (req, res) => {
 
 app.get('/admin', async (req, res) => {
   if (req.isAuthenticated()) {
-    const user = req.user;
-    const userId = user.twitch_id || user.id;
     try {
-      const streamer = await db.getStreamerById(userId);
+      const streamer = await getStreamerForUser(req.user);
       if (streamer) {
         return res.redirect(`/${streamer.username.toLowerCase()}/dashboard`);
       }
@@ -1573,17 +1571,8 @@ async function validateUsername(req, res, next) {
 async function ensureUserOwner(req, res, next) {
   if (req.isAuthenticated()) {
     const { username } = req.params;
-    const user = req.user;
-
-    const userId = user.twitch_id || user.streamlabs_id || user.id;
-    
-    if (!userId) {
-      console.error('❌ Ownership check failed: No user ID found in session');
-      return res.redirect('/forbidden.html?reason=noauth');
-    }
-
     try {
-      const streamer = await db.getStreamerById(userId);
+      const streamer = await getStreamerForUser(req.user);
       if (streamer && streamer.username.toLowerCase() === username.toLowerCase()) {
         return next();
       }
@@ -2005,11 +1994,8 @@ app.post('/api/logout', sameOriginCheck, (req, res) => {
 
 app.delete('/api/user/delete', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
-    const user = req.user;
-    const twitchId = user.twitch_id || user.id;
-    
     // Verify ownership one last time
-    const streamer = await db.getStreamerById(twitchId);
+    const streamer = await getStreamerForUser(req.user);
     if (!streamer) return res.status(404).json({ error: 'User not found' });
     
     console.log(`🗑️ [User Delete] Deleting user: ${streamer.username} (ID: ${streamer.id})`);
@@ -2393,10 +2379,7 @@ app.get('/api/csrf-token', ensureAuthenticated, (req, res) => {
 
 app.get('/api/overlay/token', ensureAuthenticated, async (req, res) => {
   try {
-    const user = req.user;
-    const twitchId = user.twitch_id || user.id;
-    const streamer = await db.getStreamerById(twitchId);
-    
+    const streamer = await getStreamerForUser(req.user);
     if (streamer && streamer.overlay_token) {
       res.json({ token: streamer.overlay_token });
     } else {
