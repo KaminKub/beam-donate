@@ -884,7 +884,7 @@ async function saveStreamer(data) {
                goal_subtitle2 = COALESCE(?, streamers.goal_subtitle2),
                goal_anim_sound = COALESCE(?, streamers.goal_anim_sound),
                goal_bar_position = COALESCE(?, streamers.goal_bar_position)
-               WHERE twitch_id = ?`,
+               WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -979,7 +979,7 @@ async function saveStreamer(data) {
           finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : null,
           finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : null,
           finalData.goal_bar_position !== undefined ? finalData.goal_bar_position : null,
-          finalData.twitch_id || null
+          existing.id
         ]
       });
   } else {

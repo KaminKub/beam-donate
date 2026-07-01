@@ -6,6 +6,13 @@ let allTransactions = [];
 let activeTab = 'dashboard';
 let _csrfToken = null;
 
+const tabLoaded = {
+  'overlay-config': false,
+  'page-customization': false,
+  'account': false,
+  'payment-setup': false,
+};
+
 // Popup OAuth callback: if this page opened as popup result, notify parent then close
 (function() {
   const params = new URLSearchParams(window.location.search);
@@ -299,7 +306,6 @@ async function initializeDashboard() {
     console.log('📡 Triggering data loads...');
     fetchTransactions();
     fetchUserPaymentStatus();
-    loadPageSettings().catch(err => console.error('Initial settings load failed:', err));
 
     const btnMobileMenu = document.getElementById('btnMobileMenu');
     const wrapper = document.querySelector('.admin-wrapper');
@@ -772,7 +778,6 @@ async function initializeDashboard() {
     updateObsUrl();
     updateOverlayStatus();
     setInterval(updateOverlayStatus, 30000); // Check every 30 seconds
-    loadOverlaySettings();
 
     document.querySelectorAll('.menu-item').forEach(item => {
       item.addEventListener('click', (e) => {
@@ -1486,7 +1491,7 @@ function applyDemoRestrictions() {
   });
 
   // Block upload file inputs
-  ['profileImageFile', 'headerBgFile', 'pageBgFile'].forEach(id => {
+  ['profileImageFile', 'headerBgFile', 'pageBgFile', 'customImageFile', 'uploadSoundFile'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.disabled = true;
@@ -1502,6 +1507,16 @@ function applyDemoRestrictions() {
     btn.style.opacity = '0.5';
     btn.style.cursor = 'not-allowed';
     btn.onclick = (e) => { e.preventDefault(); showNotification('Demo Mode — ไม่สามารถทดสอบการเชื่อมต่อได้', 'info'); };
+  });
+
+  // Block OAuth connect buttons
+  ['btnConnectStreamlabs'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.onclick = (e) => { e.preventDefault(); showDemoBlockModal(); };
   });
 
   // Block download CSV
@@ -1616,6 +1631,27 @@ function injectDemoBanner() {
 }
 
 // ========== Navigation (Tab Switching) ==========
+function showTabLoading(tabId) {
+  const section = document.getElementById(`tab-${tabId}`);
+  if (!section || section.querySelector('.tab-loading-bar')) return;
+  const bar = document.createElement('div');
+  bar.className = 'tab-loading-bar';
+  const spinner = document.createElement('div');
+  spinner.className = 'tab-loading-spinner';
+  const label = document.createElement('span');
+  label.textContent = 'กำลังโหลด...';
+  bar.appendChild(spinner);
+  bar.appendChild(label);
+  section.insertBefore(bar, section.firstChild);
+}
+
+function hideTabLoading(tabId) {
+  const section = document.getElementById(`tab-${tabId}`);
+  if (!section) return;
+  const bar = section.querySelector('.tab-loading-bar');
+  if (bar) bar.remove();
+}
+
 function switchTab(tabId) {
   activeTab = tabId;
   
@@ -1658,7 +1694,10 @@ function switchTab(tabId) {
     fetchTransactions();
   }
   if (tabId === 'overlay-config') {
-    if (!DEMO_MODE) loadOverlaySettings();
+    if (!DEMO_MODE && !tabLoaded['overlay-config']) {
+      tabLoaded['overlay-config'] = true;
+      loadOverlaySettings();
+    }
     const alertBtn = document.getElementById('btnSubtabAlert');
     const goalBtn  = document.getElementById('btnSubtabGoal');
     if (alertBtn && alertBtn.classList.contains('active')) {
@@ -1673,10 +1712,16 @@ function switchTab(tabId) {
     deactivateGoalBarPreview();
   }
   if (tabId === 'page-customization') {
-    if (!DEMO_MODE) loadPageSettings();
+    if (!DEMO_MODE && !tabLoaded['page-customization']) {
+      tabLoaded['page-customization'] = true;
+      loadPageSettings();
+    }
   }
   if (tabId === 'account') {
-    if (!DEMO_MODE) loadAccountInfo();
+    if (!DEMO_MODE && !tabLoaded['account']) {
+      tabLoaded['account'] = true;
+      loadAccountInfo();
+    }
   }
   if (tabId === 'payment-setup') {
     requestAnimationFrame(() => {
@@ -1691,7 +1736,10 @@ function switchTab(tabId) {
         });
       });
     });
-    if (!DEMO_MODE) loadPaymentSettings();
+    if (!DEMO_MODE && !tabLoaded['payment-setup']) {
+      tabLoaded['payment-setup'] = true;
+      loadPaymentSettings();
+    }
   }
 }
 
@@ -1771,6 +1819,7 @@ btnConfirmOk.onclick = async () => {
 // ========== Account Management Logic ==========
 
 async function loadAccountInfo() {
+  showTabLoading('account');
   try {
     const response = await fetch('/api/user/me');
     if (response.ok) {
@@ -1788,6 +1837,9 @@ async function loadAccountInfo() {
   } catch (err) {
     console.error('Error loading account info:', err);
     document.getElementById('accUsername').textContent = 'Error';
+    tabLoaded['account'] = false;
+  } finally {
+    hideTabLoading('account');
   }
 }
 
@@ -2153,6 +2205,10 @@ async function fetchUserPaymentStatus() {
     if (!response.ok) return;
     const user = await response.json();
 
+    // Sidebar brand identity (logo + glow) is global — must apply at startup
+    // regardless of which tab is active, since page-customization is now lazy-loaded.
+    applyBrandIdentity(user);
+
     const connected = user.slipok_connected || user.truemoney_slipok_connected;
     renderSlipokDashCard(connected);
 
@@ -2161,6 +2217,16 @@ async function fetchUserPaymentStatus() {
     }
   } catch (err) {
     console.error('fetchUserPaymentStatus error:', err);
+  }
+}
+
+function applyBrandIdentity(user) {
+  if (!user) return;
+  if (user.profileImage) {
+    setMediaPreview(document.getElementById('brandLogoImg'), user.profileImage);
+  }
+  if (user.profileGlowColor) {
+    updateBrandGlow(user.profileGlowColor);
   }
 }
 
@@ -3067,6 +3133,7 @@ function toggleProfanitySubSettings(enabled) {
 }
 
 async function loadOverlaySettings() {
+  showTabLoading('overlay-config');
   try {
     const response = await fetch('/api/overlay/settings');
     if (response.ok) {
@@ -3164,6 +3231,9 @@ async function loadOverlaySettings() {
     }
   } catch (err) {
     console.error('Failed to load overlay settings:', err);
+    tabLoaded['overlay-config'] = false;
+  } finally {
+    hideTabLoading('overlay-config');
   }
 }
 
@@ -3318,6 +3388,7 @@ function updateOverlayPreview(settings) {
 
 // ========== Page Customization Logic ==========
 async function loadPageSettings() {
+  showTabLoading('page-customization');
   try {
     const pathParts = window.location.pathname.split('/');
     const username = pathParts[1];
@@ -3413,6 +3484,9 @@ async function loadPageSettings() {
     
   } catch (err) {
     console.error('Load page settings error:', err);
+    tabLoaded['page-customization'] = false;
+  } finally {
+    hideTabLoading('page-customization');
   }
 }
 
@@ -4124,6 +4198,7 @@ function validatePromptPaySettings() {
 }
 
 async function loadPaymentSettings() {
+  showTabLoading('payment-setup');
   try {
     const response = await fetch('/api/payment/settings');
     if (!response.ok) return;
@@ -4175,6 +4250,9 @@ async function loadPaymentSettings() {
     if (data.truemoney_slipok_connected) fetchQuotaMini('truemoney');
   } catch (err) {
     console.error('Load payment settings error:', err);
+    tabLoaded['payment-setup'] = false;
+  } finally {
+    hideTabLoading('payment-setup');
   }
 }
 

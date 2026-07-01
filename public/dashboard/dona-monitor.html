@@ -792,6 +792,7 @@
     }
 
     async function fetchMonitorQuota() {
+      if (window.DEMO_MODE) return;
       var textEl = document.getElementById('quotaMonitorText');
       var barEl = document.getElementById('quotaMonitorBar');
       var badge = document.getElementById('quotaMonitorBadge');
@@ -854,7 +855,7 @@
       }
 
       var dashBtn = document.getElementById('btnOpenDashboard');
-      if (dashBtn) dashBtn.href = '/' + getUsername() + '/dashboard';
+      if (dashBtn) dashBtn.href = window.DEMO_MODE ? '/demo/dashboard' : ('/' + getUsername() + '/dashboard');
 
       var btnRefresh = document.getElementById('btnRefresh');
       btnRefresh.addEventListener('click', async function() {

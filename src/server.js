@@ -927,7 +927,11 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
     console.error(`❌ [Register Complete] Invalid username characters: ${normalizedUsername}`);
     return res.status(400).json({ error: 'Username must be 3–30 characters: a-z, 0-9, underscore only' });
   }
-  
+  if (RESERVED_WORDS.includes(normalizedUsername)) {
+    console.error(`❌ [Register Complete] Reserved username attempted: ${normalizedUsername}`);
+    return res.status(400).json({ error: 'Username นี้ถูกสงวนไว้ กรุณาเลือกชื่ออื่น' });
+  }
+
   try {
     console.log(`🔎 [Register Complete] Checking if ${normalizedUsername} exists...`);
     const existingUser = await db.getStreamer(normalizedUsername);
@@ -1458,7 +1462,11 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
   }
 });
 
-const RESERVED_WORDS = ['login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register'];
+const RESERVED_WORDS = [
+  'login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register',
+  'admin', 'demo', 'health', 'goal-bar', 'webhook', 'login-failed',
+  'privacy', 'terms-of-services',
+];
 
 function isReservedPath(path) {
   const firstSegment = path.split('/')[1];
@@ -1822,14 +1830,18 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
     const actualUsername = await getActualUsername(req.user);
     const streamer = await db.getStreamer(actualUsername);
     if (!streamer) return res.status(404).json({ error: 'User not found in database' });
-    
+
+    const profileImage = await db.resolveProfileImage(streamer);
+
     res.json({
       username: streamer.username,
       twitchId: streamer.twitch_id,
       streamlabsId: streamer.streamlabs_id,
       email: req.user.email || 'Not provided',
       slipok_connected: !!streamer.slipok_connected,
-      truemoney_slipok_connected: !!streamer.truemoney_slipok_connected
+      truemoney_slipok_connected: !!streamer.truemoney_slipok_connected,
+      profileImage,
+      profileGlowColor: streamer.profile_glow_color || '#005704'
     });
   } catch (err) {
     console.error('Get user info error:', err);
@@ -2478,8 +2490,9 @@ app.get('/:username', validateUsername, (req, res) => {
       return res.status(500).send('เกิดข้อผิดพลาดในการโหลดหน้าเว็บ');
     }
     const streamer = req.streamer;
+    if (!streamer) return res.status(404).send('ไม่พบผู้ใช้งานรายนี้ในระบบ');
     let htmlContent = DONATE_TEMPLATE;
- 
+
     const ogTitle = `TipKub | ${streamer.page_title || streamer.username}`;
     const ogDescription = streamer.page_subtitle || 'สนับสนุนสตรีมเมอร์ที่คุณรักผ่าน TipKub';
     const ogImage = streamer.profile_image_value
