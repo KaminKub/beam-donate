@@ -20,13 +20,13 @@ const tabLoaded = {
   params.delete('sl_linked');
   const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
   history.replaceState({}, '', clean);
-  if (window.opener && !window.opener.closed) {
-    try {
-      window.opener.postMessage({ type: 'sl_linked', success: true }, window.location.origin);
-      window.close();
-      return;
-    } catch (e) {}
-  }
+  try {
+    const bc = new BroadcastChannel('sl_oauth');
+    bc.postMessage({ type: 'sl_linked', success: true });
+    bc.close();
+    window.close();
+    return;
+  } catch (e) {}
   // Not in popup — switch to conn-platform after dashboard init
   window._slLinkedOnLoad = true;
 }());
@@ -1980,6 +1980,7 @@ function openStreamlabsPopup(btn, statusEl, row) {
   );
 
   let done = false;
+  let bc = null;
 
   function onMessage(event) {
     if (event.origin !== window.location.origin) return;
@@ -2007,6 +2008,7 @@ function openStreamlabsPopup(btn, statusEl, row) {
   function cleanup() {
     clearInterval(pollTimer);
     clearTimeout(timeoutTimer);
+    if (bc) { try { bc.close(); } catch(e) {} bc = null; }
     window.removeEventListener('message', onMessage);
     document.getElementById('slConnectHint')?.remove();
   }
@@ -2028,7 +2030,12 @@ function openStreamlabsPopup(btn, statusEl, row) {
     }
   }, SL_POPUP_TIMEOUT_MS);
 
-  window.addEventListener('message', onMessage);
+  try {
+    bc = new BroadcastChannel('sl_oauth');
+    bc.onmessage = (e) => onMessage({ origin: window.location.origin, data: e.data });
+  } catch(err) {
+    window.addEventListener('message', onMessage);
+  }
 }
 
 function openTwitchOAuth(btn, authUrl) {

@@ -1267,7 +1267,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           delete req.session.slOauthMode;
           if (isPopup) {
             return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
-              if(window.opener){window.opener.postMessage({type:'sl_conflict',success:false},window.location.origin);}
+              try{var bc=new BroadcastChannel('sl_oauth');bc.postMessage({type:'sl_conflict',success:false});bc.close();}catch(e){}
               window.close();
             </script></body></html>`);
           }
@@ -1283,7 +1283,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
             delete req.session.slOauthMode;
             if (isPopup) {
               return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
-                if(window.opener){window.opener.postMessage({type:'sl_conflict',success:false},window.location.origin);}
+                try{var bc=new BroadcastChannel('sl_oauth');bc.postMessage({type:'sl_conflict',success:false});bc.close();}catch(e){}
                 window.close();
               </script></body></html>`);
             }
@@ -1306,7 +1306,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           req.session.save(() => {
             if (isPopup) {
               return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
-                if(window.opener){window.opener.postMessage({type:'sl_linked',success:true},window.location.origin);}
+                try{var bc=new BroadcastChannel('sl_oauth');bc.postMessage({type:'sl_linked',success:true});bc.close();}catch(e){}
                 window.close();
               </script></body></html>`);
             }
