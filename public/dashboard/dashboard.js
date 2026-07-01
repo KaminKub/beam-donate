@@ -31,6 +31,21 @@ const tabLoaded = {
   window._slLinkedOnLoad = true;
 }());
 
+// Identity collision / link result flags — read query params before DOM ready, handle in initializeDashboard
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('twitch_conflict') === '1') {
+    history.replaceState({}, '', window.location.pathname);
+    window._twitchConflictOnLoad = true;
+  } else if (params.get('twitch_linked') === '1') {
+    history.replaceState({}, '', window.location.pathname);
+    window._twitchLinkedOnLoad = true;
+  } else if (params.get('sl_conflict') === '1') {
+    history.replaceState({}, '', window.location.pathname);
+    window._slConflictOnLoad = true;
+  }
+}());
+
 function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
 
 function setMediaPreview(imgEl, url) {
@@ -1133,8 +1148,20 @@ async function initializeDashboard() {
 
     if (window._slLinkedOnLoad) {
       window._slLinkedOnLoad = false;
-      switchTab('conn-platform');
+      switchTab('account');
       showNotification('เชื่อมต่อ Streamlabs สำเร็จ', 'success');
+    } else if (window._twitchConflictOnLoad) {
+      window._twitchConflictOnLoad = false;
+      switchTab('account');
+      showNotification('Twitch นี้ถูกเชื่อมต่อกับบัญชี TipKub อื่นอยู่แล้ว กรุณาใช้บัญชีนั้นโดยตรง', 'error');
+    } else if (window._twitchLinkedOnLoad) {
+      window._twitchLinkedOnLoad = false;
+      switchTab('account');
+      showNotification('เชื่อมต่อ Twitch สำเร็จ', 'success');
+    } else if (window._slConflictOnLoad) {
+      window._slConflictOnLoad = false;
+      switchTab('account');
+      showNotification('Streamlabs นี้ถูกเชื่อมต่อกับบัญชี TipKub อื่นอยู่แล้ว กรุณาใช้บัญชีนั้นโดยตรง', 'error');
     }
 
     console.log('✅ initializeDashboard completed successfully');
