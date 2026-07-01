@@ -1854,9 +1854,9 @@ async function loadAccountInfo() {
       document.getElementById('accUsername').textContent = data.username;
 
       // Handle Twitch Connection
-      updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch');
+      updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch', data.authProvider);
       // Handle Streamlabs Connection
-      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs');
+      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs', data.authProvider);
 
     } else {
       throw new Error('Failed to load account info');
@@ -1870,27 +1870,46 @@ async function loadAccountInfo() {
   }
 }
 
-function updateConnectionBtn(id, connected, authUrl, statusId) {
+function updateConnectionBtn(id, connected, authUrl, statusId, authProvider) {
   const btn = document.getElementById(id);
   if (!btn) return;
 
   const row = btn.closest('.connection-row');
+  const platform = row ? row.dataset.platform : null;
   const statusEl = statusId ? document.getElementById(statusId) : null;
+
+  const disconnectIconId = id.replace('btnConnect', 'btnDisconnect');
+  const disconnectIcon = document.getElementById(disconnectIconId);
+
+  const badgeId = 'primaryBadge' + (platform === 'twitch' ? 'Twitch' : 'Streamlabs');
+  const primaryBadge = document.getElementById(badgeId);
 
   if (connected) {
     btn.innerHTML = 'เชื่อมต่อแล้ว';
     btn.classList.add('btn-connected');
     btn.classList.remove('btn-disconnected');
+    btn.disabled = false;
     if (row) row.classList.add('is-connected');
     if (statusEl) {
       statusEl.textContent = 'เชื่อมต่อแล้ว';
       statusEl.classList.add('connected');
     }
     btn.onclick = null;
+
+    if (authProvider && authProvider !== platform && disconnectIcon) {
+      disconnectIcon.style.display = '';
+    } else if (disconnectIcon) {
+      disconnectIcon.style.display = 'none';
+    }
+
+    if (authProvider === platform && primaryBadge) {
+      primaryBadge.style.display = '';
+    }
   } else {
     btn.innerHTML = 'เชื่อมต่อ';
     btn.classList.remove('btn-connected');
     btn.classList.add('btn-disconnected');
+    btn.disabled = false;
     if (row) row.classList.remove('is-connected');
     if (statusEl) {
       statusEl.textContent = 'ยังไม่ได้เชื่อมต่อ';
@@ -1898,13 +1917,48 @@ function updateConnectionBtn(id, connected, authUrl, statusId) {
     }
     if (id === 'btnConnectStreamlabs') {
       btn.onclick = () => openStreamlabsPopup(btn, statusEl, row);
+    } else if (id === 'btnConnectTwitch') {
+      btn.onclick = () => openTwitchOAuth(btn, authUrl);
     } else {
       btn.onclick = () => window.location.href = authUrl;
     }
+
+    if (disconnectIcon) disconnectIcon.style.display = 'none';
+    if (primaryBadge) primaryBadge.style.display = 'none';
   }
 }
 
 const SL_POPUP_TIMEOUT_MS = 90 * 1000; // 90s — covers login+2FA worst case on mobile
+
+async function verifyStreamlabsConnection(retryCount = 0, maxRetries = 3) {
+  try {
+    const response = await fetch('/api/user/me');
+    if (!response.ok) throw new Error('API error');
+    const data = await response.json();
+
+    if (data.streamlabsId) {
+      updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs', data.authProvider);
+      document.getElementById('accUsername').textContent = data.username;
+      return;
+    }
+
+    if (retryCount < maxRetries) {
+      console.log(`[SL Verify] Retry ${retryCount + 1}/${maxRetries} — session not ready yet`);
+      setTimeout(() => verifyStreamlabsConnection(retryCount + 1, maxRetries), 800);
+      return;
+    }
+
+    console.warn('[SL Verify] Max retries reached, force updating UI');
+    updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs', data.authProvider);
+    document.getElementById('accUsername').textContent = data.username;
+
+  } catch (err) {
+    console.error('[SL Verify] Error:', err);
+    if (retryCount < maxRetries) {
+      setTimeout(() => verifyStreamlabsConnection(retryCount + 1, maxRetries), 800);
+    }
+  }
+}
 
 function openStreamlabsPopup(btn, statusEl, row) {
   const prevHTML = btn.innerHTML;
@@ -1929,11 +1983,16 @@ function openStreamlabsPopup(btn, statusEl, row) {
 
   function onMessage(event) {
     if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.type !== 'sl_linked') return;
+    if (!event.data || (event.data.type !== 'sl_linked' && event.data.type !== 'sl_conflict')) return;
     done = true;
     cleanup();
-    if (event.data.success) {
-      loadAccountInfo();
+    if (event.data.type === 'sl_conflict') {
+      resetBtn();
+      switchTab('account');
+      showNotification('Streamlabs นี้ถูกเชื่อมต่อกับบัญชี TipKub อื่นอยู่แล้ว กรุณาใช้บัญชีนั้นโดยตรง', 'error');
+    } else if (event.data.success) {
+      verifyStreamlabsConnection();
+      tabLoaded['account'] = false;
       showNotification('เชื่อมต่อ Streamlabs สำเร็จ', 'success');
     } else {
       resetBtn();
@@ -1970,6 +2029,24 @@ function openStreamlabsPopup(btn, statusEl, row) {
   }, SL_POPUP_TIMEOUT_MS);
 
   window.addEventListener('message', onMessage);
+}
+
+function openTwitchOAuth(btn, authUrl) {
+  const prevHTML = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    window.location.href = authUrl;
+  }, 80);
+
+  window.addEventListener('pageshow', function onPageShow(e) {
+    if (e.persisted) {
+      btn.innerHTML = prevHTML;
+      btn.disabled = false;
+    }
+    window.removeEventListener('pageshow', onPageShow);
+  }, { once: true });
 }
 
 async function handleAccountDeletion() {
@@ -4494,3 +4571,57 @@ async function savePaymentSettings() {
     showNotification(err.message, 'error');
   }
 }
+
+// ========== Connection Disconnect ==========
+
+function disconnectPlatform(platform, iconEl) {
+  const name = platform === 'twitch' ? 'Twitch' : 'Streamlabs';
+
+  showConfirmModal(
+    `ยกเลิกการเชื่อมต่อ ${name}`,
+    `ต้องการยกเลิกการเชื่อมต่อ ${name} ใช่หรือไม่? สามารถเชื่อมต่อใหม่ได้ตลอดเวลา`,
+    '<i class="fa-solid fa-link-slash" style="color:#ef4444;"></i>',
+    async () => {
+      const savedClass = iconEl.className;
+      const savedColor = iconEl.style.color;
+      iconEl.className = 'fa-solid fa-spinner fa-spin btn-disconnect';
+      iconEl.style.color = '#94a3b8';
+      iconEl.style.pointerEvents = 'none';
+
+      try {
+        const response = await fetchWithCsrf('/api/connections/disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showNotification(`ยกเลิกการเชื่อมต่อ ${name} สำเร็จ`, 'success');
+          tabLoaded['account'] = false;
+          loadAccountInfo();
+        } else {
+          showNotification(data.error || `ไม่สามารถยกเลิกการเชื่อมต่อ ${name} ได้`, 'error');
+          iconEl.className = savedClass;
+          iconEl.style.color = savedColor;
+          iconEl.style.pointerEvents = '';
+        }
+      } catch (err) {
+        console.error(`[Disconnect] Error disconnecting ${platform}:`, err);
+        showNotification(`เกิดข้อผิดพลาดในการยกเลิกการเชื่อมต่อ ${name}`, 'error');
+        iconEl.className = savedClass;
+        iconEl.style.color = savedColor;
+        iconEl.style.pointerEvents = '';
+      }
+    },
+    'ยกเลิกการเชื่อมต่อ',
+    'btn-danger'
+  );
+}
+
+document.getElementById('btnDisconnectTwitch')?.addEventListener('click', function() {
+  disconnectPlatform('twitch', this);
+});
+document.getElementById('btnDisconnectStreamlabs')?.addEventListener('click', function() {
+  disconnectPlatform('streamlabs', this);
+});

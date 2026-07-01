@@ -1366,8 +1366,8 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           console.error('❌ [Streamlabs] Session save error:', err);
           return res.redirect('/login-failed');
         }
-        console.log('✅ [Streamlabs] Session saved, redirecting to /register');
-              return res.redirect('/register');
+        console.log('✅ [Streamlabs] Session saved, redirecting to /register/setup');
+        return res.redirect('/register/setup');
       });
     }
 
@@ -1906,6 +1906,15 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
   }
 });
 
+function determinePrimaryAuth(streamerRow) {
+  const hasTwitch = !!streamerRow.twitch_id;
+  const hasStreamlabs = !!streamerRow.streamlabs_id;
+  if (hasTwitch && !hasStreamlabs) return 'twitch';
+  if (!hasTwitch && hasStreamlabs) return 'streamlabs';
+  if (hasTwitch && hasStreamlabs && streamerRow.twitch_id === streamerRow.streamlabs_id) return 'streamlabs';
+  return 'twitch';
+}
+
 app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
@@ -1918,6 +1927,7 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       username: streamer.username,
       twitchId: streamer.twitch_id,
       streamlabsId: streamer.streamlabs_id,
+      authProvider: determinePrimaryAuth(streamer),
       email: req.user.email || 'Not provided',
       slipok_connected: !!streamer.slipok_connected,
       truemoney_slipok_connected: !!streamer.truemoney_slipok_connected,
@@ -1926,6 +1936,52 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
     });
   } catch (err) {
     console.error('Get user info error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const disconnectConnLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('⚠️ [Disconnect] Rate limit hit IP:', req.ip);
+    res.status(429).json({ error: 'Too many disconnect attempts', code: 'RATE_LIMITED' });
+  }
+});
+
+app.post('/api/connections/disconnect', ensureAuthenticated, csrfProtection, disconnectConnLimiter, async (req, res) => {
+  try {
+    const { platform } = req.body;
+    if (!platform || !['twitch', 'streamlabs'].includes(platform)) {
+      return res.status(400).json({ error: 'Invalid platform. Use "twitch" or "streamlabs".' });
+    }
+
+    const actualUsername = await getActualUsername(req.user);
+    const streamer = await db.getStreamer(actualUsername);
+    if (!streamer) return res.status(404).json({ error: 'User not found' });
+
+    const primaryAuth = determinePrimaryAuth(streamer);
+    if (primaryAuth === platform) {
+      return res.status(403).json({
+        error: 'ไม่สามารถยกเลิกการเชื่อมต่อบัญชีหลักได้',
+        code: 'PRIMARY_ACCOUNT'
+      });
+    }
+
+    const currentId = platform === 'twitch' ? streamer.twitch_id : streamer.streamlabs_id;
+    if (!currentId) {
+      return res.status(400).json({ error: `ไม่ได้เชื่อมต่อ ${platform} อยู่แล้ว`, code: 'NOT_CONNECTED' });
+    }
+
+    await db.disconnectPlatform(streamer.id, platform);
+
+    console.log(`🔌 [Disconnect] User ${actualUsername} disconnected ${platform}`);
+
+    res.json({ success: true, platform, message: `ยกเลิกการเชื่อมต่อ ${platform} สำเร็จ` });
+  } catch (err) {
+    console.error('❌ [Disconnect] Error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

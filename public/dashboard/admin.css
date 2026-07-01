@@ -2079,6 +2079,21 @@ label {
     padding: 15px 0 25px 0;
     border-bottom: 1px solid var(--border-color);
   }
+  .connection-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .conn-platform {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .conn-actions {
+    flex-shrink: 0;
+  }
+  .btn-conn {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+  }
 }
 
 /* ========== Account & Connection List ========== */
@@ -2210,6 +2225,43 @@ label {
 .btn-disconnected:hover {
   background: var(--primary) !important;
   color: #fff !important;
+}
+
+.conn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-disconnect {
+  font-size: 1.1rem;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.btn-disconnect:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.15);
+  transform: scale(1.15);
+}
+
+.conn-primary-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  vertical-align: middle;
+  margin-left: 6px;
+  white-space: nowrap;
 }
 
 /* ========== Sound Browser Modal ========== */

@@ -1441,6 +1441,17 @@ async function updateGoalCurrent(streamerId, additionalAmount) {
   return row.rows[0] || null;
 }
 
+async function disconnectPlatform(streamerId, platform) {
+  await ensureConnected();
+  if (isFallback || !db) throw new Error('Database not available');
+  if (!['twitch', 'streamlabs'].includes(platform)) throw new Error('Invalid platform');
+  const column = platform === 'twitch' ? 'twitch_id' : 'streamlabs_id';
+  await db.execute({
+    sql: `UPDATE streamers SET ${column} = NULL WHERE id = ?`,
+    args: [streamerId]
+  });
+}
+
 async function resetGoalCurrent(streamerId) {
   await ensureConnected();
   if (isFallback || !db) return null;
@@ -1478,6 +1489,7 @@ module.exports = {
   getDecryptedStreamer,
   saveStreamer,
   updateGoalCurrent,
+  disconnectPlatform,
   resetGoalCurrent,
   deleteStreamer,
   resolveProfileImage,
