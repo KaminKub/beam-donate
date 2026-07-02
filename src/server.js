@@ -1137,6 +1137,7 @@ function extractPlatformFromStreamlabs(userData) {
   const PLATFORM_KEYS = ['twitch', 'youtube', 'tiktok', 'facebook', 'streamlabs'];
 
   // Format A: flat platform sub-objects (includes streamlabs key itself)
+  const sl = userData.streamlabs;
   for (const key of PLATFORM_KEYS) {
     const p = userData[key];
     if (p && p.id) {
@@ -1144,7 +1145,10 @@ function extractPlatformFromStreamlabs(userData) {
         platformId: String(p.id),
         platformType: key,
         platformName: p.display_name || p.name || p.username || p.title || null,
-        platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || p.thumbnail || p.picture || p.logo || p.profile_picture || p.image || null
+        platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || p.thumbnail || p.picture || p.logo || p.profile_picture || p.image
+          || (sl && (sl.thumbnail || sl.profile_image_url || sl.avatar || sl.picture || sl.logo))
+          || userData.profile_image
+          || null
       };
     }
   }
@@ -1165,7 +1169,6 @@ function extractPlatformFromStreamlabs(userData) {
   }
 
   // Format C fallback: top-level or streamlabs sub-object
-  const sl = userData.streamlabs;
   return {
     platformId: (sl && sl.id) ? String(sl.id) : (userData.id ? String(userData.id) : null),
     platformType: 'streamlabs',
@@ -1238,12 +1241,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     const userData = userResponse.data;
 
     const platform = extractPlatformFromStreamlabs(userData);
-
-    if (platform.platformType === 'youtube' || !platform.platformImage) {
-      const sl = userData.streamlabs;
-      console.log('🔎 [SL Debug] platformImage:', platform.platformImage, '| profile_image:', userData.profile_image || '(none)');
-      if (sl) console.log('🔎 [SL Debug] streamlabs keys:', Object.keys(sl).join(', '));
-    }
 
     if (!platform.platformId) {
       console.error('❌ [Streamlabs] No platform ID. userData keys:', Object.keys(userData).join(', '));
