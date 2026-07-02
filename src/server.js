@@ -1136,7 +1136,7 @@ app.get('/auth/twitch/callback',
         };
         req.session.save((err) => {
           if (err) console.error('❌ Session save error during registration:', err);
-          return res.redirect('/register');
+          return res.redirect('/register/setup');
         });
       }
     } catch (err) {
@@ -1387,7 +1387,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           return res.redirect('/login-failed');
         }
         console.log('✅ [Streamlabs] Session saved, redirecting to /register');
-        return res.redirect('/register');
+        return res.redirect('/register/setup');
       });
     }
 
