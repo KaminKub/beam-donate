@@ -28,6 +28,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
+const { determinePrimaryAuth } = require('./auth-helpers');
 
 
 const app = express();
@@ -997,7 +998,8 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       is_active: 1,
       profile_image_value: avatarUrl,
       profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null,
-      tos_accepted_at: new Date().toISOString()
+      tos_accepted_at: new Date().toISOString(),
+      primary_auth_provider: pending.streamlabsId ? 'streamlabs' : 'twitch'
     });
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
@@ -1916,15 +1918,6 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
   }
 });
 
-function determinePrimaryAuth(streamerRow) {
-  const hasTwitch = !!streamerRow.twitch_id;
-  const hasStreamlabs = !!streamerRow.streamlabs_id;
-  if (hasTwitch && !hasStreamlabs) return 'twitch';
-  if (!hasTwitch && hasStreamlabs) return 'streamlabs';
-  if (hasTwitch && hasStreamlabs && streamerRow.twitch_id === streamerRow.streamlabs_id) return 'streamlabs';
-  return 'twitch';
-}
-
 app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
@@ -1977,6 +1970,13 @@ app.post('/api/connections/disconnect', ensureAuthenticated, csrfProtection, dis
       return res.status(403).json({
         error: 'ไม่สามารถยกเลิกการเชื่อมต่อบัญชีหลักได้',
         code: 'PRIMARY_ACCOUNT'
+      });
+    }
+
+    if (streamer.twitch_id && streamer.streamlabs_id && streamer.twitch_id === streamer.streamlabs_id) {
+      return res.status(403).json({
+        error: 'ไม่สามารถยกเลิกการเชื่อมต่อได้ เนื่องจาก Twitch และ Streamlabs ใช้บัญชีเดียวกัน',
+        code: 'SAME_ACCOUNT_LINKED'
       });
     }
 

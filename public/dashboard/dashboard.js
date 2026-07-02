@@ -106,6 +106,9 @@ async function fetchWithCsrf(url, options = {}) {
       headers['X-CSRF-Token'] = fresh;
       return fetch(url, { ...options, headers });
     }
+    if (body !== null) {
+      return { ok: false, status: 403, json: async () => body, headers: res.headers };
+    }
   }
   return res;
 }
