@@ -1239,6 +1239,12 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 
     const platform = extractPlatformFromStreamlabs(userData);
 
+    if (platform.platformType === 'youtube' || !platform.platformImage) {
+      const sl = userData.streamlabs;
+      console.log('🔎 [SL Debug] platformImage:', platform.platformImage, '| profile_image:', userData.profile_image || '(none)');
+      if (sl) console.log('🔎 [SL Debug] streamlabs keys:', Object.keys(sl).join(', '));
+    }
+
     if (!platform.platformId) {
       console.error('❌ [Streamlabs] No platform ID. userData keys:', Object.keys(userData).join(', '));
       throw new Error('No identifiable platform ID from Streamlabs profile');
