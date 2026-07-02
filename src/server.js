@@ -939,7 +939,10 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
     return res.status(401).json({ error: 'Session expired. Please log in again.' });
   }
   
-  const { username } = req.body;
+  const { username, tos_accepted } = req.body;
+  if (!tos_accepted) {
+    return res.status(400).json({ error: 'ต้องยอมรับข้อกำหนดการใช้บริการก่อนสมัคร' });
+  }
   console.log(`📝 [Register Complete] Attempting to register username: ${username}`);
   
   if (!username) {
@@ -993,7 +996,8 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       overlay_token: crypto.randomBytes(16).toString('hex'),
       is_active: 1,
       profile_image_value: avatarUrl,
-      profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null
+      profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null,
+      tos_accepted_at: new Date().toISOString()
     });
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
@@ -1007,6 +1011,7 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
         return res.status(500).json({ error: 'Failed to establish session' });
       }
       console.log(`🚀 [Register Complete] Session established for ${normalizedUsername}. Sending success response.`);
+      db.logIpEvent('register', req.ip, normalizedUsername).catch(() => {});
       res.json({ success: true, username: normalizedUsername });
     });
   } catch (err) {
@@ -1794,7 +1799,8 @@ app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
   try {
     const expiredCount = await db.cleanupExpiredTransactions();
     const deletedCount = await db.hardDeleteExpiredTransactions();
-    res.json({ success: true, expired: expiredCount, deleted: deletedCount });
+    const ipDeleted = await db.cleanupOldIpEvents(90);
+    res.json({ success: true, expired: expiredCount, deleted: deletedCount, ip_events_deleted: ipDeleted });
   } catch (err) {
     console.error('Cron cleanup-expired error:', err);
     res.status(500).json({ error: 'Cleanup failed' });
@@ -2910,7 +2916,9 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       const candidate = inferBasePlan(currentQuota);
       const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
-        twitch_id: twitchId,
+        twitch_id: req.user.twitch_id || null,
+        streamlabs_id: req.user.streamlabs_id || null,
+        username: actualUsername,
         truemoney_slipok_connected: 1,
         truemoney_slipok_last_check: new Date().toISOString(),
         truemoney_phone: realTruemoneyPhone,
@@ -2924,7 +2932,9 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       const candidate = inferBasePlan(currentQuota);
       const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
-        twitch_id: twitchId,
+        twitch_id: req.user.twitch_id || null,
+        streamlabs_id: req.user.streamlabs_id || null,
+        username: actualUsername,
         slipok_connected: 1,
         slipok_last_check: new Date().toISOString(),
         promptpay_type: realPromptpayType,
@@ -3182,6 +3192,7 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
       createdAt: new Date().toISOString()
     };
     await db.saveTransaction(txData);
+    db.logIpEvent('donate_submit', req.ip, username, { amount, ref: referenceId }).catch(() => {});
 
     res.json({
       success: true,
@@ -3356,6 +3367,7 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
             paidAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
           });
+          db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'truemoney', ref: referenceIdNew }).catch(() => {});
 
           broadcastAlert(username, {
             type: 'donation',

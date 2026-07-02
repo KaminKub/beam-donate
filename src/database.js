@@ -195,7 +195,8 @@ async function migrateDB() {
         goal_subtitle1 TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
         goal_subtitle2 TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน',
         goal_anim_sound INTEGER DEFAULT 1,
-        goal_bar_position TEXT DEFAULT 'top'
+        goal_bar_position TEXT DEFAULT 'top',
+        tos_accepted_at TEXT DEFAULT NULL
       )
     `);
 
@@ -225,6 +226,16 @@ async function migrateDB() {
         sid TEXT PRIMARY KEY,
         session TEXT,
         expires INTEGER
+      )
+    `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS ip_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        ip TEXT NOT NULL,
+        streamer_username TEXT,
+        metadata TEXT,
+        created_at TEXT NOT NULL
       )
     `);
 
@@ -334,7 +345,8 @@ async function migrateDB() {
       { name: 'goal_subtitle1', type: "TEXT DEFAULT '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿'" },
       { name: 'goal_subtitle2', type: "TEXT DEFAULT 'ปิดหลอดใน {วันคงเหลือ} วัน'" },
       { name: 'goal_anim_sound', type: 'INTEGER DEFAULT 1' },
-      { name: 'goal_bar_position', type: "TEXT DEFAULT 'top'" }
+      { name: 'goal_bar_position', type: "TEXT DEFAULT 'top'" },
+      { name: 'tos_accepted_at', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -883,7 +895,8 @@ async function saveStreamer(data) {
                goal_subtitle1 = COALESCE(?, streamers.goal_subtitle1),
                goal_subtitle2 = COALESCE(?, streamers.goal_subtitle2),
                goal_anim_sound = COALESCE(?, streamers.goal_anim_sound),
-               goal_bar_position = COALESCE(?, streamers.goal_bar_position)
+               goal_bar_position = COALESCE(?, streamers.goal_bar_position),
+               tos_accepted_at = COALESCE(?, streamers.tos_accepted_at)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -979,6 +992,7 @@ async function saveStreamer(data) {
           finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : null,
           finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : null,
           finalData.goal_bar_position !== undefined ? finalData.goal_bar_position : null,
+          finalData.tos_accepted_at !== undefined ? finalData.tos_accepted_at : null,
           existing.id
         ]
       });
@@ -995,8 +1009,8 @@ async function saveStreamer(data) {
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_bar_position)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_bar_position, tos_accepted_at)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1091,7 +1105,8 @@ async function saveStreamer(data) {
         finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
         finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน',
         finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : 1,
-        finalData.goal_bar_position || 'top'
+        finalData.goal_bar_position || 'top',
+        finalData.tos_accepted_at || null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1452,6 +1467,38 @@ async function disconnectPlatform(streamerId, platform) {
   });
 }
 
+async function logIpEvent(eventType, ip, streamerUsername, metadata) {
+  await ensureConnected();
+  if (isFallback || !db) return;
+  try {
+    await db.execute({
+      sql: 'INSERT INTO ip_events (event_type, ip, streamer_username, metadata, created_at) VALUES (?, ?, ?, ?, ?)',
+      args: [
+        eventType,
+        ip || 'unknown',
+        streamerUsername || null,
+        metadata ? JSON.stringify(metadata) : null,
+        new Date().toISOString()
+      ]
+    });
+  } catch (e) {
+    console.warn('⚠️ logIpEvent failed (non-critical):', e.message);
+  }
+}
+
+async function cleanupOldIpEvents(days = 90) {
+  await ensureConnected();
+  if (isFallback || !db) return 0;
+  const result = await db.execute({
+    sql: `DELETE FROM ip_events WHERE datetime(created_at) < datetime('now', ?)`,
+    args: [`-${Math.max(1, parseInt(days, 10) || 90)} days`]
+  });
+  if (result.rowsAffected > 0) {
+    console.log(`🗑️ Deleted ${result.rowsAffected} ip_events older than ${days} days`);
+  }
+  return result.rowsAffected;
+}
+
 async function resetGoalCurrent(streamerId) {
   await ensureConnected();
   if (isFallback || !db) return null;
@@ -1493,5 +1540,7 @@ module.exports = {
   resetGoalCurrent,
   deleteStreamer,
   resolveProfileImage,
-  getAllR2Refs
+  getAllR2Refs,
+  logIpEvent,
+  cleanupOldIpEvents
 };

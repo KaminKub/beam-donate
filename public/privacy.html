@@ -126,6 +126,37 @@
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .ai-summary-box {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 3rem;
+    }
+    .ai-summary-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    .summary-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .summary-item {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      font-size: 0.95rem;
+      color: #e2e8f0;
+    }
+    .summary-icon {
+      font-size: 1.1rem;
+    }
   </style>
 </head>
 <body>
@@ -137,7 +168,55 @@
 
   <div class="policy-container">
     <h1>นโยบายความเป็นส่วนตัว</h1>
-    
+    <p style="text-align:center;color:#64748b;font-size:0.9rem;margin-top:-1rem;margin-bottom:2rem;">อัปเดตล่าสุด: 2 กรกฎาคม 2569</p>
+
+    <div class="ai-summary-box">
+      <div class="ai-summary-header">
+        <span>✨ สรุปโดย AI</span>
+      </div>
+      <div class="summary-list">
+        <div class="summary-item">
+          <span class="summary-icon">🔒</span>
+          <span>เก็บเฉพาะข้อมูลที่จำเป็น: Twitch/Streamlabs ID, ชื่อผู้ใช้, รูปโปรไฟล์ และข้อมูลรับเงิน — ไม่เก็บ Email หรือ Password</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🔐</span>
+          <span>ข้อมูลรับเงิน (เบอร์/พร้อมเพย์) และ API Key เข้ารหัส AES-256-GCM ก่อนเก็บใน DB เสมอ</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🍪</span>
+          <span>ใช้ Cookie เฉพาะ Strictly Necessary (tipkub.sid) — ไม่มีคุกกี้โฆษณาหรือ Analytics</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🖼️</span>
+          <span>รูปภาพโปรไฟล์เก็บใน Cloudflare R2 — ลบอัตโนมัติภายใน 30 วันเมื่อเปลี่ยนรูปหรือปิดบัญชี</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🗑️</span>
+          <span>ข้อมูลโดเนท: Pending หมดอายุ 30 นาที → Expired ลบใน 7 วัน → Completed ล้างอัตโนมัติทุก 90 วัน</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🤝</span>
+          <span>ส่งข้อมูลไปยัง: Twitch, Streamlabs, SlipOK, Cloudflare R2, Turso Cloud และ Google TTS (เฉพาะเมื่อเปิดใช้งาน) — ไม่ขายข้อมูล</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">📄</span>
+          <span>ไม่จัดเก็บไฟล์สลิปบน Server — ส่ง SlipOK ตรวจสอบแล้วลบจากหน่วยความจำทันที</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">✅</span>
+          <span>สิทธิ์ PDPA ครบ 6 ข้อ: เข้าถึง / แก้ไข / ลบ / โต้แย้ง / จำกัดการประมวลผล / โอนย้ายข้อมูล — ติดต่อผ่าน OpenLink ตอบภายใน 30 วัน</span>
+        </div>
+      </div>
+    </div>
+
+    <h2>0. ผู้ควบคุมข้อมูลส่วนบุคคล (Data Controller)</h2>
+    <p>TipKub ดำเนินการโดยบุคคลธรรมดา (Sole Operator) ในฐานะผู้ควบคุมข้อมูลส่วนบุคคลตาม พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) หากมีข้อสงสัยหรือต้องการใช้สิทธิ์ใดๆ ติดต่อได้ที่:</p>
+    <ul>
+      <li><strong>ช่องทางติดต่อ:</strong> <a href="https://www.openlink.co/kaminkub" target="_blank" style="color:var(--primary);text-decoration:none;">Kaminkub - OpenLink Profile</a></li>
+      <li><strong>เว็บไซต์:</strong> tipkub.me</li>
+    </ul>
+
     <h2>1. ข้อมูลที่เราเก็บรวบรวม</h2>
     <p>เพื่อการใช้งานแพลตฟอร์ม TipKub เรามีการเก็บรวบรวมข้อมูลที่จำเป็นดังนี้:</p>
     <ul>
@@ -149,10 +228,26 @@
     </ul>
 
     <h2>2. การใช้คุกกี้ (Cookies)</h2>
-    <p>เราใช้คุกกี้ประเภท <strong>Strictly Necessary Cookies</strong> ซึ่งมีความจำเป็นอย่างยิ่งต่อการทำงานของเว็บไซต์:</p>
-    <ul>
-      <li>ใช้สำหรับรักษาเซสชัน (Session) การล็อกอินของคุณ เพื่อให้คุณสามารถจัดการหน้า Dashboard ได้อย่างต่อเนื่องโดยไม่ต้องล็อกอินใหม่ทุกครั้งที่เปลี่ยนหน้า</li>
-    </ul>
+    <p>เราใช้คุกกี้ประเภท <strong>Strictly Necessary Cookies</strong> เท่านั้น ซึ่งมีความจำเป็นต่อการทำงานของเว็บไซต์ ไม่มีคุกกี้โฆษณาหรือ analytics:</p>
+    <table class="tp-table">
+      <thead>
+        <tr>
+          <th>ชื่อ Cookie</th>
+          <th>วัตถุประสงค์</th>
+          <th>อายุ</th>
+          <th>Attributes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>tipkub.sid</code></td>
+          <td>รักษา session การล็อกอินของ streamer เพื่อจัดการ Dashboard โดยไม่ต้อง login ซ้ำ</td>
+          <td>7 วัน (หรือจนกว่าจะ logout)</td>
+          <td><code>httpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>httpOnly</strong>: JavaScript ไม่สามารถอ่าน cookie นี้ได้ (ป้องกัน XSS) | <strong>Secure</strong>: ส่งผ่าน HTTPS เท่านั้น | <strong>SameSite=Lax</strong>: ป้องกัน CSRF cross-site request</p>
 
     <h2>3. การรักษาความปลอดภัยและการแบ่งปันข้อมูล</h2>
     <p>เราให้ความสำคัญกับความเป็นส่วนตัวของคุณอย่างสูงสุด:</p>
@@ -160,6 +255,64 @@
       <li>เรา<strong>ไม่มี</strong>การขายข้อมูลส่วนบุคคลของคุณให้กับบุคคลที่สาม</li>
       <li>ข้อมูลการเชื่อมต่อ API ของบริการชำระเงิน (SlipOK ซึ่ง TipKub <strong>ไม่ใช่พันธมิตรอย่างเป็นทางการ</strong>) รวมถึงเบอร์โทรศัพท์และรหัสรับเงินพร้อมเพย์จะถูกเข้ารหัสด้วย AES-256-GCM และเก็บรักษาเป็นความลับ ใช้เพื่อการประมวลผลยอดบริจาคเท่านั้น</li>
       <li>กุญแจถอดรหัส (Encryption Key) จะถูกเก็บรักษาโดยผู้ให้บริการเท่านั้น ไม่มีการเปิดเผยต่อบุคคลที่สาม</li>
+    </ul>
+
+    <h2>3.1 ผู้ให้บริการภายนอก (Third-Party Processors)</h2>
+    <p>TipKub ส่งข้อมูลไปยังผู้ให้บริการภายนอกดังต่อไปนี้เพื่อวัตถุประสงค์ที่ระบุ:</p>
+    <style>
+      .tp-table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.95rem; }
+      .tp-table th { background:rgba(102,126,234,0.2); color:#a5b4fc; padding:0.6rem 0.75rem; text-align:left; font-weight:600; }
+      .tp-table td { padding:0.6rem 0.75rem; color:#cbd5e1; border-bottom:1px solid rgba(255,255,255,0.07); vertical-align:top; }
+      .tp-table tr:last-child td { border-bottom:none; }
+    </style>
+    <table class="tp-table">
+      <thead>
+        <tr>
+          <th>ผู้ให้บริการ</th>
+          <th>ข้อมูลที่ส่ง</th>
+          <th>วัตถุประสงค์</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Twitch</strong></td>
+          <td>Twitch ID, ชื่อผู้ใช้, URL รูปโปรไฟล์</td>
+          <td>ยืนยันตัวตน (OAuth)</td>
+        </tr>
+        <tr>
+          <td><strong>Streamlabs</strong></td>
+          <td>Streamlabs ID, ชื่อผู้ใช้, URL รูปโปรไฟล์, access token</td>
+          <td>ยืนยันตัวตน (OAuth)</td>
+        </tr>
+        <tr>
+          <td><strong>SlipOK</strong></td>
+          <td>ภาพสลิปโอนเงิน (ชั่วคราว ไม่จัดเก็บ), API key ของ streamer</td>
+          <td>ตรวจสอบสลิปโอนเงิน</td>
+        </tr>
+        <tr>
+          <td><strong>Cloudflare R2</strong></td>
+          <td>รูปโปรไฟล์, รูป header, รูปพื้นหลัง Dashboard</td>
+          <td>จัดเก็บและส่งมอบรูปภาพ (CDN)</td>
+        </tr>
+        <tr>
+          <td><strong>Turso Cloud</strong></td>
+          <td>ข้อมูล streamer, ประวัติรายการ, session data (เข้ารหัสก่อนจัดเก็บ)</td>
+          <td>ฐานข้อมูลหลัก (SQLite Cloud)</td>
+        </tr>
+        <tr>
+          <td><strong>Google Translate (TTS)</strong></td>
+          <td>ข้อความของผู้บริจาค (donor message) ที่เปิด Text-to-Speech</td>
+          <td>แปลงข้อความเป็นเสียงสำหรับ OBS alert</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>⚠️ <strong>หมายเหตุ Google TTS:</strong> ข้อความ donor message ทุกชิ้นที่เปิดฟีเจอร์ TTS จะถูกส่งไปยัง <code>translate.google.com</code> เพื่อแปลงเป็นเสียง ซึ่งอาจรวมถึงชื่อผู้บริจาค กรุณาระมัดระวังข้อมูลส่วนบุคคลในข้อความ</p>
+
+    <h2>3.2 การจัดเก็บรูปภาพใน Cloudflare R2</h2>
+    <ul>
+      <li>รูปโปรไฟล์, header background และ page background ที่ streamer ตั้งค่าไว้จะถูกจัดเก็บใน Cloudflare R2 (Object Storage) ซึ่งตั้งอยู่ใน Region Asia Pacific</li>
+      <li>รูปภาพจะถูกเก็บตราบเท่าที่บัญชี streamer ยังมีอยู่ในระบบ</li>
+      <li>เมื่อ streamer ลบบัญชีหรือเปลี่ยนรูป รูปภาพเก่าจะถูกลบออกจาก R2 โดยอัตโนมัติภายใน 30 วัน</li>
     </ul>
 
     <h2>4. นโยบายเกี่ยวกับข้อมูลสลิปโอนเงิน</h2>
@@ -170,9 +323,116 @@
       <li><strong>SlipOK เป็นบุคคลที่สาม:</strong> การตรวจสอบสลิปดำเนินการโดย SlipOK ซึ่งเป็นบริการบุคคลที่สาม ผู้ใช้งานต้องสมัครบัญชีกับ SlipOK โดยตรง และยอมรับนโยบายความเป็นส่วนตัวของ SlipOK แยกต่างหาก</li>
     </ul>
 
-    <h2>5. การติดต่อ</h2>
-    <p>หากคุณมีข้อสงสัยเกี่ยวกับนโยบายความเป็นส่วนตัว สามารถติดต่อเจ้าของเว็บไซต์ได้ที่:</p>
-    <p><a href="https://www.openlink.co/kaminkub" target="_blank" style="color: var(--primary); text-decoration: none;">Kaminkub - OpenLink Profile</a></p>
+    <h2>5. ระยะเวลาการเก็บรักษาข้อมูล (Retention Policy)</h2>
+    <table class="tp-table">
+      <thead>
+        <tr>
+          <th>ประเภทข้อมูล</th>
+          <th>ระยะเวลาเก็บ</th>
+          <th>หมายเหตุ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ข้อมูล Streamer (account)</td>
+          <td>จนกว่าจะลบบัญชี</td>
+          <td>ลบได้โดยติดต่อผ่าน <a href="https://www.openlink.co/kaminkub" target="_blank" style="color:var(--primary);text-decoration:none;">OpenLink</a></td>
+        </tr>
+        <tr>
+          <td>รูปภาพ (Cloudflare R2)</td>
+          <td>จนกว่าจะลบบัญชีหรือเปลี่ยนรูป</td>
+          <td>ลบออก R2 ภายใน 30 วันหลังเปลี่ยน</td>
+        </tr>
+        <tr>
+          <td>รายการโดเนท (Pending)</td>
+          <td>30 นาที</td>
+          <td>หมดเวลาอัตโนมัติ</td>
+        </tr>
+        <tr>
+          <td>รายการโดเนท (Expired)</td>
+          <td>7 วัน</td>
+          <td>ลบอัตโนมัติ</td>
+        </tr>
+        <tr>
+          <td>รายการโดเนท (Completed)</td>
+          <td>90 วัน</td>
+          <td>ล้างอัตโนมัติทุก 3 เดือน</td>
+        </tr>
+        <tr>
+          <td>Session data</td>
+          <td>7 วันหรือจนกว่าจะ logout</td>
+          <td>Cookie httpOnly, Secure, SameSite=Lax</td>
+        </tr>
+        <tr>
+          <td>ภาพสลิปโอนเงิน</td>
+          <td>ไม่เก็บ</td>
+          <td>ส่ง SlipOK แล้วลบจากหน่วยความจำทันที</td>
+        </tr>
+        <tr>
+          <td>IP Address + เหตุการณ์ (ip_events)</td>
+          <td>90 วัน</td>
+          <td>เก็บตาม พ.ร.บ.คอมพิวเตอร์ ม.26 — ลบอัตโนมัติทุกไตรมาส</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>6. ฐานทางกฎหมายในการประมวลผลข้อมูล (Lawful Basis)</h2>
+    <table class="tp-table">
+      <thead>
+        <tr>
+          <th>ข้อมูล</th>
+          <th>ฐานทางกฎหมาย</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Twitch/Streamlabs ID, ชื่อผู้ใช้</td>
+          <td>การปฏิบัติตามสัญญา (Contract) — จำเป็นสำหรับการสร้างบัญชีและหน้าโดเนท</td>
+        </tr>
+        <tr>
+          <td>ข้อมูลการรับเงิน (เบอร์, พร้อมเพย์)</td>
+          <td>การปฏิบัติตามสัญญา (Contract) — จำเป็นสำหรับการรับโดเนท</td>
+        </tr>
+        <tr>
+          <td>ข้อมูลการตั้งค่า Dashboard</td>
+          <td>ความยินยอม (Consent) — ผู้ใช้กรอกเอง</td>
+        </tr>
+        <tr>
+          <td>Donor message (TTS)</td>
+          <td>ประโยชน์โดยชอบธรรม (Legitimate Interest) — ฟีเจอร์ alert สตรีม</td>
+        </tr>
+        <tr>
+          <td>รูปภาพโปรไฟล์ (R2)</td>
+          <td>การปฏิบัติตามสัญญา (Contract) — แสดงผลหน้าโดเนท</td>
+        </tr>
+        <tr>
+          <td>Session cookie</td>
+          <td>ความจำเป็นสำคัญ (Strictly Necessary) — ไม่ต้องขอ consent</td>
+        </tr>
+        <tr>
+          <td>IP Address + metadata (ip_events)</td>
+          <td>ภาระผูกพันทางกฎหมาย (Legal Obligation) — พ.ร.บ.คอมพิวเตอร์ ม.26 เก็บเพื่อให้สามารถระบุตัวผู้กระทำผิดได้ตามคำขอหน่วยงานรัฐ</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>7. สิทธิ์ของเจ้าของข้อมูลส่วนบุคคล (Data Subject Rights)</h2>
+    <p>ในฐานะเจ้าของข้อมูลส่วนบุคคลตาม PDPA มาตรา 30-37 คุณมีสิทธิ์ดังต่อไปนี้:</p>
+    <ul>
+      <li><strong>สิทธิ์เข้าถึงข้อมูล (Right of Access):</strong> ขอดูว่าเราเก็บข้อมูลอะไรของคุณบ้าง</li>
+      <li><strong>สิทธิ์แก้ไขข้อมูล (Right to Rectification):</strong> ขอให้แก้ไขข้อมูลที่ไม่ถูกต้อง</li>
+      <li><strong>สิทธิ์ลบข้อมูล (Right to Erasure):</strong> ขอให้ลบข้อมูลส่วนบุคคลของคุณ</li>
+      <li><strong>สิทธิ์โต้แย้งการประมวลผล (Right to Object):</strong> โต้แย้งการประมวลผลที่อ้าง Legitimate Interest</li>
+      <li><strong>สิทธิ์จำกัดการประมวลผล (Right to Restriction):</strong> ขอให้หยุดประมวลผลชั่วคราวระหว่างตรวจสอบ</li>
+      <li><strong>สิทธิ์โอนย้ายข้อมูล (Right to Portability):</strong> ขอรับข้อมูลในรูปแบบที่อ่านได้ด้วยเครื่อง</li>
+    </ul>
+    <p>ใช้สิทธิ์โดยติดต่อผ่าน <a href="https://www.openlink.co/kaminkub" target="_blank" style="color:var(--primary);text-decoration:none;">Kaminkub - OpenLink Profile</a> เราจะตอบกลับภายใน 30 วัน</p>
+
+    <h2>8. การติดต่อ</h2>
+    <p>หากคุณมีข้อสงสัยเกี่ยวกับนโยบายความเป็นส่วนตัว ติดต่อได้ที่:</p>
+    <ul>
+      <li><a href="https://www.openlink.co/kaminkub" target="_blank" style="color: var(--primary); text-decoration: none;">Kaminkub - OpenLink Profile</a> — สำหรับคำถามทั่วไป, PDPA, แจ้งปัญหา และการใช้สิทธิ์ข้อมูลส่วนบุคคล</li>
+    </ul>
 
     <a href="/" class="back-link">
       <i class="fa-solid fa-arrow-left"></i> กลับสู่หน้าหลัก
