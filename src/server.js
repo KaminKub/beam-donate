@@ -966,7 +966,7 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
 
     // Upload Twitch avatar to R2 on first registration (Approach 2: cache to R2)
     let avatarUrl = pending.profileImage || null;
-    const avatarUploadId = pending.twitchId || (pending.streamlabsPlatform === 'twitch' ? pending.streamlabsId : null);
+    const avatarUploadId = pending.twitchId || pending.streamlabsId || null;
     if (avatarUrl && avatarUrl.startsWith('http') && avatarUploadId) {
       const r2Url = await uploadAvatarFromUrl(avatarUrl, avatarUploadId);
       if (r2Url) {
@@ -1144,7 +1144,7 @@ function extractPlatformFromStreamlabs(userData) {
         platformId: String(p.id),
         platformType: key,
         platformName: p.display_name || p.name || p.username || p.title || null,
-        platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || p.thumbnail || null
+        platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || p.thumbnail || p.picture || p.logo || p.profile_picture || p.image || null
       };
     }
   }
@@ -1158,7 +1158,7 @@ function extractPlatformFromStreamlabs(userData) {
           platformId: String(p.id),
           platformType: key,
           platformName: p.display_name || p.name || p.username || null,
-          platformImage: null
+          platformImage: p.profile_image_url || p.thumbnail_url || p.icon_url || p.avatar || p.thumbnail || p.picture || p.logo || null
         };
       }
     }
@@ -1170,7 +1170,7 @@ function extractPlatformFromStreamlabs(userData) {
     platformId: (sl && sl.id) ? String(sl.id) : (userData.id ? String(userData.id) : null),
     platformType: 'streamlabs',
     platformName: (sl && (sl.display_name || sl.username)) || userData.username || null,
-    platformImage: (sl && (sl.thumbnail || sl.profile_image_url || sl.avatar)) || userData.profile_image || null
+    platformImage: (sl && (sl.thumbnail || sl.profile_image_url || sl.avatar || sl.picture || sl.logo)) || userData.profile_image || null
   };
 }
 
@@ -1238,13 +1238,6 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     const userData = userResponse.data;
 
     const platform = extractPlatformFromStreamlabs(userData);
-
-    if (platform.platformType === 'youtube' || !platform.platformImage) {
-      console.log('🔎 [Streamlabs Debug] userData keys:', Object.keys(userData).join(', '));
-      if (userData.youtube) console.log('🔎 [Streamlabs Debug] userData.youtube keys:', Object.keys(userData.youtube).join(', '));
-      if (userData.platforms?.youtube) console.log('🔎 [Streamlabs Debug] userData.platforms.youtube keys:', Object.keys(userData.platforms.youtube).join(', '));
-      console.log('🔎 [Streamlabs Debug] platformImage result:', platform.platformImage);
-    }
 
     if (!platform.platformId) {
       console.error('❌ [Streamlabs] No platform ID. userData keys:', Object.keys(userData).join(', '));
@@ -1341,7 +1334,11 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       await db.saveStreamer({
         ...existingUser,
         streamlabs_access_token: accessToken,
-        streamlabs_refresh_token: refreshToken
+        streamlabs_refresh_token: refreshToken,
+        ...((!existingUser.profile_image_value || existingUser.profile_image_value === '/avatar.jpg') && profileImage && profileImage !== '/avatar.jpg'
+          ? { profile_image_value: profileImage, profile_image_source: streamlabsPlatform }
+          : {}
+        )
       });
       
       // Create a session for this user
