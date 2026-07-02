@@ -11,6 +11,7 @@ const tabLoaded = {
   'page-customization': false,
   'account': false,
   'payment-setup': false,
+  'feedback': false,
 };
 
 // Popup OAuth callback: if this page opened as popup result, notify parent then close
@@ -1707,7 +1708,8 @@ function switchTab(tabId) {
     'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของ OBS Stream' },
     'page-customization': { title: 'Page Customization', subtitle: 'ปรับแต่งหน้าโดเนท โปรไฟล์ และลิงก์โซเชียลมีเดีย' },
     'account': { title: 'User Account', subtitle: 'จัดการข้อมูลส่วนตัวและความปลอดภัยของบัญชี' },
-    'payment-setup': { title: 'Payment Setup', subtitle: 'ตั้งค่าวิธีรับเงินบริจาคจากผู้ชม' }
+    'payment-setup': { title: 'Payment Setup', subtitle: 'ตั้งค่าวิธีรับเงินบริจาคจากผู้ชม' },
+    'feedback': { title: 'เสนอไอเดีย & Feedback', subtitle: 'ช่วยพัฒนา TipKub ให้ดีขึ้น' }
   };
 
 
@@ -1766,6 +1768,12 @@ function switchTab(tabId) {
     if (!DEMO_MODE && !tabLoaded['payment-setup']) {
       tabLoaded['payment-setup'] = true;
       loadPaymentSettings();
+    }
+  }
+  if (tabId === 'feedback') {
+    if (!tabLoaded['feedback']) {
+      tabLoaded['feedback'] = true;
+      initFeedbackTab();
     }
   }
 }
@@ -4632,3 +4640,67 @@ document.getElementById('btnDisconnectTwitch')?.addEventListener('click', functi
 document.getElementById('btnDisconnectStreamlabs')?.addEventListener('click', function() {
   disconnectPlatform('streamlabs', this);
 });
+
+// ========== Feedback Tab ==========
+function initFeedbackTab() {
+  const btn = document.getElementById('btnSendFeedback');
+  const textarea = document.getElementById('feedbackMessage');
+  const charCount = document.getElementById('feedbackCharCount');
+  const statusEl = document.getElementById('feedbackStatus');
+
+  textarea.addEventListener('input', () => {
+    charCount.textContent = textarea.value.length;
+  });
+
+  btn.addEventListener('click', () => {
+    const type = document.getElementById('feedbackType').value;
+    const message = textarea.value.trim();
+
+    if (message.length < 10) {
+      showFeedbackStatus('กรุณากรอกรายละเอียดอย่างน้อย 10 ตัวอักษร', 'error');
+      return;
+    }
+
+    const typeLabel = { idea: 'ไอเดีย / Feature ใหม่', bug: 'รายงานบัค / ปัญหา', ux: 'ปรับปรุง UI/UX', question: 'คำถาม / ขอความช่วยเหลือ' };
+    const preview = message.length > 80 ? message.slice(0, 80) + '…' : message;
+
+    showConfirmModal(
+      '<i class="fa-brands fa-discord" style="color:#5865f2;margin-right:8px;"></i>ยืนยันการส่ง Feedback',
+      `ประเภท: ${typeLabel[type]}\n\n"${preview}"\n\nข้อความนี้จะถูกส่งตรงถึงนักพัฒนาผ่าน Discord — ไม่แสดงต่อสาธารณะ`,
+      '<i class="fa-solid fa-paper-plane" style="color:#fb923c;"></i>',
+      async () => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...';
+        try {
+          const res = await fetchWithCsrf('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, message }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showFeedbackStatus('ส่ง Feedback สำเร็จ! ขอบคุณที่ช่วยพัฒนา TipKub 🙏', 'success');
+            textarea.value = '';
+            charCount.textContent = '0';
+          } else {
+            showFeedbackStatus(data.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+          }
+        } catch {
+          showFeedbackStatus('เชื่อมต่อไม่ได้ กรุณาลองใหม่ภายหลัง', 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> ส่ง Feedback';
+        }
+      },
+      'ส่ง Feedback',
+      'btn-primary'
+    );
+  });
+
+  function showFeedbackStatus(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.className = `feedback-status ${type}`;
+    statusEl.style.display = 'block';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+  }
+}

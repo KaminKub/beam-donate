@@ -681,6 +681,14 @@ const demoAlertLimiter = rateLimit({
   }
 });
 
+const feedbackLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'ส่ง feedback ได้สูงสุด 5 ครั้ง/ชั่วโมง' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
 // Avoids the redundant "click login again" flow when a session cookie is still valid.
 async function redirectIfAuthenticated(req, res, next) {
@@ -2148,6 +2156,51 @@ app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res
   } catch (error) {
     console.error('Goal reset error:', error);
     res.status(500).json({ error: 'ไม่สามารถรีเซ็ตได้' });
+  }
+});
+
+app.post('/api/feedback', csrfProtection, feedbackLimiter, ensureAuthenticated, async (req, res) => {
+  const { type, message } = req.body;
+
+  if (!type || !message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบ' });
+  }
+  if (message.trim().length < 10) {
+    return res.status(400).json({ error: 'รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร' });
+  }
+  if (message.length > 2000) {
+    return res.status(400).json({ error: 'รายละเอียดยาวเกิน 2000 ตัวอักษร' });
+  }
+
+  const allowedTypes = ['idea', 'bug', 'ux', 'question'];
+  if (!allowedTypes.includes(type)) {
+    return res.status(400).json({ error: 'ประเภทไม่ถูกต้อง' });
+  }
+
+  const typeLabel = { idea: '💡 ไอเดียใหม่', bug: '🐛 แจ้งบัค', ux: '🎨 UI/UX', question: '❓ คำถาม' };
+  const typeColor = { idea: 0xfb923c, bug: 0xef4444, ux: 0xc084fc, question: 0x38bdf8 };
+  const username = req.user?.display_name || req.user?.username || 'ไม่ระบุ';
+
+  const webhookPayload = {
+    embeds: [{
+      title: `${typeLabel[type]} จาก ${username}`,
+      description: message.trim(),
+      color: typeColor[type],
+      fields: [
+        { name: 'ประเภท', value: typeLabel[type], inline: true },
+        { name: 'Username', value: username, inline: true },
+      ],
+      footer: { text: 'TipKub Feedback' },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+
+  try {
+    await axios.post(process.env.DISCORD_WEBHOOK_URL, webhookPayload, { timeout: 5000 });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[feedback] Discord webhook error:', err.message);
+    res.status(502).json({ error: 'ส่ง feedback ไม่สำเร็จ กรุณาลองใหม่ภายหลัง' });
   }
 });
 

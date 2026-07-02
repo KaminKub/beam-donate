@@ -49,6 +49,9 @@
          <button class="menu-item" data-tab="payment-setup">
             <span class="icon"><i class="fa-solid fa-building-columns"></i></span> ตั้งค่ารับเงิน
          </button>
+         <button class="menu-item" data-tab="feedback">
+           <span class="icon"><i class="fa-solid fa-lightbulb"></i></span> เสนอไอเดีย
+         </button>
        </nav>
 
        <div class="sidebar-logout">
@@ -1358,6 +1361,54 @@
 
               </div>
 
+            </div>
+          </section>
+
+          <!-- SECTION: FEEDBACK -->
+          <section id="tab-feedback" class="tab-content">
+            <div class="feedback-hero">
+              <div class="feedback-hero-icon">
+                <i class="fa-solid fa-lightbulb"></i>
+              </div>
+              <div class="feedback-hero-text">
+                <h2>เสนอไอเดีย &amp; รายงานปัญหา</h2>
+                <p>ทุกความคิดเห็นถูกส่งตรงถึงนักพัฒนา — ช่วยให้ TipKub ดีขึ้นได้เลย</p>
+              </div>
+            </div>
+
+            <div class="feedback-form-card">
+              <div class="form-group">
+                <label class="form-label">ประเภท</label>
+                <select id="feedbackType" class="form-select">
+                  <option value="idea">💡 ไอเดีย / Feature ใหม่</option>
+                  <option value="bug">🐛 รายงานบัค / ปัญหา</option>
+                  <option value="ux">🎨 ปรับปรุง UI/UX</option>
+                  <option value="question">❓ คำถาม / ขอความช่วยเหลือ</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">รายละเอียด <span class="text-muted">(อย่างน้อย 10 ตัวอักษร)</span></label>
+                <textarea
+                  id="feedbackMessage"
+                  class="form-control feedback-textarea"
+                  rows="5"
+                  maxlength="2000"
+                  placeholder="เช่น อยากให้มีระบบ... / พบปัญหาเมื่อ..."
+                ></textarea>
+                <small class="text-muted feedback-char-count"><span id="feedbackCharCount">0</span>/2000</small>
+              </div>
+
+              <button class="btn btn-primary" id="btnSendFeedback">
+                <i class="fa-solid fa-paper-plane"></i> ส่ง Feedback
+              </button>
+
+              <div id="feedbackStatus" class="feedback-status" style="display:none;"></div>
+            </div>
+
+            <div class="feedback-footer">
+              <i class="fa-brands fa-discord" style="color:#5865f2;"></i>
+              <span>Feedback ถูกส่งตรงถึงนักพัฒนาผ่าน Discord — ไม่แสดงต่อสาธารณะ</span>
             </div>
           </section>
 
