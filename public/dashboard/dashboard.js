@@ -1504,13 +1504,6 @@ async function loadDemoTransactions() {
   renderFullTransactions(DEMO_TRANSACTIONS);
 }
 
-function demoEscapeHTML(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 function applyDemoRestrictions() {
   // Block save buttons — show modal instead of small notification
   document.querySelectorAll('[id^="btn"][id*="Save"]').forEach(btn => {
@@ -1647,7 +1640,7 @@ function injectDemoBanner() {
   `;
   banner.innerHTML = `
     <i class="fa-solid fa-eye" style="color:#1a1a1a;"></i>
-    ตัวอย่าง Dashboard — ข้อมูลของ ${demoEscapeHTML(DEMO_STREAMER)} (อ่านอย่างเดียว)
+    ตัวอย่าง Dashboard — ข้อมูลของ ${Object.assign(document.createElement('div'),{textContent:DEMO_STREAMER}).innerHTML} (อ่านอย่างเดียว)
     <a href="/login" style="margin-left:16px; background:#1a1a1a; color:#f59e0b;
        padding:4px 12px; border-radius:6px; text-decoration:none; font-size:13px;
        display:inline-block;">

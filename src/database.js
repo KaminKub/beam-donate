@@ -663,25 +663,16 @@ async function getStreamerByToken(token) {
   await ensureConnected();
   if (isFallback) return null;
   if (!db) return null;
-  
-  // Retry up to 2 times for transient DB issues (e.g., cold start, network hiccup)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const result = await db.execute({
-        sql: 'SELECT * FROM streamers WHERE overlay_token = ?',
-        args: [token]
-      });
-      if (result.rows.length > 0) return result.rows[0];
-      if (attempt < 2) await new Promise(r => setTimeout(r, 300));
-    } catch (err) {
-      if (attempt === 2) {
-        console.error(`❌ getStreamerByToken failed after 3 attempts:`, err.message);
-        return null;
-      }
-      await new Promise(r => setTimeout(r, 500));
-    }
+  try {
+    const result = await db.execute({
+      sql: 'SELECT * FROM streamers WHERE overlay_token = ?',
+      args: [token]
+    });
+    return result.rows[0] ?? null;
+  } catch (err) {
+    console.error('❌ getStreamerByToken failed:', err.message);
+    return null;
   }
-  return null;
 }
 
 async function getStreamerByTwitchId(twitchId) {
@@ -742,6 +733,17 @@ async function getDecryptedStreamer(username) {
   return streamer;
 }
 
+const PAYMENT_ENCRYPT_FIELDS = [
+  'promptpay_value', 'slipok_api', 'slipok_api_key',
+  'truemoney_phone', 'truemoney_slipok_api', 'truemoney_slipok_api_key'
+];
+
+function isEncrypted(text) {
+  if (!text) return false;
+  const parts = text.split(':');
+  return parts.length === 3 && parts.every(p => p.length > 8);
+}
+
 /**
  * Save or update streamer details.
  */
@@ -759,40 +761,20 @@ async function saveStreamer(data) {
      || (data.username ? await getStreamer(data.username) : null);
    const overlayToken = data.overlay_token || (existing ? existing.overlay_token : require('crypto').randomBytes(16).toString('hex'));
   
-   // Helper: true if text is already encrypted (3 colon-separated base64 parts)
-   function isEncrypted(text) {
-     if (!text) return false;
-     const parts = text.split(':');
-     return parts.length === 3 && parts.every(p => p.length > 8);
-   }
-
    // Encrypt sensitive payment fields BEFORE building finalData
-   // Skip if already encrypted or already censored (contains '*')
-   if (data.promptpay_value && data.promptpay_value.length > 0 && !isEncrypted(data.promptpay_value) && !data.promptpay_value.includes('*')) {
-     try { data.promptpay_value_encrypted = encrypt(data.promptpay_value); } catch (e) { console.warn('Failed to encrypt promptpay_value:', e.message); }
+   for (const field of PAYMENT_ENCRYPT_FIELDS) {
+     if (data[field]?.length && !isEncrypted(data[field]) && !data[field].includes('*')) {
+       try { data[`${field}_encrypted`] = encrypt(data[field]); }
+       catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
+     }
    }
-   if (data.slipok_api && data.slipok_api.length > 0 && !isEncrypted(data.slipok_api) && !data.slipok_api.includes('*')) {
-     try { data.slipok_api_encrypted = encrypt(data.slipok_api); } catch (e) { console.warn('Failed to encrypt slipok_api:', e.message); }
+   // Streamlabs tokens overwrite in-place (no _encrypted suffix)
+   for (const field of ['streamlabs_access_token', 'streamlabs_refresh_token']) {
+     if (data[field]?.length && !isEncrypted(data[field])) {
+       try { data[field] = encrypt(data[field]); }
+       catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
+     }
    }
-   if (data.slipok_api_key && data.slipok_api_key.length > 0 && !isEncrypted(data.slipok_api_key) && !data.slipok_api_key.includes('*')) {
-     try { data.slipok_api_key_encrypted = encrypt(data.slipok_api_key); } catch (e) { console.warn('Failed to encrypt slipok_api_key:', e.message); }
-   }
-   if (data.truemoney_phone && data.truemoney_phone.length > 0 && !isEncrypted(data.truemoney_phone) && !data.truemoney_phone.includes('*')) {
-     try { data.truemoney_phone_encrypted = encrypt(data.truemoney_phone); } catch (e) { console.warn('Failed to encrypt truemoney_phone:', e.message); }
-   }
-   if (data.truemoney_slipok_api && data.truemoney_slipok_api.length > 0 && !isEncrypted(data.truemoney_slipok_api) && !data.truemoney_slipok_api.includes('*')) {
-     try { data.truemoney_slipok_api_encrypted = encrypt(data.truemoney_slipok_api); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api:', e.message); }
-   }
-    if (data.truemoney_slipok_api_key && data.truemoney_slipok_api_key.length > 0 && !isEncrypted(data.truemoney_slipok_api_key) && !data.truemoney_slipok_api_key.includes('*')) {
-      try { data.truemoney_slipok_api_key_encrypted = encrypt(data.truemoney_slipok_api_key); } catch (e) { console.warn('Failed to encrypt truemoney_slipok_api_key:', e.message); }
-    }
-    // Encrypt Streamlabs OAuth tokens at rest (M1)
-    if (data.streamlabs_access_token && data.streamlabs_access_token.length > 0 && !isEncrypted(data.streamlabs_access_token)) {
-      try { data.streamlabs_access_token = encrypt(data.streamlabs_access_token); } catch (e) { console.warn('Failed to encrypt streamlabs_access_token:', e.message); }
-    }
-    if (data.streamlabs_refresh_token && data.streamlabs_refresh_token.length > 0 && !isEncrypted(data.streamlabs_refresh_token)) {
-      try { data.streamlabs_refresh_token = encrypt(data.streamlabs_refresh_token); } catch (e) { console.warn('Failed to encrypt streamlabs_refresh_token:', e.message); }
-    }
 
    const finalData = {
      ...existing,

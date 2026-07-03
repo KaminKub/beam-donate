@@ -74,18 +74,6 @@ async function uploadBufferToR2(buffer, key, contentType) {
   return `${process.env.R2_PUBLIC_URL}/${key}`;
 }
 
-async function uploadAvatarFromUrl(imageUrl, twitchId) {
-  try {
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 10000 });
-    const contentType = response.headers['content-type'] || 'image/jpeg';
-    const ext = contentType.includes('webp') ? 'webp' : contentType.includes('png') ? 'png' : 'jpg';
-    const key = `avatars/twitch_${twitchId}.${ext}`;
-    return await uploadBufferToR2(Buffer.from(response.data), key, contentType);
-  } catch (err) {
-    console.error('❌ R2 avatar upload failed:', err.message);
-    return null;
-  }
-}
 
 async function listAllR2Objects() {
   const objects = [];
@@ -980,7 +968,13 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
     let avatarUrl = pending.profileImage || null;
     const avatarUploadId = pending.twitchId || pending.streamlabsId || null;
     if (avatarUrl && avatarUrl.startsWith('http') && avatarUploadId) {
-      const r2Url = await uploadAvatarFromUrl(avatarUrl, avatarUploadId);
+      let r2Url = null;
+      try {
+        const resp = await axios.get(avatarUrl, { responseType: 'arraybuffer', timeout: 10000 });
+        const ct = resp.headers['content-type'] || 'image/jpeg';
+        const ext = ct.includes('webp') ? 'webp' : ct.includes('png') ? 'png' : 'jpg';
+        r2Url = await uploadBufferToR2(Buffer.from(resp.data), `avatars/twitch_${avatarUploadId}.${ext}`, ct);
+      } catch (err) { console.error('❌ R2 avatar upload failed:', err.message); }
       if (r2Url) {
         avatarUrl = r2Url;
         console.log(`📸 [Register Complete] Avatar cached to R2: ${r2Url}`);
@@ -1569,14 +1563,9 @@ const RESERVED_WORDS = [
   'privacy', 'terms-of-services',
 ];
 
-function isReservedPath(path) {
-  const firstSegment = path.split('/')[1];
-  return RESERVED_WORDS.includes(firstSegment);
-}
-
 async function validateUsername(req, res, next) {
   const { username } = req.params;
-  if (isReservedPath(req.path)) return next();
+  if (RESERVED_WORDS.includes(req.path.split('/')[1])) return next();
   try {
     const user = await db.getStreamer(username);
     if (user) {
