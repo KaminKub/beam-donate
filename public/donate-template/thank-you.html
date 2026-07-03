@@ -16,11 +16,15 @@
   </div>
 
   <div class="container">
-    <div class="card glass-card thank-you">
-      <img id="profileImage" class="glowing-avatar" alt="Profile" style="display: none;">
-      <h1 id="thankYouHeader">ขอบคุณมากครับ!</h1>
-      <p id="thankYouSubtitle" class="subtitle">สำหรับการสนับสนุนของคุณ<br>ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨</p>
-      <a href="#" id="btnBackHome" class="btn-primary" style="text-decoration: none; display: block; text-align: center;">กลับหน้าหลัก</a>
+    <div class="step active">
+      <div class="card glass-card thank-you">
+        <div class="header">
+          <img id="profileImage" class="glowing-avatar" alt="Profile" width="190" height="190" style="display: none;">
+          <h1 id="thankYouHeader">ขอบคุณมากครับ!</h1>
+          <p id="thankYouSubtitle" class="subtitle">สำหรับการสนับสนุนของคุณ<br>ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨</p>
+        </div>
+        <a href="#" id="btnBackHome" class="btn-primary" style="text-decoration: none; display: block; text-align: center;">กลับหน้าหลัก</a>
+      </div>
     </div>
   </div>
   <script>
@@ -52,6 +56,42 @@
 
            document.getElementById('thankYouHeader').textContent = data.thankYouHeader || 'ขอบคุณมากครับ!';
            document.getElementById('thankYouSubtitle').textContent = data.thankYouSubtitle || 'สำหรับการสนับสนุนของคุณ ทุกบาททุกสตางค์มีความหมายและเป็นกำลังใจให้ผมอย่างยิ่งครับ! ✨';
+
+           if (data.pageBgUrl) {
+             try {
+               const u = new URL(data.pageBgUrl);
+               if (u.protocol === 'https:' || u.protocol === 'http:') {
+                 const safeUrl = data.pageBgUrl.replace(/"/g, '%22');
+                 const isWebm = data.pageBgUrl.toLowerCase().endsWith('.webm');
+                 if (isWebm) {
+                   let bgVid = document.getElementById('page-bg-video');
+                   if (!bgVid) {
+                     bgVid = document.createElement('video');
+                     bgVid.id = 'page-bg-video';
+                     bgVid.autoplay = true; bgVid.loop = true; bgVid.muted = true; bgVid.playsInline = true;
+                     Object.assign(bgVid.style, {
+                       position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                       zIndex: '-1', objectFit: 'cover', opacity: '0.1', pointerEvents: 'none'
+                     });
+                     document.body.insertBefore(bgVid, document.body.firstChild);
+                   }
+                   bgVid.src = data.pageBgUrl;
+                 } else {
+                   let bgDiv = document.getElementById('page-bg-layer');
+                   if (!bgDiv) {
+                     bgDiv = document.createElement('div');
+                     bgDiv.id = 'page-bg-layer';
+                     document.body.insertBefore(bgDiv, document.body.firstChild);
+                   }
+                   Object.assign(bgDiv.style, {
+                     position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                     zIndex: '-1', backgroundImage: `url("${safeUrl}")`, backgroundSize: 'cover',
+                     backgroundPosition: 'center', backgroundRepeat: 'no-repeat', opacity: '0.1', pointerEvents: 'none'
+                   });
+                 }
+               }
+             } catch(e) {}
+           }
          }
       } catch (error) {
         console.error('Error loading thank you settings:', error);
