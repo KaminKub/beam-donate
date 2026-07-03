@@ -147,7 +147,7 @@ function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
 
 async function loadPageContent() {
   const username = window.location.pathname.split('/')[1];
-  if (!username) return;
+  if (!username) { TipKubLoading.hide(); return; }
 
   try {
     const response = await fetch(`/api/page/${username}/settings`);
@@ -314,8 +314,10 @@ async function loadPageContent() {
 
         // Load donation goal bar
         loadGoal(username);
+        TipKubLoading.hide();
     }
   } catch (error) {
+    TipKubLoading.hide();
     console.error('Error loading page content:', error);
   }
 }

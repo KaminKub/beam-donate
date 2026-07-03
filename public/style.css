@@ -779,10 +779,9 @@ input[type=number] {
   font-weight: 800;
   display: inline-block;
   position: relative;
-  overflow: hidden;
   width: fit-content;
   animation: shineText 3s linear infinite;
-  line-height: 1;
+  line-height: 1.3;
   font-family: 'Kanit', sans-serif;
 }
 @keyframes shineText {

@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/tipkub-loading.css">
   <style>
     body {
       margin: 0;
@@ -160,10 +161,9 @@
       font-weight: 800;
       display: inline-block;
       position: relative;
-      overflow: hidden;
       width: fit-content;
       animation: shineText 3s linear infinite;
-      line-height: 1;
+      line-height: 1.3;
     }
     @keyframes shineText {
       0% { background-position: 200% center; }
@@ -182,6 +182,15 @@
   </style>
 </head>
 <body>
+  <div id="tk-loading-overlay">
+    <div class="tk-logo-wrap">
+      <span class="tk-logo-base" aria-hidden="true">TipKub</span>
+      <span class="tk-logo-fill" aria-hidden="true">TipKub</span>
+    </div>
+    <div class="tk-loading-dots" aria-label="กำลังโหลด">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
   <div class="bg-orbs">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -208,5 +217,9 @@
   </div>
 
   <script src="cookie-consent.js"></script>
+  <script src="/tipkub-loading.js"></script>
+  <script>
+    TipKubLoading.init({ authButtons: '#btnTwitch, #btnStreamlabs' });
+  </script>
 </body>
 </html>

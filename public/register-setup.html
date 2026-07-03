@@ -6,6 +6,7 @@
   <title>ตั้งค่าบัญชี - TipKub</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tipkub-loading.css">
   <style>
     /* ปิด caret ทั้งโปรเจกต์ ยกเว้นกล่องพิมพ์ข้อความ */
     *, *::before, *::after {
@@ -321,6 +322,15 @@
   </style>
 </head>
 <body>
+  <div id="tk-loading-overlay">
+    <div class="tk-logo-wrap">
+      <span class="tk-logo-base" aria-hidden="true">TipKub</span>
+      <span class="tk-logo-fill" aria-hidden="true">TipKub</span>
+    </div>
+    <div class="tk-loading-dots" aria-label="กำลังโหลด">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
   <div class="bg-orbs">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -407,13 +417,16 @@
       try {
         const res = await fetch('/api/register/pending');
         if (!res.ok) window.location.href = '/login';
-        
+
         const data = await res.json();
         profileImg.src = data.profileImage;
         const displayName = data.twitchName || data.streamlabsName || data.streamlabsUsername || 'Unknown';
         twitchName.textContent = displayName;
         const suggestedUser = (data.twitchName || data.streamlabsUsername || '').toLowerCase().replace(/\s+/g, '');
         usernameInput.value = suggestedUser;
+
+        await new Promise(function(r) { setTimeout(r, 1900); });
+        TipKubLoading.hide();
       } catch (e) {
         window.location.href = '/login';
       }
@@ -475,5 +488,7 @@
 
     init();
   </script>
+  <script src="/tipkub-loading.js"></script>
+  <script>TipKubLoading.init({ mode: 'api-gated' });</script>
 </body>
 </html>
