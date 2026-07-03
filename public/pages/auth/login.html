@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌸 Register - Stream Donation Admin</title>
+  <title>🌸 Login - Stream Donation Admin</title>
   <!-- Open Graph / Facebook / Discord / Line -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="/"> 
   <meta property="og:title" content="TipKub | สร้างหน้าโดเนทส่วนตัว ✨">
   <meta property="og:description" content="สร้างหน้าโดเนทแบบเรียบง่ายสำหรับสตรีมเมอร์ พร้อมระบบ Alert แจ้งเตือนบนจอแบบ Real-time ให้ทุกการสนับสนุนมีความหมาย">
-  <meta property="og:image" content="/banner.jpg">
+  <meta property="og:image" content="/assets/banner.jpg">
 
   <!-- Twitter / X -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="/">
   <meta property="twitter:title" content="TipKub | สร้างหน้าโดเนทส่วนตัว ✨">
   <meta property="twitter:description" content="สร้างหน้าโดเนทแบบเรียบง่ายสำหรับสตรีมเมอร์ พร้อมระบบ Alert แจ้งเตือนบนจอแบบ Real-time ให้ทุกการสนับสนุนมีความหมาย">
-  <meta property="twitter:image" content="/banner.jpg">
+  <meta property="twitter:image" content="/assets/banner.jpg">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="/tipkub-loading.css">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     body {
       margin: 0;
@@ -65,6 +65,8 @@
       backdrop-filter: blur(20px);
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
       transition: transform 0.3s ease;
+      max-width: 500px;
+      margin: 0 auto;
     }
     .login-card:hover {
       transform: translateY(-5px);
@@ -81,11 +83,16 @@
     }
     .login-card p {
       color: #94a3b8;
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
       font-size: 1.1rem;
       line-height: 1.5;
     }
-  
+    .auth-buttons-group {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      align-items: center;
+    }
     .btn-twitch {
       background: linear-gradient(135deg, #6441a5, #7d5bbe);
       color: white;
@@ -99,13 +106,13 @@
       gap: 12px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 10px 20px rgba(100, 65, 165, 0.3);
-      font-size: 35px;
+      font-size: 1.1rem;
       margin-bottom: 15px;
       border: none;
       cursor: pointer;
       width: 100%;
     }
-    .btn-twitch:hover:not(:disabled) {
+    .btn-twitch:hover {
       transform: translateY(-3px);
       box-shadow: 0 15px 25px rgba(100, 65, 165, 0.4);
       filter: brightness(1.1);
@@ -124,25 +131,22 @@
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 10px 20px rgba(0, 204, 102, 0.3);
       font-size: 1.1rem;
+      margin-bottom: 15px;
       border: none;
       cursor: pointer;
       width: 100%;
     }
-    .btn-streamlabs:hover:not(:disabled) {
+    .btn-streamlabs:hover {
       transform: translateY(-3px);
       box-shadow: 0 15px 25px rgba(0, 204, 102, 0.4);
       filter: brightness(1.1);
     }
-
-    .btn-disabled {
-      filter: grayscale(1) opacity(0.5);
-      cursor: not-allowed !important;
-      box-shadow: none !important;
+    .btn-auth i {
+      font-size: 1.4rem;
     }
-
     .back-home {
       display: block;
-      margin-top: 1.5rem;
+      margin-top: 2rem;
       color: #64748b;
       text-decoration: none;
       font-size: 0.9rem;
@@ -151,7 +155,6 @@
     .back-home:hover {
       color: #94a3b8;
     }
-
     .highlight-amount {
       background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
       background-size: 200% auto;
@@ -200,26 +203,26 @@
   <div class="login-container">
     <div class="login-card">
       <h2><a href="/" style="text-decoration: none; font-size: larger;"><span class="highlight-amount">TipKub</span></a></h2>
-      <h1>Register</h1>
-      <p>เลือกวิธีสมัคร</p>
-      
-      <a href="/auth/register/twitch" class="btn-twitch" id="btnTwitch">
-        <i class="fa-brands fa-twitch"></i>
-        <span style="font-size: 1.1rem;">สมัครด้วย Twitch</span>
-      </a>
-       <a href="/auth/register/streamlabs" class="btn-streamlabs" id="btnStreamlabs">
-        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 35px; height: 35px; fill: currentColor;"><title>Streamlabs</title><path d="M8.6878 1.3459a1.365 1.365 0 0 0-.2734.0058c-.528.066-1.0133.1616-1.4843.3086A10.0568 10.0568 0 0 0 .3208 8.2697c-.147.471-.2445.9583-.3105 1.4863-.091.734.431 1.4041 1.166 1.4961.734.091 1.404-.43 1.496-1.164.05-.406.119-.7316.209-1.0196A7.3736 7.3736 0 0 1 7.727 4.221c.288-.09.6145-.157 1.0195-.207.735-.092 1.255-.7631 1.164-1.4981a1.3394 1.3394 0 0 0-1.2226-1.17Zm4.0488 5.2226c-2.629 0-3.9432.0007-4.9472.5117A4.684 4.684 0 0 0 5.7406 9.131c-.512 1.004-.5117 2.3183-.5117 4.9473v4.289c0 1.502-.001 2.2542.291 2.8282.257.505.6679.9149 1.1719 1.1719.574.292 1.326.291 2.828.291h6.9706c2.628 0 3.9442.0012 4.9472-.5098a4.6883 4.6883 0 0 0 2.0507-2.0508c.512-1.004.5117-2.3182.5117-4.9472v-1.0723c0-2.629.0003-3.9433-.5117-4.9473a4.6883 4.6883 0 0 0-2.0507-2.0508c-1.003-.511-2.3193-.5117-4.9472-.5117zm.537 6.7051c.741 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5988 1.3399-1.3398 1.3399-.74 0-1.3418-.5999-1.3418-1.3399v-2.6836c0-.74.6018-1.3398 1.3418-1.3398zm5.3632 0c.74 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5999 1.3399-1.3399 1.3399-.741 0-1.3398-.5999-1.3398-1.3399v-2.6836c0-.74.5989-1.3398 1.3398-1.3398z"/></svg>
-        <span>สมัครด้วย Streamlabs</span>
-      </a>
-      
+      <h1>Dashboard Access</h1>
+      <p>เข้าสู่ระบบเพื่อจัดการหน้า Dashboard</p>
+      <div>
+        <a href="/auth/twitch" class="btn-twitch btn-auth">
+          <i style="font-size: 35px;" class="fa-brands fa-twitch"></i>
+          <span style="font-size: 1.1rem;">ล็อกอินด้วย Twitch</span>
+        </a>
+        <a href="/auth/streamlabs" class="btn-streamlabs btn-auth">
+          <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 35px; height: 35px; fill: currentColor;"><title>Streamlabs</title><path d="M8.6878 1.3459a1.365 1.365 0 0 0-.2734.0058c-.528.066-1.0133.1616-1.4843.3086A10.0568 10.0568 0 0 0 .3208 8.2697c-.147.471-.2445.9583-.3105 1.4863-.091.734.431 1.4041 1.166 1.4961.734.091 1.404-.43 1.496-1.164.05-.406.119-.7316.209-1.0196A7.3736 7.3736 0 0 1 7.727 4.221c.288-.09.6145-.157 1.0195-.207.735-.092 1.255-.7631 1.164-1.4981a1.3394 1.3394 0 0 0-1.2226-1.17Zm4.0488 5.2226c-2.629 0-3.9432.0007-4.9472.5117A4.684 4.684 0 0 0 5.7406 9.131c-.512 1.004-.5117 2.3183-.5117 4.9473v4.289c0 1.502-.001 2.2542.291 2.8282.257.505.6679.9149 1.1719 1.1719.574.292 1.326.291 2.828.291h6.9706c2.628 0 3.9442.0012 4.9472-.5098a4.6883 4.6883 0 0 0 2.0507-2.0508c.512-1.004.5117-2.3182.5117-4.9472v-1.0723c0-2.629.0003-3.9433-.5117-4.9473a4.6883 4.6883 0 0 0-2.0507-2.0508c-1.003-.511-2.3193-.5117-4.9472-.5117zm.537 6.7051c.741 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5988 1.3399-1.3398 1.3399-.74 0-1.3418-.5999-1.3418-1.3399v-2.6836c0-.74.6018-1.3398 1.3418-1.3398zm5.3632 0c.74 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5999 1.3399-1.3399 1.3399-.741 0-1.3398-.5999-1.3398-1.3399v-2.6836c0-.74.5989-1.3398 1.3398-1.3398z"/></svg>
+          <span>ล็อกอินด้วย Streamlabs</span>
+        </a>
+      </div>
       <a href="/" class="back-home"><i class="fa-solid fa-arrow-left"></i> ย้อนกลับไปหน้าหลัก</a>
     </div>
   </div>
 
-  <script src="cookie-consent.js"></script>
-  <script src="/tipkub-loading.js"></script>
+  <script src="/assets/cookie-consent.js"></script>
+  <script src="/assets/tipkub-loading.js"></script>
   <script>
-    TipKubLoading.init({ authButtons: '#btnTwitch, #btnStreamlabs' });
+    TipKubLoading.init({ authButtons: '.btn-twitch, .btn-streamlabs' });
   </script>
 </body>
 </html>

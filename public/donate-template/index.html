@@ -21,8 +21,8 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/tipkub-loading.css">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/tipkub-loading.css">
 </head>
 
 <body>
@@ -168,7 +168,7 @@
 
           <div class="payment-method-option" data-method="promptpay" id="optionPromptPay">
             <div class="payment-method-icon">
-              <img src="../Image/icon-thaiqr.png" alt="พร้อมเพย์">
+              <img src="/assets/payment/icon-thaiqr.png" alt="พร้อมเพย์">
             </div>
             <div class="payment-method-info">
               <h3>พร้อมเพย์</h3>
@@ -181,7 +181,7 @@
 
           <div class="payment-method-option" data-method="truemoney" id="optionTrueMoney">
             <div class="payment-method-icon">
-              <img src="../Image/TrueWallate.png" alt="TrueMoney Wallet">
+              <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet">
             </div>
             <div class="payment-method-info">
               <h3>TrueMoney Wallet</h3>
@@ -208,7 +208,7 @@
     <div id="step-qr" class="step">
       <div class="card glass-card">
         <div class="header">
-          <img src="../Image/QR-PromptPay.png" alt="พร้อมเพย์" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
+          <img src="/assets/payment/QR-PromptPay.png" alt="พร้อมเพย์" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
           <h2>สแกนเพื่อจ่าย</h2>
           <p class="subtitle" id="qrSubtitle">สแกน QR Code เพื่อโอนเงินผ่านพร้อมเพย์</p>
         </div>
@@ -298,7 +298,7 @@
     <div id="step-truemoney" class="step">
       <div class="card glass-card">
         <div class="header">
-          <img src="../Image/TrueWallate.png" alt="TrueMoney" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
+          <img src="/assets/payment/TrueWallate.png" alt="TrueMoney" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
           <h2>TrueMoney Wallet</h2>
           <p class="subtitle">โอนเงินผ่าน TrueMoney Wallet</p>
         </div>
@@ -389,7 +389,7 @@
   </footer>
   </div>  <!-- end container -->
 
-  <script src="/tipkub-loading.js"></script>
+  <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/donate-template/app.js"></script>
 </body>

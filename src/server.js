@@ -852,7 +852,7 @@ app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
 });
 
 app.get('/demo/overlay', demoRateLimiter, (req, res) => {
-  const filePath = path.join(__dirname, '../public/overlay.html');
+  const filePath = path.join(__dirname, '../public/overlay/index.html');
   const html = fs.readFileSync(filePath, 'utf8');
   const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -898,20 +898,20 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   // Home/landing page always renders — no auto-redirect.
   // Only the login/register buttons redirect authenticated users to their dashboard.
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/index.html'));
 });
 
 app.get('/login', redirectIfAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/login.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/auth/login.html'));
 });
 
 app.get('/register', redirectIfAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/register.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/auth/register.html'));
 });
 
 app.get('/register/setup', (req, res) => {
   if (!req.session.pendingUser) return res.redirect('/login');
-  res.sendFile(path.join(__dirname, '../public/register-setup.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/auth/register-setup.html'));
 });
 
 app.get('/api/register/pending', (req, res) => {
@@ -1399,11 +1399,19 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
 });
 
 app.get('/login-failed', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/login-failed.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/auth/login-failed.html'));
 });
 
 app.get('/thank-you', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/thank-you.html'));
+  res.sendFile(path.join(__dirname, '../public/donate-template/thank-you.html'));
+});
+
+app.get('/privacy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pages/privacy.html'));
+});
+
+app.get('/terms-of-services.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pages/terms-of-services.html'));
 });
 
 app.get('/goal-bar', (req, res) => {
@@ -1411,11 +1419,15 @@ app.get('/goal-bar', (req, res) => {
 });
 
 app.get('/overlay', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/overlay.html'));
+  res.sendFile(path.join(__dirname, '../public/overlay/index.html'));
 });
 
 app.get('/alert-test', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/alert-test.html'));
+  res.sendFile(path.join(__dirname, '../public/pages/alert-test.html'));
+});
+
+app.get('/forbidden', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pages/auth/forbidden.html'));
 });
 
 app.get('/admin', async (req, res) => {
@@ -1559,7 +1571,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
 const RESERVED_WORDS = [
   'login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register',
-  'admin', 'demo', 'health', 'goal-bar', 'webhook', 'login-failed',
+  'admin', 'demo', 'health', 'goal-bar', 'webhook', 'login-failed', 'forbidden',
   'privacy', 'terms-of-services',
 ];
 
@@ -1590,7 +1602,7 @@ async function ensureUserOwner(req, res, next) {
     } catch (err) {
       console.error('Ownership check error:', err);
     }
-    return res.redirect('/forbidden.html?reason=owner');
+    return res.redirect('/forbidden?reason=owner');
   }
   res.redirect('/login');
 }
@@ -2703,7 +2715,7 @@ app.get('/:username/dona-monitor', ensureUserOwner, (req, res) => {
 });
 
 app.get('/:username/overlay', validateUsername, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/overlay.html'));
+  res.sendFile(path.join(__dirname, '../public/overlay/index.html'));
 });
 
 app.get('/:username/thank-you', validateUsername, (req, res) => {

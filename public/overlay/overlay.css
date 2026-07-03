@@ -109,6 +109,7 @@ body {
   line-height: 1;
 }
 
+
 @keyframes shineText {
   0% { background-position: 200% center; }
   100% { background-position: 0% center; }

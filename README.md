@@ -68,33 +68,35 @@ beam-donate/
 │   ├── sessionStore.js        # Custom Turso-backed session store
 │   └── streamlabs.js          # Streamlabs OAuth helper
 ├── public/
-│   ├── index.html             # Landing Page (หน้าแรก)
-│   ├── login.html             # หน้าล็อกอิน (Twitch + Streamlabs)
-│   ├── register.html          # หน้าสมัครสมาชิก
-│   ├── register-setup.html    # หน้าตั้งค่าหลังสมัคร (Username, Profile)
-│   ├── privacy.html           # นโยบายความเป็นส่วนตัว
-│   ├── terms-of-services.html # ข้อกำหนดและเงื่อนไข
-│   ├── login-failed.html      # หน้าล็อกอินล้มเหลว
-│   ├── style.css              # สไตล์หลักของหน้าโดเนท
-│   ├── overlay.html           # Live Donation Alert Overlay (OBS Browser Source)
-│   ├── overlay.css            # สไตล์ Overlay
-│   ├── overlay.js             # SSE client + Alert queue
-│   ├── alert-test.html        # หน้าทดสอบ Alert
-│   ├── thank-you.html         # หน้าขอบคุณหลังโอนเงินสำเร็จ
-│   ├── cookie-consent.js      # Cookie Consent Banner
-│   ├── Image/                 # ไอคอน/โลโก้ วิธีชำระเงิน
-│   │   ├── FFP-logo.png  (เก็บไว้ — FFP decommissioned)
-│   │   ├── QR-PromptPay.png
-│   │   ├── TrueWallate.png
-│   │   └── icon-thaiqr.png
+│   ├── assets/                # Shared static assets
+│   │   ├── payment/           # ไอคอน/โลโก้ วิธีชำระเงิน (PromptPay, TrueMoney, FFP)
+│   │   ├── overlays/          # Overlay decorative assets (GIF)
+│   │   ├── audio/             # Default audio (my-sound.mp3)
+│   │   ├── style.css          # สไตล์หลักของ site
+│   │   ├── tipkub-loading.css/js  # Loading screen component
+│   │   ├── cookie-consent.js  # Cookie Consent Banner
+│   │   └── banner.jpg         # OG/Social share image
+│   ├── pages/                 # HTML pages (Express sendFile routes)
+│   │   ├── auth/              # login, register, register-setup, login-failed, forbidden
+│   │   ├── index.html         # Landing Page (GET /)
+│   │   ├── alert-test.html    # หน้าทดสอบ Alert
+│   │   ├── privacy.html       # นโยบายความเป็นส่วนตัว
+│   │   └── terms-of-services.html  # ข้อกำหนดและเงื่อนไข
+│   ├── overlay/               # OBS Browser Source overlay (self-contained)
+│   │   ├── index.html         # Overlay page (GET /overlay)
+│   │   ├── overlay.css        # สไตล์ Overlay
+│   │   └── overlay.js         # SSE client + Alert queue
 │   ├── dashboard/             # Dashboard (หน้าควบคุมสตรีมเมอร์)
 │   │   ├── index.html         # Dashboard HTML
 │   │   ├── dashboard.js       # Dashboard Logic
 │   │   ├── admin.css          # Dashboard Styles
 │   │   └── sound-cache.js     # Cache ระบบเสียง
-│   └── donate-template/       # หน้าโดเนทของแต่ละ User (Dynamic)
-│       ├── index.html         # Donate page 3-step flow
-│       └── app.js             # Donate flow logic + Slip upload
+│   ├── donate-template/       # หน้าโดเนทของแต่ละ User (Dynamic)
+│   │   ├── index.html         # Donate page 3-step flow (readFileSync at startup)
+│   │   ├── app.js             # Donate flow logic + Slip upload
+│   │   └── thank-you.html     # หน้าขอบคุณหลังโอนเงินสำเร็จ
+│   └── goal-bar/              # Standalone goal-bar widget
+│       └── index.html
 ├── scripts/
 │   └── migrate.js             # Database migration script
 ├── .env                       # Environment variables (ไม่อัปโหลดขึ้น Git)

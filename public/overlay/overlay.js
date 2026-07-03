@@ -493,7 +493,7 @@ async function playNotificationSound(soundChoice, volume) {
 
     if (soundChoice === 'custom') {
       return new Promise((resolve) => {
-        const audio = new Audio('/my-sound.mp3');
+        const audio = new Audio('/assets/audio/my-sound.mp3');
         audio.volume = Number(volume) || 0.5;
         audio.onended = resolve;
         audio.play().catch(err => {
