@@ -116,7 +116,7 @@ const defaultSettings = {
   soundVolume: 0.5,
   ttsEnabled: true,
   ttsVolume: 0.8,
-  ttsRate: 1.0,
+  ttsRate: 1.3,
   ttsLanguage: 'th-TH',
 
   profanityFilterEnabled: true,

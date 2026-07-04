@@ -589,7 +589,7 @@ async function initializeDashboard() {
       { id: 'sliderFontSize', lbl: 'lblFontSize', fn: v => v },
       { id: 'sliderSoundVolume', lbl: 'lblSoundVolume', fn: v => Math.round(v * 100) },
       { id: 'sliderTtsVolume', lbl: 'lblTtsVolume', fn: v => Math.round(v * 100) },
-      { id: 'sliderTtsRate', lbl: 'lblTtsRate', fn: v => Number(v).toFixed(1) },
+      { id: 'sliderTtsRate', lbl: 'lblTtsRate', fn: v => (Number(v) - 0.3).toFixed(1) },
     ];
 
     sliders.forEach(s => {
@@ -1387,7 +1387,7 @@ function loadOverlaySettingsFromData(data) {
   if (sliderTtsRate && data.ttsRate !== undefined) {
     sliderTtsRate.value = data.ttsRate;
     const lbl = document.getElementById('lblTtsRate');
-    if (lbl) lbl.textContent = data.ttsRate.toFixed(1);
+    if (lbl) lbl.textContent = (data.ttsRate - 0.3).toFixed(1);
   }
 
   const colorMap = {
@@ -3299,7 +3299,7 @@ async function loadOverlaySettings() {
       document.getElementById('sliderTtsVolume').value = s.ttsVolume;
       document.getElementById('lblTtsVolume').textContent = Math.round(s.ttsVolume * 100);
       document.getElementById('sliderTtsRate').value = s.ttsRate;
-      document.getElementById('lblTtsRate').textContent = s.ttsRate.toFixed(1);
+      document.getElementById('lblTtsRate').textContent = (s.ttsRate - 0.3).toFixed(1);
  
       // Template Strings
       document.getElementById('inputMessageTemplate').value = s.messageTemplate;

@@ -13,7 +13,7 @@ let overlaySettings = {
   soundVolume: 0.5,
   ttsEnabled: false,
   ttsVolume: 0.8,
-  ttsRate: 1.0,
+  ttsRate: 1.3,
   ttsLanguage: 'th-TH',
   ttsVoice: 'default',
   ttsPrefixEnabled: true,

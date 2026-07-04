@@ -103,7 +103,7 @@ async function migrateDB() {
         ttsEnabled INTEGER DEFAULT 1,
         ttsReadDonor INTEGER DEFAULT 1,
         ttsVolume REAL DEFAULT 0.8,
-        ttsRate REAL DEFAULT 1.0,
+        ttsRate REAL DEFAULT 1.3,
         ttsLanguage TEXT DEFAULT 'th-TH',
         ttsVoice TEXT,
         ttsPrefixEnabled INTEGER DEFAULT 1,
@@ -421,6 +421,14 @@ async function migrateDB() {
       if (encCount > 0) console.log(`🔐 Encrypted Streamlabs tokens for ${encCount} streamer(s) at rest.`);
     } catch (e) {
       console.warn('⚠️ Streamlabs token encryption migration skipped:', e.message);
+    }
+
+    // M2 — Bump ttsRate 1.0 → 1.3 (display offset baseline change)
+    try {
+      const r = await db.execute({ sql: 'UPDATE streamers SET ttsRate = 1.3 WHERE ttsRate = 1.0 OR ttsRate IS NULL' });
+      if (r.rowsAffected > 0) console.log(`🔊 ttsRate bumped to 1.3 for ${r.rowsAffected} streamer(s).`);
+    } catch (e) {
+      console.warn('⚠️ ttsRate migration skipped:', e.message);
     }
 
     console.log('✅ Turso Database schema verified and migrated.');
@@ -1012,7 +1020,7 @@ async function saveStreamer(data) {
         finalData.ttsEnabled !== undefined ? (finalData.ttsEnabled ? 1 : 0) : 1,
         finalData.ttsReadDonor !== undefined ? (finalData.ttsReadDonor ? 1 : 0) : 1,
         finalData.ttsVolume !== undefined ? finalData.ttsVolume : 0.8,
-        finalData.ttsRate !== undefined ? finalData.ttsRate : 1.0,
+        finalData.ttsRate !== undefined ? finalData.ttsRate : 1.3,
         finalData.ttsLanguage || 'th-TH',
         finalData.ttsVoice || null,
         finalData.ttsPrefixEnabled !== undefined ? (finalData.ttsPrefixEnabled ? 1 : 0) : 1,
