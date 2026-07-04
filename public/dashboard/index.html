@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
@@ -606,11 +606,16 @@
                             </div>
                           </div>
 
-                          <a href="https://app.slipok.com/" target="_blank"
-                             class="btn btn-slipok-api"
-                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 6px;">
-                            <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
-                          </a>
+                          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin: 8px 0 6px;">
+                            <a href="https://app.slipok.com/" target="_blank"
+                               class="btn btn-slipok-api"
+                               style="display: inline-flex; align-items: center; gap: 8px;">
+                              <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
+                            </a>
+                            <button type="button" class="btn-slipok-guide-trigger" onclick="openSlipOkGuide()">
+                              <i class="fas fa-map-signs"></i> ดูวิธีรับ API
+                            </button>
+                          </div>
                           <div style="margin-bottom: 16px;">
                             <a href="https://slipok.com/price-and-service/" target="_blank"
                                class="slipok-packages-link">
@@ -713,11 +718,16 @@
                             </div>
                           </div>
 
-                          <a href="https://app.slipok.com/" target="_blank"
-                             class="btn btn-slipok-api"
-                             style="display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 6px;">
-                            <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
-                          </a>
+                          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin: 8px 0 6px;">
+                            <a href="https://app.slipok.com/" target="_blank"
+                               class="btn btn-slipok-api"
+                               style="display: inline-flex; align-items: center; gap: 8px;">
+                              <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
+                            </a>
+                            <button type="button" class="btn-slipok-guide-trigger" onclick="openSlipOkGuide()">
+                              <i class="fas fa-map-signs"></i> ดูวิธีรับ API
+                            </button>
+                          </div>
                           <div style="margin-bottom: 16px;">
                             <a href="https://slipok.com/price-and-service/" target="_blank"
                                class="slipok-packages-link">
@@ -1550,5 +1560,8 @@
 
   <script src="/dashboard/sound-cache.js"></script>
   <script src="/dashboard/dashboard.js"></script>
+  <script src="/dashboard/slipok-guide.js"></script>
+
+  <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
 </body>
 </html>
