@@ -12,6 +12,8 @@
 5. [Environment Variables](#5-environment-variables)
 6. [ระบบเข้ารหัสข้อมูล](#6-ระบบเข้ารหัสข้อมูล)
 7. [Security Best Practices](#7-security-best-practices)
+8. [ระบบอัพโหลดไฟล์ (Cloudflare R2)](#8-ระบบอัพโหลดไฟล์-cloudflare-r2)
+9. [Goal Bar API](#9-goal-bar-api)
 
 ---
 
@@ -19,17 +21,17 @@
 
 ### Flow Diagram
 ```
-┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐
+┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
 │  Donate Page │────▶│  Backend (Express)│────▶│  Database (Turso) │
-│  (Frontend)  │◀────│  src/server.js   │◀────│  src/database.js  │
-└─────────────┘     └────────┬─────────┘     └──────────────────┘
-                             │
-                    ┌────────┼────────┐
-                    │        │        │
-              ┌─────▼──┐ ┌──▼──────────┐
-              │ SlipOK │ │ MyInstants  │
-              │ API    │ │ (Scraping)  │
-              └────────┘ └─────────────┘
+│  Dashboard   │◀────│  src/server.js   │◀────│  src/database.js  │
+│  Overlay     │     └────────┬─────────┘     └──────────────────┘
+└──────────────┘              │
+                    ┌─────────┼──────────┐
+                    │         │          │
+              ┌─────▼──┐ ┌───▼───────┐ ┌▼────────────┐
+              │ SlipOK │ │ MyInstants│ │ Cloudflare  │
+              │  API   │ │  (Proxy)  │ │     R2      │
+              └────────┘ └───────────┘ └─────────────┘
 ```
 
 ### ประเภท API ในระบบ
@@ -203,6 +205,7 @@ src/
 ├── server.js          # Route definitions + Middleware + SSE
 ├── database.js        # DB connection + queries + migrations
 ├── encryption.js      # AES-256-GCM encrypt/decrypt/censor
+├── auth-helpers.js    # determinePrimaryAuth() + auth utilities (unit-tested)
 ├── sessionStore.js    # Custom session store (Turso-backed)
 └── streamlabs.js      # Streamlabs OAuth helper
 ```
@@ -280,9 +283,12 @@ app.post('/api/my-new-endpoint', ensureAuthenticated, myApiLimiter, async (req, 
 | ไฟล์ | หน้าที่ | API ที่เรียก |
 |------|---------|-------------|
 | `public/donate-template/app.js` | หน้าโดเนท: สร้าง QR, อัพโหลดสลิป, เลือกวิธีชำระ | `/api/create-promptpay-qr`, `/api/verify-slip`, `/api/page/:username/payment-methods` |
-| `public/dashboard/dashboard.js` | Dashboard: บันทึกค่าตั้งค่า, ทดสอบ API | `/api/payment/settings`, `/api/payment/test-slipok`, `/api/overlay/settings`, `/api/page/settings` |
-| `public/overlay.js` | Overlay: รับ SSE, แสดง Alert | `/api/alerts/stream` (SSE) |
-| `public/dashboard/sound-cache.js` | Cache เสียงจาก MyInstants | `/api/myinstants/search` |
+| `public/dashboard/dashboard.js` | Dashboard: บันทึกค่าตั้งค่า, ทดสอบ API, Goal Bar | `/api/payment/settings`, `/api/overlay/settings`, `/api/page/settings`, `/api/goal/adjust` |
+| `public/overlay/overlay.js` | Overlay: รับ SSE, แสดง Alert | `/api/alerts/stream` (SSE) |
+| `public/goal-bar/goal-bar.js` | Goal Bar widget: รับ SSE อัพเดต goal | `/api/alerts/stream` (SSE), `/api/page/:username/goal` |
+| `public/dashboard/dona-monitor.html` | Donation Monitor popup | `/api/alerts/stream` (SSE) |
+| `public/dashboard/sound-cache.js` | Cache เสียงจาก MyInstants | `/api/myinstants/search`, `/api/myinstants/proxy` |
+| `public/dashboard/slipok-guide.js` | คู่มือตั้งค่า SlipOK แบบ step-by-step | — |
 
 ---
 
@@ -294,25 +300,37 @@ app.post('/api/my-new-endpoint', ensureAuthenticated, myApiLimiter, async (req, 
 |-----|----------|--------|
 | `TURSO_DATABASE_URL` | URL เชื่อมต่อ Turso Cloud SQLite | Database |
 | `TURSO_AUTH_TOKEN` | JWT Token สำหรับ Turso | Database |
-| `SESSION_SECRET` | Secret สำหรับ encrypt session | Session |
+| `SESSION_SECRET` | Secret สำหรับ sign session cookie | Session |
 | `MASTER_ENCRYPTION_KEY` | Key หลักสำหรับ AES-256-GCM | Encryption |
+| `ENCRYPTION_SALT` | Salt สำหรับ scrypt key derivation | Encryption |
 | `TWITCH_CLIENT_ID` | Twitch App Client ID | OAuth |
 | `TWITCH_CLIENT_SECRET` | Twitch App Secret | OAuth |
 | `TWITCH_CALLBACK_URL` | Callback URL สำหรับ Twitch OAuth | OAuth |
 
-### Encryption (Optional)
-
-| Key | คำอธิบาย |
-|-----|----------|
-| `ENCRYPTION_SALT` | Salt สำหรับ derive key (เปลี่ยนใน production) |
-
-### Streamlabs OAuth (ถ้ามี)
+### Streamlabs OAuth
 
 | Key | คำอธิบาย |
 |-----|----------|
 | `STREAMLABS_CLIENT_ID` | Streamlabs App Client ID |
 | `STREAMLABS_CLIENT_SECRET` | Streamlabs App Secret |
 | `STREAMLABS_REDIRECT_URI` | Redirect URI |
+
+### Cloudflare R2 (File Storage)
+
+| Key | คำอธิบาย |
+|-----|----------|
+| `R2_ENDPOINT` | R2 S3-compatible endpoint URL |
+| `R2_ACCESS_KEY_ID` | R2 Access Key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 Secret Access Key |
+| `R2_BUCKET_NAME` | R2 Bucket name |
+| `R2_PUBLIC_URL` | Public URL prefix สำหรับ serve ไฟล์ |
+
+### System
+
+| Key | คำอธิบาย |
+|-----|----------|
+| `CRON_SECRET` | Secret สำหรับ authenticate Cron Job requests |
+| `PORT` | Port ที่ server รัน (default: 3000) |
 
 ---
 
@@ -407,4 +425,46 @@ function ensureUserOwner(req, res, next) {
 
 ---
 
-Made by KaminKub (Summary by Opencode) 
+---
+
+## 8. ระบบอัพโหลดไฟล์ (Cloudflare R2)
+
+### 8.1 ภาพรวม
+ใช้ Presigned URL Pattern — Backend ออก URL ชั่วคราว, Frontend PUT ตรงไป R2 โดยไม่ผ่าน Backend
+
+### 8.2 Flow
+```
+1. Frontend → POST /api/upload/presign { filename, contentType }
+2. Backend → สร้าง Presigned URL (หมดอายุใน 5 นาที)
+3. Frontend → PUT <presigned-url> (direct to R2)
+4. Frontend → แจ้ง Backend ว่าอัพโหลดสำเร็จ → บันทึก URL ลง DB
+```
+
+### 8.3 ตำแหน่งโค้ด
+
+| ไฟล์ | หน้าที่ |
+|------|---------|
+| `src/server.js` | Route `POST /api/upload/presign`, `POST /api/upload/delete-file` |
+
+---
+
+## 9. Goal Bar API
+
+### 9.1 ภาพรวม
+Goal Bar เป็น Standalone Widget ที่รับ Real-time Update ผ่าน SSE เดียวกับ Overlay
+
+### 9.2 Endpoints
+
+| Method | Path | Auth | คำอธิบาย |
+|--------|------|------|----------|
+| GET | `/api/page/:username/goal` | Public | ดึงข้อมูล Goal ปัจจุบัน |
+| POST | `/api/goal/adjust` | Required | ปรับยอดสะสม |
+| POST | `/api/goal/reset` | Required | รีเซ็ต Goal |
+
+### 9.3 SSE Event สำหรับ Goal
+Goal Bar รับ update ผ่าน `/api/alerts/stream` SSE เหมือนกับ Overlay
+Event type: `goal-update`
+
+---
+
+Made by KaminKub

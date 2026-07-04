@@ -8,7 +8,6 @@
 - **SlipOK Slip Verification** — ระบบหลัก ตรวจสอบสลิปโอนเงินอัตโนมัติผ่าน SlipOK API (รองรับ JPG, PNG, WEBP, JFIF)
 - **PromptPay Direct** — QR Code EMVCo โอนตรงเข้าบัญชีพร้อมเพย์ของผู้ใช้ (เบอร์โทร / เลขบัตร / e-Wallet ID)
 - **TrueMoney Wallet** — รับเงินผ่านวอลเลท ตรวจสอบสลิปด้วย SlipOK API (เช่นเดียวกับพร้อมเพย์)
-- ~~**Feel Free Pay (FFP)** — ระบบรับเงินทางเลือก~~ **ยกเลิกแล้ว (2026-06-30)**: FFP ไม่อนุมัติ API โค้ดถูกเก็บไว้ดู 
 
 ### Live Donation Alert (OBS Overlay)
 - แสดง Alert แบบ Real-time บน OBS/Stream ผ่าน Server-Sent Events (SSE)
@@ -27,11 +26,13 @@
 - **แท็บตั้งค่าหน้าโดเนท** — ชื่อหน้า, คำบรรยาย, Social Links, ภาพโปรไฟล์, สีเรืองแสง
 - **แท็บปรับแต่ง Overlay** — ธีม, ฟอนต์, แอนิเมชัน, เสียง, TTS, สี, ขนาดอักษร
 - **แท็บตั้งค่าการรับเงิน** — เลือกเปิด/ปิด PromptPay + TrueMoney Wallet, กรอก SlipOK API
+- **แท็บ Goal Bar** — ตั้งเป้าหมายการรับบริจาค, ปรับยอด, รีเซ็ต
 - **แท็บตั้งค่าบัญชี** — เชื่อมต่อ Twitch/Streamlabs, ลบบัญชี, ออกจากระบบ
+- **Dona Monitor** — หน้าต่าง Popup แสดง Donation แบบ Real-time (URL: `/:username/dona-monitor`)
 
 ### ระบบยืนยันตัวตน
 - **Twitch OAuth** — ล็อกอิน/สมัครด้วย Twitch
-- **Streamlabs OAuth** — ล็อกอิน/สมัครด้วย Streamlabs (กำลังพัฒนา)
+- **Streamlabs OAuth** — ล็อกอิน/สมัครด้วย Streamlabs
 - หน้า Register แยกสำหรับผู้ใช้ใหม่ พร้อมยอมรับข้อกำหนดและเงื่อนไข
 - Session เก็บใน **Turso DB** (รองรับ Serverless)
 
@@ -50,32 +51,35 @@
 | Database | Turso Cloud SQLite (`@libsql/client`) + In-Memory Fallback |
 | Authentication | Passport.js (Twitch OAuth, Streamlabs OAuth) |
 | Session Store | TursoStore (Custom Turso-backed session store) |
-| Payment | SlipOK API (ตรวจสอบสลิป) + Feel Free Pay (กำลังพัฒนา) |
+| Payment | SlipOK API (ตรวจสอบสลิป) |
+| File Storage | Cloudflare R2 (S3-compatible, Profile images) |
 | Encryption | AES-256-GCM (Node.js `crypto`) |
-| File Upload | Multer (Memory Storage) |
+| File Upload | Multer (Memory Storage) + Presigned URLs (R2) |
 | Realtime | Server-Sent Events (SSE) |
 | Rate Limiting | express-rate-limit |
-| Deployment | Vercel (Serverless) |
+| Deployment | VPS + PM2 + Nginx + SSL (Primary) |
 
 ## โครงสร้างโปรเจค
 
 ```
 beam-donate/
 ├── src/
-│   ├── server.js              # Express server + Routes + SSE + OAuth + SlipOK API
+│   ├── server.js              # Express server + Routes + SSE + OAuth + Payment APIs
 │   ├── database.js            # Turso/SQLite Database Manager + Migrations
 │   ├── encryption.js          # AES-256-GCM encrypt/decrypt/censor
+│   ├── auth-helpers.js        # determinePrimaryAuth() + auth utilities
 │   ├── sessionStore.js        # Custom Turso-backed session store
 │   └── streamlabs.js          # Streamlabs OAuth helper
 ├── public/
 │   ├── assets/                # Shared static assets
-│   │   ├── payment/           # ไอคอน/โลโก้ วิธีชำระเงิน (PromptPay, TrueMoney, FFP)
+│   │   ├── payment/           # ไอคอน/โลโก้ วิธีชำระเงิน (PromptPay, TrueMoney)
 │   │   ├── overlays/          # Overlay decorative assets (GIF)
 │   │   ├── audio/             # Default audio (my-sound.mp3)
+│   │   ├── slipok-guide/      # รูปภาพคู่มือตั้งค่า SlipOK
 │   │   ├── style.css          # สไตล์หลักของ site
-│   │   ├── tipkub-loading.css/js  # Loading screen component
-│   │   ├── cookie-consent.js  # Cookie Consent Banner
-│   │   └── banner.jpg         # OG/Social share image
+│   │   ├── tipkub-loading.css # Loading screen styles
+│   │   ├── tipkub-loading.js  # Loading screen logic
+│   │   └── cookie-consent.js  # Cookie Consent Banner
 │   ├── pages/                 # HTML pages (Express sendFile routes)
 │   │   ├── auth/              # login, register, register-setup, login-failed, forbidden
 │   │   ├── index.html         # Landing Page (GET /)
@@ -83,24 +87,29 @@ beam-donate/
 │   │   ├── privacy.html       # นโยบายความเป็นส่วนตัว
 │   │   └── terms-of-services.html  # ข้อกำหนดและเงื่อนไข
 │   ├── overlay/               # OBS Browser Source overlay (self-contained)
-│   │   ├── index.html         # Overlay page (GET /overlay)
+│   │   ├── index.html         # Overlay page
 │   │   ├── overlay.css        # สไตล์ Overlay
 │   │   └── overlay.js         # SSE client + Alert queue
 │   ├── dashboard/             # Dashboard (หน้าควบคุมสตรีมเมอร์)
 │   │   ├── index.html         # Dashboard HTML
 │   │   ├── dashboard.js       # Dashboard Logic
 │   │   ├── admin.css          # Dashboard Styles
+│   │   ├── dona-monitor.html  # Donation Monitor popup
+│   │   ├── slipok-guide.js    # SlipOK setup guide helper
 │   │   └── sound-cache.js     # Cache ระบบเสียง
 │   ├── donate-template/       # หน้าโดเนทของแต่ละ User (Dynamic)
-│   │   ├── index.html         # Donate page 3-step flow (readFileSync at startup)
+│   │   ├── index.html         # Donate page 3-step flow
 │   │   ├── app.js             # Donate flow logic + Slip upload
 │   │   └── thank-you.html     # หน้าขอบคุณหลังโอนเงินสำเร็จ
-│   └── goal-bar/              # Standalone goal-bar widget
-│       └── index.html
+│   └── goal-bar/              # Standalone donation goal widget
+│       ├── index.html
+│       ├── goal-bar.js
+│       ├── goal-bar.css
+│       └── goal-bar-animation.js
 ├── scripts/
 │   └── migrate.js             # Database migration script
 ├── .env                       # Environment variables (ไม่อัปโหลดขึ้น Git)
-├── vercel.json                # Vercel deployment config
+├── ecosystem.config.js        # PM2 configuration
 ├── package.json
 └── README.md
 ```
@@ -134,10 +143,20 @@ TWITCH_CLIENT_ID=your_twitch_client_id
 TWITCH_CLIENT_SECRET=your_twitch_client_secret
 TWITCH_CALLBACK_URL=http://localhost:3000/auth/twitch/callback
 
-# Streamlabs OAuth (ถ้ามี)
+# Streamlabs OAuth
 STREAMLABS_CLIENT_ID=your_streamlabs_client_id
 STREAMLABS_CLIENT_SECRET=your_streamlabs_client_secret
 STREAMLABS_REDIRECT_URI=http://localhost:3000/auth/streamlabs/callback
+
+# Cloudflare R2 (File Storage)
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=your_bucket_name
+R2_PUBLIC_URL=https://your-r2-public-url.r2.dev
+
+# Cron Authentication
+CRON_SECRET=your_cron_secret
 
 # Server
 PORT=3000
@@ -177,8 +196,10 @@ http://localhost:3000
 | GET | `/register/setup` | หน้าตั้งค่าหลังสมัคร |
 | GET | `/:username` | หน้าโดเนทของ User (Dynamic) |
 | GET | `/:username/thank-you` | หน้าขอบคุณของ User |
-| GET | `/:username/overlay` | Overlay ของ User |
+| GET | `/:username/overlay` | Overlay ของ User (OBS Browser Source) |
 | GET | `/:username/dashboard` | Dashboard ของ User (ต้องเป็นเจ้าของ) |
+| GET | `/:username/dona-monitor` | Donation Monitor popup (ต้องเป็นเจ้าของ) |
+| GET | `/health` | Health Check |
 
 ### ยืนยันตัวตน (Auth)
 
@@ -188,8 +209,8 @@ http://localhost:3000
 | GET | `/auth/twitch/callback` | Twitch OAuth callback |
 | GET | `/auth/streamlabs` | เริ่ม Streamlabs OAuth |
 | GET | `/auth/streamlabs/callback` | Streamlabs OAuth callback |
-| GET | `/auth/register/twitch` | สมัครผ่าน Twitch (ข้าม OAuth ถ้ามี pending user) |
-| GET | `/auth/register/streamlabs` | สมัครผ่าน Streamlabs (ข้าม OAuth ถ้ามี pending user) |
+| GET | `/auth/register/twitch` | สมัครผ่าน Twitch |
+| GET | `/auth/register/streamlabs` | สมัครผ่าน Streamlabs |
 | POST | `/api/register/complete` | สร้างบัญชีหลังตั้งค่า Profile |
 | GET | `/api/register/pending` | เช็คว่ามี pending user หรือไม่ |
 | POST | `/api/logout` | ออกจากระบบ |
@@ -200,56 +221,91 @@ http://localhost:3000
 |--------|------|----------|
 | GET | `/api/user/me` | ข้อมูล User ที่ล็อกอินอยู่ |
 | DELETE | `/api/user/delete` | ลบบัญชี (ต้องเป็นเจ้าของ) |
+| POST | `/api/connections/disconnect` | ยกเลิกการเชื่อมต่อ Twitch/Streamlabs |
+| POST | `/api/feedback` | ส่ง Feedback (Auth required) |
+| GET | `/api/csrf-token` | ดึง CSRF Token (Auth required) |
 
-### ชำระเงิน (SlipOK + PromptPay)
+### ชำระเงิน (Payment)
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | POST | `/api/create-promptpay-qr` | สร้าง QR Code PromptPay (EMVCo) |
 | POST | `/api/verify-slip` | อัพโหลดและตรวจสอบสลิปผ่าน SlipOK API |
 | POST | `/api/verify-promptpay-slip` | ตรวจสอบสลิปพร้อมเพย์ (Rate Limited) |
-| GET | `/api/payment/settings` | ดึงค่าตั้งค่าการรับเงิน (เข้ารหัสแล้ว) |
-| POST | `/api/payment/settings` | บันทึกค่าตั้งค่าการรับเงิน (เข้ารหัสก่อนเก็บ) |
-| POST | `/api/payment/test-slipok` | ทดสอบเชื่อมต่อ SlipOK API |
-| GET | `/api/page/:username/payment-methods` | ดึงวิธีชำระเงินที่เปิดใช้ของ User |
+| GET | `/api/payment/settings` | ดึงค่าตั้งค่าการรับเงิน (Auth required) |
+| POST | `/api/payment/settings` | บันทึกค่าตั้งค่าการรับเงิน (Auth required) |
+| POST | `/api/payment/test-slipok` | ทดสอบเชื่อมต่อ SlipOK API (Auth required) |
+| GET | `/api/payment/slipok-quota` | ดึงโควต้า SlipOK คงเหลือ (Auth required) |
+| GET | `/api/page/:username/payment-methods` | ดึงวิธีชำระเงินที่เปิดใช้ของ User (สาธารณะ) |
+
+### อัพโหลดไฟล์ (Upload)
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| POST | `/api/upload/presign` | สร้าง Presigned URL สำหรับอัพโหลดไฟล์ไป R2 (Auth required) |
+| POST | `/api/upload/delete-file` | ลบไฟล์จาก R2 (Auth required) |
 
 ### Overlay & Alert
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | GET | `/api/overlay/settings` | ดึงค่าตั้งค่า Overlay |
-| POST | `/api/overlay/settings` | บันทึกค่าตั้งค่า Overlay + SSE Sync |
-| GET | `/api/overlay/status` | เช็คสถานะ Overlay (Online/Offline) |
-| GET | `/api/overlay/token` | ดึง Overlay Token |
-| GET | `/api/alerts/stream` | SSE Stream สำหรับ Overlay |
-| POST | `/api/alerts/test` | ส่ง Test Alert |
+| POST | `/api/overlay/settings` | บันทึกค่าตั้งค่า Overlay + SSE Sync (Auth required) |
+| GET | `/api/overlay/status` | เช็คสถานะ Overlay ของตัวเอง (Auth required) |
+| GET | `/api/overlay/status/:username` | เช็คสถานะ Overlay ของ User (สาธารณะ) |
+| GET | `/api/overlay/token` | ดึง Overlay Token (Auth required) |
+| GET | `/api/alerts/stream` | SSE Stream สำหรับ Overlay/Goal-Bar/Dona-Monitor |
+| POST | `/api/alerts/test` | ส่ง Test Alert (Auth required) |
 | GET | `/api/page/:username/settings` | ดึงค่าตั้งค่าหน้าโดเนท (สาธารณะ) |
-| POST | `/api/page/settings` | บันทึกค่าตั้งค่าหน้าโดเนท |
+| POST | `/api/page/settings` | บันทึกค่าตั้งค่าหน้าโดเนท (Auth required) |
+
+### Goal Bar
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/api/page/:username/goal` | ดึงข้อมูล Goal ของ User (สาธารณะ) |
+| POST | `/api/goal/adjust` | ปรับยอด Goal (Auth required) |
+| POST | `/api/goal/reset` | รีเซ็ต Goal (Auth required) |
 
 ### ธุรกรรม (Transactions)
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
-| GET | `/api/transactions/:username` | ดึงประวัติธุรกรรมของ User |
-| GET | `/api/transactions/:username/download` | ดาวน์โหลดประวัติเป็น CSV |
-| POST | `/api/transactions/:id/status` | บังคับเปลี่ยนสถานะธุรกรรม |
+| GET | `/api/transactions/:username` | ดึงประวัติธุรกรรมของ User (Auth required) |
+| GET | `/api/transactions/:username/download` | ดาวน์โหลดประวัติเป็น CSV (Auth required) |
+| POST | `/api/transactions/:id/status` | บังคับเปลี่ยนสถานะธุรกรรม (Auth required) |
 
 ### ระบบเสริม
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
-| GET | `/api/myinstants/search` | ค้นหาเสียงจาก MyInstants.com (Rate Limited) |
-| GET | `/api/myinstants/proxy` | Proxy ดึงข้อมูลเสียงจาก MyInstants |
-| GET | `/api/myinstants/pages` | รายการหน้าหมวดหมู่ MyInstants |
+| GET | `/api/myinstants/search` | ค้นหาเสียงจาก MyInstants.com (Auth required) |
+| GET | `/api/myinstants/proxy` | Proxy ดึงข้อมูลเสียงจาก MyInstants (Auth required) |
+| GET | `/api/myinstants/pages` | รายการหมวดหมู่ MyInstants (Auth required) |
 | GET | `/api/tts` | Text-to-Speech proxy |
-| GET | `/health` | Health Check |
 
-### Cron Jobs
+### Demo (ทดลองใช้งาน)
+
+| Method | Path | คำอธิบาย |
+|--------|------|----------|
+| GET | `/demo/dashboard` | Demo Dashboard (Rate Limited) |
+| GET | `/demo/overlay` | Demo Overlay |
+| GET | `/demo/goal-bar` | Demo Goal Bar |
+| GET | `/demo/dona-monitor` | Demo Dona Monitor |
+| GET | `/api/demo/settings` | ดึงการตั้งค่า Demo |
+| GET | `/api/demo/overlay/settings` | ดึงการตั้งค่า Overlay Demo |
+| GET | `/api/demo/alerts/stream` | SSE Stream Demo |
+| GET | `/api/demo/transactions` | ดึง Transaction Demo |
+| POST | `/api/demo/alerts/test` | ส่ง Test Alert Demo (Rate Limited) |
+| POST | `/api/demo/goal/test` | ส่ง Test Goal Demo (Rate Limited) |
+
+### Cron Jobs (Protected)
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | POST | `/api/cron/cleanup-expired` | ลบธุรกรรมหมดอายุ |
 | POST | `/api/cron/cleanup-quarterly` | ลบข้อมูลรายไตรมาส |
+| POST | `/api/cron/cleanup-r2-orphans` | ลบไฟล์ R2 ที่ไม่มี record ใน DB |
 
 ## ระบบชำระเงิน
 
@@ -262,10 +318,6 @@ http://localhost:3000
 4. Backend ส่งสลิปไปตรวจสอบที่ SlipOK API (`POST /api/verify-slip`)
 5. SlipOK คืนข้อมูลธุรกรรม (จำนวนเงิน, ธนาคาร, ผู้โอน, ผู้รับ)
 6. ระบบตรวจสอบยอดเงิน + บัญชีผู้รับ → ยืนยันการบริจาค + ยิง Alert
-
-### ~~Feel Free Pay (FFP)~~ — ยกเลิกแล้ว (2026-06-30)
-FFP ไม่อนุมัติให้ใช้ API กับโปรเจคนี้ โค้ดทั้งหมดถูก comment/skip ไว้ (ไม่ลบ)  
-หากต้องการกลับมาเปิดใช้งานอีกครั้ง อ่าน
 
 ### การเข้ารหัสข้อมูล
 ข้อมูลสำคัญทั้งหมดเข้ารหัสด้วย **AES-256-GCM** ก่อนบันทึกลงฐานข้อมูล:
@@ -289,25 +341,25 @@ FFP ไม่อนุมัติให้ใช้ API กับโปรเ�
 ```bash
 npm run migrate
 ```
-รัน script `scripts/migrate.js` เพื่อสร้าง/อัปเดต schema — **ห้าม** รัน migration บน request path (Vercel Cold Start จะ timeout)
+รัน script `scripts/migrate.js` เพื่อสร้าง/อัปเดต schema — ห้ามรัน migration บน request path (จะ timeout)
 
 ## Deployment
 
-### VPS (แนะนำ)
-- เสปกขั้นต่ำ: 1 vCPU / 1 GB RAM / 15 GB SSD (Ubuntu 24.04)
+### VPS (Primary)
+- Ubuntu 24.04 + PM2 + Nginx reverse proxy + SSL (Certbot)
 - รองรับทุกฟีเจอร์ (SSE, File Upload, Real-time Alert)
-- PM2 + Nginx + SSL + Cloudflare DNS Failover
+- PM2 ecosystem config: `ecosystem.config.js`
 
-### Vercel (สำรอง)
-Environment Variables ที่ต้องตั้งค่าบน Vercel:
-- `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (Database)
-- `SESSION_SECRET` (Session)
-- `MASTER_ENCRYPTION_KEY` + `ENCRYPTION_SALT` (Encryption)
-- `TWITCH_CLIENT_ID` + `TWITCH_CLIENT_SECRET` + `TWITCH_CALLBACK_URL` (OAuth)
-
-ข้อควรระวัง:
-- SSE ใช้ไม่ได้บน Vercel Free (Function timeout 10 วิ)
-- ไม่ต้องรัน `npm run migrate` — รันแยกก่อน deploy
+Environment Variables ที่ต้องตั้งค่า:
+```
+TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+SESSION_SECRET, MASTER_ENCRYPTION_KEY, ENCRYPTION_SALT
+TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CALLBACK_URL
+STREAMLABS_CLIENT_ID, STREAMLABS_CLIENT_SECRET, STREAMLABS_REDIRECT_URI
+R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL
+CRON_SECRET
+PORT
+```
 
 ## License
 
