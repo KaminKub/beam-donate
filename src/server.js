@@ -1378,7 +1378,26 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           : {}
         )
       });
-      
+
+      // Re-cache avatar to R2 if still pointing to external CDN (fire-and-forget — never blocks OAuth)
+      const imageToCache = profileImage || existingUser.profile_image_value;
+      const r2Base = process.env.R2_PUBLIC_URL || '';
+      if (r2Base && imageToCache && imageToCache.startsWith('http') && !imageToCache.startsWith(r2Base)) {
+        const stableId = existingUser.twitch_id || existingUser.streamlabs_id || existingUser.id;
+        (async () => {
+          try {
+            const resp = await axios.get(imageToCache, { responseType: 'arraybuffer', timeout: 10000 });
+            const ct = resp.headers['content-type'] || 'image/jpeg';
+            const ext = ct.includes('webp') ? 'webp' : ct.includes('png') ? 'png' : 'jpg';
+            const r2Url = await uploadBufferToR2(Buffer.from(resp.data), `avatars/twitch_${stableId}.${ext}`, ct);
+            if (r2Url) {
+              await db.saveStreamer({ ...existingUser, profile_image_value: r2Url, profile_image_source: streamlabsPlatform });
+              console.log(`📸 [Streamlabs] Avatar re-cached to R2 for ${existingUser.username}: ${r2Url}`);
+            }
+          } catch (err) { console.error('❌ [Streamlabs] R2 avatar re-cache failed:', err.message); }
+        })();
+      }
+
       // Create a session for this user
       req.login(existingUser, (err) => {
         if (err) {
