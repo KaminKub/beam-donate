@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>User Management — TipKub Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0f1d; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    .admin-nav {
+      display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+      background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+    }
+    .admin-brand { display: flex; align-items: center; gap: 0.5rem; color: #667eea; font-weight: 700; font-size: 1rem; text-decoration: none; }
+    .admin-nav-links { display: flex; gap: 0.25rem; flex: 1; }
+    .admin-nav-links a { color: #94a3b8; text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 0.4rem; }
+    .admin-nav-links a:hover, .admin-nav-links a.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .admin-nav-links a.active { color: #667eea; }
+    .admin-nav-dash { color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; margin-left: auto; }
+    .admin-nav-dash:hover { color: #e2e8f0; }
+
+    .admin-content { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+    .admin-header h1 { font-size: 1.25rem; font-weight: 700; }
+    .header-right { color: #94a3b8; font-size: 0.85rem; }
+
+    .controls { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    .search-box { position: relative; }
+    .search-box input {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 0.45rem 0.75rem 0.45rem 2rem; color: #e2e8f0;
+      font-size: 0.875rem; width: 220px; outline: none;
+    }
+    .search-box input:focus { border-color: rgba(102,126,234,0.5); }
+    .search-box i { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem; }
+    select.filter-select {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 0.45rem 0.75rem; color: #e2e8f0; font-size: 0.875rem; outline: none;
+    }
+    .btn-refresh {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.45rem 0.9rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08); color: #e2e8f0; cursor: pointer; font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+    .btn-refresh:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+    .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .table-wrap { overflow-x: auto; }
+    .user-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .user-table thead th {
+      text-align: left; padding: 0.6rem 0.75rem; font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .user-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .user-table tbody tr:hover { background: rgba(255,255,255,0.05); }
+    .user-table tbody td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    td.empty { color: #94a3b8; text-align: center; padding: 2rem; }
+
+    .badge-status { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .badge-active { background: rgba(16,185,129,0.15); color: #10b981; }
+    .badge-inactive { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-provider { background: rgba(102,126,234,0.15); color: #818cf8; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .badge-payment { background: rgba(245,158,11,0.15); color: #f59e0b; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .link-cell { display: flex; gap: 0.5rem; }
+    .tbl-link { color: #3b82f6; text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; }
+    .tbl-link:hover { color: #60a5fa; text-decoration: underline; }
+
+    .pagination { display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+    .page-btn {
+      padding: 0.35rem 0.7rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06); color: #e2e8f0; cursor: pointer; font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .page-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-btn.active { background: rgba(102,126,234,0.3); border-color: rgba(102,126,234,0.5); color: #818cf8; }
+    .page-info { color: #94a3b8; font-size: 0.8rem; }
+    .provider-logo { width: 20px; height: 20px; vertical-align: middle; }
+    .provider-cell { display: inline-flex; gap: 6px; align-items: center; }
+  </style>
+</head>
+<body>
+<nav class="admin-nav">
+  <a href="/admin" class="admin-brand"><i class="fa-solid fa-shield-halved"></i> TipKub Admin</a>
+  <div class="admin-nav-links">
+    <a href="/admin/overlays"><i class="fa-solid fa-satellite-dish"></i> Overlays</a>
+    <a href="/admin/users" class="active"><i class="fa-solid fa-users"></i> Users</a>
+    <a href="/admin/stats"><i class="fa-solid fa-chart-simple"></i> Stats</a>
+    <a href="/admin/security"><i class="fa-solid fa-triangle-exclamation"></i> Security</a>
+  </div>
+  <a href="/kaminkub/dashboard" class="admin-nav-dash" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Dashboard</a>
+</nav>
+
+<div class="admin-content">
+  <div class="admin-header">
+    <h1><i class="fa-solid fa-users" style="color:#3b82f6;margin-right:0.4rem;"></i>User Management <small style="font-size:0.75rem;color:#94a3b8;font-weight:400;">(Read-Only)</small></h1>
+    <div class="header-right">Total: <span id="totalCount">—</span> users</div>
+  </div>
+  <div class="controls">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="searchInput" placeholder="ค้นหา username..." autocomplete="off">
+    </div>
+    <select class="filter-select" id="filterSelect">
+      <option value="all">All</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+  </div>
+  <div class="table-wrap">
+    <table class="user-table">
+      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>LINKS</th></tr></thead>
+      <tbody id="tbody">
+        <tr><td colspan="5" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+let currentPage = 1;
+let isLoading = false;
+let searchTimer = null;
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setLoadingState(loading) {
+  isLoading = loading;
+  const btn = document.getElementById('btnRefresh');
+  const icon = btn.querySelector('i');
+  if (loading) { icon.className = 'fa-solid fa-rotate fa-spin'; btn.disabled = true; }
+  else { icon.className = 'fa-solid fa-rotate'; btn.disabled = false; }
+}
+
+// ponytail: fallback fa-bolt ใช้ไปก่อน รอ SVG path จาก simple-icons
+const STREAMLABS_SVG = '<i class="fa-solid fa-bolt provider-logo" style="color:#80F5D2;font-size:20px;" title="Streamlabs" aria-label="Streamlabs"></i>';
+
+function providerLogos(u) {
+  const logos = [];
+  if (u.has_twitch) {
+    logos.push('<i class="fa-brands fa-twitch provider-logo" style="color:#9146FF;font-size:20px;" title="Twitch" aria-label="Twitch"></i>');
+  }
+  if (u.has_streamlabs) {
+    logos.push(STREAMLABS_SVG);
+  }
+  return logos.length ? `<span class="provider-cell">${logos.join('')}</span>` : '—';
+}
+
+function paymentLabel(row) {
+  const methods = [];
+  if (row.promptpay_enabled) methods.push('PromptPay');
+  if (row.truemoney_enabled) methods.push('TrueMoney');
+  if (row.tfp_connected) methods.push('TFP');
+  return methods.length ? methods.join(', ') : '—';
+}
+
+function renderTable(data) {
+  document.getElementById('totalCount').textContent = data.total;
+  const tbody = document.getElementById('tbody');
+  if (!data.users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
+  } else {
+    tbody.innerHTML = data.users.map(u => `
+      <tr>
+        <td>${escapeHtml(u.username)}</td>
+        <td><span class="badge-status ${u.is_active ? 'badge-active' : 'badge-inactive'}">
+          <i class="fa-solid ${u.is_active ? 'fa-circle-check' : 'fa-ban'}"></i>
+          ${u.is_active ? 'Active' : 'Inactive'}
+        </span></td>
+        <td>${providerLogos(u)}</td>
+        <td><span class="badge-payment">${escapeHtml(paymentLabel(u))}</span></td>
+        <td class="link-cell">
+          <a href="/${escapeHtml(u.username)}" target="_blank" class="tbl-link"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
+        </td>
+      </tr>
+    `).join('');
+  }
+  renderPagination(data.total, data.page, data.pageSize);
+}
+
+function renderPagination(total, page, pageSize) {
+  const totalPages = Math.ceil(total / pageSize);
+  const pag = document.getElementById('pagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let html = `<span class="page-info">Page ${page} of ${totalPages}</span>`;
+  html += `<button class="page-btn" ${page <= 1 ? 'disabled' : ''} onclick="goPage(${page - 1})"><i class="fa-solid fa-chevron-left"></i></button>`;
+  const start = Math.max(1, page - 2), end = Math.min(totalPages, page + 2);
+  for (let i = start; i <= end; i++) {
+    html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  html += `<button class="page-btn" ${page >= totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})"><i class="fa-solid fa-chevron-right"></i></button>`;
+  pag.innerHTML = html;
+}
+
+async function fetchUsers() {
+  if (isLoading) return;
+  setLoadingState(true);
+  const q = document.getElementById('searchInput').value.trim();
+  const filter = document.getElementById('filterSelect').value;
+  const url = `/api/admin/users?page=${currentPage}&q=${encodeURIComponent(q)}&filter=${filter}`;
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (res.status === 401 || res.status === 403) {
+      document.body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><i class="fa-solid fa-lock" style="font-size:2rem;margin-bottom:12px;display:block;"></i>ไม่มีสิทธิ์เข้าถึงหน้านี้</div>';
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    renderTable(await res.json());
+  } catch (err) {
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="5" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
+    console.error('[Users] fetch error:', err);
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+function goPage(p) { currentPage = p; fetchUsers(); }
+
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { currentPage = 1; fetchUsers(); }, 400);
+});
+document.getElementById('filterSelect').addEventListener('change', () => { currentPage = 1; fetchUsers(); });
+document.getElementById('btnRefresh').addEventListener('click', fetchUsers);
+
+fetchUsers();
+</script>
+</body>
+</html>

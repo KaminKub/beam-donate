@@ -457,13 +457,24 @@ console.log(`🚀 Server started in ${process.env.NODE_ENV || 'development'} mod
 app.use(passport.initialize());
 app.use(passport.session());
 
-// SECURITY: Block direct access to /dashboard via express.static, but allow static assets
+// SECURITY: Block direct access to /dashboard and /admin via express.static, but allow static assets
 app.use((req, res, next) => {
   // Exclude /demo/* from auth guard — demo dashboard is intentionally public
   if (req.path.startsWith('/demo/')) return next();
   if (req.path.startsWith('/dashboard') || req.path.match(/\/\w+\/dashboard/)) {
     if (!req.isAuthenticated() && !req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/)) {
       return res.redirect('/login');
+    }
+  }
+  if (req.path.startsWith('/admin')) {
+    const isAsset = /\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/.test(req.path);
+    if (!isAsset) {
+      if (!req.isAuthenticated()) return res.redirect('/login');
+      // /admin เป๊ะๆ ปล่อยผ่านให้ route (~line 1452) ทำ redirect non-admin → dashboard ตัวเองตามเดิม
+      if (req.path !== '/admin' && req.path !== '/admin/' &&
+          (!ADMIN_TWITCH_ID || String(req.user.twitch_id) !== ADMIN_TWITCH_ID)) {
+        return res.redirect('/forbidden?reason=admin');
+      }
     }
   }
   next();
@@ -556,6 +567,13 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function maskIp(ip) {
+  if (!ip) return '';
+  return ip.includes(':')
+    ? ip.split(':').slice(0, 2).join(':') + '::x'
+    : ip.split('.').slice(0, 2).join('.') + '.x.x';
 }
 
 // ========== Helper Functions ==========
@@ -678,6 +696,13 @@ const feedbackLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const adminMonitorLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
 // Avoids the redundant "click login again" flow when a session cookie is still valid.
 async function redirectIfAuthenticated(req, res, next) {
@@ -757,6 +782,7 @@ app.get('/demo/dashboard', demoRateLimiter, (req, res) => {
 });
 
 const DEMO_STREAMER_USERNAME = 'kaminkub';
+const ADMIN_TWITCH_ID = process.env.ADMIN_TWITCH_ID || '';
 
 app.get('/api/demo/settings', demoRateLimiter, async (req, res) => {
   try {
@@ -1430,18 +1456,94 @@ app.get('/forbidden', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/pages/auth/forbidden.html'));
 });
 
-app.get('/admin', async (req, res) => {
-  if (req.isAuthenticated()) {
-    try {
-      const streamer = await getStreamerForUser(req.user);
-      if (streamer) {
-        return res.redirect(`/${streamer.username.toLowerCase()}/dashboard`);
-      }
-    } catch (err) {
-      console.error('Admin redirect error:', err);
-    }
+app.get('/admin', adminMonitorLimiter, async (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/login');
+  if (ADMIN_TWITCH_ID && String(req.user.twitch_id) === ADMIN_TWITCH_ID) {
+    return res.sendFile(path.join(__dirname, '../public/admin/index.html'));
+  }
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (streamer) return res.redirect(`/${streamer.username.toLowerCase()}/dashboard`);
+  } catch (err) {
+    console.error('Admin route error:', err);
   }
   res.redirect('/login');
+});
+
+app.get('/admin/overlays', adminMonitorLimiter, ensureAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin/overlays.html'));
+});
+
+app.get('/admin/users', adminMonitorLimiter, ensureAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin/users.html'));
+});
+
+app.get('/admin/stats', adminMonitorLimiter, ensureAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin/stats.html'));
+});
+
+app.get('/admin/security', adminMonitorLimiter, ensureAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin/security.html'));
+});
+
+app.get('/api/admin/active-overlays', adminMonitorLimiter, ensureAdmin, (req, res) => {
+  const now = Date.now();
+  const byUsername = {};
+  for (const c of sseClients) {
+    if (c.source !== 'overlay' || c.authMethod !== 'token') continue;
+    if (!byUsername[c.username]) {
+      byUsername[c.username] = { username: c.username, connections: 0, lastActivity: 0 };
+    }
+    byUsername[c.username].connections++;
+    if (c.lastActivity > byUsername[c.username].lastActivity) {
+      byUsername[c.username].lastActivity = c.lastActivity;
+    }
+  }
+  const active = Object.values(byUsername)
+    .sort((a, b) => b.lastActivity - a.lastActivity)
+    .map(c => ({
+      username: c.username,
+      connections: c.connections,
+      lastSeenSec: Math.round((now - c.lastActivity) / 1000),
+    }));
+  res.json({ activeCount: active.length, sseTotal: sseClients.length, active, ts: now });
+});
+
+app.get('/api/admin/stats', adminMonitorLimiter, ensureAdmin, async (req, res) => {
+  try {
+    const [userStats, txStats] = await Promise.all([
+      db.getAdminUserStats(),
+      db.getAdminTxStats(),
+    ]);
+    const sseTotal = sseClients.length;
+    const overlayCount = sseClients.filter(c => c.source === 'overlay' && c.authMethod === 'token').length;
+    res.json({ users: userStats, transactions: txStats, sse: { total: sseTotal, overlays: overlayCount } });
+  } catch (err) {
+    res.status(500).json({ error: 'Stats query failed' });
+  }
+});
+
+app.get('/api/admin/users', adminMonitorLimiter, ensureAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const q = (req.query.q || '').trim().toLowerCase();
+    const filter = req.query.filter || 'all';
+    const users = await db.getAdminUsers({ page, q, filter });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Users query failed' });
+  }
+});
+
+app.get('/api/admin/ip-events', adminMonitorLimiter, ensureAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(500, parseInt(req.query.limit) || 100);
+    const type = req.query.type || 'all';
+    const events = await db.getAdminIpEvents({ limit, type });
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ error: 'IP events query failed' });
+  }
 });
 
 app.use(express.static(path.join(__dirname, '../public')));
@@ -1605,6 +1707,14 @@ async function ensureUserOwner(req, res, next) {
     return res.redirect('/forbidden?reason=owner');
   }
   res.redirect('/login');
+}
+
+function ensureAdmin(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+  if (!ADMIN_TWITCH_ID || String(req.user.twitch_id) !== ADMIN_TWITCH_ID) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
 }
 
 app.get('/api/alerts/stream', async (req, res) => {

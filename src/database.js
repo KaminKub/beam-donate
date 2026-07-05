@@ -1507,6 +1507,97 @@ async function resetGoalCurrent(streamerId) {
   return row.rows[0] || null;
 }
 
+async function getAdminUserStats() {
+  await ensureConnected();
+  if (isFallback || !db) return { active: 0, inactive: 0, byProvider: {}, withPayment: 0 };
+  const [total, inactive, byProvider, withPayment] = await Promise.all([
+    db.execute('SELECT COUNT(*) as n FROM streamers WHERE is_active = 1'),
+    db.execute('SELECT COUNT(*) as n FROM streamers WHERE is_active = 0'),
+    db.execute('SELECT primary_auth_provider as p, COUNT(*) as n FROM streamers GROUP BY primary_auth_provider'),
+    db.execute('SELECT COUNT(*) as n FROM streamers WHERE promptpay_enabled = 1 OR truemoney_enabled = 1 OR tfp_connected = 1'),
+  ]);
+  return {
+    active: total.rows[0].n,
+    inactive: inactive.rows[0].n,
+    byProvider: Object.fromEntries(byProvider.rows.map(r => [r.p || 'unknown', r.n])),
+    withPayment: withPayment.rows[0].n,
+  };
+}
+
+async function getAdminTxStats() {
+  await ensureConnected();
+  if (isFallback || !db) return { total: 0, today: 0, week: 0 };
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const [total, todayCount, weekCount] = await Promise.all([
+    db.execute("SELECT COUNT(*) as n FROM transactions WHERE status = 'successful'"),
+    db.execute("SELECT COUNT(*) as n FROM transactions WHERE status = 'successful' AND createdAt >= ?", [today]),
+    db.execute("SELECT COUNT(*) as n FROM transactions WHERE status = 'successful' AND createdAt >= ?", [weekAgo]),
+  ]);
+  return { total: total.rows[0].n, today: todayCount.rows[0].n, week: weekCount.rows[0].n };
+}
+
+async function getAdminUsers({ page = 1, q = '', filter = 'all' } = {}) {
+  await ensureConnected();
+  if (isFallback || !db) return { users: [], total: 0, page, pageSize: 25 };
+  const PAGE_SIZE = 25;
+  const offset = (page - 1) * PAGE_SIZE;
+  const where = [];
+  const args = [];
+  if (q) { where.push('LOWER(username) LIKE ?'); args.push(`%${q}%`); }
+  if (filter === 'active')   { where.push('is_active = 1'); }
+  if (filter === 'inactive') { where.push('is_active = 0'); }
+  const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const [rows, countRow] = await Promise.all([
+    db.execute(
+      `SELECT username, is_active, primary_auth_provider,
+              (twitch_id IS NOT NULL AND twitch_id != '') AS has_twitch,
+              (streamlabs_id IS NOT NULL AND streamlabs_id != '') AS has_streamlabs,
+              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected
+       FROM streamers ${whereClause} ORDER BY username ASC LIMIT ? OFFSET ?`,
+      [...args, PAGE_SIZE, offset]
+    ),
+    db.execute(`SELECT COUNT(*) as n FROM streamers ${whereClause}`, args),
+  ]);
+  return { users: rows.rows, total: countRow.rows[0].n, page, pageSize: PAGE_SIZE };
+}
+
+async function getAdminIpEvents({ limit = 100, type = 'all' } = {}) {
+  await ensureConnected();
+  if (isFallback || !db) return { events: [], summary: [] };
+  const args = [];
+  let typeFilter = '';
+  if (type !== 'all') {
+    typeFilter = 'WHERE event_type = ?';
+    args.push(type);
+  }
+  args.push(limit);
+  const [rows, summary] = await Promise.all([
+    db.execute(
+      `SELECT id, event_type, ip, streamer_username, metadata, created_at
+       FROM ip_events ${typeFilter} ORDER BY created_at DESC LIMIT ?`,
+      args
+    ),
+    db.execute('SELECT event_type, COUNT(*) as n FROM ip_events GROUP BY event_type ORDER BY n DESC'),
+  ]);
+  const events = rows.rows.map(r => ({
+    id: r.id,
+    event_type: r.event_type,
+    ip_masked: maskIpLocal(r.ip),
+    streamer_username: r.streamer_username,
+    metadata: r.metadata,
+    created_at: r.created_at,
+  }));
+  return { events, summary: summary.rows };
+}
+
+function maskIpLocal(ip) {
+  if (!ip) return '';
+  return ip.includes(':')
+    ? ip.split(':').slice(0, 2).join(':') + '::x'
+    : ip.split('.').slice(0, 2).join('.') + '.x.x';
+}
+
 module.exports = {
   initDB,
   getDB,
@@ -1536,5 +1627,9 @@ module.exports = {
   resolveProfileImage,
   getAllR2Refs,
   logIpEvent,
-  cleanupOldIpEvents
+  cleanupOldIpEvents,
+  getAdminUserStats,
+  getAdminTxStats,
+  getAdminUsers,
+  getAdminIpEvents,
 };

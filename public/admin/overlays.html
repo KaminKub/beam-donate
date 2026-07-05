@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Active Overlay Monitor — TipKub Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0f1d; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    .admin-nav {
+      display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+      background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+    }
+    .admin-brand { display: flex; align-items: center; gap: 0.5rem; color: #667eea; font-weight: 700; font-size: 1rem; text-decoration: none; }
+    .admin-nav-links { display: flex; gap: 0.25rem; flex: 1; }
+    .admin-nav-links a { color: #94a3b8; text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 0.4rem; }
+    .admin-nav-links a:hover, .admin-nav-links a.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .admin-nav-links a.active { color: #667eea; }
+    .admin-nav-dash { color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; margin-left: auto; }
+    .admin-nav-dash:hover { color: #e2e8f0; }
+
+    .monitor-container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+    .monitor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+    .monitor-title { font-size: 1.25rem; font-weight: 700; }
+    .monitor-updated { font-size: 0.8rem; color: #94a3b8; }
+    .monitor-summary { display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+    .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .badge-active { background: rgba(16,185,129,0.15); color: #10b981; }
+    .badge-total  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .btn-refresh {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08); color: #e2e8f0; cursor: pointer; font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+    .btn-refresh:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+    .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .table-wrap { overflow-x: auto; }
+    .monitor-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .monitor-table thead th {
+      text-align: left; padding: 0.6rem 0.75rem; font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .monitor-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
+    .monitor-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .conn-warn { color: #f59e0b; font-weight: 600; }
+    .dash-link { color: #3b82f6; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.3rem; }
+    .dash-link:hover { color: #60a5fa; text-decoration: underline; }
+    td.empty { color: #94a3b8; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+<nav class="admin-nav">
+  <a href="/admin" class="admin-brand"><i class="fa-solid fa-shield-halved"></i> TipKub Admin</a>
+  <div class="admin-nav-links">
+    <a href="/admin/overlays" class="active"><i class="fa-solid fa-satellite-dish"></i> Overlays</a>
+    <a href="/admin/users"><i class="fa-solid fa-users"></i> Users</a>
+    <a href="/admin/stats"><i class="fa-solid fa-chart-simple"></i> Stats</a>
+    <a href="/admin/security"><i class="fa-solid fa-triangle-exclamation"></i> Security</a>
+  </div>
+  <a href="/kaminkub/dashboard" class="admin-nav-dash" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Dashboard</a>
+</nav>
+
+<div class="monitor-container">
+  <div class="monitor-header">
+    <span class="monitor-title"><i class="fa-solid fa-satellite-dish" style="color:#06b6d4;margin-right:0.4rem;"></i>Active Overlay Monitor</span>
+    <span class="monitor-updated">Last updated: <span id="lastUpdated">—</span></span>
+  </div>
+  <div class="monitor-summary">
+    <span class="badge badge-active"><i class="fa-solid fa-circle-dot"></i> Active: <span id="activeCount">—</span></span>
+    <span class="badge badge-total"><i class="fa-solid fa-plug"></i> SSE Total: <span id="sseTotal">—</span></span>
+    <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh Now</button>
+  </div>
+  <div class="table-wrap">
+    <table class="monitor-table">
+      <thead><tr><th>USERNAME</th><th>CONN</th><th>LAST SEEN</th></tr></thead>
+      <tbody id="tbody">
+        <tr><td colspan="3" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = '/api/admin/active-overlays';
+let pollTimer = null;
+let isLoading = false;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatLastSeen(sec) {
+  if (sec < 60) return sec + ' วินาทีที่แล้ว';
+  if (sec < 3600) return Math.floor(sec / 60) + ' นาทีที่แล้ว';
+  return Math.floor(sec / 3600) + ' ชั่วโมงที่แล้ว';
+}
+
+function setLoadingState(loading) {
+  isLoading = loading;
+  const btn = document.getElementById('btnRefresh');
+  const icon = btn.querySelector('i');
+  if (loading) { icon.className = 'fa-solid fa-rotate fa-spin'; btn.disabled = true; }
+  else { icon.className = 'fa-solid fa-rotate'; btn.disabled = false; }
+}
+
+function renderTable(data) {
+  document.getElementById('activeCount').textContent = data.activeCount;
+  document.getElementById('sseTotal').textContent = data.sseTotal;
+  const tbody = document.getElementById('tbody');
+  if (data.activeCount === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty"><i class="fa-solid fa-circle-dot" style="color:#94a3b8;margin-right:6px;"></i>ยังไม่มีใครเปิด Overlay อยู่ตอนนี้</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.active.map(row => `
+    <tr>
+      <td>${escapeHtml(row.username)}</td>
+      <td class="${row.connections > 1 ? 'conn-warn' : ''}">${row.connections}${row.connections > 1 ? ' ⚠' : ''}</td>
+      <td>${formatLastSeen(row.lastSeenSec)}</td>
+    </tr>
+  `).join('');
+}
+
+function updateTimestamp() {
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent =
+    now.getHours().toString().padStart(2,'0') + ':' +
+    now.getMinutes().toString().padStart(2,'0') + ':' +
+    now.getSeconds().toString().padStart(2,'0');
+}
+
+async function fetchData() {
+  if (isLoading) return;
+  setLoadingState(true);
+  try {
+    const res = await fetch(API, { credentials: 'include' });
+    if (res.status === 401 || res.status === 403) {
+      clearInterval(pollTimer);
+      document.body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><i class="fa-solid fa-lock" style="font-size:2rem;margin-bottom:12px;display:block;"></i>ไม่มีสิทธิ์เข้าถึงหน้านี้</div>';
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    renderTable(data);
+    updateTimestamp();
+  } catch (err) {
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="3" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถโหลดข้อมูลได้ — จะลองใหม่ใน 30 วินาที</td></tr>';
+    console.error('[Monitor] fetch error:', err);
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+fetchData();
+pollTimer = setInterval(fetchData, 30000);
+document.getElementById('btnRefresh').addEventListener('click', fetchData);
+</script>
+</body>
+</html>
