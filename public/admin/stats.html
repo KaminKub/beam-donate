@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Platform Stats — TipKub Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0f1d; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    .admin-nav {
+      display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+      background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+    }
+    .admin-brand { display: flex; align-items: center; gap: 0.5rem; color: #667eea; font-weight: 700; font-size: 1rem; text-decoration: none; }
+    .admin-nav-links { display: flex; gap: 0.25rem; flex: 1; }
+    .admin-nav-links a { color: #94a3b8; text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 0.4rem; }
+    .admin-nav-links a:hover, .admin-nav-links a.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .admin-nav-links a.active { color: #667eea; }
+    .admin-nav-dash { color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; margin-left: auto; }
+    .admin-nav-dash:hover { color: #e2e8f0; }
+
+    .admin-content { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
+    .admin-header h1 { font-size: 1.25rem; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 0.75rem; color: #94a3b8; font-size: 0.8rem; }
+    .btn-refresh {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08); color: #e2e8f0; cursor: pointer; font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .btn-refresh:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+    .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .section { margin-bottom: 2rem; }
+    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.75rem; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    @media (max-width: 600px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+
+    .stat-card {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: 0.3rem;
+    }
+    .stat-icon { font-size: 1.1rem; margin-bottom: 0.15rem; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+
+    .provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; }
+    .provider-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.2rem;
+    }
+    .provider-name { font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; }
+    .provider-count { font-size: 1.5rem; font-weight: 700; color: #667eea; }
+  </style>
+</head>
+<body>
+<nav class="admin-nav">
+  <a href="/admin" class="admin-brand"><i class="fa-solid fa-shield-halved"></i> TipKub Admin</a>
+  <div class="admin-nav-links">
+    <a href="/admin/overlays"><i class="fa-solid fa-satellite-dish"></i> Overlays</a>
+    <a href="/admin/users"><i class="fa-solid fa-users"></i> Users</a>
+    <a href="/admin/stats" class="active"><i class="fa-solid fa-chart-simple"></i> Stats</a>
+    <a href="/admin/security"><i class="fa-solid fa-triangle-exclamation"></i> Security</a>
+  </div>
+  <a href="/kaminkub/dashboard" class="admin-nav-dash" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Dashboard</a>
+</nav>
+
+<div class="admin-content">
+  <div class="admin-header">
+    <h1><i class="fa-solid fa-chart-simple" style="color:#8b5cf6;margin-right:0.4rem;"></i>Platform Stats</h1>
+    <div class="header-right">
+      <span>Updated: <span id="lastUpdated">—</span></span>
+      <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Users</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-users" style="color:#3b82f6;"></i></div><div class="stat-value" id="statActive">—</div><div class="stat-label">Active</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-ban" style="color:#ef4444;"></i></div><div class="stat-value" id="statInactive">—</div><div class="stat-label">Inactive</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-credit-card" style="color:#f59e0b;"></i></div><div class="stat-value" id="statPayment">—</div><div class="stat-label">Payment Enabled</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">By Auth Provider</div>
+    <div class="provider-grid" id="providerGrid"><div style="color:#94a3b8;font-size:0.875rem;">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Transactions (successful)</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-list" style="color:#8b5cf6;"></i></div><div class="stat-value" id="statTxTotal">—</div><div class="stat-label">Total</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-circle-check" style="color:#10b981;"></i></div><div class="stat-value" id="statTxToday">—</div><div class="stat-label">Today</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-calendar-week" style="color:#06b6d4;"></i></div><div class="stat-value" id="statTxWeek">—</div><div class="stat-label">This Week</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">SSE Live</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-plug" style="color:#06b6d4;"></i></div><div class="stat-value" id="statSseTotal">—</div><div class="stat-label">Total Connections</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-satellite-dish" style="color:#06b6d4;"></i></div><div class="stat-value" id="statSseOverlay">—</div><div class="stat-label">Overlay Online</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let isLoading = false;
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setLoadingState(loading) {
+  isLoading = loading;
+  const btn = document.getElementById('btnRefresh');
+  const icon = btn.querySelector('i');
+  if (loading) { icon.className = 'fa-solid fa-rotate fa-spin'; btn.disabled = true; }
+  else { icon.className = 'fa-solid fa-rotate'; btn.disabled = false; }
+}
+
+async function fetchStats() {
+  if (isLoading) return;
+  setLoadingState(true);
+  try {
+    const res = await fetch('/api/admin/stats', { credentials: 'include' });
+    if (res.status === 401 || res.status === 403) {
+      document.body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><i class="fa-solid fa-lock" style="font-size:2rem;margin-bottom:12px;display:block;"></i>ไม่มีสิทธิ์เข้าถึงหน้านี้</div>';
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    document.getElementById('statActive').textContent = d.users.active;
+    document.getElementById('statInactive').textContent = d.users.inactive;
+    document.getElementById('statPayment').textContent = d.users.withPayment;
+    document.getElementById('statTxTotal').textContent = d.transactions.total;
+    document.getElementById('statTxToday').textContent = d.transactions.today;
+    document.getElementById('statTxWeek').textContent = d.transactions.week;
+    document.getElementById('statSseTotal').textContent = d.sse.total;
+    document.getElementById('statSseOverlay').textContent = d.sse.overlays;
+
+    const pg = document.getElementById('providerGrid');
+    const providers = d.users.byProvider || {};
+    const keys = Object.keys(providers);
+    if (keys.length === 0) {
+      pg.innerHTML = '<div style="color:#94a3b8;font-size:0.875rem;">ไม่มีข้อมูล</div>';
+    } else {
+      pg.innerHTML = keys.map(k => `
+        <div class="provider-card">
+          <div class="provider-name">${escapeHtml(k)}</div>
+          <div class="provider-count">${providers[k]}</div>
+        </div>
+      `).join('');
+    }
+
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      now.getHours().toString().padStart(2,'0') + ':' +
+      now.getMinutes().toString().padStart(2,'0') + ':' +
+      now.getSeconds().toString().padStart(2,'0');
+  } catch (err) {
+    console.error('[Stats] fetch error:', err);
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+fetchStats();
+setInterval(fetchStats, 60000);
+document.getElementById('btnRefresh').addEventListener('click', fetchStats);
+</script>
+</body>
+</html>

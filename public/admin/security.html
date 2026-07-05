@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Security Log — TipKub Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0f1d; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    .admin-nav {
+      display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+      background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+    }
+    .admin-brand { display: flex; align-items: center; gap: 0.5rem; color: #667eea; font-weight: 700; font-size: 1rem; text-decoration: none; }
+    .admin-nav-links { display: flex; gap: 0.25rem; flex: 1; }
+    .admin-nav-links a { color: #94a3b8; text-decoration: none; padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 0.4rem; }
+    .admin-nav-links a:hover, .admin-nav-links a.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .admin-nav-links a.active { color: #667eea; }
+    .admin-nav-dash { color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; margin-left: auto; }
+    .admin-nav-dash:hover { color: #e2e8f0; }
+
+    .admin-content { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
+    .admin-header h1 { font-size: 1.25rem; font-weight: 700; }
+
+    .controls { display: flex; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center; }
+    .type-btn {
+      padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05); color: #94a3b8; cursor: pointer; font-size: 0.8rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    .type-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+    .type-btn.active { background: rgba(102,126,234,0.2); border-color: rgba(102,126,234,0.4); color: #818cf8; }
+    .btn-refresh {
+      display: inline-flex; align-items: center; gap: 0.5rem; margin-left: auto;
+      padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08); color: #e2e8f0; cursor: pointer; font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .btn-refresh:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+    .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .summary-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .summary-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(255,255,255,0.06); color: #94a3b8; }
+    .summary-badge .n { color: #e2e8f0; font-weight: 700; }
+
+    .table-wrap { overflow-x: auto; }
+    .sec-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .sec-table thead th {
+      text-align: left; padding: 0.6rem 0.75rem; font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sec-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .sec-table tbody td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+    td.empty { color: #94a3b8; text-align: center; padding: 2rem; }
+
+    .event-type { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+    .et-rate_limit_hit { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .et-auth_fail     { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .et-other         { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+    .metadata-cell { font-size: 0.75rem; color: #94a3b8; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ts-cell { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+    .footer-note { color: #94a3b8; font-size: 0.75rem; margin-top: 0.75rem; }
+  </style>
+</head>
+<body>
+<nav class="admin-nav">
+  <a href="/admin" class="admin-brand"><i class="fa-solid fa-shield-halved"></i> TipKub Admin</a>
+  <div class="admin-nav-links">
+    <a href="/admin/overlays"><i class="fa-solid fa-satellite-dish"></i> Overlays</a>
+    <a href="/admin/users"><i class="fa-solid fa-users"></i> Users</a>
+    <a href="/admin/stats"><i class="fa-solid fa-chart-simple"></i> Stats</a>
+    <a href="/admin/security" class="active"><i class="fa-solid fa-triangle-exclamation"></i> Security</a>
+  </div>
+  <a href="/kaminkub/dashboard" class="admin-nav-dash" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Dashboard</a>
+</nav>
+
+<div class="admin-content">
+  <div class="admin-header">
+    <h1><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:0.4rem;"></i>Security Events Log</h1>
+  </div>
+  <div class="controls">
+    <button class="type-btn active" data-type="all">All</button>
+    <button class="type-btn" data-type="rate_limit_hit">rate_limit_hit</button>
+    <button class="type-btn" data-type="auth_fail">auth_fail</button>
+    <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+  </div>
+  <div class="summary-row" id="summaryRow"></div>
+  <div class="table-wrap">
+    <table class="sec-table">
+      <thead><tr><th>TIME</th><th>TYPE</th><th>USER</th><th>IP (masked)</th><th>METADATA</th></tr></thead>
+      <tbody id="tbody">
+        <tr><td colspan="5" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer-note" id="footerNote"></div>
+</div>
+
+<script>
+let currentType = 'all';
+let isLoading = false;
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setLoadingState(loading) {
+  isLoading = loading;
+  const btn = document.getElementById('btnRefresh');
+  const icon = btn.querySelector('i');
+  if (loading) { icon.className = 'fa-solid fa-rotate fa-spin'; btn.disabled = true; }
+  else { icon.className = 'fa-solid fa-rotate'; btn.disabled = false; }
+}
+
+function eventTypeClass(t) {
+  if (t === 'rate_limit_hit') return 'et-rate_limit_hit';
+  if (t === 'auth_fail') return 'et-auth_fail';
+  return 'et-other';
+}
+
+function formatTs(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleString('th-TH', { hour12: false });
+  } catch { return escapeHtml(ts); }
+}
+
+function renderTable(data) {
+  const summaryRow = document.getElementById('summaryRow');
+  summaryRow.innerHTML = data.summary.map(s =>
+    `<span class="summary-badge">${escapeHtml(s.event_type)}: <span class="n">${s.n}</span></span>`
+  ).join('');
+
+  const tbody = document.getElementById('tbody');
+  if (!data.events.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">ไม่มี event ในช่วงนี้</td></tr>';
+    document.getElementById('footerNote').textContent = '';
+    return;
+  }
+  tbody.innerHTML = data.events.map(e => `
+    <tr>
+      <td class="ts-cell">${formatTs(e.created_at)}</td>
+      <td><span class="event-type ${eventTypeClass(e.event_type)}">${escapeHtml(e.event_type)}</span></td>
+      <td>${escapeHtml(e.streamer_username) || '<span style="color:#475569">—</span>'}</td>
+      <td style="font-family:monospace;font-size:0.78rem;">${escapeHtml(e.ip_masked)}</td>
+      <td class="metadata-cell" title="${escapeHtml(e.metadata)}">${escapeHtml(e.metadata)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('footerNote').textContent = `แสดง ${data.events.length} รายการล่าสุด`;
+}
+
+async function fetchEvents() {
+  if (isLoading) return;
+  setLoadingState(true);
+  const url = `/api/admin/ip-events?limit=100&type=${encodeURIComponent(currentType)}`;
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (res.status === 401 || res.status === 403) {
+      document.body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><i class="fa-solid fa-lock" style="font-size:2rem;margin-bottom:12px;display:block;"></i>ไม่มีสิทธิ์เข้าถึงหน้านี้</div>';
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    renderTable(await res.json());
+  } catch (err) {
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="5" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
+    console.error('[Security] fetch error:', err);
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+document.querySelectorAll('.type-btn[data-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.type-btn[data-type]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentType = btn.dataset.type;
+    fetchEvents();
+  });
+});
+document.getElementById('btnRefresh').addEventListener('click', fetchEvents);
+
+fetchEvents();
+</script>
+</body>
+</html>
