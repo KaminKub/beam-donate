@@ -1380,9 +1380,12 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       });
 
       // Re-cache avatar to R2 if still pointing to external CDN (fire-and-forget — never blocks OAuth)
+      // Guard: never touch a user's custom-uploaded image or an already-cached R2 image.
       const imageToCache = profileImage || existingUser.profile_image_value;
       const r2Base = process.env.R2_PUBLIC_URL || '';
-      if (r2Base && imageToCache && imageToCache.startsWith('http') && !imageToCache.startsWith(r2Base)) {
+      const existingVal = existingUser.profile_image_value || '';
+      const isCustomOrCached = existingUser.profile_image_source === 'custom' || (r2Base && existingVal.startsWith(r2Base));
+      if (!isCustomOrCached && r2Base && imageToCache && imageToCache.startsWith('http') && !imageToCache.startsWith(r2Base)) {
         const stableId = existingUser.twitch_id || existingUser.streamlabs_id || existingUser.id;
         (async () => {
           try {
