@@ -982,10 +982,16 @@ async function initializeDashboard() {
     if (btnCopyObsGoalUrlPreview) {
       btnCopyObsGoalUrlPreview.addEventListener('click', () => {
         const urlInput = document.getElementById('obsGoalBarUrlPreview');
-        if (urlInput && urlInput.value) {
-          navigator.clipboard.writeText(urlInput.value);
-          showNotification('คัดลอก URL แล้ว', 'info');
-        }
+        if (!urlInput || !urlInput.value) return;
+        navigator.clipboard.writeText(urlInput.value).then(() => {
+          const orig = btnCopyObsGoalUrlPreview.textContent;
+          btnCopyObsGoalUrlPreview.textContent = 'คัดลอกแล้ว!';
+          btnCopyObsGoalUrlPreview.style.background = 'var(--success)';
+          setTimeout(() => {
+            btnCopyObsGoalUrlPreview.textContent = orig;
+            btnCopyObsGoalUrlPreview.style.background = '';
+          }, 1500);
+        }).catch(err => console.error('Failed to copy:', err));
       });
     }
 
@@ -2791,8 +2797,9 @@ async function simulateTransactionAlert(id) {
       const err = await response.json();
       throw new Error(err.error || 'ส่ง Alert ไม่สำเร็จ');
     }
+    showNotification('ส่ง Alert ซ้ำแล้ว!', 'success');
   } catch (err) {
-    // Notification removed as per request
+    showNotification(err.message || 'ส่ง Alert ไม่สำเร็จ', 'error');
   }
 }
 

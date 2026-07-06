@@ -2355,15 +2355,17 @@ app.post('/api/feedback', csrfProtection, feedbackLimiter, ensureAuthenticated, 
       color: typeColor[type],
       fields: [
         { name: 'ประเภท', value: typeLabel[type], inline: true },
-        { name: 'Username', value: username, inline: true },
+        { name: 'User', value: username, inline: true },
+        { name: 'วันที่', value: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }), inline: true },
       ],
-      footer: { text: 'TipKub Feedback' },
+      footer: { text: 'TipKub Feedback System' },
       timestamp: new Date().toISOString(),
     }],
   };
 
   try {
-    await axios.post(process.env.DISCORD_WEBHOOK_URL, webhookPayload, { timeout: 5000 });
+    const webhookUrl = `${process.env.DISCORD_WEBHOOK_URL}?thread_id=${process.env.DISCORD_FEEDBACK_THREAD_ID}`;
+    await axios.post(webhookUrl, webhookPayload, { timeout: 5000 });
     res.json({ ok: true });
   } catch (err) {
     console.error('[feedback] Discord webhook error:', err.message);
