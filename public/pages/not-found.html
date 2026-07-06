@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>เข้าสู่ระบบไม่สำเร็จ - TipKub</title>
+  <title>ไม่พบหน้าโดเนทนี้ - TipKub</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* ปิด caret ทั้งโปรเจกต์ ยกเว้นกล่องพิมพ์ข้อความ */
     *, *::before, *::after {
       caret-color: transparent !important;
     }
@@ -18,9 +17,10 @@
     :root {
       --primary: #667eea;
       --secondary: #764ba2;
+      --amber: #f59e0b;
       --bg: #0f172a;
       --text: #ffffff;
-      --glass: rgba(255, 255, 255, 0.1);
+      --glass: rgba(255, 255, 255, 0.08);
     }
     body {
       margin: 0;
@@ -47,105 +47,96 @@
     }
     .orb-1 { width: 400px; height: 400px; background: var(--primary); top: -10%; left: -10%; }
     .orb-2 { width: 400px; height: 400px; background: var(--secondary); bottom: -10%; right: -10%; }
-    .orb-3 { width: 300px; height: 300px; background: #ef4444; top: 40%; left: 40%; opacity: 0.3; }
+    .orb-3 { width: 300px; height: 300px; background: var(--amber); top: 40%; left: 40%; opacity: 0.3; }
 
     .error-container {
       text-align: center;
       width: fit-content;
-      padding: 3rem 2rem;
+      max-width: 480px;
+      padding: 3rem 2.5rem;
       background: var(--glass);
       backdrop-filter: blur(20px);
       border-radius: 24px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
       z-index: 1;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(30px) scale(0.95); }
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
+    .error-code {
+      font-size: 5rem;
+      font-weight: 700;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--amber), #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.1s;
+      opacity: 0;
+      filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.4));
+    }
     .error-icon {
-      font-size: 4rem;
-      color: #ef4444;
-      margin-bottom: 1.5rem;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      font-size: 2.5rem;
+      color: var(--amber);
+      margin-bottom: 1.25rem;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       animation-delay: 0.2s;
       opacity: 0;
     }
     h1 {
-      font-size: 2.5rem;
+      font-size: 1.75rem;
+      font-weight: 600;
       margin-bottom: 1rem;
-      background: linear-gradient(to right, #fff, #fca5a5);
+      background: linear-gradient(to right, #fff, #fcd34d);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      animation-delay: 0.4s;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.3s;
       opacity: 0;
     }
     p {
-      font-size: 1.2rem;
+      font-size: 1rem;
       color: #94a3b8;
-      margin-bottom: 2.5rem;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      animation-delay: 0.6s;
+      line-height: 1.8;
+      margin-bottom: 2rem;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.4s;
       opacity: 0;
     }
     .cta-group {
       display: flex;
       justify-content: center;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      animation-delay: 0.8s;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: 0.5s;
       opacity: 0;
     }
     .btn {
-      padding: 1rem 2rem;
-      font-size: 1.1rem;
+      padding: 0.875rem 2rem;
+      font-family: 'Kanit', sans-serif;
+      font-size: 1rem;
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
       text-decoration: none;
       font-weight: 500;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 0.5rem;
+      border: none;
     }
     .btn-primary {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
-      border: none;
       box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
     }
     .btn-primary:hover {
       transform: translateY(-3px);
       box-shadow: 0 15px 25px rgba(102, 126, 234, 0.4);
-    }
-    .logo-link {
-      text-decoration: none;
-      display: inline-block;
-      margin-bottom: 1.75rem;
-      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      opacity: 0;
-    }
-    .highlight-amount {
-      background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-weight: 800;
-      display: inline-block;
-      position: relative;
-      width: fit-content;
-      animation: shineText 3s linear infinite;
-      line-height: 1.3;
-      font-family: 'Kanit', sans-serif;
-      font-size: 2rem;
-    }
-    @keyframes shineText {
-      0% { background-position: 200% center; }
-      100% { background-position: 0% center; }
     }
   </style>
 </head>
@@ -157,12 +148,12 @@
   </div>
 
   <div class="error-container">
-    <a href="/" class="logo-link"><span class="highlight-amount">TipKub</span></a>
+    <div class="error-code">404</div>
     <div class="error-icon">
-      <i class="fa-solid fa-circle-exclamation"></i>
+      <i class="fa-solid fa-user-slash"></i>
     </div>
-    <h1>เข้าสู่ระบบไม่สำเร็จ</h1>
-    <p>เกิดข้อผิดพลาดในการเชื่อมต่อบัญชีของคุณ<br>กรุณาลองใหม่อีกครั้ง หรือตรวจสอบการตั้งค่า</p>
+    <h1>ไม่พบหน้าโดเนทนี้</h1>
+    <p>ผู้ใช้งานที่คุณกำลังค้นหาไม่มีอยู่ในระบบ<br>หรืออาจมีการพิมพ์ชื่อผิด กรุณาตรวจสอบลิงก์อีกครั้ง</p>
     <div class="cta-group">
       <a href="/" class="btn btn-primary">
         <i class="fa-solid fa-house"></i> กลับหน้าหลัก

@@ -544,13 +544,17 @@ passport.deserializeUser(async (obj, done) => {
         streamer = await db.getStreamerById(obj.id);
       }
       if (streamer) {
+        if (Number(streamer.is_active) === 0) return done(null, false);  // banned → Passport treats as logged out
         obj.username = streamer.username;
         obj.twitch_id = streamer.twitch_id;
         obj.streamlabs_id = streamer.streamlabs_id;
       }
     } else {
       streamer = await db.getStreamerById(obj);
-      if (streamer) return done(null, streamer);
+      if (streamer) {
+        if (Number(streamer.is_active) === 0) return done(null, false);  // banned
+        return done(null, streamer);
+      }
     }
     done(null, obj);
   } catch (err) {
@@ -1146,6 +1150,9 @@ app.get('/auth/twitch/callback',
       }
 
       if (existingUser) {
+        if (Number(existingUser.is_active) === 0) {
+          return res.redirect('/banned');
+        }
         req.session.save((err) => {
           if (err) console.error('❌ Session save error during login:', err);
           return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
@@ -1402,6 +1409,9 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       }
 
       // Create a session for this user
+      if (Number(existingUser.is_active) === 0) {
+        return res.redirect('/banned');
+      }
       req.login(existingUser, (err) => {
         if (err) {
           console.error('❌ [Streamlabs] Login error:', err);
@@ -1476,6 +1486,10 @@ app.get('/alert-test', (req, res) => {
 
 app.get('/forbidden', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/pages/auth/forbidden.html'));
+});
+
+app.get('/banned', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pages/auth/banned.html'));
 });
 
 app.get('/admin', adminMonitorLimiter, async (req, res) => {
@@ -1579,6 +1593,7 @@ app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
 
     const streamer = await db.getDecryptedStreamer(username);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
+    if (Number(streamer.is_active) === 0) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
 
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
@@ -1704,11 +1719,14 @@ async function validateUsername(req, res, next) {
   if (RESERVED_WORDS.includes(req.path.split('/')[1])) return next();
   try {
     const user = await db.getStreamer(username);
+    if (user && Number(user.is_active) === 0) {
+      return res.status(404).sendFile(path.join(__dirname, '../public/pages/not-found.html'));
+    }
     if (user) {
       req.streamer = user;
       next();
     } else {
-      res.status(404).send('ไม่พบผู้ใช้งานรายนี้ในระบบ');
+      res.status(404).sendFile(path.join(__dirname, '../public/pages/not-found.html'));
     }
   } catch (err) {
     res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบผู้ใช้งาน');
@@ -1754,7 +1772,10 @@ app.get('/api/alerts/stream', async (req, res) => {
     } else {
       try {
         const streamer = await db.getStreamerByToken(token);
-        if (streamer) {
+        if (streamer && Number(streamer.is_active) === 0) {
+          // ponytail: accept TTL delay for cached tokens — banned user blocked on next cache miss (Known Limitation §0.2)
+          console.warn(`⚠️ SSE: token rejected (banned) for prefix: ${token.substring(0, 8)}...`);
+        } else if (streamer) {
           authenticatedUser = streamer.username;
           authMethod = 'token';
           // Cache for future lookups
@@ -2183,7 +2204,7 @@ app.get('/api/overlay/settings', async (req, res) => {
       const token = req.query.token;
       if (token) {
         const streamer = await db.getStreamerByToken(token);
-        if (streamer) {
+        if (streamer && Number(streamer.is_active) !== 0) {
           username = streamer.username;
         }
       }

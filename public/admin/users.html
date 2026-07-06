@@ -110,7 +110,7 @@
     <select class="filter-select" id="filterSelect">
       <option value="all">All</option>
       <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
+      <option value="inactive">Banned</option>
     </select>
     <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
   </div>
@@ -174,7 +174,7 @@ function renderTable(data) {
         <td>${escapeHtml(u.username)}</td>
         <td><span class="badge-status ${u.is_active ? 'badge-active' : 'badge-inactive'}">
           <i class="fa-solid ${u.is_active ? 'fa-circle-check' : 'fa-ban'}"></i>
-          ${u.is_active ? 'Active' : 'Inactive'}
+          ${u.is_active ? 'Active' : 'Banned'}
         </span></td>
         <td>${providerLogos(u)}</td>
         <td><span class="badge-payment">${escapeHtml(paymentLabel(u))}</span></td>
