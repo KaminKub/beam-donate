@@ -29,8 +29,9 @@
     .monitor-updated { font-size: 0.8rem; color: #94a3b8; }
     .monitor-summary { display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
     .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-    .badge-active { background: rgba(16,185,129,0.15); color: #10b981; }
-    .badge-total  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .badge-active   { background: rgba(16,185,129,0.15); color: #10b981; }
+    .badge-goalbar  { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+    .badge-total    { background: rgba(148,163,184,0.15); color: #94a3b8; }
     .btn-refresh {
       display: inline-flex; align-items: center; gap: 0.5rem;
       padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
@@ -50,9 +51,11 @@
     .monitor-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
     .monitor-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .conn-warn { color: #f59e0b; font-weight: 600; }
-    .dash-link { color: #3b82f6; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.3rem; }
-    .dash-link:hover { color: #60a5fa; text-decoration: underline; }
     td.empty { color: #94a3b8; text-align: center; padding: 2rem; }
+    .type-cell { display: flex; gap: 0.35rem; flex-wrap: wrap; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .type-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.55rem; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+    .type-overlay { background: rgba(6,182,212,0.12); color: #06b6d4; }
+    .type-goal    { background: rgba(139,92,246,0.12); color: #8b5cf6; }
   </style>
 </head>
 <body>
@@ -73,15 +76,16 @@
     <span class="monitor-updated">Last updated: <span id="lastUpdated">—</span></span>
   </div>
   <div class="monitor-summary">
-    <span class="badge badge-active"><i class="fa-solid fa-circle-dot"></i> Active: <span id="activeCount">—</span></span>
+    <span class="badge badge-active"><i class="fa-solid fa-circle-dot"></i> Overlay Active: <span id="activeCount">—</span></span>
+    <span class="badge badge-goalbar"><i class="fa-solid fa-bullseye"></i> Goal Bar Active: <span id="goalBarCount">—</span></span>
     <span class="badge badge-total"><i class="fa-solid fa-plug"></i> SSE Total: <span id="sseTotal">—</span></span>
     <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh Now</button>
   </div>
   <div class="table-wrap">
     <table class="monitor-table">
-      <thead><tr><th>USERNAME</th><th>CONN</th><th>LAST SEEN</th></tr></thead>
+      <thead><tr><th>USERNAME</th><th>TYPE</th><th>CONN</th><th>LAST SEEN</th></tr></thead>
       <tbody id="tbody">
-        <tr><td colspan="3" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+        <tr><td colspan="4" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
       </tbody>
     </table>
   </div>
@@ -111,20 +115,28 @@ function setLoadingState(loading) {
 }
 
 function renderTable(data) {
-  document.getElementById('activeCount').textContent = data.activeCount;
-  document.getElementById('sseTotal').textContent = data.sseTotal;
+  document.getElementById('activeCount').textContent  = data.activeCount;
+  document.getElementById('goalBarCount').textContent = data.goalBarCount ?? 0;
+  document.getElementById('sseTotal').textContent     = data.sseTotal;
   const tbody = document.getElementById('tbody');
-  if (data.activeCount === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="empty"><i class="fa-solid fa-circle-dot" style="color:#94a3b8;margin-right:6px;"></i>ยังไม่มีใครเปิด Overlay อยู่ตอนนี้</td></tr>';
+  if (!data.active || data.active.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty"><i class="fa-solid fa-circle-dot" style="color:#94a3b8;margin-right:6px;"></i>ยังไม่มีใครเชื่อมต่ออยู่ตอนนี้</td></tr>';
     return;
   }
-  tbody.innerHTML = data.active.map(row => `
-    <tr>
+  tbody.innerHTML = data.active.map(row => {
+    const overlayBadge = row.connections > 0
+      ? `<span class="type-badge type-overlay"><i class="fa-solid fa-satellite-dish"></i> Overlay</span>`
+      : '';
+    const goalBadge = row.hasGoalBar
+      ? `<span class="type-badge type-goal"><i class="fa-solid fa-bullseye"></i> Goal</span>`
+      : '';
+    return `<tr>
       <td>${escapeHtml(row.username)}</td>
+      <td class="type-cell">${overlayBadge}${goalBadge}</td>
       <td class="${row.connections > 1 ? 'conn-warn' : ''}">${row.connections}${row.connections > 1 ? ' ⚠' : ''}</td>
       <td>${formatLastSeen(row.lastSeenSec)}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function updateTimestamp() {
@@ -151,7 +163,7 @@ async function fetchData() {
     updateTimestamp();
   } catch (err) {
     document.getElementById('tbody').innerHTML =
-      '<tr><td colspan="3" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถโหลดข้อมูลได้ — จะลองใหม่ใน 30 วินาที</td></tr>';
+      '<tr><td colspan="4" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถโหลดข้อมูลได้ — จะลองใหม่ใน 30 วินาที</td></tr>';
     console.error('[Monitor] fetch error:', err);
   } finally {
     setLoadingState(false);

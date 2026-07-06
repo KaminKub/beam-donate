@@ -107,6 +107,7 @@
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-plug" style="color:#06b6d4;"></i></div><div class="stat-value" id="statSseTotal">—</div><div class="stat-label">Total Connections</div></div>
       <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-satellite-dish" style="color:#06b6d4;"></i></div><div class="stat-value" id="statSseOverlay">—</div><div class="stat-label">Overlay Online</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-bullseye" style="color:#8b5cf6;"></i></div><div class="stat-value" id="statSseGoalBar">—</div><div class="stat-label">Goal Bar Online</div></div>
     </div>
   </div>
 </div>
@@ -143,8 +144,9 @@ async function fetchStats() {
     document.getElementById('statTxTotal').textContent = d.transactions.total;
     document.getElementById('statTxToday').textContent = d.transactions.today;
     document.getElementById('statTxWeek').textContent = d.transactions.week;
-    document.getElementById('statSseTotal').textContent = d.sse.total;
+    document.getElementById('statSseTotal').textContent   = d.sse.total;
     document.getElementById('statSseOverlay').textContent = d.sse.overlays;
+    document.getElementById('statSseGoalBar').textContent = d.sse.goalBars ?? 0;
 
     const pg = document.getElementById('providerGrid');
     const providers = d.users.byProvider || {};

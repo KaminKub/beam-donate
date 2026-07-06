@@ -1968,6 +1968,9 @@ label {
   .form-group.full-width {
     grid-column: span 1;
   }
+  .dashboard-grid > .dashboard-card {
+    min-width: 0;
+  }
   .settings-panel-scroll {
     overflow-y: visible;
   }
@@ -2092,6 +2095,21 @@ label {
   .btn-conn {
     padding: 5px 12px;
     font-size: 0.75rem;
+  }
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-group {
+    width: 100%;
+  }
+  .filter-groups {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .account-info-grid {
+    grid-template-columns: 1fr;
+    padding: 12px;
   }
 }
 

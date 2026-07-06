@@ -1526,23 +1526,29 @@ app.get('/api/admin/active-overlays', adminMonitorLimiter, ensureAdmin, (req, re
   const now = Date.now();
   const byUsername = {};
   for (const c of sseClients) {
-    if (c.source !== 'overlay' || c.authMethod !== 'token') continue;
+    const isOverlay = c.source === 'overlay'  && c.authMethod === 'token';
+    const isGoalBar = c.source === 'goal-bar' && c.authMethod === 'token';
+    if (!isOverlay && !isGoalBar) continue;
     if (!byUsername[c.username]) {
-      byUsername[c.username] = { username: c.username, connections: 0, lastActivity: 0 };
+      byUsername[c.username] = { username: c.username, overlayConns: 0, goalBarConns: 0, lastActivity: 0 };
     }
-    byUsername[c.username].connections++;
+    if (isOverlay) byUsername[c.username].overlayConns++;
+    if (isGoalBar) byUsername[c.username].goalBarConns++;
     if (c.lastActivity > byUsername[c.username].lastActivity) {
       byUsername[c.username].lastActivity = c.lastActivity;
     }
   }
   const active = Object.values(byUsername)
     .sort((a, b) => b.lastActivity - a.lastActivity)
-    .map(c => ({
-      username: c.username,
-      connections: c.connections,
-      lastSeenSec: Math.round((now - c.lastActivity) / 1000),
+    .map(u => ({
+      username:    u.username,
+      connections: u.overlayConns,
+      hasGoalBar:  u.goalBarConns > 0,
+      lastSeenSec: Math.round((now - u.lastActivity) / 1000),
     }));
-  res.json({ activeCount: active.length, sseTotal: sseClients.length, active, ts: now });
+  const activeCount  = active.filter(u => u.connections > 0).length;
+  const goalBarCount = active.filter(u => u.hasGoalBar).length;
+  res.json({ activeCount, goalBarCount, sseTotal: sseClients.length, active, ts: now });
 });
 
 app.get('/api/admin/stats', adminMonitorLimiter, ensureAdmin, async (req, res) => {
@@ -1551,9 +1557,10 @@ app.get('/api/admin/stats', adminMonitorLimiter, ensureAdmin, async (req, res) =
       db.getAdminUserStats(),
       db.getAdminTxStats(),
     ]);
-    const sseTotal = sseClients.length;
-    const overlayCount = sseClients.filter(c => c.source === 'overlay' && c.authMethod === 'token').length;
-    res.json({ users: userStats, transactions: txStats, sse: { total: sseTotal, overlays: overlayCount } });
+    const sseTotal     = sseClients.length;
+    const overlayCount = sseClients.filter(c => c.source === 'overlay'  && c.authMethod === 'token').length;
+    const goalBarCount = sseClients.filter(c => c.source === 'goal-bar' && c.authMethod === 'token').length;
+    res.json({ users: userStats, transactions: txStats, sse: { total: sseTotal, overlays: overlayCount, goalBars: goalBarCount } });
   } catch (err) {
     res.status(500).json({ error: 'Stats query failed' });
   }
