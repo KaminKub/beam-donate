@@ -360,6 +360,9 @@ async function migrateDB() {
       }
     }
 
+    // Backfill NULL is_active → 1 (Number(null) === 0 would false-ban legacy rows)
+    await db.execute("UPDATE streamers SET is_active = 1 WHERE is_active IS NULL");
+
     // B. Migrate legacy global settings
     try {
       const settingsCheck = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'");
