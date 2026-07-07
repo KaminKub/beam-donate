@@ -526,22 +526,114 @@
 
           <!-- SECTION: PAYMENT SETUP -->
           <section id="tab-payment-setup" class="tab-content">
-            <div class="dashboard-card">
-              <div class="card-header">
-                <h3><i class="fa-solid fa-building-columns"></i> ตั้งค่าการรับเงิน (Payment Settings)</h3>
-                <p class="text-muted" style="font-size: 13px; margin-top: 8px;">เลือกวิธีรับเงินบริจาคจากผู้ชม</p>
-              </div>
 
-              <div class="payment-setup-container">
-                <div class="settings-section">
-                  <h4><i class="fas fa-wallet"></i> วิธีรับเงิน</h4>
-                  <small style="color: #9ca3af; font-size: 12px; display: block; margin-bottom: 12px;">
-                    คลิกเพื่อเลือกวิธีชำระเงิน (เลือกได้มากกว่า 1 วิธี)
-                  </small>
-                  
-                  <!-- Payment Method Items Container -->
-                  <div class="payment-methods-list">
-                     <!-- FFP Card — ซ่อนไว้ชั่วคราว (2026-06-30): FFP ไม่อนุมัติ API ดู .agents/guides/FFP_REACTIVATION_GUIDE.md
+            <!-- Quota mini (บนสุด — แสดงเมื่อ API เชื่อมต่อสำเร็จเท่านั้น) — PW-4 -->
+            <div class="slipok-quota-mini" id="slipokQuotaMini" style="display: none;">
+              <div class="quota-mini-row">
+                <span class="quota-mini-label">โควต้าคงเหลือ</span>
+                <span class="quota-mini-value" id="slipokQuotaMiniValue">—</span>
+              </div>
+              <div class="quota-mini-row">
+                <span class="quota-mini-label">ใช้เกิน</span>
+                <span class="quota-mini-value over" id="slipokOverQuotaMiniValue">0</span>
+              </div>
+              <div class="quota-mini-row">
+                <span class="quota-mini-label">กำหนดรีเซท</span>
+                <span class="quota-mini-value date" id="slipokEndDateMiniValue">—</span>
+              </div>
+              <button type="button" class="btn-quota-mini-refresh" id="btnRefreshSlipokQuotaMini">
+                <i class="fas fa-sync-alt"></i> รีเฟรช
+              </button>
+              <span class="quota-mini-updated" id="slipokQuotaMiniUpdated"></span>
+            </div>
+
+            <!-- Card 1: SlipOK Unified (default closed — JS adds panel-open when disconnected) -->
+            <div class="dashboard-card settings-card">
+              <div class="settings-card-header" data-target="panelSlipOkUnified">
+                <h3>
+                  <i class="fa-solid fa-shield-check" id="slipokHeaderIcon" style="color:#4ade80;"></i>
+                   API เช็คสลิปอัตโนมัติ (SlipOK)
+                  <span class="slipok-header-badge" id="slipokHeaderBadge" style="display:none;"></span>
+                </h3>
+                <i class="fa-solid fa-chevron-down card-chevron"></i>
+              </div>
+              <div class="card-body-panel" id="panelSlipOkUnified">
+                <div class="slipok-unified-badge">
+                  <i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>
+                  <span>API นี้ใช้ได้กับทุกวิธีรับเงินในระบบ TipKub โดยอัตโนมัติ</span>
+                </div>
+
+                <div class="api-notice" id="promptpayApiNotice">
+                  <i class="fas fa-info-circle"></i>
+                  <div><strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong></div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin: 8px 0 6px;">
+                  <a href="https://app.slipok.com/" target="_blank" class="btn btn-slipok-api"
+                     style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
+                  </a>
+                  <button type="button" class="btn-slipok-guide-trigger" onclick="openSlipOkGuide()">
+                    <i class="fas fa-map-signs"></i> ดูวิธีรับ API
+                  </button>
+                </div>
+                <div style="margin-bottom: 16px;">
+                  <a href="https://slipok.com/price-and-service/" target="_blank" class="slipok-packages-link">
+                    <i class="fas fa-layer-group" style="font-size: 15px;"></i> ดูแพ็กเกจอ่านสลิปทั้งหมด
+                  </a>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputSlipOkApi">API</label>
+                  <input type="password" id="inputSlipOkApi" class="form-control"
+                         placeholder="https://api.slipok.com/api/line/apikey/........">
+                  <small class="text-muted">กรอก API ที่ได้จากหน้าจัดการสาขาใน SlipOK</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputSlipOkApiKey">API Key</label>
+                  <input type="password" id="inputSlipOkApiKey" class="form-control"
+                         placeholder="กรอก API Key ของ SlipOK">
+                  <small class="text-muted">กรอก API Key</small>
+                </div>
+
+                <button type="button" id="btnTestSlipOk" class="btn btn-secondary" style="margin-top: 8px;">
+                  <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ
+                </button>
+
+                <div id="slipokStatusContainer" style="display: none;">
+                  <div class="tfp-status disconnected" id="slipokStatus">
+                    <div class="tfp-status-icon"><i class="fas fa-times"></i></div>
+                    <div class="tfp-status-text">
+                      <strong id="slipokStatusTitle">ยังไม่ได้เชื่อมต่อ</strong>
+                      <span id="slipokStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Card 2: Payment Methods (collapsible, default open) -->
+            <div class="dashboard-card settings-card panel-open" style="margin-top: 16px;">
+              <div class="settings-card-header" data-target="panelPaymentMethods">
+                <h3>
+                  <i class="fa-solid fa-building-columns" style="color:#667eea;"></i>
+                  ตั้งค่าการรับเงิน (Payment Settings)
+                </h3>
+                <i class="fa-solid fa-chevron-down card-chevron"></i>
+              </div>
+              <div class="card-body-panel" id="panelPaymentMethods">
+                <div class="payment-setup-container">
+                  <div class="settings-section">
+                    <h4><i class="fas fa-wallet"></i> วิธีรับเงิน</h4>
+                    <small style="color: #9ca3af; font-size: 12px; display: block; margin-bottom: 12px;">
+                      คลิกเพื่อเลือกวิธีชำระเงิน (เลือกได้มากกว่า 1 วิธี)
+                    </small>
+
+                    <div class="payment-methods-list">
+
+                      <!-- FFP Card — ซ่อนไว้ชั่วคราว (2026-06-30): FFP ไม่อนุมัติ API ดู .agents/guides/FFP_REACTIVATION_GUIDE.md
                       <div class="payment-method-item">
                         <div class="payment-method-card disabled" data-method="ffp" id="cardFFP">
                          <div class="card-icon" style="font-size: 2.8rem; font-weight: 800; letter-spacing: 2px; color: #a5b4fc; line-height: 1;">
@@ -553,252 +645,174 @@
                        </div>
                      </div>
                      -->
-                    
-                    <!-- PromptPlay Card + Settings -->
-                    <div class="payment-method-item">
-                      <div class="payment-method-card" data-method="promptpay" id="cardPromptPay">
-                        <div class="card-icon">
-                          <img src="/assets/payment/QR-PromptPay.png" alt="พร้อมเพย์" width="144" height="144" loading="eager">
-                        </div>
-                        <h3>พร้อมเพย์</h3>
-                        <p>โอนตรงเข้าบัญชีทันที</p>
-                        <button type="button" class="btn-settings" data-target="promptpaySettingsPanel">
-                          <span>ตั้งค่า</span>
-                          <i class="fas fa-chevron-down"></i>
-                        </button>
-                      </div>
-                      
-                      <!-- PromptPay Settings Panel -->
-                      <div class="settings-panel" id="promptpaySettingsPanel" data-panel="promptpay">
-                        <div class="panel-header">
-                          <h4><i class="fas fa-mobile-alt"></i> ตั้งค่าพร้อมเพย์</h4>
-                          <button type="button" class="btn-close-panel" data-target="promptpaySettingsPanel">
-                            <i class="fas fa-times"></i>
+
+                      <!-- PromptPay Card (SIMPLIFIED — no SlipOK sub-section) -->
+                      <div class="payment-method-item">
+                        <div class="payment-method-card" data-method="promptpay" id="cardPromptPay">
+                          <div class="card-icon">
+                            <img src="/assets/payment/QR-PromptPay.png" alt="พร้อมเพย์" width="144" height="144" loading="eager">
+                          </div>
+                          <h3>พร้อมเพย์</h3>
+                          <p>โอนตรงเข้าบัญชีทันที</p>
+                          <button type="button" class="btn-settings" data-target="promptpaySettingsPanel">
+                            <span>ตั้งค่า</span>
+                            <i class="fas fa-chevron-down"></i>
                           </button>
                         </div>
-                        
-                        <div class="settings-section">
-                          <h5>ข้อมูลพร้อมเพย์</h5>
-                          
-                          <div class="form-group">
-                            <label for="inputPromptPayType">ประเภทบัญชีพร้อมเพย์</label>
-                            <select id="inputPromptPayType" class="form-select">
-                              <option value="phone">เบอร์โทรศัพท์</option>
-                              <option value="idcard">เลขบัตรประจำตัวประชาชน</option>
-                              <option value="ewallet">e-Wallet ID</option>
-                            </select>
-                          </div>
 
-                          <div class="form-group">
-                            <label for="inputPromptPay">ข้อมูลพร้อมเพย์</label>
-                            <input type="text" id="inputPromptPay" class="form-control"
-                                   placeholder="081-234-5678" maxlength="10">
-                            <small class="text-muted" id="promptpayHint">กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์</small>
-                          </div>
-                        </div>
-
-                        <div class="settings-section">
-                          <h5>เชื่อมต่อ SlipOK (อ่านสลิปอัตโนมัติ)</h5>
-                          <div class="api-notice" id="promptpayApiNotice">
-                            <i class="fas fa-info-circle"></i>
-                            <div>
-                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong>
-                            </div>
-                          </div>
-
-                          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin: 8px 0 6px;">
-                            <a href="https://app.slipok.com/" target="_blank"
-                               class="btn btn-slipok-api"
-                               style="display: inline-flex; align-items: center; gap: 8px;">
-                              <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
-                            </a>
-                            <button type="button" class="btn-slipok-guide-trigger" onclick="openSlipOkGuide()">
-                              <i class="fas fa-map-signs"></i> ดูวิธีรับ API
+                        <div class="settings-panel" id="promptpaySettingsPanel" data-panel="promptpay">
+                          <div class="panel-header">
+                            <h4><i class="fas fa-mobile-alt"></i> ตั้งค่าพร้อมเพย์</h4>
+                            <button type="button" class="btn-close-panel" data-target="promptpaySettingsPanel">
+                              <i class="fas fa-times"></i>
                             </button>
                           </div>
-                          <div style="margin-bottom: 16px;">
-                            <a href="https://slipok.com/price-and-service/" target="_blank"
-                               class="slipok-packages-link">
-                              <i class="fas fa-layer-group" style="font-size: 10px;"></i> ดูแพ็กเกจอ่านสลิปทั้งหมด
-                            </a>
-                          </div>
-
-                          <div class="form-group">
-                            <label for="inputSlipOkApi">API</label>
-                            <input type="password" id="inputSlipOkApi" class="form-control"
-                                   placeholder="https://api.slipok.com/api/line/apikey/........">
-                            <small class="text-muted">กรอก API ที่ได้จากหน้าจัดการสาขาใน SlipOK</small>
-                          </div>
-
-                          <div class="form-group">
-                            <label for="inputSlipOkApiKey">API Key</label>
-                            <input type="password" id="inputSlipOkApiKey" class="form-control"
-                                   placeholder="กรอก API Key ของ SlipOK">
-                            <small class="text-muted">กรอก API Key</small>
-                          </div>
-
-                          <button type="button" id="btnTestSlipOk" class="btn btn-secondary" style="margin-top: 8px;">
-                            <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ
-                          </button>
-
-                          <div id="slipokStatusContainer" style="display: none;">
-                            <div class="tfp-status disconnected" id="slipokStatus">
-                              <div class="tfp-status-icon">
-                                <i class="fas fa-times"></i>
-                              </div>
-                              <div class="tfp-status-text">
-                                <strong id="slipokStatusTitle">ยังไม่ได้เชื่อมต่อ</strong>
-                                <span id="slipokStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
-                              </div>
+                          <div class="settings-section">
+                            <h5>ข้อมูลพร้อมเพย์</h5>
+                            <div class="form-group">
+                              <label for="inputPromptPayType">ประเภทบัญชีพร้อมเพย์</label>
+                              <select id="inputPromptPayType" class="form-select">
+                                <option value="phone">เบอร์โทรศัพท์</option>
+                                <option value="idcard">เลขบัตรประจำตัวประชาชน</option>
+                                <option value="ewallet">e-Wallet ID</option>
+                              </select>
                             </div>
-                          </div>
-
-                          <div class="slipok-quota-mini" id="slipokQuotaMini" style="display: none;">
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">โควต้าคงเหลือ</span>
-                              <span class="quota-mini-value" id="slipokQuotaMiniValue">—</span>
+                            <div class="form-group">
+                              <label for="inputPromptPay">ข้อมูลพร้อมเพย์</label>
+                              <input type="text" id="inputPromptPay" class="form-control"
+                                     placeholder="0812345678" maxlength="10" inputmode="numeric">
+                              <small class="text-muted" id="promptpayHint">กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์</small>
                             </div>
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">ใช้เกิน</span>
-                              <span class="quota-mini-value over" id="slipokOverQuotaMiniValue">0</span>
+                            <div class="slipok-linked-note">
+                              <i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>
+                              ตรวจสลิปด้วย SlipOK API จากด้านบน
                             </div>
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">กำหนดรีเซท</span>
-                              <span class="quota-mini-value date" id="slipokEndDateMiniValue">—</span>
-                            </div>
-                            <button type="button" class="btn-quota-mini-refresh" id="btnRefreshSlipokQuotaMini">
-                              <i class="fas fa-sync-alt"></i> รีเฟรช
-                            </button>
-                            <span class="quota-mini-updated" id="slipokQuotaMiniUpdated"></span>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <!-- TrueMoney Card + Settings -->
-                    <div class="payment-method-item">
-                      <div class="payment-method-card" data-method="truemoney" id="cardTrueMoney">
-                        <div class="card-icon">
-                          <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet" width="144" height="144" loading="eager">
-                        </div>
-                        <h3>TrueMoney Wallet</h3>
-                        <p>รับเงินผ่านวอลเลท ง่าย สะดวก</p>
-                        <button type="button" class="btn-settings" data-target="truemoneySettingsPanel">
-                          <span>ตั้งค่า</span>
-                          <i class="fas fa-chevron-down"></i>
-                        </button>
-                      </div>
-                      
-                      <!-- TrueMoney Settings Panel -->
-                      <div class="settings-panel" id="truemoneySettingsPanel" data-panel="truemoney">
-                        <div class="panel-header">
-                          <h4><i class="fas fa-wallet"></i> ตั้งค่า TrueMoney Wallet</h4>
-                          <button type="button" class="btn-close-panel" data-target="truemoneySettingsPanel">
-                            <i class="fas fa-times"></i>
+
+                      <!-- TrueMoney Card (SIMPLIFIED) -->
+                      <div class="payment-method-item">
+                        <div class="payment-method-card" data-method="truemoney" id="cardTrueMoney">
+                          <div class="card-icon">
+                            <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet" width="144" height="144" loading="eager">
+                          </div>
+                          <h3>TrueMoney Wallet</h3>
+                          <p>รับเงินผ่านวอลเลท ง่าย สะดวก</p>
+                          <button type="button" class="btn-settings" data-target="truemoneySettingsPanel">
+                            <span>ตั้งค่า</span>
+                            <i class="fas fa-chevron-down"></i>
                           </button>
                         </div>
-                        
-                        <div class="settings-section">
-                          <h5>ข้อมูล TrueMoney Wallet</h5>
-                          <div class="form-group">
-                            <label for="inputTrueMoneyPhone">เบอร์โทรศัพท์ TrueMoney Wallet</label>
-                            <input type="tel" id="inputTrueMoneyPhone" class="form-control"
-                                   placeholder="08x-xxx-xxxx" maxlength="10">
-                            <small class="text-muted">เบอร์โทรที่ผูกกับบัญชี TrueMoney Wallet (10 หลัก)</small>
-                          </div>
-                        </div>
 
-                        <div class="settings-section">
-                          <h5>เชื่อมต่อ SlipOK (อ่านสลิปอัตโนมัติ)</h5>
-                          <div class="api-notice" id="truemoneyApiNotice">
-                            <i class="fas fa-info-circle"></i>
-                            <div>
-                              <strong>จำเป็นต้องมีเพื่อตรวจสอบสลิปโอนเงินอัตโนมัติ</strong>
-                              ใช้ SlipOK API เดียวกันกับพร้อมเพย์
-                            </div>
-                          </div>
-
-                          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin: 8px 0 6px;">
-                            <a href="https://app.slipok.com/" target="_blank"
-                               class="btn btn-slipok-api"
-                               style="display: inline-flex; align-items: center; gap: 8px;">
-                              <i class="fas fa-external-link-alt"></i> กดรับ API | SlipOK
-                            </a>
-                            <button type="button" class="btn-slipok-guide-trigger" onclick="openSlipOkGuide()">
-                              <i class="fas fa-map-signs"></i> ดูวิธีรับ API
+                        <div class="settings-panel" id="truemoneySettingsPanel" data-panel="truemoney">
+                          <div class="panel-header">
+                            <h4><i class="fas fa-wallet"></i> ตั้งค่า TrueMoney Wallet</h4>
+                            <button type="button" class="btn-close-panel" data-target="truemoneySettingsPanel">
+                              <i class="fas fa-times"></i>
                             </button>
                           </div>
-                          <div style="margin-bottom: 16px;">
-                            <a href="https://slipok.com/price-and-service/" target="_blank"
-                               class="slipok-packages-link">
-                              <i class="fas fa-layer-group" style="font-size: 10px;"></i> ดูแพ็กเกจอ่านสลิปทั้งหมด
-                            </a>
-                          </div>
-
-                          <button type="button" id="btnSyncSlipOkFromPromptPay" class="btn-sync-promptpay"
-                                  title="ดึงข้อมูล API จากพร้อมเพย์">
-                            <i class="fas fa-sync-alt"></i> ดึงข้อมูล API จากพร้อมเพย์
-                          </button>
-
-                          <div class="form-group">
-                            <label for="inputTrueMoneyApi">API</label>
-                            <input type="password" id="inputTrueMoneyApi" class="form-control"
-                                   placeholder="https://api.slipok.com/api/line/apikey/........">
-                            <small class="text-muted">กรอก API ที่ได้จากหน้าจัดการสาขาใน SlipOK</small>
-                          </div>
-                          <div class="form-group">
-                            <label for="inputTrueMoneyApiKey">API Key</label>
-                            <input type="password" id="inputTrueMoneyApiKey" class="form-control"
-                                   placeholder="กรอก API Key ของ SlipOK">
-                            <small class="text-muted">กรอก API Key</small>
-                          </div>
-                          <button type="button" id="btnTestTrueMoneySlipOk" class="btn btn-secondary" style="margin-top: 8px;">
-                            <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ
-                          </button>
-
-                          <div id="trueMoneySlipOkStatusContainer" style="display: none;">
-                            <div class="tfp-status disconnected" id="trueMoneySlipOkStatus">
-                              <div class="tfp-status-icon">
-                                <i class="fas fa-times"></i>
-                              </div>
-                              <div class="tfp-status-text">
-                                <strong id="trueMoneySlipOkStatusTitle">ยังไม่ได้เชื่อมต่อ</strong>
-                                <span id="trueMoneySlipOkStatusDesc">กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ</span>
-                              </div>
+                          <div class="settings-section">
+                            <h5>ข้อมูล TrueMoney Wallet</h5>
+                            <div class="form-group">
+                              <label for="inputTrueMoneyPhone">เบอร์โทรศัพท์ TrueMoney Wallet</label>
+                              <input type="tel" id="inputTrueMoneyPhone" class="form-control"
+                                     placeholder="0812345678" maxlength="10" inputmode="numeric">
+                              <small class="text-muted">เบอร์โทรที่ผูกกับบัญชี TrueMoney Wallet (10 หลัก)</small>
                             </div>
-                          </div>
-
-                          <div class="slipok-quota-mini" id="trueMoneySlipokQuotaMini" style="display: none;">
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">โควต้าคงเหลือ</span>
-                              <span class="quota-mini-value" id="trueMoneySlipokQuotaMiniValue">—</span>
+                            <div class="slipok-linked-note">
+                              <i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>
+                              ตรวจสลิปด้วย SlipOK API จากด้านบน
                             </div>
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">ใช้เกิน</span>
-                              <span class="quota-mini-value over" id="trueMoneySlipokOverQuotaMiniValue">0</span>
-                            </div>
-                            <div class="quota-mini-row">
-                              <span class="quota-mini-label">กำหนดรีเซท</span>
-                              <span class="quota-mini-value date" id="trueMoneySlipokEndDateMiniValue">—</span>
-                            </div>
-                            <button type="button" class="btn-quota-mini-refresh" id="btnRefreshTrueMoneySlipokQuotaMini">
-                              <i class="fas fa-sync-alt"></i> รีเฟรช
-                            </button>
-                            <span class="quota-mini-updated" id="trueMoneySlipokQuotaMiniUpdated"></span>
                           </div>
                         </div>
                       </div>
-                    </div>
+
+                      <!-- Bank Account Card (NEW) -->
+                      <div class="payment-method-item">
+                        <div class="payment-method-card" data-method="bank" id="cardBank">
+                          <div class="card-icon">
+                            <i class="fa-solid fa-building-columns"
+                               style="font-size: 2.8rem; background: linear-gradient(135deg, #06b6d4, #0284c7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                          </div>
+                          <h3>บัญชีธนาคาร</h3>
+                          <p>รับเงินโอนตรงผ่านบัญชีธนาคาร</p>
+                          <button type="button" class="btn-settings" data-target="bankSettingsPanel">
+                            <span>ตั้งค่า</span>
+                            <i class="fas fa-chevron-down"></i>
+                          </button>
+                        </div>
+
+                        <div class="settings-panel" id="bankSettingsPanel" data-panel="bank">
+                          <div class="panel-header">
+                            <h4><i class="fa-solid fa-building-columns"></i> ตั้งค่าบัญชีธนาคาร</h4>
+                            <button type="button" class="btn-close-panel" data-target="bankSettingsPanel">
+                              <i class="fas fa-times"></i>
+                            </button>
+                          </div>
+                          <div class="settings-section">
+                            <h5>ข้อมูลบัญชีธนาคาร</h5>
+                            <div class="form-group">
+                              <label for="inputBankName">ธนาคาร</label>
+                              <select id="inputBankName" class="form-select">
+                                <option value="">-- เลือกธนาคาร --</option>
+                                <option value="kbank">ธนาคารกสิกรไทย (KBank)</option>
+                                <option value="scb">ธนาคารไทยพาณิชย์ (SCB)</option>
+                                <option value="krungthai">ธนาคารกรุงไทย ⚠️ (ไม่แนะนำ: สลิปบางส่วนไม่มี QR)</option>
+                                <option value="bbl">ธนาคารกรุงเทพ ⚠️ (ไม่แนะนำ: สลิปบางส่วนไม่มี QR)</option>
+                                <option value="ttb">ธนาคารทีเอ็มบีธนชาต (TTB)</option>
+                                <option value="bay">ธนาคารกรุงศรีอยุธยา (BAY)</option>
+                                <option value="cimb">ธนาคารซีไอเอ็มบี ไทย (CIMB)</option>
+                                <option value="lhbank">ธนาคารแลนด์ แอนด์ เฮ้าส์ (LH Bank)</option>
+                                <option value="uob">ธนาคารยูโอบี (UOB)</option>
+                                <option value="tcrb">ธนาคารไทยเครดิตเพื่อรายย่อย</option>
+                                <option value="gsb">ธนาคารออมสิน ⚠️ (ไม่แนะนำ: สลิปบางส่วนไม่มี QR)</option>
+                                <option value="baac">ธนาคาร ธ.ก.ส.</option>
+                                <option value="citibank">ธนาคารซิตี้แบงก์</option>
+                                <option value="sc">ธนาคารสแตนดาร์ดชาร์เตอร์ด</option>
+                                <option value="kkp">ธนาคารเกียรตินาคินภัทร (KKP)</option>
+                                <option value="ghb">ธนาคารอาคารสงเคราะห์ (ธอส.)</option>
+                                <option value="tisco">ธนาคารทิสโก้</option>
+                                <option value="ibank">ธนาคารอิสลามแห่งประเทศไทย</option>
+                              </select>
+                              <small class="text-muted">⚠️ ธนาคารที่ไม่แนะนำ คือธนาคารที่สลิปอาจไม่มี QR code หากผู้โอนใช้แอปธนาคารเดียวกัน</small>
+                            </div>
+                            <div class="form-group">
+                              <label for="inputBankAccountNumber">เลขบัญชีธนาคาร</label>
+                              <input type="text" id="inputBankAccountNumber" class="form-control"
+                                     maxlength="20" inputmode="numeric">
+                              <small class="text-muted">เลขบัญชีธนาคาร (ไม่ต้องใส่ขีด)</small>
+                            </div>
+                            <div class="form-group">
+                              <label for="inputBankAccountName">ชื่อเจ้าของบัญชี</label>
+                              <input type="text" id="inputBankAccountName" class="form-control"
+                                     placeholder="ชื่อ นามสกุล" maxlength="100">
+                              <small class="text-muted">ชื่อบัญชีตามที่ธนาคารระบุ</small>
+                            </div>
+                            <div class="slipok-linked-note">
+                              <i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>
+                              ตรวจสลิปด้วย SlipOK API จากด้านบน
+                            </div>
+                            <div class="bank-phase2-note">
+                              <i class="fa-solid fa-circle-info" style="color:#f59e0b;"></i>
+                              บันทึกข้อมูลได้เลย — ระบบรับเงินผ่านบัญชีธนาคารในหน้าโดเนทจะเปิดให้ใช้เร็วๆ นี้
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div><!-- /payment-methods-list -->
                   </div>
-                </div>
 
-                <div class="settings-actions" style="margin-top: 24px;">
-                  <button type="button" id="btnSavePaymentSettings" class="btn btn-primary btn-large">
-                    <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า
-                  </button>
+                  <div class="settings-actions" style="margin-top: 24px;">
+                    <button type="button" id="btnSavePaymentSettings" class="btn btn-primary btn-large">
+                      <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+
           </section>
 
          <!-- SECTION: OVERLAY CONFIGURATOR -->

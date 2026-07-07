@@ -180,6 +180,10 @@ async function migrateDB() {
         truemoney_slipok_last_check TEXT,
         slipok_quota_total INTEGER,
         truemoney_slipok_quota_total INTEGER,
+        bank_enabled INTEGER DEFAULT 0,
+        bank_name TEXT,
+        bank_account_number_encrypted TEXT,
+        bank_account_name TEXT,
         header_bg_url TEXT,
         page_bg_url TEXT,
         header_bg_y INTEGER DEFAULT 50,
@@ -331,6 +335,10 @@ async function migrateDB() {
       { name: 'truemoney_slipok_last_check', type: 'TEXT' },
       { name: 'slipok_quota_total', type: 'INTEGER' },
       { name: 'truemoney_slipok_quota_total', type: 'INTEGER' },
+      { name: 'bank_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'bank_name', type: 'TEXT' },
+      { name: 'bank_account_number_encrypted', type: 'TEXT' },
+      { name: 'bank_account_name', type: 'TEXT' },
       { name: 'header_bg_url', type: 'TEXT' },
       { name: 'page_bg_url', type: 'TEXT' },
       { name: 'header_bg_y', type: 'INTEGER DEFAULT 50' },
@@ -746,7 +754,8 @@ async function getDecryptedStreamer(username) {
 
 const PAYMENT_ENCRYPT_FIELDS = [
   'promptpay_value', 'slipok_api', 'slipok_api_key',
-  'truemoney_phone', 'truemoney_slipok_api', 'truemoney_slipok_api_key'
+  'truemoney_phone', 'truemoney_slipok_api', 'truemoney_slipok_api_key',
+  'bank_account_number'
 ];
 
 function isEncrypted(text) {
@@ -875,6 +884,10 @@ async function saveStreamer(data) {
                truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check),
                slipok_quota_total = COALESCE(?, streamers.slipok_quota_total),
                truemoney_slipok_quota_total = COALESCE(?, streamers.truemoney_slipok_quota_total),
+               bank_enabled = COALESCE(?, streamers.bank_enabled),
+               bank_name = COALESCE(?, streamers.bank_name),
+               bank_account_number_encrypted = COALESCE(?, streamers.bank_account_number_encrypted),
+               bank_account_name = COALESCE(?, streamers.bank_account_name),
                header_bg_url = COALESCE(?, streamers.header_bg_url),
                page_bg_url = COALESCE(?, streamers.page_bg_url),
                header_bg_y = COALESCE(?, streamers.header_bg_y),
@@ -972,6 +985,10 @@ async function saveStreamer(data) {
           finalData.truemoney_slipok_last_check !== undefined ? finalData.truemoney_slipok_last_check : null,
           finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
           finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null,
+          finalData.bank_enabled !== undefined ? (finalData.bank_enabled ? 1 : 0) : null,
+          finalData.bank_name || null,
+          finalData.bank_account_number_encrypted || null,
+          finalData.bank_account_name || null,
           finalData.header_bg_url !== undefined ? finalData.header_bg_url : null,
           finalData.page_bg_url !== undefined ? finalData.page_bg_url : null,
           finalData.header_bg_y !== undefined ? finalData.header_bg_y : null,
@@ -1006,8 +1023,9 @@ async function saveStreamer(data) {
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
+              bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_bar_position, tos_accepted_at, primary_auth_provider)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1087,6 +1105,10 @@ async function saveStreamer(data) {
         finalData.truemoney_slipok_last_check || null,
         finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
         finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null,
+        finalData.bank_enabled !== undefined ? (finalData.bank_enabled ? 1 : 0) : 0,
+        finalData.bank_name || null,
+        finalData.bank_account_number_encrypted || null,
+        finalData.bank_account_name || null,
         finalData.header_bg_url || null,
         finalData.page_bg_url || null,
         finalData.header_bg_y !== undefined ? finalData.header_bg_y : 50,

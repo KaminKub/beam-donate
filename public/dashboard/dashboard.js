@@ -1117,24 +1117,19 @@ async function initializeDashboard() {
       promptpayTypeSelect.addEventListener('change', updatePromptPayPlaceholder);
     }
 
+    // PW-1: numeric-only enforcement for payment inputs
+    ['inputBankAccountNumber', 'inputTrueMoneyPhone', 'inputPromptPay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => {
+        const clean = el.value.replace(/\D/g, '');
+        if (clean !== el.value) el.value = clean;
+      });
+    });
+
     // SlipOK Test buttons
     const btnTestSlipOk = document.getElementById('btnTestSlipOk');
     if (btnTestSlipOk) {
       btnTestSlipOk.onclick = testSlipOkConnection;
-    }
-
-    const btnTestTrueMoneySlipOk = document.getElementById('btnTestTrueMoneySlipOk');
-    if (btnTestTrueMoneySlipOk) {
-      btnTestTrueMoneySlipOk.onclick = testTrueMoneySlipOkConnection;
-    }
-
-    const btnSyncSlipOk = document.getElementById('btnSyncSlipOkFromPromptPay');
-    if (btnSyncSlipOk) {
-      btnSyncSlipOk.onclick = () => {
-        btnSyncSlipOk.classList.add('spinning');
-        syncSlipOkFromPromptPay();
-        setTimeout(() => btnSyncSlipOk.classList.remove('spinning'), 1200);
-      };
     }
 
     if (btnSavePayment) {
@@ -1145,12 +1140,6 @@ async function initializeDashboard() {
     if (btnRefreshSlipokQuotaMini) {
       btnRefreshSlipokQuotaMini.addEventListener('click', () => {
         fetchQuotaMini('promptpay', true);
-      });
-    }
-    const btnRefreshTrueMoneySlipokQuotaMini = document.getElementById('btnRefreshTrueMoneySlipokQuotaMini');
-    if (btnRefreshTrueMoneySlipokQuotaMini) {
-      btnRefreshTrueMoneySlipokQuotaMini.addEventListener('click', () => {
-        fetchQuotaMini('truemoney', true);
       });
     }
 
@@ -1288,13 +1277,19 @@ function loadDemoPaymentInfo(data) {
   if (slipOkApi) { slipOkApi.value = censor; slipOkApi.disabled = true; }
   if (slipOkApiKey) { slipOkApiKey.value = censor; slipOkApiKey.disabled = true; }
 
-  if (typeof updateTrueMoneySlipOkStatus === 'function') updateTrueMoneySlipOkStatus(data.truemoney_slipok_connected, data.truemoney_slipok_last_check);
   const trueMoneyPhone = document.getElementById('inputTrueMoneyPhone');
-  const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
-  const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
   if (trueMoneyPhone) { trueMoneyPhone.value = censor; trueMoneyPhone.disabled = true; }
-  if (trueMoneyApi) { trueMoneyApi.value = censor; trueMoneyApi.disabled = true; }
-  if (trueMoneyApiKey) { trueMoneyApiKey.value = censor; trueMoneyApiKey.disabled = true; }
+
+  if (data.bank_enabled) document.getElementById('cardBank')?.classList.add('active');
+  const bankNameSel = document.getElementById('inputBankName');
+  if (bankNameSel) {
+    bankNameSel.value = data.bank_name || '';
+    bankNameSel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const bankAccNo = document.getElementById('inputBankAccountNumber');
+  const bankAccName = document.getElementById('inputBankAccountName');
+  if (bankAccNo) { bankAccNo.value = censor; bankAccNo.disabled = true; }
+  if (bankAccName) { bankAccName.value = censor; bankAccName.disabled = true; }
 }
 
 function loadOverlaySettingsFromData(data) {
@@ -1530,7 +1525,7 @@ function applyDemoRestrictions() {
   });
 
   // Block connection test buttons
-  ['btnTestSlipOk', 'btnTestTrueMoneySlipOk'].forEach(id => {
+  ['btnTestSlipOk'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.disabled = true;
@@ -2763,13 +2758,14 @@ async function forceSuccessTransaction(id) {
         });
         
         if (response.ok) {
+          showNotification('ยืนยันชำระเงินสำเร็จ', 'success');
           fetchTransactions();
         } else {
           const err = await response.json();
           throw new Error(err.error || 'อัปเดตสถานะไม่สำเร็จ');
         }
       } catch (err) {
-        // Notification removed as per request
+        showNotification(err.message || 'อัปเดตสถานะไม่สำเร็จ', 'error');
       }
     },
     'ยืนยันชำระเงิน',
@@ -4253,8 +4249,8 @@ function updatePromptPayPlaceholder() {
   if (!input || !hint) return;
 
   const configs = {
-    phone: { placeholder: '081-234-5678', hint: 'กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์', maxlength: 10 },
-    idcard: { placeholder: '1-1001-00360-12-5', hint: 'กรุณากรอกเลขบัตรประจำตัวประชาชน', maxlength: 13 },
+    phone: { placeholder: '0812345678', hint: 'กรุณากรอกเบอร์โทรศัพท์ที่ผูกกับบัญชีพร้อมเพย์', maxlength: 10 },
+    idcard: { placeholder: 'เลขบัตร 13 หลัก', hint: 'กรุณากรอกเลขบัตรประจำตัวประชาชน', maxlength: 13 },
     ewallet: { placeholder: 'e-Wallet ID', hint: 'กรุณากรอก e-Wallet ID', maxlength: 15 }
   };
 
@@ -4266,54 +4262,48 @@ function updatePromptPayPlaceholder() {
 
 function validatePromptPaySettings() {
   const errors = [];
-  const promptpayCard = document.getElementById('cardPromptPay');
-  
-  if (promptpayCard?.classList.contains('active')) {
-    const promptpayValue = document.getElementById('inputPromptPay')?.value.trim();
+  const promptpayActive = document.getElementById('cardPromptPay')?.classList.contains('active');
+  const trueMoneyActive = document.getElementById('cardTrueMoney')?.classList.contains('active');
+  const bankActive = document.getElementById('cardBank')?.classList.contains('active');
+
+  const highlight = (id, bad) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = bad ? '#f87171' : '';
+    el.style.boxShadow = bad ? '0 0 0 3px rgba(248,113,113,0.2)' : '';
+  };
+
+  // Unified SlipOK — บังคับถ้าเลือกวิธีรับเงินอย่างน้อย 1 วิธี
+  if (promptpayActive || trueMoneyActive || bankActive) {
     const api = document.getElementById('inputSlipOkApi')?.value.trim();
     const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
-
-    if (!promptpayValue) errors.push('ข้อมูลพร้อมเพย์');
     if (!api) errors.push('SlipOK API');
     if (!apiKey) errors.push('SlipOK API Key');
-
-    // ไฮไลท์ฟิลด์ที่ยังไม่ได้กรอก
-    ['inputPromptPay', 'inputSlipOkApi', 'inputSlipOkApiKey'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        if (!el.value.trim()) {
-          el.style.borderColor = '#f87171';
-          el.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.2)';
-        } else {
-          el.style.borderColor = '';
-          el.style.boxShadow = '';
-        }
-      }
-    });
+    highlight('inputSlipOkApi', !api);
+    highlight('inputSlipOkApiKey', !apiKey);
   }
 
-  const truemoneyCard = document.getElementById('cardTrueMoney');
-  if (truemoneyCard?.classList.contains('active')) {
+  if (promptpayActive) {
+    const v = document.getElementById('inputPromptPay')?.value.trim();
+    if (!v) errors.push('ข้อมูลพร้อมเพย์');
+    highlight('inputPromptPay', !v);
+  }
+
+  if (trueMoneyActive) {
     const phone = document.getElementById('inputTrueMoneyPhone')?.value.trim();
-    const api = document.getElementById('inputTrueMoneyApi')?.value.trim();
-    const apiKey = document.getElementById('inputTrueMoneyApiKey')?.value.trim();
-
     if (!phone) errors.push('เบอร์ TrueMoney');
-    if (!api) errors.push('SlipOK API (TrueMoney)');
-    if (!apiKey) errors.push('SlipOK API Key (TrueMoney)');
+    highlight('inputTrueMoneyPhone', !phone);
+  }
 
-    ['inputTrueMoneyPhone', 'inputTrueMoneyApi', 'inputTrueMoneyApiKey'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        if (!el.value.trim()) {
-          el.style.borderColor = '#f87171';
-          el.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.2)';
-        } else {
-          el.style.borderColor = '';
-          el.style.boxShadow = '';
-        }
-      }
-    });
+  if (bankActive) {
+    const bankName = document.getElementById('inputBankName')?.value;
+    const accNo = document.getElementById('inputBankAccountNumber')?.value.trim();
+    const accName = document.getElementById('inputBankAccountName')?.value.trim();
+    if (!bankName) errors.push('ธนาคาร');
+    if (!accNo) errors.push('เลขบัญชีธนาคาร');
+    if (!accName) errors.push('ชื่อเจ้าของบัญชี');
+    highlight('inputBankAccountNumber', !accNo);
+    highlight('inputBankAccountName', !accName);
   }
 
   return { valid: errors.length === 0, errors };
@@ -4323,7 +4313,11 @@ async function loadPaymentSettings() {
   showTabLoading('payment-setup');
   try {
     const response = await fetch('/api/payment/settings');
-    if (!response.ok) return;
+    if (!response.ok) {
+      // No settings yet (404) or auth issue — show SlipOK setup panel so user can configure
+      updateSlipOkStatus(false, null);
+      return;
+    }
     const data = await response.json();
 
     // ไม่ auto-select — โหลดสถานะจาก database
@@ -4360,19 +4354,24 @@ async function loadPaymentSettings() {
 
     // Fill TrueMoney fields
     const trueMoneyPhone = document.getElementById('inputTrueMoneyPhone');
-    const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
-    const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
     if (trueMoneyPhone) trueMoneyPhone.value = data.truemoney_phone || '';
-    if (trueMoneyApi) trueMoneyApi.value = data.truemoney_slipok_api || '';
-    if (trueMoneyApiKey) trueMoneyApiKey.value = data.truemoney_slipok_api_key || '';
 
-    updateTrueMoneySlipOkStatus(data.truemoney_slipok_connected, data.truemoney_slipok_last_check);
+    // Bank Account fields
+    const bankName = document.getElementById('inputBankName');
+    const bankAccountNumber = document.getElementById('inputBankAccountNumber');
+    const bankAccountName = document.getElementById('inputBankAccountName');
+    if (bankName) { bankName.value = data.bank_name || ''; bankName.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (bankAccountNumber) bankAccountNumber.value = data.bank_account_number || '';
+    if (bankAccountName) bankAccountName.value = data.bank_account_name || '';
+
+    const bankCard = document.getElementById('cardBank');
+    if (data.bank_enabled && bankCard) bankCard.classList.add('active');
 
     if (data.slipok_connected) fetchQuotaMini('promptpay');
-    if (data.truemoney_slipok_connected) fetchQuotaMini('truemoney');
   } catch (err) {
     console.error('Load payment settings error:', err);
     tabLoaded['payment-setup'] = false;
+    updateSlipOkStatus(false, null);
   } finally {
     hideTabLoading('payment-setup');
   }
@@ -4392,45 +4391,53 @@ function updateSlipOkStatus(connected, lastCheck) {
     status.className = 'tfp-status connected';
     if (title) title.textContent = 'เชื่อมต่อแล้ว';
     if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'เชื่อมต่อ SlipOK สำเร็จ';
-    
+
     // Fade out api-notice only
     if (apiNotice) apiNotice.classList.add('fade-out');
   } else {
     status.className = 'tfp-status disconnected';
     if (title) title.textContent = lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
     if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
-    
+
     // Fade in api-notice
     if (apiNotice) apiNotice.classList.remove('fade-out');
   }
-}
 
-function updateTrueMoneySlipOkStatus(connected, lastCheck) {
-  const container = document.getElementById('trueMoneySlipOkStatusContainer');
-  const status = document.getElementById('trueMoneySlipOkStatus');
-  const title = document.getElementById('trueMoneySlipOkStatusTitle');
-  const desc = document.getElementById('trueMoneySlipOkStatusDesc');
-  const apiNotice = document.getElementById('truemoneyApiNotice');
-
-  if (!container || !status) return;
-  container.style.display = 'block';
-
+  // PW-2: header icon + badge
+  const headerIcon = document.getElementById('slipokHeaderIcon');
+  const headerBadge = document.getElementById('slipokHeaderBadge');
   if (connected) {
-    status.className = 'tfp-status connected';
-    if (title) title.textContent = 'เชื่อมต่อแล้ว';
-    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ';
-    
-    // Fade out api-notice only
-    if (apiNotice) apiNotice.classList.add('fade-out');
+    if (headerIcon) { headerIcon.className = 'fa-solid fa-circle-check'; headerIcon.style.color = '#4ade80'; }
+    if (headerBadge) {
+      headerBadge.style.display = 'inline-block';
+      headerBadge.className = 'slipok-header-badge connected';
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-circle-check';
+      headerBadge.replaceChildren(icon, document.createTextNode(' เชื่อมต่อแล้ว'));
+    }
   } else {
-    status.className = 'tfp-status disconnected';
-    if (title) title.textContent = lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
-    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
-    
-    // Fade in api-notice
-    if (apiNotice) apiNotice.classList.remove('fade-out');
+    if (headerIcon) { headerIcon.className = 'fa-solid fa-triangle-exclamation'; headerIcon.style.color = '#f59e0b'; }
+    if (headerBadge) {
+      headerBadge.style.display = 'inline-block';
+      headerBadge.className = 'slipok-header-badge attention';
+      const apiVal = document.getElementById('inputSlipOkApi')?.value.trim();
+      const msg = !apiVal ? 'ยังไม่เชื่อม API' : (lastCheck ? 'เชื่อมต่อไม่ได้' : 'ยังไม่ได้ทดสอบ');
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-triangle-exclamation';
+      headerBadge.replaceChildren(icon, document.createTextNode(' ' + msg));
+    }
+  }
+
+  // PW-3: disconnected → open panel for editing; connected → collapse
+  // ต้อง sync ทั้ง class และ inline display เพราะ initCardPanels/toggleCardPanel คุมด้วย inline style
+  const slipokPanel = document.getElementById('panelSlipOkUnified');
+  const slipokCard = slipokPanel?.closest('.settings-card');
+  if (slipokCard && slipokPanel) {
+    slipokCard.classList.toggle('panel-open', !connected);
+    slipokPanel.style.display = connected ? 'none' : 'block';
   }
 }
+
 
 async function testSlipOkConnection() {
   const api = document.getElementById('inputSlipOkApi')?.value.trim();
@@ -4479,75 +4486,6 @@ async function testSlipOkConnection() {
   }
 }
 
-async function testTrueMoneySlipOkConnection() {
-  const api = document.getElementById('inputTrueMoneyApi')?.value.trim();
-  const apiKey = document.getElementById('inputTrueMoneyApiKey')?.value.trim();
-
-  if (!api || !apiKey) {
-    showNotification('กรุณากรอก SlipOK API และ API Key สำหรับ TrueMoney', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('btnTestTrueMoneySlipOk');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังทดสอบ...';
-  }
-
-  try {
-    const payload = {
-      slipok_api: api,
-      slipok_api_key: apiKey,
-      method: 'truemoney',
-      truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || ''
-    };
-
-    const response = await fetchWithCsrf('/api/payment/test-slipok', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      showNotification('เชื่อมต่อ SlipOK (TrueMoney) สำเร็จ — บันทึกข้อมูลเรียบร้อย');
-      updateTrueMoneySlipOkStatus(true, new Date().toISOString());
-      fetchQuotaMini('truemoney', true);
-    } else {
-      showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
-    }
-  } catch (err) {
-    showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ';
-    }
-  }
-}
-
-function syncSlipOkFromPromptPay() {
-  const promptpayApi = document.getElementById('inputSlipOkApi')?.value.trim();
-  const promptpayApiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
-
-  if (!promptpayApi && !promptpayApiKey) {
-    showNotification('ยังไม่ได้กรอก API ในส่วนพร้อมเพย์ — กรุณากรอกก่อนซิงค์', 'error');
-    return;
-  }
-
-  if (promptpayApi.includes('*') || promptpayApiKey.includes('*')) {
-    showNotification('ข้อมูล API ในพร้อมเพย์เป็นค่าเซนเซอร์ — กรุณากรอกใหม่ก่อนซิงค์', 'error');
-    return;
-  }
-
-  const trueMoneyApi = document.getElementById('inputTrueMoneyApi');
-  const trueMoneyApiKey = document.getElementById('inputTrueMoneyApiKey');
-
-  if (trueMoneyApi) trueMoneyApi.value = promptpayApi;
-  if (trueMoneyApiKey) trueMoneyApiKey.value = promptpayApiKey;
-
-  showNotification('ดึงข้อมูล API จากพร้อมเพย์เรียบร้อย');
-}
 
 async function savePaymentSettings() {
   // Validate ก่อนบันทึก
@@ -4559,17 +4497,25 @@ async function savePaymentSettings() {
 
   const promptpayCard = document.getElementById('cardPromptPay');
   const truemoneyCard = document.getElementById('cardTrueMoney');
+  const bankCard = document.getElementById('cardBank');
+
+  const api = document.getElementById('inputSlipOkApi')?.value.trim() || '';
+  const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim() || '';
 
   const payload = {
     promptpay_enabled: promptpayCard?.classList.contains('active') || false,
     promptpay_type: document.getElementById('inputPromptPayType')?.value || 'phone',
     promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || '',
-    slipok_api: document.getElementById('inputSlipOkApi')?.value.trim() || '',
-    slipok_api_key: document.getElementById('inputSlipOkApiKey')?.value.trim() || '',
+    slipok_api: api,
+    slipok_api_key: apiKey,
     truemoney_enabled: truemoneyCard?.classList.contains('active') || false,
     truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || '',
-    truemoney_slipok_api: document.getElementById('inputTrueMoneyApi')?.value.trim() || '',
-    truemoney_slipok_api_key: document.getElementById('inputTrueMoneyApiKey')?.value.trim() || ''
+    truemoney_slipok_api: api,
+    truemoney_slipok_api_key: apiKey,
+    bank_enabled: bankCard?.classList.contains('active') || false,
+    bank_name: document.getElementById('inputBankName')?.value || '',
+    bank_account_number: document.getElementById('inputBankAccountNumber')?.value.trim() || '',
+    bank_account_name: document.getElementById('inputBankAccountName')?.value.trim() || ''
   };
 
   try {

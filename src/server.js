@@ -758,6 +758,7 @@ function applyDemoMask(row) {
     'slipok_connected', 'slipok_last_check', 'slipok_quota_total',
     'truemoney_enabled', 'truemoney_slipok_connected',
     'truemoney_slipok_last_check', 'truemoney_slipok_quota_total',
+    'bank_enabled', 'bank_name',
     // Goal bar
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
@@ -2923,6 +2924,9 @@ function decryptPaymentFields(streamer) {
     if (result.truemoney_slipok_api_key_encrypted && result.truemoney_slipok_api_key_encrypted.includes(':')) {
       result.truemoney_slipok_api_key = decrypt(result.truemoney_slipok_api_key_encrypted);
     }
+    if (result.bank_account_number_encrypted && result.bank_account_number_encrypted.includes(':')) {
+      result.bank_account_number = decrypt(result.bank_account_number_encrypted);
+    }
   } catch (e) {
     console.warn('Failed to decrypt payment fields:', e.message);
   }
@@ -2949,16 +2953,20 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       tfp_last_check: decrypted.tfp_last_check || '',
       promptpay_type: decrypted.promptpay_type || 'phone',
       promptpay_value: censor(decrypted.promptpay_value || '', 3, 2),
-      slipok_api: censor(decrypted.slipok_api || '', 8, 4),
-      slipok_api_key: censor(decrypted.slipok_api_key || ''),
-      slipok_connected: decrypted.slipok_connected || 0,
+      slipok_api: censor(decrypted.slipok_api || decrypted.truemoney_slipok_api || '', 8, 4),
+      slipok_api_key: censor(decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key || ''),
+      slipok_connected: decrypted.slipok_connected || decrypted.truemoney_slipok_connected || 0,
       slipok_last_check: decrypted.slipok_last_check || '',
       truemoney_enabled: decrypted.truemoney_enabled || 0,
       truemoney_phone: censor(decrypted.truemoney_phone || '', 3, 2),
       truemoney_slipok_api: censor(decrypted.truemoney_slipok_api || '', 8, 4),
       truemoney_slipok_api_key: censor(decrypted.truemoney_slipok_api_key || ''),
       truemoney_slipok_connected: decrypted.truemoney_slipok_connected || 0,
-      truemoney_slipok_last_check: decrypted.truemoney_slipok_last_check || ''
+      truemoney_slipok_last_check: decrypted.truemoney_slipok_last_check || '',
+      bank_enabled: decrypted.bank_enabled || 0,
+      bank_name: decrypted.bank_name || '',
+      bank_account_number: censor(decrypted.bank_account_number || '', 3, 2),
+      bank_account_name: decrypted.bank_account_name || ''
     });
   } catch (err) {
     console.error('Get payment settings error:', err);
@@ -2989,7 +2997,11 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
       truemoney_enabled: req.body.truemoney_enabled ? 1 : 0,
       truemoney_phone: req.body.truemoney_phone || '',
       truemoney_slipok_api: req.body.truemoney_slipok_api || '',
-      truemoney_slipok_api_key: req.body.truemoney_slipok_api_key || ''
+      truemoney_slipok_api_key: req.body.truemoney_slipok_api_key || '',
+      bank_enabled: req.body.bank_enabled ? 1 : 0,
+      bank_name: req.body.bank_name || '',
+      bank_account_number: req.body.bank_account_number || '',
+      bank_account_name: req.body.bank_account_name || ''
     });
 
     res.json({ success: true });
@@ -3038,8 +3050,8 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
           if (slipok_api_key.includes('*')) realApiKey = decrypted.truemoney_slipok_api_key || '';
           if (truemoney_phone && truemoney_phone.includes('*')) realTruemoneyPhone = decrypted.truemoney_phone || '';
         } else {
-          if (slipok_api.includes('*')) realApi = decrypted.slipok_api || '';
-          if (slipok_api_key.includes('*')) realApiKey = decrypted.slipok_api_key || '';
+          if (slipok_api.includes('*')) realApi = decrypted.slipok_api || decrypted.truemoney_slipok_api || '';
+          if (slipok_api_key.includes('*')) realApiKey = decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key || '';
           if (promptpay_value && promptpay_value.includes('*')) realPromptpayValue = decrypted.promptpay_value || '';
         }
       }
@@ -3104,7 +3116,11 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
         promptpay_value: realPromptpayValue,
         slipok_api: realApi,
         slipok_api_key: realApiKey,
-        slipok_quota_total: newSnapshot
+        slipok_quota_total: newSnapshot,
+        truemoney_slipok_connected: 1,
+        truemoney_slipok_last_check: new Date().toISOString(),
+        truemoney_slipok_api: realApi,
+        truemoney_slipok_api_key: realApiKey
       });
     }
 
@@ -3118,7 +3134,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       if (isTruemoney) {
         await db.saveStreamer({ ..._ids, truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
       } else {
-        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString() });
+        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
       }
     } catch (ignore) {}
 
@@ -3391,7 +3407,7 @@ const pollSlipLimiter = rateLimit({
 app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { referenceId, amount, phone, method, username: bodyUsername } = req.body;
+    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage } = req.body;
     const slipFile = req.file;
 
     if (!slipFile) return res.status(400).json({ success: false, errorCode: 'NO_FILE', error: 'กรุณาอัพโหลดไฟล์สลิป' });
@@ -3519,8 +3535,8 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
           await db.saveTransaction({
             id: referenceIdNew,
             amount: parseFloat(amount) || 0,
-            donor: phone || 'Anonymous',
-            message: '',
+            donor: donorName || 'Anonymous',
+            message: donorMessage || '',
             status: 'successful',
             streamer_username: username,
             payment_method: 'truemoney',
@@ -3534,9 +3550,9 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
 
           broadcastAlert(username, {
             type: 'donation',
-            donor: phone || 'Anonymous',
+            donor: donorName || 'Anonymous',
             amount: parseFloat(amount) || 0,
-            message: ''
+            message: donorMessage || ''
           });
 
           // Update donation goal if enabled
@@ -3550,6 +3566,43 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
               }
             } catch (e) {
               console.error('Goal update after truemoney verify failed:', e.message);
+            }
+          }
+        } else if (method === 'bank') {
+          const referenceIdNew = `bank-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          await db.saveTransaction({
+            id: referenceIdNew,
+            amount: parseFloat(amount) || 0,
+            donor: donorName || 'Anonymous',
+            message: donorMessage || '',
+            status: 'successful',
+            streamer_username: username,
+            payment_method: 'bank',
+            promptpay_verified: 1,
+            promptpay_verified_at: new Date().toISOString(),
+            promptpay_slip_id: d.transRef || null,
+            paidAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          });
+          db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'bank', ref: referenceIdNew }).catch(() => {});
+
+          broadcastAlert(username, {
+            type: 'donation',
+            donor: donorName || 'Anonymous',
+            amount: parseFloat(amount) || 0,
+            message: donorMessage || ''
+          });
+
+          const bankAmount = parseFloat(amount) || 0;
+          if (username && bankAmount > 0) {
+            try {
+              const goalStreamer = await db.getStreamer(username);
+              if (goalStreamer && goalStreamer.goal_enabled) {
+                const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, bankAmount);
+                broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
+              }
+            } catch (e) {
+              console.error('Goal update after bank verify failed:', e.message);
             }
           }
         }
@@ -3641,27 +3694,27 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
 
     const method = streamer.payment_method || 'ffp';
-    
-    // Decrypt TrueMoney phone if encrypted
-    let truemoneyPhone = '';
-    if (streamer.truemoney_phone_encrypted) {
-      try {
-        truemoneyPhone = decrypt(streamer.truemoney_phone_encrypted);
-      } catch (e) {
-        console.warn('Failed to decrypt truemoney_phone:', e.message);
-      }
-    }
-    
+    const decrypted = decryptPaymentFields(streamer);
+
+    // เลขบัญชี/เบอร์ TrueMoney ส่งเต็มโดยเจตนา (donor ต้องใช้โอนเงิน — censor แล้ว flow พัง)
+    // แต่ต้อง gate ด้วย enabled flag เสมอ — ปิดวิธีรับเงินแล้วข้อมูลต้องไม่หลุด (SECURITY_AUDIT_2026-07-07 MED-1/MED-2)
+    const bankEnabled = streamer.bank_enabled === 1;
+    const truemoneyEnabled = streamer.truemoney_enabled === 1;
+
     res.json({
       // FIXME: เมื่อ FFP พร้อมใช้งาน เปลี่ยนเป็น (method === 'ffp' || method === 'both')
       ffp: false,
       promptpay: streamer.promptpay_enabled === 1,
-      truemoney: streamer.truemoney_enabled === 1,
+      truemoney: truemoneyEnabled,
+      bank: bankEnabled,
       beam: method === 'ffp' || method === 'both',
       promptpay_name: streamer.promptpay_name || streamer.username,
-      truemoney_phone: truemoneyPhone,
+      truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
       slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1,
-      truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1
+      truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
+      bank_name: bankEnabled ? (streamer.bank_name || '') : '',
+      bank_account_number: bankEnabled ? (decrypted.bank_account_number || '') : '',
+      bank_account_name: bankEnabled ? (streamer.bank_account_name || '') : ''
     });
   } catch (err) {
     console.error('Get payment methods error:', err);

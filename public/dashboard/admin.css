@@ -2887,7 +2887,7 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   text-decoration: none;
   padding: 4px 8px;
@@ -3351,4 +3351,67 @@ label {
   .feedback-hero-icon { font-size: 28px; }
   .feedback-hero-text h2 { font-size: 16px; }
   .feedback-form-card { padding: 20px; }
+}
+
+/* Payment Setup Redesign */
+.slipok-unified-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #86efac;
+  margin-bottom: 16px;
+}
+
+.slipok-linked-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #86efac;
+  margin-top: 12px;
+  padding: 6px 10px;
+  background: rgba(74, 222, 128, 0.06);
+  border-radius: 6px;
+  border: 1px solid rgba(74, 222, 128, 0.15);
+}
+
+.bank-phase2-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #fbbf24;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(245, 158, 11, 0.06);
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+/* PW-2: SlipOK header status badge */
+.slipok-header-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.slipok-header-badge i { font-size: 0.6rem; margin-right: 3px; }
+.slipok-header-badge.connected {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.slipok-header-badge.attention {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.5);
 }

@@ -222,7 +222,7 @@ async function loadPageContent() {
                styleEl.textContent = `
                  .header { position: relative; margin: -35px -30px 0 -30px; padding: 35px 30px 25px; overflow: hidden; }
                  #step-amount .header .glowing-avatar { margin-top: 80px; }
-                 #step-payment-method .header, #step-qr .header, #step-truemoney .header { padding-top: 180px; }
+                 #step-payment-method .header, #step-qr .header, #step-truemoney .header, #step-bank .header { padding-top: 180px; }
                  .header > * { position: relative; z-index: 1; }
                  #header-bg-video { position: absolute; top: 0; left: 0; right: 0; height: 170px; width: 100%; object-fit: cover; object-position: center ${y}%; z-index: 0; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); }
                `;
@@ -249,7 +249,8 @@ async function loadPageContent() {
                  }
                  #step-payment-method .header,
                  #step-qr .header,
-                 #step-truemoney .header {
+                 #step-truemoney .header,
+                 #step-bank .header {
                    padding-top: 180px;
                  }
                  .header::before {
@@ -439,7 +440,7 @@ btnDonate.addEventListener('click', async () => {
     if (res.ok) {
       const methods = await res.json();
       streamerPaymentMethods = methods;
-      const hasAnyMethod = methods.promptpay || methods.truemoney || methods.ffp;
+      const hasAnyMethod = methods.promptpay || methods.truemoney || methods.bank || methods.ffp;
 
       if (!hasAnyMethod) {
         // Shake + Red Glow + Message
@@ -472,16 +473,20 @@ btnDonate.addEventListener('click', async () => {
       const optionFFP = document.getElementById('optionFFP');
       const optionPromptPay = document.getElementById('optionPromptPay');
       const optionTrueMoney = document.getElementById('optionTrueMoney');
+      const optionBank = document.getElementById('optionBank');
 
       if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
       if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
       if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney ? '' : 'none';
+      if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
 
       // Auto-select first available method
       if (methods.promptpay) {
         selectPaymentMethod('promptpay');
       } else if (methods.truemoney) {
         selectPaymentMethod('truemoney');
+      } else if (methods.bank) {
+        selectPaymentMethod('bank');
       } else {
         selectPaymentMethod('promptpay'); // fallback
       }
@@ -1102,6 +1107,8 @@ async function doVerifyTrueMoney() {
     formData.append('username', window.location.pathname.split('/')[1]);
     formData.append('page_token', pageToken);
     formData.append('contact_email', '');
+    formData.append('name', donorNameInput?.value?.trim() || '');
+    formData.append('message', donorMessageInput?.value?.trim() || '');
 
     const response = await fetch('/api/verify-slip', {
       method: 'POST',
@@ -1204,37 +1211,232 @@ if (btnBackTrueMoney) {
   });
 }
 
+// ========== Bank Transfer Flow ==========
+const stepBank = document.getElementById('step-bank');
+const btnBackBank = document.getElementById('btnBackBank');
+const btnVerifyBank = document.getElementById('btnVerifyBank');
+const bankAmount = document.getElementById('bankAmount');
+const bankNameDisplay = document.getElementById('bankNameDisplay');
+const bankAccountNumberDisplay = document.getElementById('bankAccountNumberDisplay');
+const bankAccountNameDisplay = document.getElementById('bankAccountNameDisplay');
+const bankSlipFileInput = document.getElementById('bankSlipFileInput');
+const bankSlipUploadBtn = document.getElementById('bankSlipUploadBtn');
+const bankSlipPreview = document.getElementById('bankSlipPreview');
+const bankSlipPreviewImage = document.getElementById('bankSlipPreviewImage');
+const btnRemoveBankSlip = document.getElementById('btnRemoveBankSlip');
+const btnCopyBankAccount = document.getElementById('btnCopyBankAccount');
+const bankPaymentStatus = document.getElementById('bankPaymentStatus');
+const bankPaymentError = document.getElementById('bankPaymentError');
+const bankPaymentErrorMessage = document.getElementById('bankPaymentErrorMessage');
+let bankSlipFile = null;
+
+if (btnCopyBankAccount) {
+  btnCopyBankAccount.addEventListener('click', () => {
+    const account = streamerPaymentMethods.bank_account_number || '';
+    if (!account) return;
+    navigator.clipboard.writeText(account).then(() => {
+      btnCopyBankAccount.classList.add('copied');
+      btnCopyBankAccount.textContent = 'คัดลอกแล้ว!';
+      setTimeout(() => {
+        btnCopyBankAccount.classList.remove('copied');
+        btnCopyBankAccount.innerHTML = '<i class="fas fa-copy"></i> คัดลอก';
+      }, 2000);
+    }).catch(() => {});
+  });
+}
+
+if (bankSlipUploadBtn) {
+  bankSlipUploadBtn.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    bankSlipUploadBtn.classList.add('dragover');
+  });
+  bankSlipUploadBtn.addEventListener('dragleave', () => {
+    bankSlipUploadBtn.classList.remove('dragover');
+  });
+  bankSlipUploadBtn.addEventListener('drop', (e) => {
+    e.preventDefault();
+    bankSlipUploadBtn.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) handleBankSlipFile(files[0]);
+  });
+}
+
+if (bankSlipFileInput) {
+  bankSlipFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleBankSlipFile(e.target.files[0]);
+  });
+}
+
+function handleBankSlipFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showBankError('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+    return;
+  }
+  bankSlipFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    bankSlipPreviewImage.src = e.target.result;
+    bankSlipPreview.style.display = 'block';
+    bankSlipUploadBtn.style.display = 'none';
+    btnVerifyBank.disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+if (btnRemoveBankSlip) {
+  btnRemoveBankSlip.addEventListener('click', () => {
+    bankSlipFile = null;
+    bankSlipFileInput.value = '';
+    bankSlipPreview.style.display = 'none';
+    bankSlipUploadBtn.style.display = 'flex';
+    btnVerifyBank.disabled = true;
+  });
+}
+
+if (btnVerifyBank) {
+  btnVerifyBank.addEventListener('click', async () => {
+    if (!bankSlipFile) return;
+    btnVerifyBank.disabled = true;
+    btnVerifyBank.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
+    hideBankError();
+    await doVerifyBank();
+  });
+}
+
+async function doVerifyBank() {
+  if (!bankSlipFile) return;
+  try {
+    const formData = new FormData();
+    formData.append('slip', bankSlipFile);
+    formData.append('amount', selectedAmount);
+    formData.append('method', 'bank');
+    formData.append('username', window.location.pathname.split('/')[1]);
+    formData.append('page_token', pageToken);
+    formData.append('contact_email', '');
+    formData.append('name', donorNameInput?.value?.trim() || '');
+    formData.append('message', donorMessageInput?.value?.trim() || '');
+
+    bankPaymentStatus.style.display = 'flex';
+    bankPaymentStatus.className = 'status checking';
+
+    const response = await fetch('/api/verify-slip', { method: 'POST', body: formData });
+    const data = await response.json();
+
+    if (data.success) {
+      clearPendingQR();
+      bankPaymentStatus.className = 'status success';
+      bankPaymentStatus.querySelector('span').textContent = '✅ ชำระเงินสำเร็จ!';
+      setTimeout(() => {
+        window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
+      }, 1500);
+      return;
+    }
+
+    const errorCode = data.errorCode || '';
+    const isRetryable = errorCode === 'CONNECTION_FAILED' || errorCode === 'SERVER_ERROR';
+
+    if (errorCode === 'SLIP_DELAY') {
+      const delayMin = data.delayMinutes || 5;
+      handleSlipDelay(delayMin, btnVerifyBank, bankPaymentStatus, doVerifyBank,
+        () => '<i class="fa-solid fa-clock"></i> กรุณารอการตรวจสอบ',
+        () => '<i class="fa-solid fa-clock"></i> พร้อมตรวจสอบแล้ว — กำลังตรวจใหม่...'
+      );
+      return;
+    }
+
+    bankPaymentStatus.style.display = 'none';
+    const errText = typeof data.error === 'string' ? data.error : 'สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรง';
+    if (isRetryable) {
+      showBankError(`${errText} — คุณสามารถลองใหม่ได้`);
+      btnVerifyBank.textContent = 'ลองใหม่อีกครั้ง';
+      btnVerifyBank.disabled = false;
+    } else {
+      showBankError(errText);
+      btnVerifyBank.textContent = 'ตรวจสอบสลิป';
+      btnVerifyBank.disabled = false;
+    }
+  } catch (error) {
+    bankPaymentStatus.style.display = 'none';
+    showBankError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ — กรุณาลองใหม่อีกครั้ง');
+    btnVerifyBank.textContent = 'ลองใหม่อีกครั้ง';
+    btnVerifyBank.disabled = false;
+  }
+}
+
+function showBankError(message) {
+  if (bankPaymentError) bankPaymentError.style.display = 'flex';
+  if (bankPaymentErrorMessage) bankPaymentErrorMessage.textContent = message;
+}
+
+function hideBankError() {
+  if (bankPaymentError) bankPaymentError.style.display = 'none';
+}
+
+if (btnBackBank) {
+  btnBackBank.addEventListener('click', () => {
+    stepBank.classList.remove('active');
+    stepPaymentMethod.classList.add('active');
+    bankSlipFile = null;
+    bankSlipFileInput.value = '';
+    bankSlipPreview.style.display = 'none';
+    bankSlipUploadBtn.style.display = 'flex';
+    btnVerifyBank.disabled = true;
+    bankPaymentStatus.style.display = 'none';
+    hideBankError();
+  });
+}
+
 // Override btnProceedPayment to handle TrueMoney
 const originalProceedHandler = btnProceedPayment.onclick;
 btnProceedPayment.addEventListener('click', async (e) => {
   if (selectedPaymentMethod === 'truemoney') {
     e.stopImmediatePropagation();
-    
+
     stepPaymentMethod.classList.remove('active');
     stepTrueMoney.classList.add('active');
-    
-    updateSlipOkWarning(true);
-    
+
+    updateSlipOkWarning('truemoney');
+
     if (trueMoneyAmount) {
       trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
     }
-    
+
     // Display phone number
     if (trueMoneyPhoneDisplay) {
       const phone = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
       trueMoneyPhoneDisplay.textContent = phone;
     }
-    
+
+    btnProceedPayment.disabled = false;
+    btnProceedPayment.textContent = 'ดำเนินการต่อ →';
+  } else if (selectedPaymentMethod === 'bank') {
+    e.stopImmediatePropagation();
+
+    stepPaymentMethod.classList.remove('active');
+    stepBank.classList.add('active');
+
+    updateSlipOkWarning('bank');
+
+    if (bankAmount) bankAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
+    if (bankNameDisplay) bankNameDisplay.textContent = streamerPaymentMethods.bank_name || '';
+    if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = streamerPaymentMethods.bank_account_number || '';
+    if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = streamerPaymentMethods.bank_account_name || '';
+
     btnProceedPayment.disabled = false;
     btnProceedPayment.textContent = 'ดำเนินการต่อ →';
   }
 }, true);
 
-function updateSlipOkWarning(isTruemoney) {
-  if (isTruemoney) {
+function updateSlipOkWarning(method) {
+  if (method === 'truemoney') {
     const warning = document.getElementById('trueMoneySlipokWarning');
     if (warning) {
       warning.style.display = streamerPaymentMethods.truemoney_slipok_connected ? 'none' : 'flex';
+    }
+  } else if (method === 'bank') {
+    const warning = document.getElementById('bankSlipokWarning');
+    if (warning) {
+      warning.style.display = streamerPaymentMethods.slipok_connected ? 'none' : 'flex';
     }
   } else {
     const warning = document.getElementById('slipokWarning');
