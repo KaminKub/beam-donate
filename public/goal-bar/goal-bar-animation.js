@@ -256,6 +256,7 @@
   function logoEntrance(amount) {
     const stage = document.getElementById('animStage');
     const card = document.getElementById('flipCard');
+    const bar = document.getElementById('goalBarWrapper');
     const front = card.querySelector('.flip-front');
     const back = card.querySelector('.flip-back');
     const logoText = card.querySelector('.tipkub-logo-text');
@@ -268,7 +269,24 @@
     logoText.offsetHeight; // force reflow
     logoText.style.animation = '';
 
-    gsap.set(card, { rotateY: 0, scale: 0.5, opacity: 0, y: 30 });
+    // Place card just beside the bar so effects appear in open viewport space
+    const isBottom = document.body.classList.contains('position-bottom');
+    const barRect = bar.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const GAP = 40;
+    const CARD_H = 70;
+
+    const rawTop = isBottom ? barRect.top - CARD_H - GAP : barRect.bottom + GAP;
+    const cardTop = Math.max(GAP, Math.min(vh - CARD_H - GAP, rawTop));
+
+    card.style.position = 'absolute';
+    card.style.top = cardTop + 'px';
+    card.style.left = 'calc(50% - 75px)';
+    card.style.margin = '0';
+
+    // Enter from bar side so card pops into open space (not clipped at far edge)
+    const initY = isBottom ? 20 : -20;
+    gsap.set(card, { rotateY: 0, scale: 0.5, opacity: 0, y: initY });
     stage.style.display = 'flex';
 
     playLogoPop();

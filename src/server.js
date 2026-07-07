@@ -2927,6 +2927,9 @@ function decryptPaymentFields(streamer) {
     if (result.bank_account_number_encrypted && result.bank_account_number_encrypted.includes(':')) {
       result.bank_account_number = decrypt(result.bank_account_number_encrypted);
     }
+    if (result.bank_account_name && result.bank_account_name.includes(':')) {
+      result.bank_account_name = decrypt(result.bank_account_name);
+    }
   } catch (e) {
     console.warn('Failed to decrypt payment fields:', e.message);
   }
@@ -3715,7 +3718,7 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
       bank_name: bankEnabled ? (streamer.bank_name || '') : '',
       bank_account_number: bankEnabled ? (decrypted.bank_account_number || '') : '',
-      bank_account_name: bankEnabled ? (streamer.bank_account_name || '') : ''
+      bank_account_name: bankEnabled ? (decrypted.bank_account_name || '') : ''
     });
   } catch (err) {
     console.error('Get payment methods error:', err);

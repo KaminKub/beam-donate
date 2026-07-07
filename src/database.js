@@ -788,8 +788,8 @@ async function saveStreamer(data) {
        catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
      }
    }
-   // Streamlabs tokens overwrite in-place (no _encrypted suffix)
-   for (const field of ['streamlabs_access_token', 'streamlabs_refresh_token']) {
+   // In-place encrypt — overwrite same column (no _encrypted suffix)
+   for (const field of ['streamlabs_access_token', 'streamlabs_refresh_token', 'bank_account_name']) {
      if (data[field]?.length && !isEncrypted(data[field])) {
        try { data[field] = encrypt(data[field]); }
        catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
