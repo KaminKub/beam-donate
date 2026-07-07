@@ -3433,8 +3433,9 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
       slipOkApi = decrypted.truemoney_slipok_api || decrypted.slipok_api;
       slipOkApiKey = decrypted.truemoney_slipok_api_key || decrypted.slipok_api_key;
     } else {
-      slipOkApi = decrypted.slipok_api;
-      slipOkApiKey = decrypted.slipok_api_key;
+      // Fallback: user เก่าที่มีเฉพาะ truemoney_slipok_* ใช้ bank/promptpay ได้โดยไม่ต้อง re-test
+      slipOkApi = decrypted.slipok_api || decrypted.truemoney_slipok_api;
+      slipOkApiKey = decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key;
     }
 
     if (!slipOkApi || !slipOkApiKey) {
@@ -3710,7 +3711,7 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       beam: method === 'ffp' || method === 'both',
       promptpay_name: streamer.promptpay_name || streamer.username,
       truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
-      slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1,
+      slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1 || streamer.truemoney_slipok_connected === 1,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
       bank_name: bankEnabled ? (streamer.bank_name || '') : '',
       bank_account_number: bankEnabled ? (decrypted.bank_account_number || '') : '',
