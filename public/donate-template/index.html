@@ -462,10 +462,44 @@
           </h2>
         </div>
     <footer style="margin-top: 24px; opacity: 0.6; font-size: 0.8rem; text-align: center;">
-      <a href="https://www.openlink.co/kaminkub" target="_blank" style="color: #f87171; text-decoration: none; opacity: 0.7; display: block; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'"><i class="fa-solid fa-flag" style="font-size:0.75rem;"></i> รายงานปัญหา/แจ้งความไม่เหมาะสม</a>
+      <a id="btnOpenReport" href="#" style="color: #f87171; text-decoration: none; display: block; transition: opacity 0.3s ease;"><i class="fa-solid fa-flag" style="font-size:0.75rem;"></i> รายงานปัญหา/แจ้งความไม่เหมาะสม</a>
       <a href="/privacy.html" style="color: white; text-decoration: none; opacity: 0.7; display: block; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">นโยบายความเป็นส่วนตัว</a>
       <a href="/terms-of-services.html" style="color: white; text-decoration: none; opacity: 0.7; display: block; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">ข้อกำหนดและเงื่อนไขการให้บริการ</a>
   </footer>
+
+  <!-- Report Modal -->
+  <div id="reportModal" class="report-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+    <div class="report-modal-box card glass-card">
+      <div class="report-modal-header">
+        <span id="reportModalTitle"><i class="fa-solid fa-flag" style="color:#ef4444;margin-right:8px;"></i>รายงานปัญหา</span>
+        <button id="btnCloseReport" class="report-modal-close" aria-label="ปิด">✕</button>
+      </div>
+      <div class="report-modal-body">
+        <div class="form-group-report">
+          <label class="report-label">ประเภทการรายงาน</label>
+          <select id="reportType" class="report-select">
+            <option value="inappropriate">🚫 เนื้อหาไม่เหมาะสม</option>
+            <option value="scam">⚠️ ต้องสงสัยว่าเป็นการหลอกลวง</option>
+            <option value="page_issue">🔧 ปัญหาเกี่ยวกับหน้าโดเนทนี้</option>
+            <option value="other">💬 อื่นๆ</option>
+          </select>
+        </div>
+        <div class="form-group-report">
+          <label class="report-label">คำอธิบายเพิ่มเติม <span class="report-optional">(ไม่บังคับ)</span></label>
+          <textarea id="reportMessage" class="report-textarea" rows="3" maxlength="500"
+            placeholder="อธิบายเพิ่มเติมหากต้องการ..."></textarea>
+          <small class="report-char"><span id="reportCharCount">0</span>/500</small>
+        </div>
+      </div>
+      <div id="reportStatus" class="report-status" style="display:none;"></div>
+      <div class="report-modal-footer">
+        <button id="btnCancelReport" class="btn-secondary" style="width:auto;padding:10px 20px;">ยกเลิก</button>
+        <button id="btnSubmitReport" class="btn-primary" style="width:auto;padding:10px 20px;">
+          <i class="fa-solid fa-paper-plane"></i> ส่งรายงาน
+        </button>
+      </div>
+    </div>
+  </div>
   </div>  <!-- end container -->
 
   <script src="/assets/tipkub-loading.js"></script>

@@ -700,6 +700,14 @@ const feedbackLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { error: 'ส่งรายงานได้สูงสุด 3 ครั้ง/ชั่วโมง' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const adminMonitorLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -2371,6 +2379,54 @@ app.post('/api/feedback', csrfProtection, feedbackLimiter, ensureAuthenticated, 
   } catch (err) {
     console.error('[feedback] Discord webhook error:', err.message);
     res.status(502).json({ error: 'ส่ง feedback ไม่สำเร็จ กรุณาลองใหม่ภายหลัง' });
+  }
+});
+
+app.post('/api/report-donate-page', sameOriginCheck, reportLimiter, async (req, res) => {
+  const { reportType, message, donatePageUrl, streamerUsername } = req.body;
+
+  const allowedTypes = ['inappropriate', 'scam', 'page_issue', 'other'];
+  if (!reportType || !allowedTypes.includes(reportType)) {
+    return res.status(400).json({ error: 'ประเภทการรายงานไม่ถูกต้อง' });
+  }
+  if (message && (typeof message !== 'string' || message.length > 500)) {
+    return res.status(400).json({ error: 'คำอธิบายยาวเกิน 500 ตัวอักษร' });
+  }
+
+  const typeLabel = {
+    inappropriate: '🚫 เนื้อหาไม่เหมาะสม',
+    scam: '⚠️ ต้องสงสัยว่าเป็นการหลอกลวง',
+    page_issue: '🔧 ปัญหาเกี่ยวกับหน้าโดเนท',
+    other: '💬 อื่นๆ',
+  };
+
+  const safeUrl = typeof donatePageUrl === 'string' ? donatePageUrl.slice(0, 200) : 'ไม่ระบุ';
+  const safeUser = typeof streamerUsername === 'string' && streamerUsername.trim()
+    ? streamerUsername.slice(0, 50) : 'ไม่ระบุ';
+
+  const webhookPayload = {
+    embeds: [{
+      title: `🚩 รายงานปัญหา — ${typeLabel[reportType]}`,
+      description: message?.trim() || '_(ไม่มีคำอธิบายเพิ่มเติม)_',
+      color: 0xef4444,
+      fields: [
+        { name: 'ประเภท', value: typeLabel[reportType], inline: true },
+        { name: 'Streamer', value: safeUser, inline: true },
+        { name: 'หน้าโดเนท', value: safeUrl, inline: false },
+        { name: 'วันที่', value: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }), inline: true },
+      ],
+      footer: { text: 'TipKub Report System' },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+
+  try {
+    const webhookUrl = `${process.env.DISCORD_WEBHOOK_URL}?thread_id=${process.env.DISCORD_REPORT_THREAD_ID}`;
+    await axios.post(webhookUrl, webhookPayload, { timeout: 5000 });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[report] Discord webhook error:', err.message);
+    res.status(502).json({ error: 'ส่งรายงานไม่สำเร็จ กรุณาลองใหม่ภายหลัง' });
   }
 });
 

@@ -1517,3 +1517,74 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+
+// Report modal
+(function initReportModal() {
+  const overlay = document.getElementById('reportModal');
+  const btnOpen = document.getElementById('btnOpenReport');
+  const btnClose = document.getElementById('btnCloseReport');
+  const btnCancel = document.getElementById('btnCancelReport');
+  const btnSubmit = document.getElementById('btnSubmitReport');
+  const msgEl = document.getElementById('reportMessage');
+  const charEl = document.getElementById('reportCharCount');
+  const statusEl = document.getElementById('reportStatus');
+
+  if (!overlay || !btnOpen) return;
+
+  function openModal(e) {
+    e.preventDefault();
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+    document.getElementById('reportType').value = 'inappropriate';
+    msgEl.value = '';
+    charEl.textContent = '0';
+    btnSubmit.disabled = false;
+  }
+
+  btnOpen.addEventListener('click', openModal);
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  msgEl.addEventListener('input', () => { charEl.textContent = msgEl.value.length; });
+
+  btnSubmit.addEventListener('click', async () => {
+    btnSubmit.disabled = true;
+    statusEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/report-donate-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportType: document.getElementById('reportType').value,
+          message: msgEl.value.trim(),
+          donatePageUrl: window.location.href,
+          streamerUsername: document.getElementById('pageTitle')?.textContent?.trim() || '',
+        }),
+      });
+      const data = await res.json();
+      statusEl.style.display = 'block';
+      if (res.ok) {
+        statusEl.className = 'report-status report-status-ok';
+        statusEl.textContent = 'ส่งรายงานสำเร็จแล้ว ✅ ขอบคุณที่แจ้งให้เราทราบ';
+        setTimeout(closeModal, 2500);
+      } else {
+        statusEl.className = 'report-status report-status-err';
+        statusEl.textContent = data.error || 'ส่งรายงานไม่สำเร็จ กรุณาลองใหม่';
+        btnSubmit.disabled = false;
+      }
+    } catch {
+      statusEl.style.display = 'block';
+      statusEl.className = 'report-status report-status-err';
+      statusEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่ภายหลัง';
+      btnSubmit.disabled = false;
+    }
+  });
+})();
