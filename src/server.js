@@ -151,7 +151,7 @@ const defaultSettings = {
   goal_end_date: '',
   goal_bar_text: '{เปอร์เซนต์}',
   goal_subtitle1: '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-  goal_subtitle2: 'ปิดหลอดใน {วันคงเหลือ} วัน',
+  goal_subtitle2: '',
   goal_anim_sound: true,
   goal_bar_position: 'top'
 };

@@ -1122,7 +1122,7 @@ async function saveStreamer(data) {
         finalData.goal_end_date !== undefined ? finalData.goal_end_date : null,
         finalData.goal_bar_text !== undefined ? finalData.goal_bar_text : '{เปอร์เซนต์}',
         finalData.goal_subtitle1 !== undefined ? finalData.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-        finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน',
+        finalData.goal_subtitle2 !== undefined ? finalData.goal_subtitle2 : '',
         finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : 1,
         finalData.goal_bar_position || 'top',
         finalData.tos_accepted_at || null,

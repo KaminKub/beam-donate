@@ -12,7 +12,7 @@
   let goalLabel = '';
   let goalBarText = '{เปอร์เซนต์}';
   let goalSubtitle1 = '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
-  let goalSubtitle2 = 'ปิดหลอดใน {วันคงเหลือ} วัน';
+  let goalSubtitle2 = '';
   let goalEndDate = null;
   let eventSource = null;
   let reconnectDelay = 2000;
@@ -62,14 +62,17 @@
     const clampedPct = Math.max(5, Math.min(fillPct, 94));
     barTextEl.style.left = clampedPct + '%';
     barTextEl.textContent = interpolate(goalBarText, actualPct, val, goalAmount);
-
-    const hasEndDate = !!goalEndDate;
-    sub1El.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
-    if (hasEndDate) {
-      sub2El.textContent = interpolate(goalSubtitle2, actualPct, val, goalAmount);
-    } else {
-      sub2El.textContent = '';
+    // Clamp text within track bounds using actual pixel width
+    const outerW = barTextEl.parentElement.offsetWidth;
+    const textHalf = barTextEl.offsetWidth / 2;
+    if (outerW > 0 && textHalf > 0) {
+      const rawPx = clampedPct / 100 * outerW;
+      const safePx = Math.max(textHalf, Math.min(rawPx, outerW - textHalf));
+      barTextEl.style.left = (safePx / outerW * 100) + '%';
     }
+
+    sub1El.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
+    sub2El.textContent = goalSubtitle2 ? interpolate(goalSubtitle2, actualPct, val, goalAmount) : '';
   }
 
   function animateCount(timestamp) {
@@ -106,8 +109,7 @@
     goalCurrent = current;
 
     labelEl.textContent = goalLabel;
-    const hasEndDate = !!goalEndDate;
-    sub1El.className = hasEndDate ? '' : 'centered';
+    sub1El.className = goalSubtitle2 ? '' : 'centered';
 
     if (isFirstUpdate) {
       animCurrent = current;

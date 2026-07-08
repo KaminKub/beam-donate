@@ -17,6 +17,7 @@ body {
   background: transparent;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 #goalBarWrapper * {
@@ -76,6 +77,8 @@ body.position-bottom #animStage {
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
   position: relative;
   overflow: hidden;
+  transform: translateZ(0);
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 #goalFill::after {
@@ -83,19 +86,21 @@ body.position-bottom #animStage {
   position: absolute;
   top: 0;
   left: 0;
-  width: 80%;
+  width: 140px;
   height: 100%;
+  border-radius: inherit;
   background: linear-gradient(120deg,
     rgba(255,255,255,0) 0%,
     rgba(255,255,255,0.04) 20%,
     rgba(255,255,255,0.2) 50%,
     rgba(255,255,255,0.04) 80%,
     rgba(255,255,255,0) 100%);
+  filter: blur(8px);
   animation: goalShine 4s ease-out infinite;
 }
 
 @keyframes goalShine {
-  0% { left: -80%; }
+  0% { left: -140px; }
   100% { left: 100%; }
 }
 
@@ -111,6 +116,8 @@ body.position-bottom #animStage {
   text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
   pointer-events: none;
   z-index: 2;
+  word-spacing: 0.25em;
+  letter-spacing: 0.02em;
 }
 
 #goalFooter {
@@ -128,6 +135,9 @@ body.position-bottom #animStage {
   opacity: 0.9;
   text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.7);
   line-height: 1.3;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: visible;
 }
 
 #goalSub1.centered {

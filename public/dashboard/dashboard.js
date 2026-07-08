@@ -951,7 +951,7 @@ async function initializeDashboard() {
           goal_bar_color: document.getElementById('inputGoalBarColor').value,
           goal_bar_text: (document.getElementById('inputGoalBarText') || {}).value ?? '{เปอร์เซนต์}',
           goal_subtitle1: (document.getElementById('inputGoalSubtitle1') || {}).value ?? '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
-          goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? 'ปิดหลอดใน {วันคงเหลือ} วัน',
+          goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? '',
           goal_end_date: endDateVal,
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
@@ -968,12 +968,31 @@ async function initializeDashboard() {
       });
     }
 
-    // End date toggle → show/hide date + subtitle2 section
+    // End date toggle → show/hide date section + auto-fill sub2
+    const GOAL_SUB2_DEFAULT = 'ปิดหลอดใน {วันคงเหลือ} วัน';
     const chkGoalEndDate = document.getElementById('chkGoalEndDate');
     if (chkGoalEndDate) {
       chkGoalEndDate.addEventListener('change', () => {
         const section = document.getElementById('goalEndDateSection');
         if (section) section.style.display = chkGoalEndDate.checked ? '' : 'none';
+
+        if (!chkGoalEndDate.checked) return;
+
+        const sub2 = document.getElementById('inputGoalSubtitle2');
+        if (!sub2) return;
+
+        if (sub2.value.trim() === '') {
+          sub2.value = GOAL_SUB2_DEFAULT;
+        } else {
+          showConfirmModal(
+            'แทนที่ข้อความใต้หลอด (ขวา)?',
+            'ต้องการแทนที่วันปิดหลอดเป้าหมาย ที่ช่อง ข้อความใต้หลอด (ขวา) หรือไม่?',
+            '<i class="fa-solid fa-calendar-days" style="color:#f59e0b"></i>',
+            () => { sub2.value = GOAL_SUB2_DEFAULT; },
+            'แทนที่',
+            'btn-primary'
+          );
+        }
       });
     }
 
@@ -1223,7 +1242,7 @@ function loadDemoGoalSettingsFromData(data) {
   const sub1El = document.getElementById('inputGoalSubtitle1');
   if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
   const sub2El = document.getElementById('inputGoalSubtitle2');
-  if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน';
+  if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : '';
 
   const current = data.goal_current || 0;
   const amount  = data.goal_amount  || 5000;
@@ -3384,7 +3403,7 @@ async function loadGoalSettings() {
     const sub1El = document.getElementById('inputGoalSubtitle1');
     if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
     const sub2El = document.getElementById('inputGoalSubtitle2');
-    if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : 'ปิดหลอดใน {วันคงเหลือ} วัน';
+    if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : '';
 
     const hasEndDate = !!(data.goal_end_date);
     const chkEndDate = document.getElementById('chkGoalEndDate');
