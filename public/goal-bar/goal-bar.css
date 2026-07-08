@@ -18,6 +18,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-text-stroke: 3px black;
+  paint-order: stroke fill;
 }
 
 #goalBarWrapper * {
