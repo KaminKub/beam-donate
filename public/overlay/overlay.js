@@ -417,10 +417,13 @@ async function showAlert(data) {
     messageElement.textContent = '';
   }
 
-  // Set progress bar duration
+  // Set progress bar — delay start until entrance animation completes
   const progressBar = alertBox.querySelector('.alert-progress-bar');
   const alertDurationMs = (Number(overlaySettings.duration) || 8) * 1000;
-  progressBar.style.animation = `progressShrink ${alertDurationMs}ms linear forwards`;
+  const ENTRANCE_MS = { 'slide-down': 600, 'slide-up': 600, 'fade': 500, 'zoom': 600 };
+  const entranceMs = ENTRANCE_MS[overlaySettings.animation] || 600;
+  const barDurationMs = Math.max(alertDurationMs - entranceMs, 500);
+  progressBar.style.animation = `progressShrink ${barDurationMs}ms linear ${entranceMs}ms both`;
 
   // Append to overlay
   const container = document.getElementById('alertContainer');
