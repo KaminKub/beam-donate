@@ -150,9 +150,10 @@ const defaultSettings = {
   goal_show_on_donate: true,
   goal_end_date: '',
   goal_bar_text: '{เปอร์เซนต์}',
-  goal_subtitle1: '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
+  goal_subtitle1: '',
   goal_subtitle2: '',
   goal_anim_sound: true,
+  goal_anim_enabled: true,
   goal_bar_position: 'top'
 };
 
@@ -770,7 +771,7 @@ function applyDemoMask(row) {
     // Goal bar
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
-    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_bar_position',
+    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
   ]);
@@ -917,7 +918,7 @@ app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => 
     label:   String(label   || 'ค่ากาแฟ').slice(0, 60),
     barColor: String(barColor || '#4ade80').slice(0, 20),
     barText:  String(barText  || '{เปอร์เซนต์}').slice(0, 60),
-    subtitle1: String(subtitle1 || '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿').slice(0, 80),
+    subtitle1: String(subtitle1 ?? '').slice(0, 80),
     subtitle2: String(subtitle2 || '').slice(0, 80),
     endDate: null
   };
@@ -2265,7 +2266,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
-  'goal_anim_sound', 'goal_bar_position'
+  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position'
 ];
 
 const PAGE_ALLOWED_FIELDS = [

@@ -944,6 +944,7 @@ async function initializeDashboard() {
         const payload = {
           goal_enabled: document.getElementById('chkGoalEnabled').checked ? 1 : 0,
           goal_anim_sound: document.getElementById('chkGoalAnimSound').checked ? 1 : 0,
+          goal_anim_enabled: document.getElementById('chkGoalAnimEnabled').checked ? 1 : 0,
           goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
           goal_bar_position: document.getElementById('selectGoalBarPosition').value || 'top',
           goal_label: document.getElementById('inputGoalLabel').value.trim(),
@@ -1221,6 +1222,16 @@ function loadDemoGoalSettingsFromData(data) {
   if (chkEnabled) chkEnabled.checked = !!data.goal_enabled;
   const chkSound = document.getElementById('chkGoalAnimSound');
   if (chkSound) chkSound.checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
+  const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
+  if (chkAnimEnabled) {
+    chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
+    const syncSoundVis = () => {
+      const soundGroup = chkSound && chkSound.closest('.form-group');
+      if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
+    };
+    chkAnimEnabled.onchange = syncSoundVis;
+    syncSoundVis();
+  }
   const chkShowOnDonate = document.getElementById('chkGoalShowOnDonate');
   if (chkShowOnDonate) chkShowOnDonate.checked = !!data.goal_show_on_donate;
 
@@ -3386,6 +3397,14 @@ async function loadGoalSettings() {
 
     document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
     document.getElementById('chkGoalAnimSound').checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
+    const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
+    chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
+    const syncSoundVis = () => {
+      const soundGroup = document.getElementById('chkGoalAnimSound').closest('.form-group');
+      if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
+    };
+    chkAnimEnabled.onchange = syncSoundVis;
+    syncSoundVis();
     document.getElementById('chkGoalShowOnDonate').checked = !!data.goal_show_on_donate;
     const posEl = document.getElementById('selectGoalBarPosition');
     if (posEl) {

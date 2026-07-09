@@ -1199,6 +1199,26 @@
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
+                              <input type="checkbox" id="chkGoalShowOnDonate">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkGoalAnimEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation</span>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
                               <input type="checkbox" id="chkGoalAnimSound" checked>
                               <span class="slider-switch"></span>
                             </label>
@@ -1207,15 +1227,6 @@
                         </div>
                       </div>
                       <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkGoalShowOnDonate">
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
-                          </div>
-                        </div>
                         <div class="form-group">
                           <label for="selectGoalBarPosition"><i class="fa-solid fa-arrows-up-down" style="color:#a78bfa"></i> ตำแหน่งหลอดโดเนท</label>
                           <select id="selectGoalBarPosition" class="form-select">
@@ -1245,22 +1256,20 @@
                       </div>
                       <div class="form-row">
                         <div class="form-group full-width">
-                          <label for="inputGoalBarText">ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(เคลื่อนไปกับปลายหลอด)</span></label>
+                          <label for="inputGoalBarText">ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)"></span></label>
                           <input type="text" id="inputGoalBarText" class="form-control" maxlength="60" placeholder="{เปอร์เซนต์}">
                           <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
                             <i class="fa-solid fa-brackets-curly" style="color:#a78bfa"></i>
-                            ตัวแปร: <code>{เปอร์เซนต์}</code> &nbsp;<code>{ยอดปัจจุบัน}</code> &nbsp;<code>{ยอดเป้าหมาย}</code> &nbsp;<code>{วันคงเหลือ}</code>
+                            ตัวแปร: <code>{เปอร์เซนต์}</code> &nbsp;<code>{ยอดปัจจุบัน}</code> &nbsp;<code>{ยอดเป้าหมาย}</code> &nbsp;<code>{ยอดคงเหลือ}</code> &nbsp;<code>{วันคงเหลือ}</code>
                           </div>
                         </div>
                       </div>
                       <div class="form-row">
-                        <div class="form-group full-width">
+                        <div class="form-group">
                           <label for="inputGoalSubtitle1">ข้อความใต้หลอด 1 (กลาง / ซ้าย)</label>
                           <input type="text" id="inputGoalSubtitle1" class="form-control" maxlength="80" placeholder="{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿">
                         </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group full-width">
+                        <div class="form-group">
                           <label for="inputGoalSubtitle2">ข้อความใต้หลอด 2 (ขวา)</label>
                           <input type="text" id="inputGoalSubtitle2" class="form-control" maxlength="80" placeholder="ปิดหลอดใน {วันคงเหลือ} วัน">
                         </div>
@@ -1379,7 +1388,7 @@
                   </div>
                   <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">
                     <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
-                    เพิ่ม <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;bottom</code> ต่อท้าย URL เพื่อให้หลอดโดเนทอยู่ล่างสุดของจอ
+                    เพิ่ม <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;bottom</code> หรือ <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;top</code> ต่อท้าย URL เพื่อให้หลอดโดเนทอยู่ล่างสุดหรือบนสุดของจอ
                   </p>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>

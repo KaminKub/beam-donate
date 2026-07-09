@@ -4,7 +4,7 @@
   // URL param overrides DB setting: ?bottom or ?position=bottom
   const urlPosition = _params.has('bottom') || _params.get('position') === 'bottom'
     ? 'bottom'
-    : _params.get('position') === 'top' ? 'top' : null;
+    : _params.has('top') || _params.get('position') === 'top' ? 'top' : null;
 
   let barColor = '#4ade80';
   let goalAmount = 0;
@@ -26,6 +26,7 @@
   let isFirstUpdate = true;
   let pendingGoalUpdate = null;
   let alertDurationMs = 8000;
+  let animEnabled = true;
   let isWaitingForOverlay = false;
   let overlayWaitTimer = null;
 
@@ -35,6 +36,8 @@
   const barTextEl = document.getElementById('goalBarText');
   const sub1El = document.getElementById('goalSub1');
   const sub2El = document.getElementById('goalSub2');
+
+  [labelEl, barTextEl, sub1El, sub2El].forEach(el => { if (el) el.style.whiteSpace = 'pre-wrap'; });
 
   function getDaysLeft(endDate) {
     if (!endDate) return null;
@@ -51,7 +54,8 @@
       .replace(/{เปอร์เซนต์}/g, Math.round(pct) + '%')
       .replace(/{ยอดปัจจุบัน}/g, current.toLocaleString('th-TH', { maximumFractionDigits: 0 }))
       .replace(/{ยอดเป้าหมาย}/g, amount.toLocaleString('th-TH', { maximumFractionDigits: 0 }))
-      .replace(/{วันคงเหลือ}/g, daysLeft !== null ? daysLeft : '?');
+      .replace(/{ยอดคงเหลือ}/g, Math.max(0, amount - current).toLocaleString('th-TH', { maximumFractionDigits: 0 }))
+      .replace(/{วันคงเหลือ}/g, daysLeft !== null ? daysLeft : '0');
   }
 
   function renderBarDisplay(val) {
@@ -59,17 +63,7 @@
     const fillPct = Math.min(100, actualPct);
     fillEl.style.width = fillPct + '%';
 
-    const clampedPct = Math.max(5, Math.min(fillPct, 94));
-    barTextEl.style.left = clampedPct + '%';
     barTextEl.textContent = interpolate(goalBarText, actualPct, val, goalAmount);
-    // Clamp text within track bounds using actual pixel width
-    const outerW = barTextEl.parentElement.offsetWidth;
-    const textHalf = barTextEl.offsetWidth / 2;
-    if (outerW > 0 && textHalf > 0) {
-      const rawPx = clampedPct / 100 * outerW;
-      const safePx = Math.max(textHalf, Math.min(rawPx, outerW - textHalf));
-      barTextEl.style.left = (safePx / outerW * 100) + '%';
-    }
 
     sub1El.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
     sub2El.textContent = goalSubtitle2 ? interpolate(goalSubtitle2, actualPct, val, goalAmount) : '';
@@ -151,6 +145,7 @@
       alertDurationMs = (Number(data.duration) || 8) * 1000;
 
       applyBarPosition(urlPosition || data.goal_bar_position || 'top');
+      animEnabled = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
       if (typeof window.setGoalAnimSound === 'function') {
         window.setGoalAnimSound(data.goal_anim_sound !== 0 && data.goal_anim_sound !== false);
       }
@@ -185,6 +180,7 @@
       try {
         const data = JSON.parse(e.data);
         if (data.type === 'donation') {
+          if (!animEnabled) return;
           const delay = (data.overlayOnline && alertDurationMs > 0) ? alertDurationMs : 0;
           if (delay > 0) {
             isWaitingForOverlay = true;
@@ -204,6 +200,7 @@
         if (data.type === 'settings_update' && data.settings) {
           const s = data.settings;
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
+          animEnabled = s.goal_anim_enabled !== 0 && s.goal_anim_enabled !== false;
           if (typeof window.setGoalAnimSound === 'function') {
             window.setGoalAnimSound(s.goal_anim_sound !== 0 && s.goal_anim_sound !== false);
           }
