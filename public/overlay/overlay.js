@@ -417,18 +417,12 @@ async function showAlert(data) {
     messageElement.textContent = '';
   }
 
-  // Set progress bar — start when entrance finishes, end when alert is fully gone
-  const progressBar = alertBox.querySelector('.alert-progress-bar');
   const alertDurationMs = (Number(overlaySettings.duration) || 8) * 1000;
-  const ENTRANCE_MS = { 'slide-down': 600, 'slide-up': 600, 'fade': 500, 'zoom': 600 };
-  const EXIT_MS = 550; // must match the exit setTimeout in the auto-remove block below
-  const entranceMs = ENTRANCE_MS[overlaySettings.animation] || 600;
-  const barDurationMs = Math.max(alertDurationMs - entranceMs + EXIT_MS, 500);
-  progressBar.style.animation = `progressShrink ${barDurationMs}ms linear ${entranceMs}ms both`;
 
   // Append to overlay
   const container = document.getElementById('alertContainer');
   container.appendChild(alertBox);
+  const shownAt = performance.now();
 
   // Spawn visual particles immediately
   setTimeout(() => spawnParticles(alertBox, overlaySettings.particleCount), 300);
@@ -459,6 +453,17 @@ async function showAlert(data) {
     } catch (err) {
       console.error('TTS error:', err);
     }
+
+  // Set progress bar now (after sound await) so it ends exactly when the alert is removed.
+  // Delay only covers whatever remains of the entrance animation.
+  const ENTRANCE_MS = { 'slide-down': 600, 'slide-up': 600, 'fade': 500, 'zoom': 600 };
+  const EXIT_MS = 550; // must match the exit setTimeout in the auto-remove block below
+  const entranceMs = ENTRANCE_MS[overlaySettings.animation] || 600;
+  const elapsedMs = performance.now() - shownAt;
+  const barDelayMs = Math.max(entranceMs - elapsedMs, 0);
+  const barDurationMs = Math.max(alertDurationMs + EXIT_MS - barDelayMs, 500);
+  const progressBar = alertBox.querySelector('.alert-progress-bar');
+  progressBar.style.animation = `progressShrink ${barDurationMs}ms linear ${barDelayMs}ms both`;
 
   // Auto remove alert after duration
   setTimeout(() => {
