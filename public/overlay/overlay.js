@@ -417,12 +417,13 @@ async function showAlert(data) {
     messageElement.textContent = '';
   }
 
-  // Set progress bar — delay start until entrance animation completes
+  // Set progress bar — start when entrance finishes, end when alert is fully gone
   const progressBar = alertBox.querySelector('.alert-progress-bar');
   const alertDurationMs = (Number(overlaySettings.duration) || 8) * 1000;
   const ENTRANCE_MS = { 'slide-down': 600, 'slide-up': 600, 'fade': 500, 'zoom': 600 };
+  const EXIT_MS = 550; // must match the exit setTimeout in the auto-remove block below
   const entranceMs = ENTRANCE_MS[overlaySettings.animation] || 600;
-  const barDurationMs = Math.max(alertDurationMs - entranceMs, 500);
+  const barDurationMs = Math.max(alertDurationMs - entranceMs + EXIT_MS, 500);
   progressBar.style.animation = `progressShrink ${barDurationMs}ms linear ${entranceMs}ms both`;
 
   // Append to overlay
