@@ -141,6 +141,9 @@
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
       document.documentElement.style.setProperty('--bar-color', color);
+      if (data.fontFamily) {
+        document.documentElement.style.setProperty('--font-family', `'${data.fontFamily}', 'Noto Sans Thai', sans-serif`);
+      }
 
       alertDurationMs = (Number(data.duration) || 8) * 1000;
 
@@ -199,6 +202,9 @@
         }
         if (data.type === 'settings_update' && data.settings) {
           const s = data.settings;
+          if (s.fontFamily) {
+            document.documentElement.style.setProperty('--font-family', `'${s.fontFamily}', 'Noto Sans Thai', sans-serif`);
+          }
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
           animEnabled = s.goal_anim_enabled !== 0 && s.goal_anim_enabled !== false;
           if (typeof window.setGoalAnimSound === 'function') {

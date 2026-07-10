@@ -58,9 +58,10 @@ body {
 }
 
 /* Text Outline / Stroke — all themes */
-.alert-box .alert-info * {
-  -webkit-text-stroke: 2px #000000;
-  paint-order: stroke fill;
+.alert-header,
+.alert-amount,
+.alert-message {
+  filter: url(#outline-2-black);
 }
 
 .alert-box.theme-glassmorphism::before {

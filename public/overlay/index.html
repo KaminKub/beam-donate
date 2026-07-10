@@ -8,6 +8,19 @@
   <link rel="stylesheet" href="/overlay/overlay.css">
 </head>
 <body>
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="outline-2-black" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="2" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge>
+          <feMergeNode in="outline"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
   <!-- Alert Container -->
   <div id="alertContainer"></div>
 
