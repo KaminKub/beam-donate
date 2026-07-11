@@ -1633,3 +1633,61 @@ input[type=number] {
 }
 #btnOpenReport { opacity: 0.7; }
 #btnOpenReport:hover { opacity: 1; }
+
+/* ── Timer Donor Choice ── */
+.timer-choice-box {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  border: 0px solid rgba(251, 191, 36, 0.35);
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.06);
+  pointer-events: none;
+  transition: max-height 0.28s ease, opacity 0.22s ease,
+              margin 0.28s ease, padding 0.28s ease, border-width 0.28s ease;
+}
+.timer-choice-box.visible {
+  max-height: 200px;
+  opacity: 1;
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border-width: 1px;
+  pointer-events: auto;
+}
+.timer-choice-title {
+  font-family: 'Kanit', 'Noto Sans Thai', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 10px;
+}
+.timer-choice-effect { color: #fbbf24; font-weight: 600; }
+.timer-choice-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.timer-choice-btn {
+  flex: 1 1 0;
+  min-width: 96px;
+  padding: 10px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.timer-choice-btn:hover { border-color: rgba(255, 255, 255, 0.35); }
+.timer-choice-btn[data-choice="add"].selected {
+  border-color: #10b981; background: rgba(16, 185, 129, 0.12); color: #10b981;
+}
+.timer-choice-btn[data-choice="sub"].selected {
+  border-color: #ef4444; background: rgba(239, 68, 68, 0.12); color: #ef4444;
+}
+.timer-choice-btn[data-choice="none"].selected {
+  border-color: #94a3b8; background: rgba(148, 163, 184, 0.12); color: #94a3b8;
+}
+@media (max-width: 480px) {
+  .timer-choice-options { flex-direction: column; }
+  .timer-choice-btn { min-width: 100%; }
+}

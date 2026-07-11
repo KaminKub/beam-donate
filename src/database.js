@@ -202,7 +202,12 @@ async function migrateDB() {
         goal_anim_enabled INTEGER DEFAULT 1,
         goal_bar_position TEXT DEFAULT 'top',
         tos_accepted_at TEXT DEFAULT NULL,
-        primary_auth_provider TEXT DEFAULT NULL
+        primary_auth_provider TEXT DEFAULT NULL,
+        timer_settings TEXT DEFAULT NULL,
+        timer_remaining_seconds INTEGER DEFAULT 600,
+        timer_last_update TEXT DEFAULT NULL,
+        timer_running INTEGER DEFAULT 0,
+        timer_cap_current INTEGER DEFAULT 0
       )
     `);
 
@@ -224,7 +229,8 @@ async function migrateDB() {
         payment_method TEXT DEFAULT 'ffp',
         promptpay_slip_id TEXT,
         promptpay_verified INTEGER DEFAULT 0,
-        promptpay_verified_at TEXT
+        promptpay_verified_at TEXT,
+        timer_action TEXT DEFAULT NULL
       )
      `);
     await db.execute(`
@@ -271,7 +277,8 @@ async function migrateDB() {
       { name: 'payment_method', type: "TEXT DEFAULT 'ffp'" },
       { name: 'promptpay_slip_id', type: 'TEXT' },
       { name: 'promptpay_verified', type: 'INTEGER DEFAULT 0' },
-      { name: 'promptpay_verified_at', type: 'TEXT' }
+      { name: 'promptpay_verified_at', type: 'TEXT' },
+      { name: 'timer_action', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredTxCols) {
@@ -358,7 +365,12 @@ async function migrateDB() {
       { name: 'goal_anim_enabled', type: 'INTEGER DEFAULT 1' },
       { name: 'goal_bar_position', type: "TEXT DEFAULT 'top'" },
       { name: 'tos_accepted_at', type: 'TEXT DEFAULT NULL' },
-      { name: 'primary_auth_provider', type: 'TEXT' }
+      { name: 'primary_auth_provider', type: 'TEXT' },
+      { name: 'timer_settings', type: 'TEXT DEFAULT NULL' },
+      { name: 'timer_remaining_seconds', type: 'INTEGER DEFAULT 600' },
+      { name: 'timer_last_update', type: 'TEXT DEFAULT NULL' },
+      { name: 'timer_running', type: 'INTEGER DEFAULT 0' },
+      { name: 'timer_cap_current', type: 'INTEGER DEFAULT 0' }
     ];
 
     for (const col of requiredCols) {
@@ -602,7 +614,8 @@ async function saveTransaction(data) {
         donor: data.donor || data.donor_name || 'Anonymous',
         amount: data.amount || 0,
         message: data.message || '',
-        createdAt: data.createdAt || data.created_at || now
+        createdAt: data.createdAt || data.created_at || now,
+        timer_action: data.timer_action ?? null
       };
 
       memoryTransactions.push(updatedTx);
@@ -621,7 +634,7 @@ async function saveTransaction(data) {
   if (data.id) {
     try {
       const existing = await db.execute({
-        sql: 'SELECT streamer_username, amount, donor, message, payment_method FROM transactions WHERE id = ?',
+        sql: 'SELECT streamer_username, amount, donor, message, payment_method, timer_action FROM transactions WHERE id = ?',
         args: [data.id]
       });
       if (existing.rows[0]) {
@@ -631,6 +644,7 @@ async function saveTransaction(data) {
         if (data.donor === undefined) data.donor = ex.donor;
         if (data.message === undefined) data.message = ex.message;
         if (data.payment_method === undefined) data.payment_method = ex.payment_method;
+        if (data.timer_action === undefined) data.timer_action = ex.timer_action;
       }
     } catch (e) {}
   }
@@ -640,8 +654,8 @@ async function saveTransaction(data) {
   const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
 
   await db.execute({
-    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             amount = COALESCE(excluded.amount, transactions.amount),
             donor = COALESCE(excluded.donor, transactions.donor),
@@ -656,7 +670,8 @@ async function saveTransaction(data) {
             payment_method = COALESCE(excluded.payment_method, transactions.payment_method),
             promptpay_slip_id = excluded.promptpay_slip_id,
             promptpay_verified = excluded.promptpay_verified,
-            promptpay_verified_at = excluded.promptpay_verified_at`,
+            promptpay_verified_at = excluded.promptpay_verified_at,
+            timer_action = COALESCE(excluded.timer_action, transactions.timer_action)`,
     args: [
       data.id,
       data.amount || 0,
@@ -673,7 +688,8 @@ async function saveTransaction(data) {
       data.payment_method || 'ffp',
       data.promptpay_slip_id || null,
       data.promptpay_verified !== undefined ? (data.promptpay_verified ? 1 : 0) : 0,
-      data.promptpay_verified_at || null
+      data.promptpay_verified_at || null,
+      data.timer_action ?? null
     ]
   });
   
@@ -908,7 +924,8 @@ async function saveStreamer(data) {
                goal_anim_enabled = COALESCE(?, streamers.goal_anim_enabled),
                goal_bar_position = COALESCE(?, streamers.goal_bar_position),
                tos_accepted_at = COALESCE(?, streamers.tos_accepted_at),
-               primary_auth_provider = COALESCE(?, streamers.primary_auth_provider)
+               primary_auth_provider = COALESCE(?, streamers.primary_auth_provider),
+               timer_settings = COALESCE(?, streamers.timer_settings)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1011,6 +1028,7 @@ async function saveStreamer(data) {
           finalData.goal_bar_position !== undefined ? finalData.goal_bar_position : null,
           finalData.tos_accepted_at !== undefined ? finalData.tos_accepted_at : null,
           finalData.primary_auth_provider !== undefined ? finalData.primary_auth_provider : null,
+          finalData.timer_settings !== undefined ? finalData.timer_settings : null,
           existing.id
         ]
       });
@@ -1028,8 +1046,8 @@ async function saveStreamer(data) {
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, tos_accepted_at, primary_auth_provider)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, tos_accepted_at, primary_auth_provider, timer_settings)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1131,7 +1149,8 @@ async function saveStreamer(data) {
         finalData.goal_anim_enabled !== undefined ? (finalData.goal_anim_enabled ? 1 : 0) : 1,
         finalData.goal_bar_position || 'bottom',
         finalData.tos_accepted_at || null,
-        finalData.primary_auth_provider || null
+        finalData.primary_auth_provider || null,
+        finalData.timer_settings !== undefined ? finalData.timer_settings : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1537,6 +1556,75 @@ async function resetGoalCurrent(streamerId) {
   return row.rows[0] || null;
 }
 
+// Timer: apply a delta (seconds) to the running countdown. Takes the streamer
+// object already fetched at the donation site (never re-read via getStreamerById — C2).
+async function updateTimerState(streamer, deltaSeconds) {
+  await ensureConnected();
+  if (isFallback || !db) return null;
+  let t = {};
+  try { t = JSON.parse(streamer.timer_settings || '{}'); } catch { t = {}; }
+  let remaining = streamer.timer_remaining_seconds ?? (t.initial_seconds || 600);
+  if (streamer.timer_last_update && streamer.timer_running) {
+    const elapsed = (Date.now() - new Date(streamer.timer_last_update).getTime()) / 1000;
+    remaining = Math.max(0, remaining - elapsed);
+  }
+  const now = new Date().toISOString();
+  const newRemaining = Math.round(Math.max(0, remaining + deltaSeconds));
+  await db.execute({
+    sql: 'UPDATE streamers SET timer_remaining_seconds=?, timer_last_update=? WHERE id=?',
+    args: [newRemaining, now, streamer.id]
+  });
+  return { timer_remaining_seconds: newRemaining, timer_last_update: now };
+}
+
+// Timer: accumulate money-cap progress, clamped to capValue (money-cap mode only).
+async function addTimerCap(streamerId, amount, capValue) {
+  await ensureConnected();
+  if (isFallback || !db) return;
+  await db.execute({
+    sql: 'UPDATE streamers SET timer_cap_current = MIN(timer_cap_current + ?, ?) WHERE id = ?',
+    args: [amount, capValue, streamerId]
+  });
+}
+
+// Timer control: start | stop | reset | reset-cap. Reads current state by PK,
+// freezes elapsed time, then writes the 4 state columns directly.
+async function setTimerControl(streamerId, action) {
+  await ensureConnected();
+  if (isFallback || !db) return null;
+  const res = await db.execute({
+    sql: 'SELECT timer_settings, timer_remaining_seconds, timer_last_update, timer_running, timer_cap_current FROM streamers WHERE id = ?',
+    args: [streamerId]
+  });
+  const s = res.rows[0];
+  if (!s) return null;
+  let t = {};
+  try { t = JSON.parse(s.timer_settings || '{}'); } catch { t = {}; }
+  const now = new Date().toISOString();
+
+  // Freeze remaining, subtracting elapsed if it was running.
+  let remaining = s.timer_remaining_seconds ?? (t.initial_seconds || 600);
+  if (s.timer_last_update && s.timer_running) {
+    const elapsed = (Date.now() - new Date(s.timer_last_update).getTime()) / 1000;
+    remaining = Math.max(0, remaining - elapsed);
+  }
+  remaining = Math.round(remaining);
+
+  let running = s.timer_running;
+  let capCurrent = s.timer_cap_current || 0;
+
+  if (action === 'start') running = 1;
+  else if (action === 'stop') running = 0;
+  else if (action === 'reset') { remaining = Math.round(t.initial_seconds || 600); running = 0; capCurrent = 0; }
+  else if (action === 'reset-cap') capCurrent = 0;
+
+  await db.execute({
+    sql: 'UPDATE streamers SET timer_remaining_seconds=?, timer_last_update=?, timer_running=?, timer_cap_current=? WHERE id=?',
+    args: [remaining, now, running, capCurrent, streamerId]
+  });
+  return { timer_remaining_seconds: remaining, timer_last_update: now, timer_running: running, timer_cap_current: capCurrent };
+}
+
 async function getAdminUserStats() {
   await ensureConnected();
   if (isFallback || !db) return { active: 0, inactive: 0, byProvider: {}, withPayment: 0 };
@@ -1651,6 +1739,9 @@ module.exports = {
   getDecryptedStreamer,
   saveStreamer,
   updateGoalCurrent,
+  updateTimerState,
+  addTimerCap,
+  setTimerControl,
   disconnectPlatform,
   resetGoalCurrent,
   deleteStreamer,

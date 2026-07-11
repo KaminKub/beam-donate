@@ -828,6 +828,9 @@
                   <button type="button" id="btnSubtabGoal" class="subtab-btn">
                     <i class="fa-solid fa-trophy"></i> หลอดโดเนท
                   </button>
+                  <button type="button" id="btnSubtabTimer" class="subtab-btn">
+                    <i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> ตัวจับเวลา
+                  </button>
                 </div>
                 <form id="overlaySettingsForm">
                   
@@ -1346,6 +1349,316 @@
                     </button>
                   </div>
                 </div>
+
+                <!-- Timer Settings Panel (hidden by default) -->
+                <div id="timerSettingsPanel" style="display:none;">
+
+                  <!-- Card 1: General -->
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelTimerGeneral">
+                      <h4><i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> ตั้งค่าทั่วไป</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTimerGeneral">
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> เปิดใช้งาน Timer</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label><i class="fa-solid fa-clock" style="color:#60a5fa"></i> เวลาเริ่มต้น</label>
+                          <div class="timer-time-inputs">
+                            <input type="number" id="timerInitHH" class="form-control" min="0" max="23" placeholder="00" style="font-size: 22px;width:auto;text-align:center;">
+                            <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
+                            <input type="number" id="timerInitMM" class="form-control" min="0" max="59" placeholder="10" style="font-size: 22px;width:auto;text-align:center;">
+                            <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
+                            <input type="number" id="timerInitSS" class="form-control" min="0" max="59" placeholder="00" style="font-size: 22px;width:auto;text-align:center;">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-group full-width" style="margin-bottom:0;">
+                        <label><i class="fa-solid fa-sliders" style="color:#a78bfa"></i> รูปแบบการนับเวลา</label>
+                        <select id="timerModeSelect" style="display:none;">
+                          <option value="multiplier">multiplier</option>
+                          <option value="threshold">threshold</option>
+                          <option value="fixed">fixed</option>
+                        </select>
+                        <div class="timer-mode-cards" role="group" aria-label="รูปแบบการนับเวลา">
+                          <div class="timer-mode-card" data-mode="multiplier">
+                            <div class="timer-mode-card-icon"><i class="fa-solid fa-calculator"></i></div>
+                            <div class="timer-mode-card-title">คูณยอดโดเนท</div>
+                            <div class="timer-mode-card-sub">Multiplier</div>
+                            <div class="timer-mode-card-desc">ทุกๆ X฿ ปรับเวลา ±Y วิ สะสมคูณตามยอด — เช่น โดเนท 30฿ (base 10฿) = ×3</div>
+                          </div>
+                          <div class="timer-mode-card" data-mode="threshold">
+                            <div class="timer-mode-card-icon"><i class="fa-solid fa-stairs"></i></div>
+                            <div class="timer-mode-card-title">ยอดขั้นต่ำ</div>
+                            <div class="timer-mode-card-sub">Threshold</div>
+                            <div class="timer-mode-card-desc">โดเนท ≥ X฿ ได้รับเวลา ±Y วิ ไม่ว่าจะโดเนทมากกว่าแค่ไหน — ตั้งหลายกฏได้</div>
+                          </div>
+                          <div class="timer-mode-card" data-mode="fixed">
+                            <div class="timer-mode-card-icon"><i class="fa-solid fa-equals"></i></div>
+                            <div class="timer-mode-card-title">ยอดคงที่</div>
+                            <div class="timer-mode-card-sub">Fixed Amount</div>
+                            <div class="timer-mode-card-desc">ต้องโดเนทตรงยอด X฿ เท่านั้น ถึงจะปรับเวลาได้ — ตั้งหลายกฏได้</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 2: Rules -->
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelTimerRules">
+                      <h4><i class="fa-solid fa-list-check" style="color:#10b981"></i> กฏการปรับเวลา</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTimerRules">
+                      <!-- Show rules toggle + unit selector at top -->
+                      <div class="form-row flex-align-center" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border-color);">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerShowRules" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">
+                              <i class="fa-solid fa-eye" style="color:#60a5fa"></i> แสดงกฏใน Widget
+                            </span>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label for="timerTimeUnit" style="font-size:12px;color:var(--text-muted);">หน่วยเวลา</label>
+                          <select id="timerTimeUnit" class="form-select" style="width:110px;">
+                            <option value="seconds">วินาที</option>
+                            <option value="minutes">นาที</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="form-row" id="timerRulesTemplateRow">
+                        <div class="form-group full-width">
+                          <label for="inputTimerRulesTemplate" style="font-size:12px;color:var(--text-muted);">Template ข้อความ</label>
+                          <input type="text" id="inputTimerRulesTemplate" class="form-control" placeholder="โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}">
+                          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+                            ตัวแปร: <code>{จำนวนเงิน}</code> <code>{เวลา}</code> <code>{เครื่องหมาย}</code> <code>{ทิศทาง}</code>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Multiplier mode -->
+                      <div id="timerMultiplierSection">
+                        <div id="timerMultRulesContainer"></div>
+                        <button type="button" id="btnAddTimerMultRule" class="btn btn-outline-success" style="width:100%;margin-top:4px;">
+                          <i class="fa-solid fa-plus" style="color:#10b981"></i> เพิ่มกฏ
+                        </button>
+                        <div id="timerMultWarn" style="background:#7c2d12;border:2px solid #ef4444;border-radius:8px;padding:10px 14px;margin-top:8px;display:none;align-items:flex-start;gap:8px;opacity:0;transform:translateY(-6px);transition:opacity 0.3s ease,transform 0.3s ease;">
+                          <i class="fa-solid fa-triangle-exclamation" style="color:#fbbf24;font-size:18px;margin-top:1px;flex-shrink:0;"></i>
+                          <div>
+                            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:3px;">ไม่แนะนำ: ตั้งมากกว่า 1 กฏ ในรูปแบบ "คูณยอดโดเนท"</div>
+                            <div style="font-size:11px;color:#fcd34d;">หลายกฏจะ<strong>รวมผลกันทั้งหมด</strong> — โดเนท 100฿ ที่ตรงหลายกฏจะได้เวลาเพิ่มหลายเท่ากว่าที่คาดไว้</div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Threshold/Fixed mode -->
+                      <div id="timerRulesSection" style="display:none;">
+                        <div id="timerRulesContainer"></div>
+                        <button type="button" id="btnAddTimerRule" class="btn btn-outline-success" style="width:100%;margin-top:4px;">
+                          <i class="fa-solid fa-plus" style="color:#10b981"></i> เพิ่มกฏ
+                        </button>
+                      </div>
+                      <div class="form-row" style="margin-top:12px;">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerAllowPassthrough" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label" style="font-size:13px;">
+                              อนุญาตให้ผู้โดเนทเลือก "ไม่ปรับเวลา" ได้
+                              <span style="font-size:11px;color:var(--text-muted);display:block;">แสดงตัวเลือก "ไม่ปรับเวลา" ให้ผู้โดเนทบนหน้าโดเนท (ใช้กับกฏ ±ผู้โดเนทเลือก)</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 4: Cap -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelTimerCap">
+                      <h4><i class="fa-solid fa-gauge-high" style="color:#f59e0b"></i> ข้อจำกัดเวลา (Cap)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTimerCap" style="display:none;">
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="timerCapTypeSelect">รูปแบบข้อจำกัด</label>
+                          <select id="timerCapTypeSelect" class="form-select">
+                            <option value="">ไม่มีข้อจำกัด</option>
+                            <option value="money">จำกัดยอดเงินสะสม (฿)</option>
+                            <option value="time">จำกัดเวลาสะสม</option>
+                          </select>
+                        </div>
+                        <div class="form-group" id="timerCapValueGroup" style="display:none;">
+                          <label for="inputTimerCapValue">ค่าลิมิต <span id="lblTimerCapUnit" style="color:var(--text-muted);font-size:12px;"></span></label>
+                          <input type="number" id="inputTimerCapValue" class="form-control" min="1" placeholder="1000">
+                        </div>
+                      </div>
+                      <div id="timerCapStatusRow" style="display:none;">
+                        <p class="timer-cap-status" id="timerCapStatusText"></p>
+                        <button type="button" id="btnTimerResetCap" class="btn btn-outline-danger" style="width:100%;margin-top:6px;">
+                          <i class="fa-solid fa-rotate-left"></i> รีเซทข้อจำกัด
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 5: Appearance -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelTimerAppearance">
+                      <h4><i class="fa-solid fa-palette" style="color:#a78bfa"></i> ปรับแต่งหน้าตา</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTimerAppearance" style="display:none;">
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label>สีหลัก</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="inputTimerColorMain" value="#fbbf24">
+                            <input type="text" id="txtTimerColorMain" class="hex-text" value="#fbbf24">
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label for="sliderTimerFontSize">ขนาดตัวอักษร: <span id="lblTimerFontSize">64</span>px</label>
+                          <input type="range" id="sliderTimerFontSize" min="24" max="180" value="64" class="form-range">
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="sliderTimerBorderRadius">ขนาด Outline: <span id="lblTimerBorderRadius">2</span></label>
+                          <input type="range" id="sliderTimerBorderRadius" min="0" max="5" value="2" class="form-range">
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerShane" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">
+                              <i class="fa-solid fa-sun" style="color:#fbbf24"></i>
+                              Effect แสง (Shine)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                          <label>Effect เมื่อหมดเวลา</label>
+                          <select id="timerTimeoutEffectType" class="form-select">
+                            <option value="none">ไม่มี Effect</option>
+                            <option value="blink">กระพริบ (Blink)</option>
+                            <option value="shake">สั่นสะเทือน (Shake)</option>
+                            <option value="party">ปาร์ตี้ (Confetti)</option>
+                            <option value="emoji">อีโมจิระเบิด!! (เลือก Emoji ได้)</option>
+                          </select>
+                        </div>
+                        <div class="form-group" style="align-self:flex-end;">
+                          <button type="button" id="btnTestTimerEffect" class="btn btn-secondary">
+                            <i class="fa-solid fa-play" style="color:#a78bfa"></i> ทดสอบ
+                          </button>
+                        </div>
+                      </div>
+                      <div id="timerEffectEmojiRow" style="display:none;">
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="inputTimerEffectEmoji">เลือก Emoji</label>
+                            <input type="text" id="inputTimerEffectEmoji" class="form-control" value="🎉" maxlength="8" style="font-size:24px;width:80px;text-align:center;">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row" id="timerOutlineColorRow">
+                        <div class="form-group">
+                          <label>สีขอบตัวอักษร</label>
+                          <div class="color-input-wrapper">
+                            <input type="color" id="inputTimerOutlineColor" value="#000000">
+                            <input type="text" id="txtTimerOutlineColor" class="hex-text" value="#000000">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 6: Sound -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelTimerSound">
+                      <h4><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียงแจ้งเตือนหมดเวลา</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTimerSound" style="display:none;">
+                      <div class="form-row">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerSoundEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-bell" style="color:#60a5fa"></i> เปิดเสียงแจ้งเตือนหมดเวลา</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row" id="timerSoundSettingsRow">
+                        <div class="form-group">
+                          <label for="timerSoundChoiceSelect">เลือกเสียงแจ้งเตือนหมดเวลา</label>
+                          <select id="timerSoundChoiceSelect" class="form-select">
+                            <option value="synthetic">Beep</option>
+                            <option value="url">URL เสียง (ลิงก์ภายนอก)</option>
+                            <option value="upload">อัพโหลดเสียงเอง</option>
+                          </select>
+                        </div>
+                        <div class="form-group" id="timerCustomSoundUrlContainer" style="display:none;">
+                          <label for="timerCustomSoundUrl">URL เสียง (Direct Link .mp3/.ogg)</label>
+                          <input type="text" id="timerCustomSoundUrl" class="form-control" placeholder="https://example.com/sound.mp3">
+                          <button type="button" id="btnBrowseTimerSounds" class="btn btn-secondary" style="margin-top:8px;width:100%;">
+                            <i class="fa-solid fa-magnifying-glass"></i> เลือกเสียงจาก myinstants.com
+                          </button>
+                        </div>
+                        <div class="form-group" id="timerUploadSoundContainer" style="display:none;">
+                          <label>อัพโหลดเสียงแจ้งเตือน <small style="color:var(--text-muted)">(.mp3 หรือ .ogg, สูงสุด 1MB)</small></label>
+                          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                            <div id="timerUploadSoundCurrentWrap" style="display:none;align-items:center;gap:8px;">
+                              <span id="timerUploadSoundCurrentName" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-music"></i> </span>
+                              <button type="button" id="btnClearTimerUploadSound" class="btn-clear-upload" title="ลบไฟล์เสียง"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <label for="timerUploadSoundFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                              <i class="fa-solid fa-music"></i> เลือกไฟล์เสียง
+                            </label>
+                            <input type="file" id="timerUploadSoundFile" accept="audio/mpeg,audio/ogg,.mp3,.ogg" style="display:none;">
+                            <span id="timerUploadSoundStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label for="sliderTimerSoundVolume">ความดังเสียง (<span id="lblTimerSoundVolume">70</span>%)</label>
+                          <input type="range" id="sliderTimerSoundVolume" class="form-range" min="0" max="1" step="0.05" value="0.7">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Save Button -->
+                  <div class="settings-actions">
+                    <button type="button" id="btnSaveTimerSettings" class="btn btn-primary btn-large w-100">
+                      <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า Timer
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Right Live Preview panel -->
@@ -1393,6 +1706,42 @@
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                     <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 600×350px, background transparent</span>
+                  </div>
+                </div>
+
+                <!-- Timer Preview Card (shown when SubtabTimer active) -->
+                <div id="timerPreviewCard" class="dashboard-card preview-card" style="display:none;">
+                  <div class="preview-header">
+                    <h3><i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> พรีวิว Timer</h3>
+                  </div>
+                  <p class="preview-hint">ตัวอย่างที่โปรแกรมสตรีมมิ่งจะแสดง — Background โปร่งใสในระบบจริง</p>
+                  <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
+                    <iframe id="timerPreviewIframe" src="about:blank" style="width:100%;height:200px;border:none;" title="Timer Preview"></iframe>
+                  </div>
+                  <div class="copy-url-group">
+                    <input type="text" id="obsTimerUrlPreviewRight" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
+                    <button class="btn btn-primary" id="btnCopyObsTimerUrlRight">คัดลอก</button>
+                    <button class="btn btn-secondary" id="btnOpenObsTimerUrlRight" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn-reload-preview" id="btnReloadTimerPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 400×150px, background transparent</span>
+                  </div>
+                  <div class="timer-live-control">
+                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+                      <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer (Live)
+                    </p>
+                    <div class="timer-control-buttons">
+                      <button type="button" id="btnTimerStart" class="btn btn-outline-success">
+                        <i class="fa-solid fa-play" style="color:#10b981"></i> เริ่ม
+                      </button>
+                      <button type="button" id="btnTimerStop" class="btn btn-outline-warning">
+                        <i class="fa-solid fa-pause" style="color:#f59e0b"></i> หยุด
+                      </button>
+                      <button type="button" id="btnTimerReset" class="btn btn-outline-info">
+                        <i class="fa-solid fa-rotate-left" style="color:#3b82f6"></i> รีเซท
+                      </button>
+                    </div>
                   </div>
                 </div>
 

@@ -1,5 +1,7 @@
 // State
 let selectedAmount = 0;
+let timerPublicConfig = null;
+let timerChoice = 'add';
 let selectedPaymentMethod = 'ffp';
 let currentChargeId = null;
 let pollInterval = null;
@@ -72,7 +74,8 @@ function savePendingQR(data) {
       donorName: donorNameInput?.value?.trim() || '',
       message: donorMessageInput?.value?.trim() || '',
       expiresAt: data.expiresAt,
-      recipientName: data.recipientName || ''
+      recipientName: data.recipientName || '',
+      timerAction: getTimerActionForSubmit()
     };
     localStorage.setItem(getPendingKey(), JSON.stringify(pending));
   } catch (e) { /* localStorage full or disabled */ }
@@ -198,6 +201,8 @@ async function loadPageContent() {
        
        // Update social links
       renderSocialLinks(data.socials);
+      timerPublicConfig = data.timer || null;
+      updateTimerChoiceBox();
 
        // Update favicon
        const favicon = document.getElementById('favicon');
@@ -404,6 +409,14 @@ customAmountInput.addEventListener('input', () => {
   updateDonateButton();
 });
 
+// Timer choice button click
+document.getElementById('timerChoiceBox')?.addEventListener('click', e => {
+  const btn = e.target.closest('.timer-choice-btn');
+  if (!btn) return;
+  timerChoice = btn.dataset.choice;
+  updateTimerChoiceBox();
+});
+
 // Update donate button state
 function updateDonateButton() {
   const isValid = selectedAmount >= userMinAmount;
@@ -422,6 +435,60 @@ function updateDonateButton() {
   } else {
     minAmountWarning.style.display = 'none';
   }
+  updateTimerChoiceBox();
+}
+
+// ── Timer Donor Choice ──
+function formatChoiceTime(secs) {
+  const m = Math.floor(secs / 60), s = secs % 60, h = Math.floor(m / 60);
+  if (h > 0) return `${h} ชม. ${m % 60 ? (m % 60) + ' นาที' : ''}`.trim();
+  if (m > 0) return `${m} นาที${s ? ' ' + s + ' วิ' : ''}`;
+  return `${s} วินาที`;
+}
+
+function getChoiceEffect(amount) {
+  const t = timerPublicConfig;
+  if (!t || !t.enabled || !amount) return null;
+  const rules = Array.isArray(t.rules) ? t.rules : [];
+  if (t.mode === 'multiplier') {
+    let secs = 0;
+    for (const r of rules) {
+      if (r.action !== 'choice' || !r.base_amount || r.base_amount <= 0) continue;
+      const mult = Math.floor(amount / r.base_amount);
+      if (mult > 0) secs += mult * (r.time_seconds || 0);
+    }
+    return secs > 0 ? { seconds: secs } : null;
+  }
+  if (t.mode === 'threshold') {
+    const tier = [...rules].sort((a, b) => b.amount - a.amount).find(r => amount >= r.amount);
+    return tier && tier.action === 'choice' ? { seconds: tier.time_seconds } : null;
+  }
+  if (t.mode === 'fixed') {
+    const m = rules.find(r => Math.abs(r.amount - amount) < 0.01);
+    return m && m.action === 'choice' ? { seconds: m.time_seconds } : null;
+  }
+  return null;
+}
+
+function updateTimerChoiceBox() {
+  const box = document.getElementById('timerChoiceBox');
+  if (!box) return;
+  const eff = getChoiceEffect(selectedAmount);
+  if (!eff) { box.classList.remove('visible'); return; }
+  box.classList.add('visible');
+  document.getElementById('timerChoiceEffect').textContent = `(±${formatChoiceTime(eff.seconds)})`;
+  const noneBtn = box.querySelector('[data-choice="none"]');
+  if (noneBtn) noneBtn.style.display = timerPublicConfig.allowPassthrough ? '' : 'none';
+  if (!timerPublicConfig.allowPassthrough && timerChoice === 'none') timerChoice = 'add';
+  box.querySelectorAll('.timer-choice-btn').forEach(b => {
+    const on = b.dataset.choice === timerChoice;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function getTimerActionForSubmit() {
+  return getChoiceEffect(selectedAmount) ? timerChoice : null;
 }
 
 // Donate button click -> go to payment method selection
@@ -548,7 +615,8 @@ btnProceedPayment.addEventListener('click', async () => {
           username,
           amount: selectedAmount,
           name: donorNameInput.value,
-          message: donorMessageInput.value
+          message: donorMessageInput.value,
+          timerAction: getTimerActionForSubmit()
         })
       });
 
@@ -569,7 +637,7 @@ btnProceedPayment.addEventListener('click', async () => {
     const pending = getPendingQR();
     const currentDonorName = donorNameInput?.value?.trim() || '';
     const currentMessage = donorMessageInput?.value?.trim() || '';
-    if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage) {
+    if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && (pending.timerAction ?? null) === getTimerActionForSubmit()) {
       restoreQRStep(pending);
       btnProceedPayment.disabled = false;
       btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
@@ -589,7 +657,8 @@ btnProceedPayment.addEventListener('click', async () => {
           username,
           amount: selectedAmount,
           name: donorNameInput.value,
-          message: donorMessageInput.value
+          message: donorMessageInput.value,
+          timerAction: getTimerActionForSubmit()
         })
       });
 
@@ -1109,6 +1178,7 @@ async function doVerifyTrueMoney() {
     formData.append('contact_email', '');
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
+    formData.append('timerAction', getTimerActionForSubmit() || '');
 
     const response = await fetch('/api/verify-slip', {
       method: 'POST',
@@ -1315,6 +1385,7 @@ async function doVerifyBank() {
     formData.append('contact_email', '');
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
+    formData.append('timerAction', getTimerActionForSubmit() || '');
 
     bankPaymentStatus.style.display = 'flex';
     bankPaymentStatus.className = 'status checking';

@@ -122,6 +122,24 @@
           <textarea id="donorMessage" placeholder="ฝากข้อความถึงเราที่นี่..." rows="2"></textarea>
         </div>
 
+        <div id="timerChoiceBox" class="timer-choice-box">
+          <div class="timer-choice-title">
+            <i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i>
+            ยอดนี้ปรับเวลานับถอยหลังของสตรีมได้ <span id="timerChoiceEffect" class="timer-choice-effect"></span>
+          </div>
+          <div class="timer-choice-options" role="radiogroup" aria-label="เลือกการปรับเวลา">
+            <button type="button" class="timer-choice-btn" data-choice="add" aria-pressed="false">
+              <i class="fa-solid fa-plus"></i> เพิ่มเวลา
+            </button>
+            <button type="button" class="timer-choice-btn" data-choice="sub" aria-pressed="false">
+              <i class="fa-solid fa-minus"></i> ลดเวลา
+            </button>
+            <button type="button" class="timer-choice-btn" data-choice="none" aria-pressed="false">
+              <i class="fa-solid fa-ban"></i> ไม่ปรับเวลา
+            </button>
+          </div>
+        </div>
+
         <p id="statusNote" class="status-note" style="display: none;">
           <span class="note-dot"></span>
           <span>หมายเหตุ: สถานะขณะนี้ <span class="note-highlight">'โดขึ้นจอ | ปิดอยู่'</span> ค่าโดเนทจะส่งถึงปกติ เพียงแต่จะไม่แจ้งเตือนขึ้นจอขณะไลฟ์สด</span>

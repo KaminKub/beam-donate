@@ -238,45 +238,37 @@ async function initializeDashboard() {
         btn.onclick = demoAlertHandler;
       });
 
-      // Overlay subtab buttons (Alert vs Goal)
+      // Overlay subtab buttons (Alert vs Goal vs Timer)
       const demoSubtabAlert = document.getElementById('btnSubtabAlert');
       const demoSubtabGoal  = document.getElementById('btnSubtabGoal');
-      if (demoSubtabAlert) {
-        demoSubtabAlert.addEventListener('click', () => {
-          document.getElementById('overlaySettingsForm')?.style.setProperty('display', '');
-          document.getElementById('goalSettingsPanel')?.style.setProperty('display', 'none');
-          document.getElementById('alertPreviewCard')?.style.setProperty('display', '');
-          document.getElementById('goalPreviewCard')?.style.setProperty('display', 'none');
-          demoSubtabAlert.classList.add('active');
-          if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
-          activateOverlayPreview();
-          deactivateGoalBarPreview();
-        });
-      }
-      if (demoSubtabGoal) {
-        demoSubtabGoal.addEventListener('click', () => {
-          document.getElementById('overlaySettingsForm')?.style.setProperty('display', 'none');
-          document.getElementById('goalSettingsPanel')?.style.setProperty('display', '');
-          document.getElementById('alertPreviewCard')?.style.setProperty('display', 'none');
-          document.getElementById('goalPreviewCard')?.style.setProperty('display', '');
-          if (demoSubtabAlert) demoSubtabAlert.classList.remove('active');
-          demoSubtabGoal.classList.add('active');
-          deactivateOverlayPreview();
-          activateGoalBarPreview();
-        });
+      const demoSubtabTimer = document.getElementById('btnSubtabTimer');
+
+      function demoSwitchSubtab(active) {
+        const showAlert = active === 'alert';
+        const showGoal  = active === 'goal';
+        const showTimer = active === 'timer';
+        document.getElementById('overlaySettingsForm')?.style.setProperty('display', showAlert ? '' : 'none');
+        document.getElementById('goalSettingsPanel')?.style.setProperty('display', showGoal ? '' : 'none');
+        document.getElementById('timerSettingsPanel')?.style.setProperty('display', showTimer ? '' : 'none');
+        document.getElementById('alertPreviewCard')?.style.setProperty('display', showAlert ? '' : 'none');
+        document.getElementById('goalPreviewCard')?.style.setProperty('display', showGoal ? '' : 'none');
+        document.getElementById('timerPreviewCard')?.style.setProperty('display', showTimer ? '' : 'none');
+        if (demoSubtabAlert) demoSubtabAlert.classList.toggle('active', showAlert);
+        if (demoSubtabGoal)  demoSubtabGoal.classList.toggle('active', showGoal);
+        if (demoSubtabTimer) demoSubtabTimer.classList.toggle('active', showTimer);
+        if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); }
+        if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); }
+        if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); }
       }
 
-      // Activate alert subtab by default so visitors see alert settings first
+      if (demoSubtabAlert) demoSubtabAlert.addEventListener('click', () => demoSwitchSubtab('alert'));
+      if (demoSubtabGoal)  demoSubtabGoal.addEventListener('click', () => demoSwitchSubtab('goal'));
+      if (demoSubtabTimer) demoSubtabTimer.addEventListener('click', () => demoSwitchSubtab('timer'));
+
+      // Activate alert subtab by default
       // NOTE: do NOT call activateOverlayPreview() here — iframe must only load
       // when user actually navigates to the overlay-config tab (switchTab handles it)
-      if (demoSubtabAlert) {
-        document.getElementById('overlaySettingsForm')?.style.setProperty('display', '');
-        document.getElementById('goalSettingsPanel')?.style.setProperty('display', 'none');
-        document.getElementById('alertPreviewCard')?.style.setProperty('display', '');
-        document.getElementById('goalPreviewCard')?.style.setProperty('display', 'none');
-        demoSubtabAlert.classList.add('active');
-        if (demoSubtabGoal) demoSubtabGoal.classList.remove('active');
-      }
+      demoSwitchSubtab('alert');
 
       // Set demo overlay URLs to production domain instead of localhost:3000
       const demoOverlayUrl = `${location.origin}/demo/overlay`;
@@ -839,32 +831,32 @@ async function initializeDashboard() {
       };
     }
 
-    // Widget sub-tab toggle: Alert vs Goal
+    // Widget sub-tab toggle: Alert vs Goal vs Timer
     const btnSubtabAlert = document.getElementById('btnSubtabAlert');
     const btnSubtabGoal = document.getElementById('btnSubtabGoal');
-    if (btnSubtabAlert && btnSubtabGoal) {
-      btnSubtabAlert.addEventListener('click', () => {
-        document.getElementById('overlaySettingsForm').style.display = '';
-        document.getElementById('goalSettingsPanel').style.display = 'none';
-        document.getElementById('alertPreviewCard').style.display = '';
-        document.getElementById('goalPreviewCard').style.display = 'none';
-        btnSubtabAlert.classList.add('active');
-        btnSubtabGoal.classList.remove('active');
-        activateOverlayPreview();
-        deactivateGoalBarPreview();
-      });
-      btnSubtabGoal.addEventListener('click', () => {
-        document.getElementById('overlaySettingsForm').style.display = 'none';
-        document.getElementById('goalSettingsPanel').style.display = '';
-        document.getElementById('alertPreviewCard').style.display = 'none';
-        document.getElementById('goalPreviewCard').style.display = '';
-        btnSubtabAlert.classList.remove('active');
-        btnSubtabGoal.classList.add('active');
-        loadGoalSettings();
-        deactivateOverlayPreview();
-        activateGoalBarPreview();
-      });
+    const btnSubtabTimer = document.getElementById('btnSubtabTimer');
+
+    function switchWidgetSubtab(active) {
+      const showAlert = active === 'alert';
+      const showGoal  = active === 'goal';
+      const showTimer = active === 'timer';
+      document.getElementById('overlaySettingsForm').style.display = showAlert ? '' : 'none';
+      document.getElementById('goalSettingsPanel').style.display = showGoal ? '' : 'none';
+      document.getElementById('timerSettingsPanel').style.display = showTimer ? '' : 'none';
+      document.getElementById('alertPreviewCard').style.display = showAlert ? '' : 'none';
+      document.getElementById('goalPreviewCard').style.display = showGoal ? '' : 'none';
+      document.getElementById('timerPreviewCard').style.display = showTimer ? '' : 'none';
+      if (btnSubtabAlert) btnSubtabAlert.classList.toggle('active', showAlert);
+      if (btnSubtabGoal)  btnSubtabGoal.classList.toggle('active', showGoal);
+      if (btnSubtabTimer) btnSubtabTimer.classList.toggle('active', showTimer);
+      if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); }
+      if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); loadGoalSettings(); }
+      if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); loadTimerSettings(); }
     }
+
+    if (btnSubtabAlert) btnSubtabAlert.addEventListener('click', () => switchWidgetSubtab('alert'));
+    if (btnSubtabGoal)  btnSubtabGoal.addEventListener('click', () => switchWidgetSubtab('goal'));
+    if (btnSubtabTimer) btnSubtabTimer.addEventListener('click', () => switchWidgetSubtab('timer'));
 
     // Goal color picker <-> hex text sync
     const goalColorPicker = document.getElementById('inputGoalBarColor');
@@ -1034,6 +1026,8 @@ async function initializeDashboard() {
         setTimeout(() => btnReloadGoalPreview.classList.remove('spinning'), 1200);
       });
     }
+
+    initTimerSettingsUI();
 
     const btnLogout = document.getElementById('btnLogout');
     if (btnLogout) {
@@ -1756,16 +1750,21 @@ function switchTab(tabId) {
     }
     const alertBtn = document.getElementById('btnSubtabAlert');
     const goalBtn  = document.getElementById('btnSubtabGoal');
+    const timerBtn = document.getElementById('btnSubtabTimer');
     if (alertBtn && alertBtn.classList.contains('active')) {
       activateOverlayPreview();
     }
     if (goalBtn && goalBtn.classList.contains('active')) {
       activateGoalBarPreview();
     }
+    if (timerBtn && timerBtn.classList.contains('active')) {
+      activateTimerPreview();
+    }
   }
   if (tabId !== 'overlay-config') {
     deactivateOverlayPreview();
     deactivateGoalBarPreview();
+    deactivateTimerPreview();
   }
   if (tabId === 'page-customization') {
     if (!DEMO_MODE && !tabLoaded['page-customization']) {
@@ -1831,6 +1830,21 @@ function activateGoalBarPreview() {
 
 function deactivateGoalBarPreview() {
   const iframe = document.getElementById('goalBarPreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
+}
+
+// ========== Timer Preview Iframe Control ==========
+function activateTimerPreview() {
+  const iframe = document.getElementById('timerPreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.src = DEMO_MODE ? '/demo/timer' : `${location.origin}/timer`;
+  }
+}
+
+function deactivateTimerPreview() {
+  const iframe = document.getElementById('timerPreviewIframe');
   if (!iframe) return;
   iframe.src = 'about:blank';
 }
@@ -2172,10 +2186,11 @@ const CustomDropdown = (() => {
       });
 
       // Insert wrapper before select, then hide select
+      // panel goes to body so it escapes card stacking context (fix z-index conflict with sticky save button)
       this.select.style.display = 'none';
       this.select.insertAdjacentElement('beforebegin', wrapper);
       wrapper.appendChild(trigger);
-      wrapper.appendChild(panel);
+      document.body.appendChild(panel);
 
       this.wrapper = wrapper;
       this.trigger = trigger;
@@ -2215,9 +2230,12 @@ const CustomDropdown = (() => {
 
     _open() {
       CustomSelect._closeAll();
+      const rect = this.trigger.getBoundingClientRect();
+      this.panel.style.top = rect.bottom + 'px';
+      this.panel.style.left = rect.left + 'px';
+      this.panel.style.width = rect.width + 'px';
       this.panel.classList.add('open');
       this.trigger.classList.add('open');
-      // Scroll selected into view
       const sel = this.panel.querySelector('.cs-option.selected');
       if (sel) {
         window.setTimeout(() => sel.scrollIntoView({ block: 'nearest' }), 150);
@@ -2243,14 +2261,26 @@ const CustomDropdown = (() => {
     }
   }
 
-  // Global click-outside-to-close
+  // Global click-outside-to-close (also check .cs-panel since panels are on body)
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.cs-wrapper')) {
+    if (!e.target.closest('.cs-wrapper') && !e.target.closest('.cs-panel')) {
       CustomSelect._closeAll();
     }
   });
 
-  return { initAll };
+  function wrapEl(select) {
+    if (select.dataset.customSelect !== 'true') new CustomSelect(select);
+  }
+
+  function removeBySelect(select) {
+    const idx = instances.findIndex(i => i.select === select);
+    if (idx !== -1) {
+      instances[idx].panel.remove();
+      instances.splice(idx, 1);
+    }
+  }
+
+  return { initAll, wrapEl, removeBySelect };
 })();
 
 // Initialize custom selects on first load and when tabs switch
@@ -3274,6 +3304,69 @@ function clearUploadSound() {
   if (status) status.textContent = '';
 }
 
+async function handleTimerAudioFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('timerUploadSoundStatus');
+  const soundUrlInput = document.getElementById('timerCustomSoundUrl');
+  const currentNameEl = document.getElementById('timerUploadSoundCurrentName');
+  const currentWrap = document.getElementById('timerUploadSoundCurrentWrap');
+
+  const setStatus = (msg, color) => {
+    if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; }
+  };
+
+  const allowedFormats = ['audio/mpeg', 'audio/mp3', 'audio/ogg'];
+  const normalizedType = file.type === 'audio/mp3' ? 'audio/mpeg' : file.type;
+  if (!allowedFormats.includes(file.type) && !allowedFormats.includes(normalizedType)) {
+    showNotification('รองรับเฉพาะไฟล์ .mp3 และ .ogg เท่านั้น', 'error');
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    showNotification('ไฟล์ต้องไม่เกิน 1MB เพื่อให้เสียงเด้งไวบน OBS', 'error');
+    return;
+  }
+
+  setStatus('กำลังขอ URL อัปโหลด...');
+  try {
+    const presignRes = await fetchWithCsrf('/api/upload/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, fileSize: file.size })
+    });
+    if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
+    const { uploadUrl, fileUrl } = await presignRes.json();
+
+    setStatus('กำลังอัปโหลดไฟล์เสียง...');
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT', body: file,
+      headers: { 'Content-Type': normalizedType }
+    });
+    if (!putRes.ok) throw new Error('PUT ไม่สำเร็จ HTTP ' + putRes.status);
+
+    if (soundUrlInput) soundUrlInput.value = fileUrl;
+    if (currentNameEl) currentNameEl.textContent = `${file.name} (${Math.round(file.size / 1024)}KB)`;
+    if (currentWrap) currentWrap.style.display = 'flex';
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดไฟล์เสียง Timer สำเร็จ');
+  } catch (err) {
+    console.error('Timer audio upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function clearTimerUploadSound() {
+  const urlInput = document.getElementById('timerCustomSoundUrl');
+  if (urlInput) urlInput.value = '';
+  const currentWrap = document.getElementById('timerUploadSoundCurrentWrap');
+  if (currentWrap) currentWrap.style.display = 'none';
+  const fileInput = document.getElementById('timerUploadSoundFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('timerUploadSoundStatus');
+  if (status) status.textContent = '';
+}
+
 function toggleProfanitySubSettings(enabled) {
   const container = document.getElementById('profanitySubSettingsContainer');
   if (!container) return;
@@ -3455,7 +3548,610 @@ function updateGoalPreview(current, amount) {
   if (amtEl) amtEl.textContent = (amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
 }
 
-// Color picker bindings (Hex inputs <-> Color box picker)
+// ========== Timer Settings ==========
+
+// Rules builder helpers
+const MAX_TIMER_RULES = 10;
+let timerRules = [];
+
+function timerRulesSetMode(mode) {
+  const multSec = document.getElementById('timerMultiplierSection');
+  const ruleSec = document.getElementById('timerRulesSection');
+  if (!multSec || !ruleSec) return;
+  const isMultiplier = mode === 'multiplier';
+  multSec.style.display = isMultiplier ? '' : 'none';
+  ruleSec.style.display = isMultiplier ? 'none' : '';
+}
+
+function makeEl(tag, props, text) {
+  const el = document.createElement(tag);
+  if (props) Object.assign(el, props);
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function renderTimerRules(mode) {
+  const container = document.getElementById('timerRulesContainer');
+  const btnAdd = document.getElementById('btnAddTimerRule');
+  if (!container) return;
+  // cleanup orphaned cs-panels from previous render
+  container.querySelectorAll('select[data-custom-select="true"]').forEach(sel => CustomDropdown.removeBySelect(sel));
+  container.replaceChildren();
+  const unit = document.getElementById('timerTimeUnit')?.value || 'seconds';
+  timerRules.forEach((rule, idx) => {
+    const row = document.createElement('div');
+    row.className = 'timer-rule-row';
+
+    const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
+
+    const amtInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;' });
+    amtInput.value = rule.amount || '';
+    amtInput.oninput = (e) => { timerRules[idx].amount = parseFloat(e.target.value) || 0; };
+
+    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '฿ →');
+
+    const actionSel = makeEl('select', { style: 'width:130px;' });
+    [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
+      const opt = makeEl('option', { value: val }, label);
+      if (rule.action === val) opt.selected = true;
+      actionSel.appendChild(opt);
+    });
+    actionSel.onchange = (e) => { timerRules[idx].action = e.target.value; };
+
+    const rawSecs = rule.time_seconds || 0;
+    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
+    timeInput.value = unit === 'minutes' ? Math.round(rawSecs / 60) : rawSecs;
+    timeInput.oninput = (e) => {
+      const factor = document.getElementById('timerTimeUnit')?.value === 'minutes' ? 60 : 1;
+      timerRules[idx].time_seconds = (parseFloat(e.target.value) || 0) * factor;
+    };
+
+    const unitLbl = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, unit === 'minutes' ? 'นาที' : 'วิ');
+
+    const delBtn = makeEl('button', { type: 'button', className: 'btn btn-icon', title: 'ลบกฏ', style: 'color:#ef4444;padding:6px 10px;' });
+    delBtn.appendChild(Object.assign(document.createElement('i'), { className: 'fa-solid fa-trash-can' }));
+    delBtn.onclick = () => { timerRules.splice(idx, 1); renderTimerRules(mode); };
+
+    [lbl, amtInput, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
+    container.appendChild(row);
+    CustomDropdown.wrapEl(actionSel);
+  });
+  if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
+}
+
+function syncModeCards(mode) {
+  document.querySelectorAll('.timer-mode-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.mode === mode);
+  });
+}
+
+function renderMultiplierRules() {
+  const container = document.getElementById('timerMultRulesContainer');
+  const btnAdd = document.getElementById('btnAddTimerMultRule');
+  if (!container) return;
+  container.querySelectorAll('select[data-custom-select="true"]').forEach(sel => CustomDropdown.removeBySelect(sel));
+  container.replaceChildren();
+  const unit = document.getElementById('timerTimeUnit')?.value || 'seconds';
+  timerRules.forEach((rule, idx) => {
+    const row = document.createElement('div');
+    row.className = 'timer-rule-row';
+
+    const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
+
+    const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X฿' });
+    baseInput.value = rule.base_amount || rule.amount || '';
+    baseInput.oninput = (e) => { timerRules[idx].base_amount = parseFloat(e.target.value) || 0; };
+
+    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '฿ →');
+
+    const actionSel = makeEl('select', { style: 'width:130px;' });
+    [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
+      const opt = makeEl('option', { value: val }, label);
+      if (rule.action === val) opt.selected = true;
+      actionSel.appendChild(opt);
+    });
+    actionSel.onchange = (e) => { timerRules[idx].action = e.target.value; };
+
+    const rawSecs = rule.time_seconds || 0;
+    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
+    timeInput.value = unit === 'minutes' ? Math.round(rawSecs / 60) : rawSecs;
+    timeInput.oninput = (e) => {
+      const factor = document.getElementById('timerTimeUnit')?.value === 'minutes' ? 60 : 1;
+      timerRules[idx].time_seconds = (parseFloat(e.target.value) || 0) * factor;
+    };
+
+    const unitLbl = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, unit === 'minutes' ? 'นาที' : 'วิ');
+
+    const delBtn = makeEl('button', { type: 'button', className: 'btn btn-icon', title: 'ลบกฏ', style: 'color:#ef4444;padding:6px 10px;' });
+    delBtn.appendChild(Object.assign(document.createElement('i'), { className: 'fa-solid fa-trash-can' }));
+    delBtn.onclick = () => { timerRules.splice(idx, 1); renderMultiplierRules(); };
+
+    [lbl, baseInput, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
+    container.appendChild(row);
+    CustomDropdown.wrapEl(actionSel);
+  });
+  if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
+  const warn = document.getElementById('timerMultWarn');
+  if (warn) {
+    if (timerRules.length > 1) {
+      warn.style.display = 'flex';
+      requestAnimationFrame(() => { warn.style.opacity = '1'; warn.style.transform = 'translateY(0)'; });
+    } else {
+      warn.style.opacity = '0';
+      warn.style.transform = 'translateY(-6px)';
+      setTimeout(() => { if (timerRules.length <= 1) warn.style.display = 'none'; }, 300);
+    }
+  }
+}
+
+async function loadTimerSettings() {
+  try {
+    const [settingsRes, tokenRes] = await Promise.all([
+      fetch('/api/overlay/settings'),
+      fetch('/api/overlay/token')
+    ]);
+    if (!settingsRes.ok) return;
+    const data = await settingsRes.json();
+    let t = {};
+    try { t = JSON.parse(data.timer_settings || '{}'); } catch (e) {}
+
+    const chkEnabled = document.getElementById('chkTimerEnabled');
+    if (chkEnabled) chkEnabled.checked = !!t.enabled;
+
+    const initSecs = t.initial_seconds || 600;
+    const hh = Math.floor(initSecs / 3600);
+    const mm = Math.floor((initSecs % 3600) / 60);
+    const ss = initSecs % 60;
+    const hhEl = document.getElementById('timerInitHH');
+    const mmEl = document.getElementById('timerInitMM');
+    const ssEl = document.getElementById('timerInitSS');
+    if (hhEl) hhEl.value = hh;
+    if (mmEl) mmEl.value = mm;
+    if (ssEl) ssEl.value = ss;
+
+    const modeEl = document.getElementById('timerModeSelect');
+    const mode = t.mode || 'multiplier';
+    if (modeEl) {
+      modeEl.value = mode;
+      modeEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    syncModeCards(mode);
+
+    const timeUnitEl = document.getElementById('timerTimeUnit');
+    if (timeUnitEl) {
+      timeUnitEl.value = t.time_unit || 'seconds';
+      timeUnitEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    timerRules = Array.isArray(t.rules) ? JSON.parse(JSON.stringify(t.rules)) : [];
+    timerRulesSetMode(mode);
+    if (mode === 'multiplier') {
+      if (timerRules.length === 0) timerRules = [{ base_amount: 10, time_seconds: 60, action: 'add' }];
+      renderMultiplierRules();
+    } else {
+      renderTimerRules(mode);
+    }
+
+    const outlineColorEl = document.getElementById('inputTimerOutlineColor');
+    const outlineTxtEl = document.getElementById('txtTimerOutlineColor');
+    const outlineColor = t.outline_color || '#000000';
+    if (outlineColorEl) outlineColorEl.value = outlineColor;
+    if (outlineTxtEl) outlineTxtEl.value = outlineColor;
+
+    const chkPass = document.getElementById('chkTimerAllowPassthrough');
+    if (chkPass) chkPass.checked = t.allow_passthrough !== 0 && t.allow_passthrough !== false;
+
+    const chkShowRules = document.getElementById('chkTimerShowRules');
+    if (chkShowRules) chkShowRules.checked = t.show_rules !== false && t.show_rules !== 0;
+
+    const tmplEl = document.getElementById('inputTimerRulesTemplate');
+    if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
+
+    const capTypeEl = document.getElementById('timerCapTypeSelect');
+    if (capTypeEl) {
+      capTypeEl.value = t.cap_type || '';
+      capTypeEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const capValEl = document.getElementById('inputTimerCapValue');
+    if (capValEl) {
+      if (t.cap_type === 'time') {
+        const isMin = (t.time_unit || 'seconds') === 'minutes';
+        capValEl.value = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || '');
+      } else {
+        capValEl.value = t.cap_value || '';
+      }
+    }
+
+    const capStatusText = document.getElementById('timerCapStatusText');
+    const capStatusRow = document.getElementById('timerCapStatusRow');
+    if (t.cap_type && capStatusRow) {
+      capStatusRow.style.display = '';
+      if (capStatusText) {
+        let unitLabel, dispCurr, dispMax;
+        if (t.cap_type === 'money') {
+          unitLabel = '฿'; dispCurr = data.timer_cap_current || 0; dispMax = t.cap_value || 0;
+        } else {
+          const isMin = (t.time_unit || 'seconds') === 'minutes';
+          unitLabel = isMin ? ' นาที' : ' วินาที';
+          dispCurr = isMin ? Math.round((data.timer_cap_current || 0) / 60) : (data.timer_cap_current || 0);
+          dispMax = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || 0);
+        }
+        capStatusText.textContent = `ใช้ไป: ${dispCurr}/${dispMax}${unitLabel}`;
+      }
+    } else if (capStatusRow) {
+      capStatusRow.style.display = 'none';
+    }
+
+    const colorMainEl = document.getElementById('inputTimerColorMain');
+    const txtColorMain = document.getElementById('txtTimerColorMain');
+    const color = t.color_main || '#fbbf24';
+    if (colorMainEl) colorMainEl.value = color;
+    if (txtColorMain) txtColorMain.value = color;
+
+    const fontSizeEl = document.getElementById('sliderTimerFontSize');
+    const fontSizeLbl = document.getElementById('lblTimerFontSize');
+    if (fontSizeEl) { fontSizeEl.value = t.font_size || 64; if (fontSizeLbl) fontSizeLbl.textContent = fontSizeEl.value; }
+
+    const borderRadEl = document.getElementById('sliderTimerBorderRadius');
+    const borderRadLbl = document.getElementById('lblTimerBorderRadius');
+    if (borderRadEl) { borderRadEl.value = t.border_radius ?? 2; if (borderRadLbl) borderRadLbl.textContent = borderRadEl.value; }
+
+    const chkShane = document.getElementById('chkTimerShane');
+    if (chkShane) chkShane.checked = t.shane_enabled !== false && t.shane_enabled !== 0;
+
+    // P5-B: timeout effect (R5 migration fallback)
+    const effectTypeEl = document.getElementById('timerTimeoutEffectType');
+    if (effectTypeEl) {
+      let effectType = t.timeout_effect_type;
+      if (!effectType) effectType = (t.timeout_effect === false || t.timeout_effect === 0) ? 'none' : 'blink';
+      effectTypeEl.value = effectType;
+      effectTypeEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const emojiEl = document.getElementById('inputTimerEffectEmoji');
+    if (emojiEl) emojiEl.value = t.timeout_effect_emoji || '🎉';
+
+    // P5-A: sound panel
+    const chkSoundEnabledEl = document.getElementById('chkTimerSoundEnabled');
+    if (chkSoundEnabledEl) {
+      chkSoundEnabledEl.checked = t.sound_enabled !== false && t.sound_enabled !== 0;
+      chkSoundEnabledEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const soundChoiceEl = document.getElementById('timerSoundChoiceSelect');
+    if (soundChoiceEl) {
+      soundChoiceEl.value = t.sound_choice || t.sound_type || 'synthetic';
+      soundChoiceEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const volEl = document.getElementById('sliderTimerSoundVolume');
+    const volLbl = document.getElementById('lblTimerSoundVolume');
+    if (volEl) {
+      const vol = t.sound_volume ?? 0.7;
+      volEl.value = vol;
+      if (volLbl) volLbl.textContent = Math.round(vol * 100);
+    }
+    const timerUrlEl = document.getElementById('timerCustomSoundUrl');
+    if (timerUrlEl) timerUrlEl.value = t.sound_url || '';
+    if (t.sound_choice === 'upload' && t.sound_url) {
+      const wrap = document.getElementById('timerUploadSoundCurrentWrap');
+      const name = document.getElementById('timerUploadSoundCurrentName');
+      if (wrap) wrap.style.display = 'flex';
+      if (name) {
+        const parts = t.sound_url.split('/');
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-music';
+        name.textContent = '';
+        name.appendChild(icon);
+        name.append(' ' + parts[parts.length - 1]);
+      }
+    }
+
+    if (tokenRes.ok) {
+      const { token } = await tokenRes.json();
+      const timerUrl = `${location.origin}/timer?token=${token}`;
+      const urlLeft = document.getElementById('obsTimerUrlPreview');
+      const urlRight = document.getElementById('obsTimerUrlPreviewRight');
+      if (urlLeft) urlLeft.value = timerUrl;
+      if (urlRight) urlRight.value = timerUrl;
+    }
+  } catch (err) {
+    console.error('Failed to load timer settings:', err);
+  }
+}
+
+async function saveTimerSettings() {
+  const mode = document.getElementById('timerModeSelect')?.value || 'multiplier';
+  const hh = parseInt(document.getElementById('timerInitHH')?.value) || 0;
+  const mm = parseInt(document.getElementById('timerInitMM')?.value) || 0;
+  const ss = parseInt(document.getElementById('timerInitSS')?.value) || 0;
+  const initialSeconds = hh * 3600 + mm * 60 + ss || 600;
+
+  let rules;
+  if (mode === 'multiplier') {
+    rules = timerRules.map(r => ({
+      base_amount: r.base_amount || r.amount || 10,
+      time_seconds: r.time_seconds || 60,
+      action: r.action || 'add'
+    }));
+  } else {
+    rules = timerRules;
+  }
+
+  const capType = document.getElementById('timerCapTypeSelect')?.value || null;
+  const rawCapVal = parseFloat(document.getElementById('inputTimerCapValue')?.value) || 0;
+  const capUnitForSave = document.getElementById('timerTimeUnit')?.value || 'seconds';
+  const t = {
+    enabled: document.getElementById('chkTimerEnabled')?.checked ? 1 : 0,
+    mode,
+    rules,
+    initial_seconds: initialSeconds,
+    time_unit: document.getElementById('timerTimeUnit')?.value || 'seconds',
+    allow_passthrough: document.getElementById('chkTimerAllowPassthrough')?.checked ? 1 : 0,
+    show_rules: document.getElementById('chkTimerShowRules')?.checked ? 1 : 0,
+    rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
+    cap_type: capType || null,
+    cap_value: capType === 'time' && capUnitForSave === 'minutes' ? rawCapVal * 60 : rawCapVal,
+    color_main: document.getElementById('inputTimerColorMain')?.value || '#fbbf24',
+    font_size: parseInt(document.getElementById('sliderTimerFontSize')?.value) || 64,
+    border_radius: parseInt(document.getElementById('sliderTimerBorderRadius')?.value) ?? 2,
+    outline_color: document.getElementById('inputTimerOutlineColor')?.value || '#000000',
+    shane_enabled: document.getElementById('chkTimerShane')?.checked ? 1 : 0,
+    timeout_effect_type: document.getElementById('timerTimeoutEffectType')?.value || 'blink',
+    timeout_effect_emoji: document.getElementById('inputTimerEffectEmoji')?.value || '🎉',
+    sound_enabled: document.getElementById('chkTimerSoundEnabled')?.checked ? 1 : 0,
+    sound_choice: document.getElementById('timerSoundChoiceSelect')?.value || 'synthetic',
+    sound_url: document.getElementById('timerCustomSoundUrl')?.value || '',
+    sound_volume: (() => { const v = parseFloat(document.getElementById('sliderTimerSoundVolume')?.value); return isNaN(v) ? 0.7 : v; })(),
+  };
+
+  try {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timer_settings: JSON.stringify(t) })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification('บันทึกการตั้งค่า Timer แล้ว', 'success');
+      await loadTimerSettings();
+    } else {
+      showNotification(data.error || 'ไม่สามารถบันทึกได้', 'error');
+    }
+  } catch (err) {
+    showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');
+  }
+}
+
+async function timerControl(action) {
+  try {
+    const res = await fetchWithCsrf('/api/timer/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification(`Timer ${action} สำเร็จ`, 'success');
+    } else {
+      showNotification(data.error || 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch (err) {
+    showNotification('เชื่อมต่อไม่ได้ กรุณาลองใหม่', 'error');
+  }
+}
+
+function initTimerSettingsUI() {
+  // Mode switch
+  const modeEl = document.getElementById('timerModeSelect');
+  if (modeEl) {
+    modeEl.addEventListener('change', () => {
+      timerRulesSetMode(modeEl.value);
+      if (modeEl.value === 'multiplier') renderMultiplierRules();
+      else renderTimerRules(modeEl.value);
+    });
+  }
+
+  // Mode cards click
+  document.querySelectorAll('.timer-mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const mode = card.dataset.mode;
+      syncModeCards(mode);
+      if (modeEl) {
+        modeEl.value = mode;
+        modeEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  });
+
+  // Time unit change → re-render active section
+  const timeUnitEl = document.getElementById('timerTimeUnit');
+  if (timeUnitEl) {
+    timeUnitEl.addEventListener('change', () => {
+      const mode = document.getElementById('timerModeSelect')?.value || 'multiplier';
+      if (mode === 'multiplier') renderMultiplierRules();
+      else renderTimerRules(mode);
+      syncCapUnit();
+    });
+  }
+
+  // Add rule button (threshold/fixed)
+  const btnAdd = document.getElementById('btnAddTimerRule');
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => {
+      const mode = document.getElementById('timerModeSelect')?.value || 'threshold';
+      timerRules.push({ amount: 0, time_seconds: 60, action: 'add' });
+      renderTimerRules(mode);
+    });
+  }
+
+  // Add multiplier rule button
+  const btnAddMult = document.getElementById('btnAddTimerMultRule');
+  if (btnAddMult) {
+    btnAddMult.addEventListener('click', () => {
+      if (timerRules.length >= MAX_TIMER_RULES) return;
+      timerRules.push({ base_amount: 10, time_seconds: 60, action: 'add' });
+      renderMultiplierRules();
+    });
+  }
+
+  // Outline color sync + toggle row
+  const outlinePicker = document.getElementById('inputTimerOutlineColor');
+  const outlineTxt = document.getElementById('txtTimerOutlineColor');
+  if (outlinePicker && outlineTxt) {
+    outlinePicker.oninput = (e) => { outlineTxt.value = e.target.value; };
+    outlineTxt.oninput = (e) => {
+      if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) outlinePicker.value = e.target.value;
+    };
+  }
+  // chkTimerShane controls shine animation (in timer.js applySettings); outline row always visible
+
+  // Show rules toggle → template row visibility
+  const chkShowRules = document.getElementById('chkTimerShowRules');
+  const tmplRow = document.getElementById('timerRulesTemplateRow');
+  if (chkShowRules && tmplRow) {
+    const syncTmplRow = () => { tmplRow.style.display = chkShowRules.checked ? '' : 'none'; };
+    chkShowRules.addEventListener('change', syncTmplRow);
+    syncTmplRow();
+  }
+
+  // Cap type toggle
+  function syncCapUnit() {
+    const capType = document.getElementById('timerCapTypeSelect')?.value;
+    const unit = document.getElementById('timerTimeUnit')?.value || 'seconds';
+    const lbl = document.getElementById('lblTimerCapUnit');
+    if (lbl) lbl.textContent = capType === 'time' ? (unit === 'minutes' ? '(นาที)' : '(วินาที)') : '';
+  }
+
+  const capTypeEl = document.getElementById('timerCapTypeSelect');
+  if (capTypeEl) {
+    capTypeEl.addEventListener('change', () => {
+      const hasCap = !!capTypeEl.value;
+      const capValGroup = document.getElementById('timerCapValueGroup');
+      const capStatusRow = document.getElementById('timerCapStatusRow');
+      if (capValGroup) capValGroup.style.display = hasCap ? '' : 'none';
+      if (capStatusRow) capStatusRow.style.display = hasCap ? '' : 'none';
+      syncCapUnit();
+    });
+  }
+
+  // P5-A: sound enabled toggle
+  const chkTimerSound = document.getElementById('chkTimerSoundEnabled');
+  if (chkTimerSound) {
+    chkTimerSound.addEventListener('change', () => {
+      const row = document.getElementById('timerSoundSettingsRow');
+      if (row) row.style.display = chkTimerSound.checked ? '' : 'none';
+    });
+  }
+
+  // P5-A: sound choice toggle — url=URL input only, upload=upload section only
+  const soundChoiceEl = document.getElementById('timerSoundChoiceSelect');
+  if (soundChoiceEl) {
+    soundChoiceEl.addEventListener('change', () => {
+      const v = soundChoiceEl.value;
+      const urlCont = document.getElementById('timerCustomSoundUrlContainer');
+      const uploadCont = document.getElementById('timerUploadSoundContainer');
+      if (urlCont) urlCont.style.display = v === 'url' ? '' : 'none';
+      if (uploadCont) uploadCont.style.display = v === 'upload' ? '' : 'none';
+    });
+  }
+  const btnBrowseTimer = document.getElementById('btnBrowseTimerSounds');
+  if (btnBrowseTimer) btnBrowseTimer.addEventListener('click', () => openSoundBrowser('timerCustomSoundUrl'));
+  const timerUploadFile = document.getElementById('timerUploadSoundFile');
+  if (timerUploadFile) timerUploadFile.addEventListener('change', handleTimerAudioFileSelect);
+  const btnClearTimerSound = document.getElementById('btnClearTimerUploadSound');
+  if (btnClearTimerSound) btnClearTimerSound.addEventListener('click', clearTimerUploadSound);
+  const volSlider = document.getElementById('sliderTimerSoundVolume');
+  if (volSlider) volSlider.addEventListener('input', () => {
+    const lbl = document.getElementById('lblTimerSoundVolume');
+    if (lbl) lbl.textContent = Math.round(parseFloat(volSlider.value) * 100);
+  });
+
+  // P5-B: timeout effect type toggle + test button
+  const effectTypeEl = document.getElementById('timerTimeoutEffectType');
+  if (effectTypeEl) {
+    effectTypeEl.addEventListener('change', () => {
+      const emojiRow = document.getElementById('timerEffectEmojiRow');
+      if (emojiRow) emojiRow.style.display = effectTypeEl.value === 'emoji' ? '' : 'none';
+    });
+  }
+  const btnTestEffect = document.getElementById('btnTestTimerEffect');
+  if (btnTestEffect) {
+    btnTestEffect.addEventListener('click', () => {
+      const iframe = document.getElementById('timerPreviewIframe');
+      if (!iframe?.contentWindow) return;
+      iframe.contentWindow.postMessage({
+        type: 'test_effect',
+        effect: document.getElementById('timerTimeoutEffectType')?.value || 'blink',
+        emoji: document.getElementById('inputTimerEffectEmoji')?.value || '🎉'
+      }, location.origin);
+    });
+  }
+
+  // Color sync
+  const colorPicker = document.getElementById('inputTimerColorMain');
+  const colorTxt = document.getElementById('txtTimerColorMain');
+  if (colorPicker && colorTxt) {
+    colorPicker.oninput = (e) => { colorTxt.value = e.target.value; };
+    colorTxt.oninput = (e) => {
+      if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) colorPicker.value = e.target.value;
+    };
+  }
+
+  // Sliders
+  const fontSizeEl = document.getElementById('sliderTimerFontSize');
+  if (fontSizeEl) fontSizeEl.oninput = (e) => {
+    const lbl = document.getElementById('lblTimerFontSize');
+    if (lbl) lbl.textContent = e.target.value;
+  };
+  const borderEl = document.getElementById('sliderTimerBorderRadius');
+  if (borderEl) borderEl.oninput = (e) => {
+    const lbl = document.getElementById('lblTimerBorderRadius');
+    if (lbl) lbl.textContent = e.target.value;
+  };
+
+  // Control buttons
+  const btnStart = document.getElementById('btnTimerStart');
+  const btnStop  = document.getElementById('btnTimerStop');
+  const btnReset = document.getElementById('btnTimerReset');
+  const btnResetCap = document.getElementById('btnTimerResetCap');
+  if (btnStart) btnStart.addEventListener('click', () => timerControl('start'));
+  if (btnStop)  btnStop.addEventListener('click',  () => timerControl('stop'));
+  if (btnReset) btnReset.addEventListener('click', () => timerControl('reset'));
+  if (btnResetCap) btnResetCap.addEventListener('click', () => timerControl('reset-cap'));
+
+  // Save button
+  const btnSave = document.getElementById('btnSaveTimerSettings');
+  if (btnSave) btnSave.addEventListener('click', saveTimerSettings);
+
+  // Copy URL buttons
+  function copyUrl(inputId) {
+    const el = document.getElementById(inputId);
+    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+  }
+  const btnCopyLeft = document.getElementById('btnCopyObsTimerUrl');
+  const btnCopyRight = document.getElementById('btnCopyObsTimerUrlRight');
+  const btnOpenLeft = document.getElementById('btnOpenObsTimerUrl');
+  const btnOpenRight = document.getElementById('btnOpenObsTimerUrlRight');
+  if (btnCopyLeft) btnCopyLeft.addEventListener('click', () => copyUrl('obsTimerUrlPreview'));
+  if (btnCopyRight) btnCopyRight.addEventListener('click', () => copyUrl('obsTimerUrlPreviewRight'));
+  if (btnOpenLeft) btnOpenLeft.addEventListener('click', () => {
+    const url = document.getElementById('obsTimerUrlPreview')?.value;
+    if (url) window.open(url, '_blank');
+  });
+  if (btnOpenRight) btnOpenRight.addEventListener('click', () => {
+    const url = document.getElementById('obsTimerUrlPreviewRight')?.value;
+    if (url) window.open(url, '_blank');
+  });
+
+  const btnReloadTimer = document.getElementById('btnReloadTimerPreview');
+  if (btnReloadTimer) btnReloadTimer.addEventListener('click', () => {
+    btnReloadTimer.classList.add('spinning');
+    const iframe = document.getElementById('timerPreviewIframe');
+    if (iframe) { const s = iframe.src; iframe.src = 'about:blank'; iframe.src = s; }
+    setTimeout(() => btnReloadTimer.classList.remove('spinning'), 1200);
+  });
+}
+
+// ========== Color picker bindings (Hex inputs <-> Color box picker) ==========
 const colorPickers = [
   { picker: 'colorPrimary', txt: 'txtPrimary' },
   { picker: 'colorSecondary', txt: 'txtSecondary' },
@@ -3773,6 +4469,7 @@ function updateBrandGlow(color) {
 // (Moved inside DOMContentLoaded)
 
 // ========== Sound Browser Functions ==========
+let _soundBrowserTarget = 'customSoundUrl'; // input id to write selected URL into
 let _soundBrowserOffset = 0;
 let _soundBrowserLoading = false;
 let _soundBrowserHasMore = true;
@@ -3781,7 +4478,8 @@ let _soundBrowserPageId = 'th';
 let _soundBrowserPages = ['th', 'global', 'us', 'jp', 'de', 'br', 'fr', 'uk'];
 let _soundBrowserPageIndex = 0;
 
-function openSoundBrowser() {
+function openSoundBrowser(targetInputId) {
+  _soundBrowserTarget = targetInputId || 'customSoundUrl';
   const modal = document.getElementById('soundBrowserModal');
   const input = document.getElementById('soundSearchInput');
   const resultsDiv = document.getElementById('soundResults');
@@ -4147,8 +4845,7 @@ async function previewSound(btn) {
 function selectSound(btn) {
   const url = btn.getAttribute('data-mp3');
   if (!url) return;
-
-  const input = document.getElementById('customSoundUrl');
+  const input = document.getElementById(_soundBrowserTarget);
   if (input) {
     input.value = url;
     showNotification('เลือกเสียงแล้ว');

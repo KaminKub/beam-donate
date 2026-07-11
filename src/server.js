@@ -154,7 +154,13 @@ const defaultSettings = {
   goal_subtitle2: '',
   goal_anim_sound: true,
   goal_anim_enabled: true,
-  goal_bar_position: 'top'
+  goal_bar_position: 'top',
+  // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
+  timer_settings: '',
+  timer_remaining_seconds: 600,
+  timer_running: 0,
+  timer_last_update: '',
+  timer_cap_current: 0
 };
 
 // ========== SSE Alert System ==========
@@ -258,7 +264,9 @@ function checkAntiBot(req, res) {
 //                          MUST exclude ALL demo-* sources
 // broadcastDemoAlert()   → demo-overlay + demo-goal-bar only
 // broadcastDemoGoalBar() → demo-goal-bar only
-// When adding a new SSE source: update ALL four functions above.
+// broadcastTimerUpdate()   → real timer clients, never demo-*
+// broadcastDemoTimerUpdate() → demo-timer only
+// When adding a new SSE source: update ALL functions above.
 // ──────────────────────────────────────────────────────────────────────
 function broadcastAlert(username, alertData) {
   let payload = alertData;
@@ -270,8 +278,8 @@ function broadcastAlert(username, alertData) {
   console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
 
   sseClients = sseClients.filter(client => {
-    // Never send real broadcasts to any demo client (demo-overlay or demo-goal-bar)
-    const isDemo = client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
+    // Never send real broadcasts to any demo client (demo-overlay, demo-goal-bar, demo-timer)
+    const isDemo = client.source === 'demo-overlay' || client.source === 'demo-goal-bar' || client.source === 'demo-timer';
     if (client.username === username && !isDemo) {
       try {
         client.res.write(`data: ${data}\n\n`);
@@ -340,7 +348,7 @@ function broadcastGoalUpdate(username, streamer) {
     endDate: streamer.goal_end_date
   });
   sseClients
-    .filter(c => c.username === username && c.source !== 'demo-overlay' && c.source !== 'demo-goal-bar')
+    .filter(c => c.username === username && c.source !== 'demo-overlay' && c.source !== 'demo-goal-bar' && c.source !== 'demo-timer')
     .forEach(c => {
       try {
         c.res.write(`data: ${payload}\n\n`);
@@ -349,6 +357,117 @@ function broadcastGoalUpdate(username, streamer) {
         console.error(`❌ [BroadcastGoal] Failed to write to client ${username}:`, err.message);
       }
     });
+}
+
+// Timer config lives as a JSON string in streamer.timer_settings — parse once.
+function getTimerConfig(streamer) {
+  try { return JSON.parse(streamer.timer_settings || '{}'); }
+  catch { return {}; }
+}
+
+// Donor-supplied timer choice — trust boundary: whitelist only
+function sanitizeTimerAction(v) {
+  return ['add', 'sub', 'none'].includes(v) ? v : null;
+}
+// Sign for a 'choice' rule based on donor pick. 'none'/null → 0 (no change).
+function choiceSign(donorAction) {
+  if (donorAction === 'add') return 1;
+  if (donorAction === 'sub') return -1;
+  return 0;
+}
+
+// broadcastTimerUpdate() → real timer clients, never demo-*
+function broadcastTimerUpdate(username, streamer) {
+  const t = getTimerConfig(streamer);
+  if (!t.enabled) return;
+  const payload = JSON.stringify({
+    type: 'timer_update',
+    remaining: streamer.timer_remaining_seconds,
+    lastUpdate: streamer.timer_last_update,
+    running: !!streamer.timer_running,
+    capType: t.cap_type,
+    capValue: t.cap_value,
+    capCurrent: streamer.timer_cap_current,
+  });
+  sseClients = sseClients.filter(client => {
+    const isDemo = client.source === 'demo-timer' || client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
+    if (client.username === username && !isDemo) {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
+// broadcastDemoTimerUpdate() → demo-timer clients ONLY
+function broadcastDemoTimerUpdate(username, timerData) {
+  const payload = JSON.stringify(timerData);
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'demo-timer') {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
+// Compute seconds to add/subtract for a donation, per the timer config rules.
+// Pure: enabled/running gating + money-cap accumulation live in applyTimerOnDonation.
+function calculateTimeDelta(amount, streamer, donorAction) {
+  const t = getTimerConfig(streamer);
+  const rules = Array.isArray(t.rules) ? t.rules : [];
+  const mode = t.mode;
+
+  if (mode === 'multiplier') {
+    // R10: multi-rule = sum ทุกกฏ (bonus tier semantics)
+    let totalDelta = 0;
+    for (const base of rules) {
+      if (!base.base_amount || base.base_amount <= 0) continue;
+      const sign = base.action === 'choice' ? choiceSign(donorAction) : (base.action === 'sub' ? -1 : 1);
+      if (sign === 0) continue;
+      const mult = Math.floor(amount / base.base_amount);
+      if (mult <= 0) continue;
+      totalDelta += sign * mult * (base.time_seconds || 0);
+    }
+    return totalDelta;
+  }
+
+  if (mode === 'threshold') {
+    const sorted = [...rules].sort((a, b) => b.amount - a.amount);
+    const tier = sorted.find(r => amount >= r.amount);
+    if (!tier) return 0;
+    if (tier.action === 'choice') return choiceSign(donorAction) * tier.time_seconds;
+    return tier.action === 'sub' ? -tier.time_seconds : tier.time_seconds;
+  }
+
+  if (mode === 'fixed') {
+    const match = rules.find(r => Math.abs(r.amount - amount) < 0.01);
+    if (!match) return 0;
+    if (match.action === 'choice') return choiceSign(donorAction) * match.time_seconds;
+    return match.action === 'sub' ? -match.time_seconds : match.time_seconds;
+  }
+
+  return 0;
+}
+
+// Single donation side-effect for the timer — called at all 5 donation-confirm sites.
+async function applyTimerOnDonation(streamer, amount, timerAction) {
+  try {
+    const t = getTimerConfig(streamer);
+    if (!t.enabled || !streamer.timer_running) return;
+    const delta = calculateTimeDelta(amount, streamer, timerAction);
+    // Money cap accumulation (single place — C4)
+    if (t.cap_type === 'money') {
+      const room = (t.cap_value || 0) - (streamer.timer_cap_current || 0);
+      if (room <= 0) return;
+      await db.addTimerCap(streamer.id, amount, t.cap_value || 0);
+    }
+    if (delta === 0) return;
+    const updated = await db.updateTimerState(streamer, delta);
+    broadcastTimerUpdate(streamer.username, { ...streamer, ...updated });
+  } catch (e) {
+    console.error('Timer donation update failed:', e.message);
+  }
 }
 
 async function logTransaction(data) {
@@ -862,7 +981,7 @@ app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
 const MAX_DEMO_SSE_CLIENTS = 50;
 const MAX_DEMO_SSE_PER_IP = 3;
 
-const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar']);
+const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar', 'demo-timer']);
 
 app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
   const clientSource = ALLOWED_DEMO_SOURCES.has(req.query.source) ? req.query.source : 'demo-overlay';
@@ -923,6 +1042,28 @@ app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => 
     endDate: null
   };
   broadcastDemoGoalBar(DEMO_STREAMER_USERNAME, goalData);
+  res.json({ success: true });
+});
+
+app.get('/demo/timer', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/timer/index.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
+// Demo timer test — broadcasts timer_update to demo-timer SSE clients
+const demoTimerLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+app.post('/api/demo/timer/test', demoRateLimiter, demoTimerLimiter, (req, res) => {
+  const { remaining, running } = req.body || {};
+  const data = {
+    type: 'timer_update',
+    remaining: Math.max(0, Math.min(parseInt(remaining) || 600, 86400)),
+    running: running !== false,
+    lastUpdate: new Date().toISOString()
+  };
+  broadcastDemoTimerUpdate(DEMO_STREAMER_USERNAME, data);
   res.json({ success: true });
 });
 
@@ -1486,6 +1627,10 @@ app.get('/goal-bar', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/goal-bar/index.html'));
 });
 
+app.get('/timer', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/timer/index.html'));
+});
+
 app.get('/overlay', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/overlay/index.html'));
 });
@@ -1604,7 +1749,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API: สร้าง Donation (Payment Link)
 app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
   try {
-    const { amount, name, message, username } = req.body;
+    const { amount, name, message, username, timerAction } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
     if (!username) return res.status(400).json({ error: 'ไม่ระบุชื่อผู้รับบริจาค' });
 
@@ -1633,7 +1778,8 @@ app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
       status: 'pending',
       paymentUrl: charge.url,
       raw_response: charge,
-      streamer_username: username
+      streamer_username: username,
+      timer_action: sanitizeTimerAction(timerAction)
     });
     res.json({ success: true, paymentUrl: charge.url });
   } catch (error) {
@@ -1714,6 +1860,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
             const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
             broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
           }
+          if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(txDetails.timer_action));
         } catch (e) {
           console.error('Goal update after webhook failed:', e.message);
         }
@@ -1727,7 +1874,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
 const RESERVED_WORDS = [
   'login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register',
-  'admin', 'demo', 'health', 'goal-bar', 'webhook', 'login-failed', 'forbidden',
+  'admin', 'demo', 'health', 'goal-bar', 'timer', 'webhook', 'login-failed', 'forbidden',
   'privacy', 'terms-of-services',
 ];
 
@@ -2077,6 +2224,7 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
             const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
             broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
           }
+          if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(txDetails.timer_action));
         } catch (e) {
           console.error('Goal update after manual confirm failed:', e.message);
         }
@@ -2266,7 +2414,8 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
-  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position'
+  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position',
+  'timer_settings'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -2289,6 +2438,39 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       if (!audioCheck.valid) {
         return res.status(400).json({ error: audioCheck.message });
       }
+    }
+
+    // Timer config: must be a JSON object; validate embedded sound URL (SEC-002 precedent).
+    if (safeBody.timer_settings !== undefined) {
+      let t;
+      try { t = JSON.parse(safeBody.timer_settings); } catch { t = null; }
+      if (!t || typeof t !== 'object' || Array.isArray(t)) {
+        return res.status(400).json({ error: 'timer_settings ไม่ถูกต้อง' });
+      }
+      if (t.sound_url) {
+        const check = validateAudioUrl(t.sound_url);
+        if (!check.valid) return res.status(400).json({ error: check.message });
+      }
+      // max rules limit (I3)
+      if (Array.isArray(t.rules) && t.rules.length > 10) {
+        return res.status(400).json({ error: 'กฏ Timer สูงสุด 10 กฏ' });
+      }
+      // sound_volume range (P5-A)
+      if (t.sound_volume !== undefined) {
+        const vol = parseFloat(t.sound_volume);
+        if (isNaN(vol) || vol < 0 || vol > 1) {
+          return res.status(400).json({ error: 'sound_volume ต้องอยู่ระหว่าง 0-1' });
+        }
+      }
+      // outline_color hex validation (I10)
+      if (t.outline_color !== undefined && !/^#([A-Fa-f0-9]{3}){1,2}$/.test(t.outline_color)) {
+        return res.status(400).json({ error: 'outline_color ต้องเป็น hex color' });
+      }
+      // emoji length cap (R9)
+      if (t.timeout_effect_emoji !== undefined && String(t.timeout_effect_emoji).length > 16) {
+        return res.status(400).json({ error: 'emoji ยาวเกินไป' });
+      }
+      safeBody.timer_settings = JSON.stringify(t); // re-serialize to strip anything odd
     }
 
     const updatedStreamer = await db.saveStreamer({
@@ -2333,6 +2515,24 @@ app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res
   } catch (error) {
     console.error('Goal reset error:', error);
     res.status(500).json({ error: 'ไม่สามารถรีเซ็ตได้' });
+  }
+});
+
+app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { action } = req.body;
+    if (!['start', 'stop', 'reset', 'reset-cap'].includes(action)) {
+      return res.status(400).json({ error: 'invalid action' });
+    }
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'streamer not found' });
+    const updated = await db.setTimerControl(streamer.id, action);
+    const actualUsername = await getActualUsername(req.user);
+    broadcastTimerUpdate(actualUsername, { ...streamer, ...updated });
+    res.json({ success: true, ...updated });
+  } catch (error) {
+    console.error('Timer control error:', error);
+    res.status(500).json({ error: 'ไม่สามารถควบคุม Timer ได้' });
   }
 });
 
@@ -2476,6 +2676,20 @@ app.get('/api/page/:username/settings', async (req, res) => {
       pageBgUrl: streamer.page_bg_url || '',
       headerBgY: streamer.header_bg_y != null ? streamer.header_bg_y : 50,
       headerBgZoom: streamer.header_bg_zoom != null ? streamer.header_bg_zoom : 100,
+      timer: (() => {
+        const t = getTimerConfig(streamer);
+        if (!t.enabled) return { enabled: false };
+        return {
+          enabled: true,
+          mode: t.mode || 'multiplier',
+          // whitelist-map: ส่งเฉพาะ field ที่หน้าโดเนทต้องใช้ — กัน field หลุดเกิน
+          rules: (Array.isArray(t.rules) ? t.rules : []).map(r => ({
+            amount: r.amount, base_amount: r.base_amount,
+            time_seconds: r.time_seconds, action: r.action,
+          })),
+          allowPassthrough: t.allow_passthrough !== 0 && t.allow_passthrough !== false, // default เปิด
+        };
+      })(),
       socials: {
         twitch: streamer.social_twitch,
         youtube: streamer.social_youtube,
@@ -3382,7 +3596,7 @@ const promptPayQrLimiter = rateLimit({
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { username, amount, name, message } = req.body;
+    const { username, amount, name, message, timerAction } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
     if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
 
@@ -3428,7 +3642,8 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
       status: 'pending',
       streamer_username: username,
       payment_method: 'promptpay',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      timer_action: sanitizeTimerAction(timerAction)
     };
     await db.saveTransaction(txData);
     db.logIpEvent('donate_submit', req.ip, username, { amount, ref: referenceId }).catch(() => {});
@@ -3467,7 +3682,8 @@ const pollSlipLimiter = rateLimit({
 app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage } = req.body;
+    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction } = req.body;
+    const donorTimerAction = sanitizeTimerAction(timerAction);
     const slipFile = req.file;
 
     if (!slipFile) return res.status(400).json({ success: false, errorCode: 'NO_FILE', error: 'กรุณาอัพโหลดไฟล์สลิป' });
@@ -3586,6 +3802,7 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
                   const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, tx.amount);
                   broadcastGoalUpdate(goalStreamer.username, { ...goalStreamer, ...goalUpdated });
                 }
+                if (goalStreamer) await applyTimerOnDonation(goalStreamer, tx.amount, sanitizeTimerAction(tx.timer_action));
               } catch (e) {
                 console.error('Goal update after slip verify failed:', e.message);
               }
@@ -3605,7 +3822,8 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
             promptpay_verified_at: new Date().toISOString(),
             promptpay_slip_id: d.transRef || null,
             paidAt: new Date().toISOString(),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            timer_action: donorTimerAction
           });
           db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'truemoney', ref: referenceIdNew }).catch(() => {});
 
@@ -3625,6 +3843,7 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
                 const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, finalAmount);
                 broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
               }
+              if (goalStreamer) await applyTimerOnDonation(goalStreamer, finalAmount, donorTimerAction);
             } catch (e) {
               console.error('Goal update after truemoney verify failed:', e.message);
             }
@@ -3643,7 +3862,8 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
             promptpay_verified_at: new Date().toISOString(),
             promptpay_slip_id: d.transRef || null,
             paidAt: new Date().toISOString(),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            timer_action: donorTimerAction
           });
           db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'bank', ref: referenceIdNew }).catch(() => {});
 
@@ -3662,6 +3882,7 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
                 const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, bankAmount);
                 broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
               }
+              if (goalStreamer) await applyTimerOnDonation(goalStreamer, bankAmount, donorTimerAction);
             } catch (e) {
               console.error('Goal update after bank verify failed:', e.message);
             }

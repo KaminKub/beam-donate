@@ -1177,11 +1177,8 @@ small.text-muted {
 }
 
 .cs-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
+  position: fixed;
+  z-index: 9000;
   background: #12172e;
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-top: none;
@@ -3064,6 +3061,10 @@ label {
   display: block;
 }
 
+.settings-card.panel-open .card-body-panel:not(.panel-opening):not(.panel-closing) {
+  overflow: visible;
+}
+
 .card-body-panel.panel-opening {
   animation: panelSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -3187,6 +3188,15 @@ label {
 #btnSubtabGoal:hover:not(.active) {
   border-color: #86efac;
   color: #4ade80;
+}
+#btnSubtabTimer.active {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+#btnSubtabTimer:hover:not(.active) {
+  border-color: #fde68a;
+  color: #fbbf24;
 }
 
 /* ========== Goal Quick-Add Buttons ========== */
@@ -3414,4 +3424,48 @@ label {
   background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
   border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+/* ── Timer Settings ── */
+.timer-time-inputs { display: flex; gap: 8px; align-items: center; }
+.timer-rule-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.timer-rule-row input { flex: 1; min-width: 90px; }
+.timer-control-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.timer-cap-status { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+
+.timer-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.timer-mode-card {
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  user-select: none;
+}
+.timer-mode-card:hover { transform: translateY(-2px); }
+.timer-mode-card-icon { font-size: 22px; margin-bottom: 6px; }
+.timer-mode-card-title { font-size: 20px; font-weight: 700; }
+.timer-mode-card-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.timer-mode-card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+.timer-mode-card[data-mode="multiplier"].active { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.timer-mode-card[data-mode="multiplier"].active .timer-mode-card-icon { color: #3b82f6; }
+.timer-mode-card[data-mode="multiplier"]:hover { border-color: #60a5fa; }
+.timer-mode-card[data-mode="threshold"].active { border-color: #10b981; background: rgba(16,185,129,0.08); }
+.timer-mode-card[data-mode="threshold"].active .timer-mode-card-icon { color: #10b981; }
+.timer-mode-card[data-mode="threshold"]:hover { border-color: #34d399; }
+.timer-mode-card[data-mode="fixed"].active { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+.timer-mode-card[data-mode="fixed"].active .timer-mode-card-icon { color: #f59e0b; }
+.timer-mode-card[data-mode="fixed"]:hover { border-color: #fbbf24; }
+
+@media (max-width: 768px) {
+  .timer-rule-row { flex-wrap: wrap; }
+  .timer-control-buttons { flex-direction: column; }
+  .timer-mode-cards { grid-template-columns: 1fr; }
 }

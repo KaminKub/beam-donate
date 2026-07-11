@@ -1,0 +1,81 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: transparent;
+  overflow: hidden;
+}
+
+#timerWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+}
+
+#timerDigits {
+  font-family: 'Outfit', 'Kanit', sans-serif;
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  transition: font-size 0.3s;
+  display: inline-block;
+  --timer-main-color: #fbbf24;
+  background: linear-gradient(90deg, var(--timer-main-color) 0%, #ffffff 50%, var(--timer-main-color) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: timer-shine 5s linear infinite;
+}
+
+#timerDigits.shine-off {
+  -webkit-text-fill-color: var(--timer-main-color);
+  animation: none;
+}
+
+#timerRules {
+  font-family: 'Kanit', sans-serif;
+  font-size: 18px;
+  color: rgba(255,255,255,0.85);
+  text-align: center;
+  margin-top: 8px;
+}
+
+.timer-rule-line {
+  margin-bottom: 4px;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+  white-space: pre-wrap;
+}
+
+@keyframes timer-shine {
+  0%   { background-position: 200% center; }
+  100% { background-position: 0% center; }
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.timer-expired #timerDigits {
+  --timer-main-color: #ef4444;
+  animation: timer-shine 5s linear infinite, timer-pulse 0.5s ease-in-out 6;
+}
+
+.timer-expired #timerDigits.shine-off {
+  -webkit-text-fill-color: #ef4444;
+  animation: timer-pulse 0.5s ease-in-out 6;
+}
+
+@keyframes timer-shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px) rotate(-2deg); }
+  40% { transform: translateX(8px) rotate(2deg); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+.timer-effect-shake #timerDigits {
+  animation: timer-shake 0.5s ease-in-out;
+}
+
