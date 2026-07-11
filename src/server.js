@@ -155,6 +155,7 @@ const defaultSettings = {
   goal_anim_sound: true,
   goal_anim_enabled: true,
   goal_bar_position: 'top',
+  goal_bar_width: '100',
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,
@@ -377,9 +378,11 @@ function choiceSign(donorAction) {
 }
 
 // broadcastTimerUpdate() → real timer clients, never demo-*
-function broadcastTimerUpdate(username, streamer) {
+function broadcastTimerUpdate(username, streamer, delta = 0) {
   const t = getTimerConfig(streamer);
   if (!t.enabled) return;
+  const overlayOnline = sseClients.some(c => c.username === username && c.source === 'overlay');
+  const goalBarOnline = sseClients.some(c => c.username === username && c.source === 'goal-bar');
   const payload = JSON.stringify({
     type: 'timer_update',
     remaining: streamer.timer_remaining_seconds,
@@ -388,6 +391,9 @@ function broadcastTimerUpdate(username, streamer) {
     capType: t.cap_type,
     capValue: t.cap_value,
     capCurrent: streamer.timer_cap_current,
+    delta,
+    overlayOnline,
+    goalBarOnline,
   });
   sseClients = sseClients.filter(client => {
     const isDemo = client.source === 'demo-timer' || client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
@@ -471,15 +477,38 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
     const t = getTimerConfig(streamer);
     if (!t.enabled || !streamer.timer_running) return;
     const delta = calculateTimeDelta(amount, streamer, timerAction);
-    // Money cap accumulation (single place — C4)
-    if (t.cap_type === 'money') {
+    // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
+    if (t.cap_type === 'money' && (t.cap_value || 0) > 0) {
       const room = (t.cap_value || 0) - (streamer.timer_cap_current || 0);
       if (room <= 0) return;
       await db.addTimerCap(streamer.id, amount, t.cap_value || 0);
+      streamer.timer_cap_current = Math.min((streamer.timer_cap_current || 0) + amount, t.cap_value || 0); // sync ก่อน broadcast (F3)
     }
+
+    // Time cap: track total time added (วินาที) — cap_value <= 0 = ไม่จำกัด (F1)
+    if (t.cap_type === 'time' && (t.cap_value || 0) > 0) {
+      const capValue = t.cap_value || 0;
+      const capCurrent = streamer.timer_cap_current || 0;
+      if (delta > 0) {
+        const room = capValue - capCurrent;
+        if (room <= 0) return;                        // cap เต็ม → ไม่ปรับเวลา
+        const effectiveDelta = Math.min(delta, room);  // clamp ส่วนเกิน
+        await db.addTimerCap(streamer.id, effectiveDelta, capValue);
+        streamer.timer_cap_current = Math.min(capCurrent + effectiveDelta, capValue); // sync ก่อน broadcast (F3)
+        const updated = await db.updateTimerState(streamer, effectiveDelta);
+        broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, effectiveDelta);
+        return;
+      }
+      // delta < 0 (subtraction): ลด timer_cap_current (คืน room ให้โดเนทถัดไป) — ข้าม delta=0 (F5)
+      if (delta < 0) {
+        await db.addTimerCap(streamer.id, delta, capValue);
+        streamer.timer_cap_current = Math.max(0, capCurrent + delta); // sync ก่อน broadcast (F3)
+      }
+    }
+
     if (delta === 0) return;
     const updated = await db.updateTimerState(streamer, delta);
-    broadcastTimerUpdate(streamer.username, { ...streamer, ...updated });
+    broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, delta);
   } catch (e) {
     console.error('Timer donation update failed:', e.message);
   }
@@ -804,6 +833,14 @@ const goalPublicLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const widgetStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'เชื่อมต่อบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const demoRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -905,7 +942,7 @@ function applyDemoMask(row) {
     // Goal bar
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
-    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position',
+    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
   ]);
@@ -2060,7 +2097,7 @@ app.get('/api/overlay/status/:username', async (req, res) => {
 });
 
 // Public widget status SSE (donate page) — pushes overlayActive + timerActive in real-time
-app.get('/api/widget/status/stream', async (req, res) => {
+app.get('/api/widget/status/stream', widgetStatusLimiter, async (req, res) => {
   const username = (req.query.username || '').toLowerCase();
   if (!username) return res.status(400).json({ error: 'missing username' });
   if (sseClients.length >= MAX_SSE_CLIENTS) return res.status(503).json({ error: 'Too many concurrent connections' });
@@ -2463,7 +2500,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
-  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position',
+  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
   'timer_settings'
 ];
 
@@ -2488,6 +2525,8 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
         return res.status(400).json({ error: audioCheck.message });
       }
     }
+
+    let capResetStreamerId = null; // F2: PK ของ streamer ถ้า cap_type เปลี่ยน → reset counter หลัง save
 
     // Timer config: must be a JSON object; validate embedded sound URL (SEC-002 precedent).
     if (safeBody.timer_settings !== undefined) {
@@ -2520,6 +2559,12 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
         return res.status(400).json({ error: 'emoji ยาวเกินไป' });
       }
       safeBody.timer_settings = JSON.stringify(t); // re-serialize to strip anything odd
+
+      // F2: cap_type เปลี่ยน → counter เดิมหน่วยผิด (บาท↔วินาที) ต้อง reset
+      const prevStreamer = await getStreamerForUser(req.user);
+      if (prevStreamer && (getTimerConfig(prevStreamer).cap_type || '') !== (t.cap_type || '')) {
+        capResetStreamerId = prevStreamer.id;
+      }
     }
 
     const updatedStreamer = await db.saveStreamer({
@@ -2528,7 +2573,12 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       username: actualUsername,
       ...safeBody
     });
-    
+
+    if (capResetStreamerId) {
+      await db.setTimerControl(capResetStreamerId, 'reset-cap');
+      updatedStreamer.timer_cap_current = 0; // response + broadcast สะท้อนค่าจริง
+    }
+
     broadcastAlert(actualUsername, { type: 'settings_update', settings: updatedStreamer });
     res.json({ success: true, settings: updatedStreamer });
   } catch (error) {

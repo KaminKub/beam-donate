@@ -870,6 +870,15 @@ async function initializeDashboard() {
       };
     }
 
+    // Goal bar width range slider sync
+    const rangeEl = document.getElementById('inputGoalBarWidth');
+    const txtEl = document.getElementById('txtGoalBarWidth');
+    if (rangeEl && txtEl) {
+      rangeEl.addEventListener('input', () => {
+        txtEl.textContent = rangeEl.value + '%';
+      });
+    }
+
     // Goal adjust button
     async function applyGoalDelta(delta) {
       if (isNaN(delta) || delta === 0) return;
@@ -946,6 +955,7 @@ async function initializeDashboard() {
           goal_subtitle1: (document.getElementById('inputGoalSubtitle1') || {}).value ?? '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
           goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? '',
           goal_end_date: endDateVal,
+          goal_bar_width: document.getElementById('inputGoalBarWidth').value || '100',
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
           method: 'POST',
@@ -1242,6 +1252,11 @@ function loadDemoGoalSettingsFromData(data) {
   if (colorEl) colorEl.value = data.goal_bar_color || '#4ade80';
   const txtColor = document.getElementById('txtGoalBarColor');
   if (txtColor) txtColor.value = data.goal_bar_color || '#4ade80';
+  const widthEl = document.getElementById('inputGoalBarWidth');
+  if (widthEl) {
+    widthEl.value = data.goal_bar_width || '100';
+    widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   const barTextEl = document.getElementById('inputGoalBarText');
   if (barTextEl) barTextEl.value = data.goal_bar_text !== undefined ? data.goal_bar_text : '{เปอร์เซนต์}';
   const sub1El = document.getElementById('inputGoalSubtitle1');
@@ -3509,6 +3524,11 @@ async function loadGoalSettings() {
     document.getElementById('inputGoalBarColor').value = color;
     const txtColor = document.getElementById('txtGoalBarColor');
     if (txtColor) txtColor.value = color;
+    const widthEl = document.getElementById('inputGoalBarWidth');
+    if (widthEl) {
+      widthEl.value = data.goal_bar_width || '100';
+      widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 
     const barTextEl = document.getElementById('inputGoalBarText');
     if (barTextEl) barTextEl.value = data.goal_bar_text !== undefined ? data.goal_bar_text : '{เปอร์เซนต์}';
@@ -3845,6 +3865,21 @@ async function loadTimerSettings() {
       }
     }
 
+    const chkTimerAnim = document.getElementById('chkTimerAnimEnabled');
+    if (chkTimerAnim) {
+      chkTimerAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
+      const syncAnimTestVis = () => {
+        const soundGroup = document.getElementById('timerAnimSoundGroup');
+        const testPanel = document.getElementById('timerAnimTestPanel');
+        if (soundGroup) soundGroup.style.display = chkTimerAnim.checked ? '' : 'none';
+        if (testPanel) testPanel.style.display = chkTimerAnim.checked ? '' : 'none';
+      };
+      syncAnimTestVis();
+      chkTimerAnim.addEventListener('change', syncAnimTestVis);
+    }
+    const chkTimerAnimSound = document.getElementById('chkTimerAnimSound');
+    if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
+
     if (tokenRes.ok) {
       const { token } = await tokenRes.json();
       const timerUrl = `${location.origin}/timer?token=${token}`;
@@ -3901,6 +3936,8 @@ async function saveTimerSettings() {
     sound_choice: document.getElementById('timerSoundChoiceSelect')?.value || 'synthetic',
     sound_url: document.getElementById('timerCustomSoundUrl')?.value || '',
     sound_volume: (() => { const v = parseFloat(document.getElementById('sliderTimerSoundVolume')?.value); return isNaN(v) ? 0.7 : v; })(),
+    timer_anim_enabled: document.getElementById('chkTimerAnimEnabled')?.checked ? 1 : 0,
+    timer_anim_sound_enabled: document.getElementById('chkTimerAnimSound')?.checked ? 1 : 0,
   };
 
   try {
@@ -4083,6 +4120,35 @@ function initTimerSettingsUI() {
         effect: document.getElementById('timerTimeoutEffectType')?.value || 'blink',
         emoji: document.getElementById('inputTimerEffectEmoji')?.value || '🎉'
       }, location.origin);
+    });
+  }
+
+  const btnTestAnimAdd = document.getElementById('btnTestTimerAnimAdd');
+  const btnTestAnimSub = document.getElementById('btnTestTimerAnimSub');
+  function sendTestTimerAnim(sign) {
+    const iframe = document.getElementById('timerPreviewIframe');
+    if (!iframe?.contentWindow) return;
+    const input = document.getElementById('inputTestTimerDelta');
+    let raw = parseInt(input?.value) || 30;
+    if (raw > 3600) { raw = 3600; input.value = 3600; }
+    if (raw < 1) { raw = 1; input.value = 1; }
+    const delta = raw * sign;
+    const timeUnit = document.getElementById('timerTimeUnit')?.value || 'seconds';
+    iframe.contentWindow.postMessage({
+      type: 'test_delta_anim',
+      delta,
+      timeUnit,
+      source: 'preview'
+    }, location.origin);
+  }
+  if (btnTestAnimAdd) btnTestAnimAdd.addEventListener('click', () => sendTestTimerAnim(1));
+  if (btnTestAnimSub) btnTestAnimSub.addEventListener('click', () => sendTestTimerAnim(-1));
+  const inputTestDelta = document.getElementById('inputTestTimerDelta');
+  if (inputTestDelta) {
+    inputTestDelta.addEventListener('change', () => {
+      let v = parseInt(inputTestDelta.value) || 30;
+      if (v > 3600) inputTestDelta.value = 3600;
+      if (v < 1) inputTestDelta.value = 1;
     });
   }
 

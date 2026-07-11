@@ -1592,6 +1592,42 @@ label {
   border-radius: 7px;
 }
 
+.goal-width-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.goal-width-row .form-group:first-child {
+  flex: 0 0 auto;
+}
+
+.goal-width-row .form-group:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.width-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.width-input-wrapper input[type="range"] {
+  flex: 1;
+  height: 6px;
+  accent-color: var(--accent-color, #667eea);
+  cursor: pointer;
+}
+
+.width-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 42px;
+  text-align: right;
+}
+
 .custom-colors-container {
   display: block;
 }
@@ -3433,6 +3469,37 @@ label {
 .timer-control-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .timer-cap-status { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 .timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.timer-anim-test-buttons { align-items: center; }
+.timer-anim-test-buttons .btn-sm { padding: 6px 12px; font-size: 13px; line-height: 1; border-width: 2px; transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.timer-anim-test-buttons input[type="number"] { -moz-appearance: textfield; }
+.timer-anim-test-buttons input[type="number"]::-webkit-outer-spin-button,
+.timer-anim-test-buttons input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.timer-anim-test-buttons .btn-test-add {
+  color: #ffffff;
+  background-color: #10b981;
+  border-color: #10b981;
+}
+.timer-anim-test-buttons .btn-test-add:hover {
+  background-color: #059669;
+  border-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(16,185,129,0.35);
+}
+.timer-anim-test-buttons .btn-test-add:active { transform: translateY(0) scale(0.96); }
+
+.timer-anim-test-buttons .btn-test-sub {
+  color: #ffffff;
+  background-color: #ef4444;
+  border-color: #ef4444;
+}
+.timer-anim-test-buttons .btn-test-sub:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(239,68,68,0.35);
+}
+.timer-anim-test-buttons .btn-test-sub:active { transform: translateY(0) scale(0.96); }
 
 .timer-mode-cards {
   display: grid;

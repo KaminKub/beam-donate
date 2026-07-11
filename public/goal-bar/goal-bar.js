@@ -141,6 +141,8 @@
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
       document.documentElement.style.setProperty('--bar-color', color);
+      const barWidth = Math.max(20, Math.min(100, parseInt(data.goal_bar_width, 10) || 100));
+      wrapper.style.setProperty('--bar-width', barWidth + '%');
       if (data.fontFamily) {
         document.documentElement.style.setProperty('--font-family', `'${data.fontFamily}', 'Noto Sans Thai', sans-serif`);
       }

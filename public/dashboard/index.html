@@ -1248,12 +1248,19 @@
                           <input type="number" id="inputGoalAmount" class="form-control" min="1" placeholder="5000">
                         </div>
                       </div>
-                      <div class="form-row">
+                      <div class="form-row goal-width-row">
                         <div class="form-group">
                           <label>สีแถบ Progress</label>
                           <div class="color-input-wrapper">
                             <input type="color" id="inputGoalBarColor" value="#4ade80">
                             <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label for="inputGoalBarWidth">ความยาวหลอด (%)</label>
+                          <div class="width-input-wrapper">
+                            <input type="range" id="inputGoalBarWidth" min="20" max="100" step="5" value="100">
+                            <span class="width-value" id="txtGoalBarWidth">100%</span>
                           </div>
                         </div>
                       </div>
@@ -1368,6 +1375,26 @@
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label"><i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> เปิดใช้งาน Timer</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerAnimEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation ตัวเลข ±เวลา</span>
+                          </div>
+                        </div>
+                        <div class="form-group" id="timerAnimSoundGroup">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkTimerAnimSound" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
                           </div>
                         </div>
                       </div>
@@ -1715,8 +1742,8 @@
                     <h3><i class="fa-solid fa-hourglass-half" style="color:#fbbf24"></i> พรีวิว Timer</h3>
                   </div>
                   <p class="preview-hint">ตัวอย่างที่โปรแกรมสตรีมมิ่งจะแสดง — Background โปร่งใสในระบบจริง</p>
-                  <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
-                    <iframe id="timerPreviewIframe" src="about:blank" style="width:100%;height:200px;border:none;" title="Timer Preview"></iframe>
+                  <div class="timer-preview-frame" style="background:#1a1a2e;border-radius:10px;padding:24px 12px;margin-bottom:12px;">
+                    <iframe id="timerPreviewIframe" src="about:blank" style="width:100%;height:260px;border:none;" title="Timer Preview"></iframe>
                   </div>
                   <div class="copy-url-group">
                     <input type="text" id="obsTimerUrlPreviewRight" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
@@ -1725,7 +1752,7 @@
                   </div>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadTimerPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 400×150px, background transparent</span>
+                    <span class="text-muted" style="font-size:12px;">แนะนำ: ขนาด 500×260px, background transparent</span>
                   </div>
                   <div class="timer-live-control">
                     <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
@@ -1742,6 +1769,26 @@
                         <i class="fa-solid fa-rotate-left" style="color:#3b82f6"></i> รีเซท
                       </button>
                     </div>
+                  </div>
+
+                  <div class="timer-live-control" id="timerAnimTestPanel" style="display:none;">
+                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+                      <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> ทดสอบ Effect Animation
+                    </p>
+                    <div class="timer-control-buttons timer-anim-test-buttons">
+                      <button type="button" id="btnTestTimerAnimSub" class="btn btn-sm btn-test-sub" title="ลบเวลา">
+                        <i class="fa-solid fa-minus"></i>
+                      </button>
+                      <input type="number" id="inputTestTimerDelta" class="form-control" value="30" min="1" max="3600" style="width:72px;text-align:center;font-size:14px;padding:4px 6px;">
+                      <span style="font-size:13px;color:var(--text-muted);">วินาที</span>
+                      <button type="button" id="btnTestTimerAnimAdd" class="btn btn-sm btn-test-add" title="บวกเวลา">
+                        <i class="fa-solid fa-plus"></i>
+                      </button>
+                    </div>
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4;">
+                      <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
+                      สำหรับดูตัวอย่างในหน้านี้เท่านั้น — ทดสอบได้สูงสุด 3600 วินาที (60 นาที)
+                    </p>
                   </div>
                 </div>
 

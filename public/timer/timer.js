@@ -11,6 +11,14 @@
   let timeoutFired = false;
   let lastDisplayStr = '';
 
+  let animInProgress = false;
+  let pendingUpdate = null;
+  let animDelayTimer = null;
+
+  let alertDurationMs = 8000;
+  let goalBarAnimEnabled = true;
+  const GOALBAR_ANIM_BUFFER_MS = 4000;
+
   const wrapper = document.getElementById('timerWrapper');
   const digitsEl = document.getElementById('timerDigits');
   const rulesEl = document.getElementById('timerRules');
@@ -224,20 +232,60 @@
   }
 
   function handleEvent(data) {
-    if (data.type === 'timer_update') {
-      if (data.remaining !== undefined) remainingSeconds = data.remaining;
-      lastUpdateTs = data.lastUpdate ? new Date(data.lastUpdate).getTime() : Date.now();
-      isRunning = !!data.running;
-      if (remainingSeconds > 0 && isRunning) {
-        timeoutFired = false;
-        wrapper.classList.remove('timer-expired');
-      }
-    }
     if (data.type === 'settings_update' && data.settings) {
+      if (data.settings.duration) alertDurationMs = (Number(data.settings.duration) || 8) * 1000;
+      goalBarAnimEnabled = data.settings.goal_anim_enabled !== 0 && data.settings.goal_anim_enabled !== false;
       try {
         const t = JSON.parse(data.settings.timer_settings || '{}');
         applySettings(t);
       } catch (e) {}
+    }
+
+    if (data.type === 'timer_update') {
+      const delta = data.delta || 0;
+      const newRemaining = data.remaining !== undefined ? data.remaining : remainingSeconds;
+      const animOn = settings.timer_anim_enabled !== false && settings.timer_anim_enabled !== 0;
+
+      if (animOn && delta !== 0) {
+        const overlayDelay = (data.overlayOnline && alertDurationMs > 0) ? alertDurationMs : 0;
+        const goalBarDelay = (data.goalBarOnline && goalBarAnimEnabled) ? GOALBAR_ANIM_BUFFER_MS : 0;
+        const totalDelay = overlayDelay + goalBarDelay;
+
+        const pending = { remaining: newRemaining, running: !!data.running, lastUpdate: data.lastUpdate };
+
+        if (totalDelay > 0) {
+          pendingUpdate = pending;
+          clearTimeout(animDelayTimer);
+          animDelayTimer = setTimeout(() => {
+            if (!pendingUpdate) return;
+            const p = pendingUpdate;
+            pendingUpdate = null;
+            if (!animInProgress) {
+              const delayedDelta = p.remaining - remainingSeconds;
+              startDeltaAnimation(delayedDelta, remainingSeconds, p.remaining, p.running, p.lastUpdate);
+            }
+          }, totalDelay);
+        } else {
+          if (animInProgress) {
+            pendingUpdate = pending;
+          } else {
+            startDeltaAnimation(delta, remainingSeconds, newRemaining, !!data.running, data.lastUpdate);
+          }
+        }
+        return;
+      }
+
+      if (animInProgress) {
+        pendingUpdate = { remaining: newRemaining, delta: 0, running: !!data.running, lastUpdate: data.lastUpdate };
+        return;
+      }
+      remainingSeconds = newRemaining;
+      lastUpdateTs = data.lastUpdate ? new Date(data.lastUpdate).getTime() : Date.now();
+      isRunning = !!data.running;
+      if (remainingSeconds > 0) {
+        timeoutFired = false;
+        wrapper.classList.remove('timer-expired');
+      }
     }
   }
 
@@ -253,6 +301,9 @@
 
       let t = {};
       try { t = JSON.parse(data.timer_settings || '{}'); } catch (e) {}
+
+      if (data.duration) alertDurationMs = (Number(data.duration) || 8) * 1000;
+      goalBarAnimEnabled = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
 
       if (!t.enabled && !isDemo) return;
 
@@ -293,6 +344,191 @@
     };
   }
 
+  function calcAnimDuration(absDelta) {
+    if (absDelta <= 15)  return 2500;
+    if (absDelta <= 60)  return 4000;
+    if (absDelta <= 300) return 5500;
+    return 7000;
+  }
+
+  function formatDeltaDisplay(secs, timeUnit) {
+    const s = Math.abs(Math.round(secs));
+    if (timeUnit === 'minutes') {
+      const m = Math.floor(s / 60), r = s % 60;
+      return `${m}:${String(r).padStart(2, '0')}`;
+    }
+    return String(s);
+  }
+
+  function shakeTimerOnce(cls) {
+    if (!wrapper) return;
+    wrapper.classList.remove(cls);
+    void wrapper.offsetWidth;
+    wrapper.classList.add(cls);
+    setTimeout(() => wrapper.classList.remove(cls), 250);
+  }
+
+  function glowTimer() {
+    if (!wrapper) return;
+    wrapper.classList.remove('timer-anim-glow');
+    void wrapper.offsetWidth;
+    wrapper.classList.add('timer-anim-glow');
+    setTimeout(() => wrapper.classList.remove('timer-anim-glow'), 800);
+  }
+
+  function startDeltaAnimation(delta, startRemaining, newRemaining, newRunning, newLastUpdate) {
+    animInProgress = true;
+    const absDelta = Math.abs(delta);
+    const duration = calcAnimDuration(absDelta);
+    const isAdd = delta > 0;
+    const timeUnit = settings.time_unit || 'seconds';
+
+    const deltaEl = document.getElementById('timerDeltaEl');
+    if (!deltaEl) { finishAnimation(newRemaining, newRunning, newLastUpdate); return; }
+
+    const digitsRect = digitsEl ? digitsEl.getBoundingClientRect() : null;
+    const topY = digitsRect ? digitsRect.top + digitsRect.height + 18 : 90;
+    deltaEl.style.top = topY + 'px';
+    deltaEl.style.transform = 'translateX(-50%) translateY(18px) scale(0.85)';
+    deltaEl.className = `delta-${isAdd ? 'add' : 'sub'}`;
+    deltaEl.textContent = (isAdd ? '+' : '-') + formatDeltaDisplay(absDelta, timeUnit);
+    deltaEl.style.display = '';
+    // inline base = ค่า "จบ entrance" (centered) — หลัง cancel WAAPI จะไม่ snap กลับ 18px
+    deltaEl.style.opacity = '1';
+    deltaEl.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+
+    const entranceAnim = deltaEl.animate([
+      { opacity: 0, transform: 'translateX(-50%) translateY(18px) scale(0.85)' },
+      { opacity: 1, transform: 'translateX(-50%) translateY(0) scale(1)' }
+    ], { duration: 220, easing: 'cubic-bezier(0.34,1.56,0.64,1)', fill: 'forwards' });
+
+    playDeltaEntrance(isAdd);
+
+    lastUpdateTs = null;
+
+    const start = performance.now();
+    let lastTickSecond = -1;
+
+    function frame(now) {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / duration);
+      const progress = t * t * t;
+
+      const currentDelta = absDelta * (1 - progress);
+      deltaEl.textContent = (isAdd ? '+' : '-') + formatDeltaDisplay(currentDelta, timeUnit);
+
+      const syncedRemaining = startRemaining + delta * progress;
+      remainingSeconds = Math.max(0, Math.round(syncedRemaining));
+
+      const currentSecond = Math.floor(elapsed / 1000);
+      if (currentSecond !== lastTickSecond && currentSecond >= 1) {
+        lastTickSecond = currentSecond;
+        shakeTimerOnce('timer-tick-shake');
+        if (settings.timer_anim_sound_enabled !== false && settings.timer_anim_sound_enabled !== 0) {
+          playCountdownTick(progress);
+        }
+      }
+
+      if (t > 0.72 && digitsEl) {
+        if (entranceAnim.playState !== 'idle') entranceAnim.cancel(); // ปลด WAAPI → inline คุม drift/fade ได้
+        const driftP = (t - 0.72) / 0.28;
+        const dRect = digitsEl.getBoundingClientRect();
+        const eRect = deltaEl.getBoundingClientRect();
+        const dx = (dRect.left + dRect.width / 2) - (eRect.left + eRect.width / 2);
+        const dy = (dRect.top + dRect.height / 2) - (eRect.top + eRect.height / 2);
+        deltaEl.style.transform = `translateX(calc(-50% + ${dx * driftP}px)) translateY(${dy * driftP}px) scale(${1 - driftP * 0.3})`;
+        deltaEl.style.opacity = String(Math.max(0, 1 - driftP));
+      }
+
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        onAnimationDone();
+      }
+    }
+
+    requestAnimationFrame(frame);
+
+    function onAnimationDone() {
+      deltaEl.style.display = 'none';
+      deltaEl.style.opacity = '0';
+      deltaEl.style.transform = 'translateX(-50%)';
+      finishAnimation(newRemaining, newRunning, newLastUpdate);
+      glowTimer();
+      if (settings.timer_anim_sound_enabled !== false && settings.timer_anim_sound_enabled !== 0) {
+        playGlowComplete();
+      }
+    }
+  }
+
+  function finishAnimation(newRemaining, newRunning, newLastUpdate) {
+    remainingSeconds = newRemaining;
+    isRunning = newRunning;
+    lastUpdateTs = newLastUpdate ? new Date(newLastUpdate).getTime() : Date.now();
+    if (remainingSeconds > 0) { timeoutFired = false; wrapper.classList.remove('timer-expired'); }
+    animInProgress = false;
+    if (pendingUpdate) {
+      const p = pendingUpdate;
+      pendingUpdate = null;
+      const pDelta = p.remaining - remainingSeconds;
+      if (Math.abs(pDelta) > 0) {
+        startDeltaAnimation(pDelta, remainingSeconds, p.remaining, p.running, p.lastUpdate);
+      } else {
+        remainingSeconds = p.remaining;
+        isRunning = p.running;
+        lastUpdateTs = p.lastUpdate ? new Date(p.lastUpdate).getTime() : Date.now();
+      }
+    }
+  }
+
+  function playDeltaEntrance(isAdd) {
+    try {
+      const ctx = new AudioContext();
+      const freqs = isAdd ? [523, 784, 1047] : [1047, 784, 523];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        const t = ctx.currentTime + i * 0.07;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.start(t); osc.stop(t + 0.2);
+      });
+    } catch (e) {}
+  }
+
+  function playCountdownTick(progress) {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = 380 + progress * 260;
+      gain.gain.setValueAtTime(0.12 + progress * 0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.055);
+      osc.start(); osc.stop(ctx.currentTime + 0.07);
+    } catch (e) {}
+  }
+
+  function playGlowComplete() {
+    try {
+      const ctx = new AudioContext();
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        const t = ctx.currentTime + i * 0.045;
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+        osc.start(t); osc.stop(t + 0.42);
+      });
+    } catch (e) {}
+  }
+
   // R9: origin-checked postMessage for dashboard test button
   window.addEventListener('message', (e) => {
     if (e.origin !== location.origin) return;
@@ -300,6 +536,17 @@
       wrapper.classList.remove('timer-expired', 'timer-effect-shake');
       settings.timeout_effect_emoji = e.data.emoji || '🎉';
       triggerTimeoutEffect(e.data.effect || 'blink');
+    }
+    if (e.data?.type === 'test_delta_anim' && typeof e.data.delta === 'number') {
+      if (e.data.timeUnit) settings.time_unit = e.data.timeUnit;
+      const delta = e.data.delta;
+      const currentRemaining = Math.max(0, Math.round(getCurrentRemaining()));
+      const newRemaining = Math.max(0, currentRemaining + delta);
+      if (animInProgress) {
+        pendingUpdate = { remaining: newRemaining, running: isRunning, lastUpdate: new Date().toISOString() };
+      } else {
+        startDeltaAnimation(delta, currentRemaining, newRemaining, isRunning, new Date().toISOString());
+      }
     }
   });
 

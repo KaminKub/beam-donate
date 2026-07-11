@@ -17,6 +17,15 @@
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
       </filter>
+      <filter id="timer-delta-outline" x="-25%" y="-25%" width="150%" height="150%">
+        <feMorphology operator="dilate" radius="3" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="0.9" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge>
+          <feMergeNode in="outline"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
     </defs>
   </svg>
 </head>
@@ -27,6 +36,7 @@
     </div>
     <div id="timerRules"></div>
   </div>
+  <div id="timerDeltaEl" style="display:none;"></div>
   <canvas id="timerEffectCanvas" style="position:fixed;top:0;left:0;pointer-events:none;display:none;z-index:9999;"></canvas>
   <script src="/timer/timer.js"></script>
 </body>

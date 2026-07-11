@@ -201,6 +201,7 @@ async function migrateDB() {
         goal_anim_sound INTEGER DEFAULT 1,
         goal_anim_enabled INTEGER DEFAULT 1,
         goal_bar_position TEXT DEFAULT 'top',
+        goal_bar_width TEXT DEFAULT '100',
         tos_accepted_at TEXT DEFAULT NULL,
         primary_auth_provider TEXT DEFAULT NULL,
         timer_settings TEXT DEFAULT NULL,
@@ -364,6 +365,7 @@ async function migrateDB() {
       { name: 'goal_anim_sound', type: 'INTEGER DEFAULT 1' },
       { name: 'goal_anim_enabled', type: 'INTEGER DEFAULT 1' },
       { name: 'goal_bar_position', type: "TEXT DEFAULT 'top'" },
+      { name: 'goal_bar_width', type: "TEXT DEFAULT '100'" },
       { name: 'tos_accepted_at', type: 'TEXT DEFAULT NULL' },
       { name: 'primary_auth_provider', type: 'TEXT' },
       { name: 'timer_settings', type: 'TEXT DEFAULT NULL' },
@@ -923,6 +925,7 @@ async function saveStreamer(data) {
                goal_anim_sound = COALESCE(?, streamers.goal_anim_sound),
                goal_anim_enabled = COALESCE(?, streamers.goal_anim_enabled),
                goal_bar_position = COALESCE(?, streamers.goal_bar_position),
+               goal_bar_width = COALESCE(?, streamers.goal_bar_width),
                tos_accepted_at = COALESCE(?, streamers.tos_accepted_at),
                primary_auth_provider = COALESCE(?, streamers.primary_auth_provider),
                timer_settings = COALESCE(?, streamers.timer_settings)
@@ -1026,6 +1029,7 @@ async function saveStreamer(data) {
           finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : null,
           finalData.goal_anim_enabled !== undefined ? (finalData.goal_anim_enabled ? 1 : 0) : null,
           finalData.goal_bar_position !== undefined ? finalData.goal_bar_position : null,
+          finalData.goal_bar_width !== undefined ? finalData.goal_bar_width : null,
           finalData.tos_accepted_at !== undefined ? finalData.tos_accepted_at : null,
           finalData.primary_auth_provider !== undefined ? finalData.primary_auth_provider : null,
           finalData.timer_settings !== undefined ? finalData.timer_settings : null,
@@ -1046,8 +1050,8 @@ async function saveStreamer(data) {
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, tos_accepted_at, primary_auth_provider, timer_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, tos_accepted_at, primary_auth_provider, timer_settings)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1148,6 +1152,7 @@ async function saveStreamer(data) {
         finalData.goal_anim_sound !== undefined ? (finalData.goal_anim_sound ? 1 : 0) : 1,
         finalData.goal_anim_enabled !== undefined ? (finalData.goal_anim_enabled ? 1 : 0) : 1,
         finalData.goal_bar_position || 'bottom',
+        finalData.goal_bar_width || '100',
         finalData.tos_accepted_at || null,
         finalData.primary_auth_provider || null,
         finalData.timer_settings !== undefined ? finalData.timer_settings : null
@@ -1582,7 +1587,7 @@ async function addTimerCap(streamerId, amount, capValue) {
   await ensureConnected();
   if (isFallback || !db) return;
   await db.execute({
-    sql: 'UPDATE streamers SET timer_cap_current = MIN(timer_cap_current + ?, ?) WHERE id = ?',
+    sql: 'UPDATE streamers SET timer_cap_current = MAX(0, MIN(timer_cap_current + ?, ?)) WHERE id = ?',
     args: [amount, capValue, streamerId]
   });
 }

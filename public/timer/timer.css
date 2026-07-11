@@ -9,7 +9,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px;
+  padding: 24px 8px 8px;
+  position: relative;
 }
 
 #timerDigits {
@@ -77,5 +78,54 @@ body {
 }
 .timer-effect-shake #timerDigits {
   animation: timer-shake 0.5s ease-in-out;
+}
+
+/* ── Delta Animation ──────────────────────── */
+
+#timerDeltaEl {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Outfit', 'Kanit', sans-serif;
+  font-weight: 700;
+  font-size: 2.4em;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 200;
+  white-space: nowrap;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  transition: none;
+}
+
+#timerDeltaEl.delta-add  { color: #10b981; filter: url(#timer-delta-outline); }
+#timerDeltaEl.delta-sub  { color: #ef4444; filter: url(#timer-delta-outline); }
+
+@keyframes deltaEntrance {
+  from { opacity: 0; transform: translateX(-50%) translateY(18px) scale(0.85); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes timerGlowBounce {
+  0%   { transform: scale(1); }
+  12%  { transform: scale(0.88); }
+  40%  { transform: scale(1.18); filter: drop-shadow(0 0 14px var(--timer-main-color)) drop-shadow(0 0 28px var(--timer-main-color)); }
+  60%  { transform: scale(0.96); filter: drop-shadow(0 0 8px var(--timer-main-color)); }
+  80%  { transform: scale(1.07); filter: drop-shadow(0 0 4px var(--timer-main-color)); }
+  100% { transform: scale(1); filter: none; }
+}
+
+.timer-anim-glow #timerDigits {
+  animation: timerGlowBounce 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+@keyframes timerTickShake {
+  0%,100% { transform: translateX(0) rotate(0); }
+  25%  { transform: translateX(-5px) rotate(-1deg); }
+  75%  { transform: translateX(5px) rotate(1deg); }
+}
+
+.timer-tick-shake #timerDigits {
+  animation: timerTickShake 0.22s ease-in-out;
 }
 
