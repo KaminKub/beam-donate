@@ -411,6 +411,21 @@ function broadcastDemoTimerUpdate(username, timerData) {
   });
 }
 
+// broadcastWidgetStatus() → dona-monitor clients (donate page) — fires on overlay/timer connect+disconnect
+function broadcastWidgetStatus(username) {
+  if (!username) return;
+  const overlayActive = sseClients.some(c => c.username === username && c.authMethod === 'token' && c.source === 'overlay');
+  const timerActive   = sseClients.some(c => c.username === username && c.authMethod === 'token' && c.source === 'timer');
+  const payload = JSON.stringify({ type: 'widget_status', overlayActive, timerActive });
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'dona-monitor') {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
 // Compute seconds to add/subtract for a donation, per the timer config rules.
 // Pure: enabled/running gating + money-cap accumulation live in applyTimerOnDonation.
 function calculateTimeDelta(amount, streamer, donorAction) {
@@ -1972,6 +1987,11 @@ app.get('/api/alerts/stream', async (req, res) => {
   
   const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now, source };
   sseClients.push(clientObj);
+
+  // Notify donate-monitor clients of widget state change (overlay/timer only — dona-monitor itself excluded)
+  if (isValidToken && authenticatedUser && (source === 'overlay' || source === 'timer')) {
+    broadcastWidgetStatus(authenticatedUser);
+  }
   
   // Clear any pending disconnect log for this user (quick reconnect < 5s)
   const wasReconnecting = disconnectTimers.has(authenticatedUser);
@@ -1995,7 +2015,12 @@ app.get('/api/alerts/stream', async (req, res) => {
   req.on('close', () => {
     clearInterval(keepAlive);
     sseClients = sseClients.filter(client => client.res !== res);
-    
+
+    // Notify donate-monitor clients of widget state change (overlay/timer only)
+    if (isValidToken && authenticatedUser && (source === 'overlay' || source === 'timer')) {
+      broadcastWidgetStatus(authenticatedUser);
+    }
+
     const stillConnected = sseClients.some(c => c.username === authenticatedUser);
     if (!stillConnected && authenticatedUser) {
       // Wait 5s before logging — skip if reconnects quickly
@@ -2025,13 +2050,37 @@ app.get('/api/overlay/status/:username', async (req, res) => {
   try {
     const { username } = req.params;
     if (!username) return res.status(400).json({ active: false, error: 'missing username' });
-    const isActive = sseClients.some(client => 
+    const isActive = sseClients.some(client =>
       client.username === username.toLowerCase() && client.authMethod === 'token' && client.source === 'overlay'
     );
     res.json({ active: isActive });
   } catch (err) {
     res.status(500).json({ active: false, error: 'server error' });
   }
+});
+
+// Public widget status SSE (donate page) — pushes overlayActive + timerActive in real-time
+app.get('/api/widget/status/stream', async (req, res) => {
+  const username = (req.query.username || '').toLowerCase();
+  if (!username) return res.status(400).json({ error: 'missing username' });
+  if (sseClients.length >= MAX_SSE_CLIENTS) return res.status(503).json({ error: 'Too many concurrent connections' });
+
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*', 'X-Accel-Buffering': 'no' });
+  const clientObj = { res, validated: false, username, authMethod: 'public', lastActivity: Date.now(), source: 'dona-monitor' };
+  sseClients.push(clientObj);
+
+  // Send current state immediately
+  broadcastWidgetStatus(username);
+
+  const keepAlive = setInterval(() => {
+    try { res.write(`: keep-alive\n\n`); clientObj.lastActivity = Date.now(); }
+    catch { /* connection lost */ }
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseClients = sseClients.filter(client => client.res !== res);
+  });
 });
 
 app.get('/api/transactions/:username/download', ensureAuthenticated, async (req, res) => {
@@ -2679,8 +2728,15 @@ app.get('/api/page/:username/settings', async (req, res) => {
       timer: (() => {
         const t = getTimerConfig(streamer);
         if (!t.enabled) return { enabled: false };
+        // Gate: แสดง choice เฉพาะเมื่อมี SSE timer client (source='timer', token-auth) ต่อค้าง
+        const timerActive = sseClients.some(c =>
+          c.username === username.toLowerCase() &&
+          c.authMethod === 'token' &&
+          c.source === 'timer'
+        );
         return {
           enabled: true,
+          timerActive,                              // ← ใหม่ (TIMER_CHOICE_GATE A1)
           mode: t.mode || 'multiplier',
           // whitelist-map: ส่งเฉพาะ field ที่หน้าโดเนทต้องใช้ — กัน field หลุดเกิน
           rules: (Array.isArray(t.rules) ? t.rules : []).map(r => ({

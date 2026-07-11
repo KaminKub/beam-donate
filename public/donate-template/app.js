@@ -1,6 +1,9 @@
 // State
 let selectedAmount = 0;
 let timerPublicConfig = null;
+let timerActive = false;             // mirror จาก server — drives gate (TIMER_CHOICE_GATE B1)
+let overlayActive = false;           // mirror จาก server — drives statusBtn
+let widgetStatusSource = null;       // EventSource for real-time widget status
 let timerChoice = 'add';
 let selectedPaymentMethod = 'ffp';
 let currentChargeId = null;
@@ -202,7 +205,9 @@ async function loadPageContent() {
        // Update social links
       renderSocialLinks(data.socials);
       timerPublicConfig = data.timer || null;
+      timerActive = !!(timerPublicConfig && timerPublicConfig.timerActive);  // B2
       updateTimerChoiceBox();
+      startWidgetStatusStream();                                              // Real-time (B5')
 
        // Update favicon
        const favicon = document.getElementById('favicon');
@@ -473,6 +478,9 @@ function getChoiceEffect(amount) {
 function updateTimerChoiceBox() {
   const box = document.getElementById('timerChoiceBox');
   if (!box) return;
+  // Gate 1 (TIMER_CHOICE_GATE B3): timer widget ต้องเปิดอยู่บน OBS (มี SSE client source='timer' ค้าง)
+  if (!timerActive) { box.classList.remove('visible'); return; }
+  // Gate 2: ยอดต้องเข้ากฏ choice (เดิม)
   const eff = getChoiceEffect(selectedAmount);
   if (!eff) { box.classList.remove('visible'); return; }
   box.classList.add('visible');
@@ -488,7 +496,48 @@ function updateTimerChoiceBox() {
 }
 
 function getTimerActionForSubmit() {
+  if (!timerActive) return null;                                            // B6: defense-in-depth
   return getChoiceEffect(selectedAmount) ? timerChoice : null;
+}
+
+// Real-time widget status via SSE — drives both statusBtn and timerChoiceBox
+function startWidgetStatusStream() {
+  if (widgetStatusSource) return;
+  const username = window.location.pathname.split('/')[1];
+  if (!username) return;
+  widgetStatusSource = new EventSource(`/api/widget/status/stream?username=${encodeURIComponent(username)}`);
+  widgetStatusSource.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.type !== 'widget_status') return;
+      if (typeof data.overlayActive === 'boolean' && data.overlayActive !== overlayActive) {
+        overlayActive = data.overlayActive;
+        applyOverlayStatus(overlayActive);
+      }
+      if (typeof data.timerActive === 'boolean' && data.timerActive !== timerActive) {
+        timerActive = data.timerActive;
+        updateTimerChoiceBox();
+      }
+    } catch (_) { /* ignore parse blip */ }
+  };
+  // EventSource auto-reconnects; browser handles visibility
+}
+
+function applyOverlayStatus(active) {
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const statusNote = document.getElementById('statusNote');
+  const refreshIcon = document.querySelector('#statusBtn .lucide-refresh-ccw');
+  if (refreshIcon) refreshIcon.classList.remove('spinning');
+  if (active) {
+    if (statusDot) statusDot.classList.add('online');
+    if (statusText) statusText.textContent = 'โดขึ้นจอ | เปิดอยู่';
+    if (statusNote) statusNote.style.display = 'none';
+  } else {
+    if (statusDot) statusDot.classList.remove('online');
+    if (statusText) statusText.textContent = 'โดขึ้นจอ | ปิดอยู่';
+    if (statusNote) statusNote.style.display = 'block';
+  }
 }
 
 // Donate button click -> go to payment method selection
@@ -1517,7 +1566,7 @@ function updateSlipOkWarning(method) {
   }
 }
 
-// Widget Status Check
+// Widget Status Check (manual button — SSE handles real-time; this is one-shot verify)
 async function updateStatus() {
   const statusBtn = document.getElementById('statusBtn');
   const statusDot = document.getElementById('statusDot');
@@ -1527,7 +1576,6 @@ async function updateStatus() {
 
   if (!statusBtn || !statusDot || !statusText) return;
 
-  // Start Loading Animation
   if (refreshIcon) refreshIcon.classList.add('spinning');
   statusText.textContent = 'ตรวจสอบสถานะ...';
 
@@ -1538,33 +1586,15 @@ async function updateStatus() {
       new Promise(resolve => setTimeout(resolve, 1200))
     ]);
 
-    if (!response.ok) {
-      setStatusOffline();
-      return;
-    }
-
+    if (!response.ok) { applyOverlayStatus(false); return; }
     const data = await response.json();
-    if (data.active) {
-      statusDot.classList.add('online');
-      statusText.textContent = 'โดขึ้นจอ | เปิดอยู่';
-      if (statusNote) statusNote.style.display = 'none';
-    } else {
-      setStatusOffline();
-    }
+    overlayActive = !!data.active;
+    applyOverlayStatus(overlayActive);
   } catch (error) {
-    setStatusOffline();
+    applyOverlayStatus(false);
   } finally {
     if (refreshIcon) refreshIcon.classList.remove('spinning');
   }
-}
-
-function setStatusOffline() {
-  const statusDot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  const statusNote = document.getElementById('statusNote');
-  if (statusDot) statusDot.classList.remove('online');
-  if (statusText) statusText.textContent = 'โดขึ้นจอ | ปิดอยู่';
-  if (statusNote) statusNote.style.display = 'block';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
