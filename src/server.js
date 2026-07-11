@@ -155,7 +155,7 @@ const defaultSettings = {
   goal_anim_sound: true,
   goal_anim_enabled: true,
   goal_bar_position: 'top',
-  goal_bar_width: '100',
+  goal_bar_width: '600',
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,

@@ -16,7 +16,10 @@ body {
 }
 
 #goalBarWrapper {
-  width: var(--bar-width, 100%);
+  width: 100%;
+  max-width: var(--bar-max-width, 600px);
+  min-width: 300px;
+  margin: 0 auto;
   padding: 8px 8px 6px;
   background: transparent;
   display: flex;

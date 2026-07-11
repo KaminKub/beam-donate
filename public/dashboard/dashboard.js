@@ -875,7 +875,7 @@ async function initializeDashboard() {
     const txtEl = document.getElementById('txtGoalBarWidth');
     if (rangeEl && txtEl) {
       rangeEl.addEventListener('input', () => {
-        txtEl.textContent = rangeEl.value + '%';
+        txtEl.textContent = rangeEl.value + 'px';
       });
     }
 
@@ -955,7 +955,7 @@ async function initializeDashboard() {
           goal_subtitle1: (document.getElementById('inputGoalSubtitle1') || {}).value ?? '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
           goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? '',
           goal_end_date: endDateVal,
-          goal_bar_width: document.getElementById('inputGoalBarWidth').value || '100',
+          goal_bar_width: document.getElementById('inputGoalBarWidth').value || '600',
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
           method: 'POST',
@@ -1221,6 +1221,12 @@ async function loadDemoSettings() {
   }
 }
 
+// Normalize goal_bar_width to the valid px range [300, 1080]; fallback 600 to match widget behavior.
+function normalizeGoalBarWidth(raw) {
+  const val = parseInt(raw, 10);
+  return (val >= 300 && val <= 1080) ? String(val) : '600';
+}
+
 function loadDemoGoalSettingsFromData(data) {
   const chkEnabled = document.getElementById('chkGoalEnabled');
   if (chkEnabled) chkEnabled.checked = !!data.goal_enabled;
@@ -1254,7 +1260,7 @@ function loadDemoGoalSettingsFromData(data) {
   if (txtColor) txtColor.value = data.goal_bar_color || '#4ade80';
   const widthEl = document.getElementById('inputGoalBarWidth');
   if (widthEl) {
-    widthEl.value = data.goal_bar_width || '100';
+    widthEl.value = normalizeGoalBarWidth(data.goal_bar_width);
     widthEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
   const barTextEl = document.getElementById('inputGoalBarText');
@@ -3526,7 +3532,7 @@ async function loadGoalSettings() {
     if (txtColor) txtColor.value = color;
     const widthEl = document.getElementById('inputGoalBarWidth');
     if (widthEl) {
-      widthEl.value = data.goal_bar_width || '100';
+      widthEl.value = normalizeGoalBarWidth(data.goal_bar_width);
       widthEl.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
