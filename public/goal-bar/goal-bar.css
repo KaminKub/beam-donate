@@ -32,7 +32,7 @@ body {
 #goalSub1,
 #goalSub2 {
   filter: url(#outline-3) drop-shadow(0 2px 5px rgba(0,0,0,0.75));
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
 }
 
 /* ── Position bottom — wrapper anchored to bottom of viewport ── */
@@ -50,7 +50,7 @@ body.position-bottom #animStage {
 }
 
 #goalLabel {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 30px;
   margin-bottom: 6px;
   text-align: center;
@@ -113,7 +113,7 @@ body.position-bottom #animStage {
   left: 50%;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  font-weight: 650;
+  font-weight: 550;
   font-size: 25px;
   color: #fff;
   pointer-events: none;
@@ -131,7 +131,7 @@ body.position-bottom #animStage {
 #goalSub1,
 #goalSub2 {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: normal;
   opacity: 0.9;
   line-height: 1.3;
   min-width: 0;
