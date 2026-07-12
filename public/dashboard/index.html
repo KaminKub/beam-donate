@@ -1053,11 +1053,17 @@
                       <div class="form-group full-width">
                         <label for="inputTemplateLine2">ข้อความบรรทัด 2 (Template Line 2)</label>
                         <input type="text" id="inputTemplateLine2" name="templateLine2" class="form-control" placeholder="{จำนวนเงิน} {สกุลเงิน} 🎉" value="{จำนวนเงิน} {สกุลเงิน} 🎉">
+                        <div class="template-vars-hint">
+                          <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                          <code class="template-var-tag">{ผู้โดเนท}</code>
+                          <code class="template-var-tag">{จำนวนเงิน}</code>
+                          <code class="template-var-tag">{สกุลเงิน}</code>
+                          <span class="template-vars-note">ใน บรรทัด 1–2 (บรรทัด 2 เว้นว่างได้)</span>
+                        </div>
                       </div>
                       <div class="form-group full-width">
                         <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
                         <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
-                        <small class="form-hint">ตัวแปรที่ใช้ได้ : <code>{ผู้โดเนท}</code>, <code>{จำนวนเงิน}</code> และ <code>{สกุลเงิน}</code> ใน บรรทัด 1–2 (บรรทัด 2 เว้นว่างได้)</small>
                       </div>
                     </div>
                       <div class="form-row flex-align-center">
