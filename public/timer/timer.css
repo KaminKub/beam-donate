@@ -22,17 +22,20 @@ body {
   transition: font-size 0.3s;
   display: inline-block;
   --timer-main-color: #fbbf24;
-  background: linear-gradient(90deg, var(--timer-main-color) 0%, #ffffff 50%, var(--timer-main-color) 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: timer-shine 5s linear infinite;
+  color: var(--timer-main-color);
+  position: relative;
+  overflow: hidden;
 }
 
-#timerDigits.shine-off {
-  -webkit-text-fill-color: var(--timer-main-color);
-  animation: none;
+#timerDigits:not(.shine-off)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 20%, rgba(255,255,255,0.55) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: timer-shine 5s linear infinite;
+  will-change: transform;
+  pointer-events: none;
 }
 
 #timerRules {
@@ -50,8 +53,8 @@ body {
 }
 
 @keyframes timer-shine {
-  0%   { background-position: 200% center; }
-  100% { background-position: 0% center; }
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
 @keyframes timer-pulse {
@@ -61,11 +64,10 @@ body {
 
 .timer-expired #timerDigits {
   --timer-main-color: #ef4444;
-  animation: timer-shine 5s linear infinite, timer-pulse 0.5s ease-in-out 6;
+  animation: timer-pulse 0.5s ease-in-out 6;
 }
 
 .timer-expired #timerDigits.shine-off {
-  -webkit-text-fill-color: #ef4444;
   animation: timer-pulse 0.5s ease-in-out 6;
 }
 

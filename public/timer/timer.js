@@ -227,6 +227,13 @@
       .replace(/{ทิศทาง}/g, actionWord);
   }
 
+  let _sharedAc = null;
+  function getAc() {
+    if (!_sharedAc || _sharedAc.state === 'closed') _sharedAc = new (window.AudioContext || window.webkitAudioContext)();
+    if (_sharedAc.state === 'suspended') _sharedAc.resume();
+    return _sharedAc;
+  }
+
   function playTimeoutSound() {
     if (settings.sound_enabled === false || settings.sound_enabled === 0) return;
     const rawVol = settings.sound_volume;
@@ -238,7 +245,7 @@
       audio.play().catch(() => {});
     } else {
       try {
-        const ctx = new AudioContext();
+        const ctx = getAc();
         [880, 660, 440].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -535,7 +542,7 @@
 
   function playDeltaEntrance(isAdd) {
     try {
-      const ctx = new AudioContext();
+      const ctx = getAc();
       const freqs = isAdd ? [523, 784, 1047] : [1047, 784, 523];
       freqs.forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -553,7 +560,7 @@
 
   function playCountdownTick(progress) {
     try {
-      const ctx = new AudioContext();
+      const ctx = getAc();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -567,7 +574,7 @@
 
   function playGlowComplete() {
     try {
-      const ctx = new AudioContext();
+      const ctx = getAc();
       [523, 659, 784, 1047].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
