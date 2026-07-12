@@ -633,7 +633,7 @@ async function initializeDashboard() {
 
     const btnBrowseSounds = document.getElementById('btnBrowseSounds');
     if (btnBrowseSounds) {
-      btnBrowseSounds.onclick = openSoundBrowser;
+      btnBrowseSounds.onclick = () => openSoundBrowser('customSoundUrl');
     }
 
     const btnCloseSoundBrowser = document.getElementById('btnCloseSoundBrowser');
