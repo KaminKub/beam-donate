@@ -488,7 +488,7 @@ function calculateTimeDelta(amount, streamer, donorAction) {
 async function applyTimerOnDonation(streamer, amount, timerAction) {
   try {
     const t = getTimerConfig(streamer);
-    if (!t.enabled || !streamer.timer_running) return;
+    if (!t.enabled) return;
     let delta = calculateTimeDelta(amount, streamer, timerAction);
     // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
     if (t.cap_type === 'money' && (t.cap_value || 0) > 0) {
