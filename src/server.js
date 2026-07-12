@@ -2610,7 +2610,7 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
         for (const k of Object.keys(val)) if (!allowedKeys.has(k)) return false;
         for (const v of Object.values(val)) {
           const n = Number(v);
-          if (!Number.isFinite(n) || n < 12 || n > 96) return false;
+          if (!Number.isFinite(n) || n < 12 || n > 192) return false;
         }
         return true;
       },
