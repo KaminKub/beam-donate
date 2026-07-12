@@ -3856,8 +3856,8 @@ async function loadTimerSettings() {
     const borderRadLbl = document.getElementById('lblTimerBorderRadius');
     if (borderRadEl) { borderRadEl.value = t.border_radius ?? 2; if (borderRadLbl) borderRadLbl.textContent = borderRadEl.value; }
 
-    const chkShane = document.getElementById('chkTimerShane');
-    if (chkShane) chkShane.checked = t.shane_enabled !== false && t.shane_enabled !== 0;
+    const chkShine = document.getElementById('chkTimerShine');
+    if (chkShine) chkShine.checked = t.shine_enabled !== false && t.shine_enabled !== 0;
 
     // P5-B: timeout effect (R5 migration fallback)
     const effectTypeEl = document.getElementById('timerTimeoutEffectType');
@@ -3968,7 +3968,7 @@ async function saveTimerSettings() {
     font_size: parseInt(document.getElementById('sliderTimerFontSize')?.value) || 64,
     border_radius: parseInt(document.getElementById('sliderTimerBorderRadius')?.value) ?? 2,
     outline_color: document.getElementById('inputTimerOutlineColor')?.value || '#000000',
-    shane_enabled: document.getElementById('chkTimerShane')?.checked ? 1 : 0,
+    shine_enabled: document.getElementById('chkTimerShine')?.checked ? 1 : 0,
     timeout_effect_type: document.getElementById('timerTimeoutEffectType')?.value || 'blink',
     timeout_effect_emoji: document.getElementById('inputTimerEffectEmoji')?.value || '🎉',
     sound_enabled: document.getElementById('chkTimerSoundEnabled')?.checked ? 1 : 0,
@@ -4078,7 +4078,7 @@ function initTimerSettingsUI() {
       if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) outlinePicker.value = e.target.value;
     };
   }
-  // chkTimerShane controls shine animation (in timer.js applySettings); outline row always visible
+  // chkTimerShine controls shine animation (in timer.js applySettings); outline row always visible
 
   // Show rules toggle → template row visibility
   const chkShowRules = document.getElementById('chkTimerShowRules');

@@ -1661,8 +1661,9 @@ input[type=number] {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
   margin-bottom: 10px;
+  text-align: center;
 }
-.timer-choice-effect { color: #fbbf24; font-weight: 600; }
+.timer-choice-effect { color: #fbbf24; font-weight: 600; font-size: 18px; white-space: pre-line;}
 .timer-choice-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .timer-choice-btn {
   flex: 1 1 0;

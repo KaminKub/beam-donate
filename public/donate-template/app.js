@@ -514,7 +514,7 @@ function updateTimerChoiceBox() {
   const effEl = document.getElementById('timerChoiceEffect');
   const optsEl = box.querySelector('.timer-choice-options');
   if (eff.capFull) {
-    effEl.textContent = '(ครบลิมิตแล้ว — โดเนทนี้ไม่ปรับเวลา)';
+    effEl.textContent = '(ครบเป้าหมายแล้ว — โดเนทนี้ไม่ปรับเวลา)';
     if (optsEl) optsEl.style.display = 'none';
     return;
   }
@@ -522,7 +522,7 @@ function updateTimerChoiceBox() {
   if (eff.addSeconds !== eff.subSeconds) {
     effEl.textContent = `(+${formatChoiceTime(eff.addSeconds)} / −${formatChoiceTime(eff.subSeconds)})`;
   } else {
-    effEl.textContent = `(±${formatChoiceTime(eff.addSeconds)})${eff.clamped ? ' ตามลิมิตที่เหลือ' : ''}`;
+    effEl.textContent = `±${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(เกินเป้าหมายแล้ว)' : ''}`;
   }
   const noneBtn = box.querySelector('[data-choice="none"]');
   if (noneBtn) noneBtn.style.display = timerPublicConfig.allowPassthrough ? '' : 'none';

@@ -785,6 +785,27 @@ function isEncrypted(text) {
 }
 
 /**
+ * Migrate legacy timer_settings keys inside a JSON blob.
+ * Currently maps the renamed shane_enabled -> shine_enabled so existing
+ * streamer configs keep their original shine toggle state.
+ * Accepts and returns a JSON string (or undefined/null as-is).
+ */
+function migrateTimerSettings(timerSettings) {
+  if (!timerSettings) return timerSettings;
+  let parsed;
+  try {
+    parsed = typeof timerSettings === 'string' ? JSON.parse(timerSettings) : { ...timerSettings };
+  } catch {
+    return timerSettings;
+  }
+  if (parsed && typeof parsed === 'object' && 'shane_enabled' in parsed) {
+    parsed.shine_enabled = parsed.shane_enabled;
+    delete parsed.shane_enabled;
+  }
+  return JSON.stringify(parsed);
+}
+
+/**
  * Save or update streamer details.
  */
 async function saveStreamer(data) {
@@ -821,7 +842,13 @@ async function saveStreamer(data) {
      ...data,
      overlay_token: overlayToken
    };
-  
+
+  // Migrate legacy timer JSON keys before persistence so renamed fields
+  // (e.g. shane_enabled -> shine_enabled) keep their original values.
+  if (finalData.timer_settings !== undefined) {
+    finalData.timer_settings = migrateTimerSettings(finalData.timer_settings);
+  }
+
   let savedId;
   if (existing) {
       savedId = existing.id;

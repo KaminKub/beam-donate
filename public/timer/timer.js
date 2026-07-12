@@ -165,8 +165,8 @@
     if (digitsEl) {
       digitsEl.style.fontSize = (s.font_size || 64) + 'px';
       digitsEl.style.setProperty('--timer-main-color', s.color_main || '#fbbf24');
-      const shaneOn = s.shane_enabled !== false && s.shane_enabled !== 0;
-      digitsEl.classList.toggle('shine-off', !shaneOn);
+      const shineOn = s.shine_enabled !== false && s.shine_enabled !== 0;
+      digitsEl.classList.toggle('shine-off', !shineOn);
       digitsEl.style.animation = '';
       // outline: controlled by border_radius value (0 = off); ?? avoids || treating 0 as falsy
       const radius = Math.min(5, Math.max(0, s.border_radius ?? 0));
@@ -195,7 +195,7 @@
       rulesEl.replaceChildren();
       const div = document.createElement('div');
       div.className = 'timer-cap-full';
-      div.textContent = 'ปิดปรับเวลาแบบอัตโนมัติ';
+      div.textContent = 'ปิดปรับเวลา\n(ครบเป้าหมายแล้ว)';
       rulesEl.appendChild(div);
       rulesEl.style.display = '';
       return;
