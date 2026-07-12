@@ -61,6 +61,11 @@ body {
   gap: 12px;
 }
 
+/* Text Only — กว้างกว่า 25% (header อย่างเดียว ไม่มีกรอบ/เงากินที่) */
+#alertContainer:has(.theme-text-only) {
+  max-width: clamp(500px, calc(var(--font-header, 36) * 1px * 27.5), 1125px);
+}
+
 
 
 /* ========== Themes ========== */
@@ -185,7 +190,7 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
 }
 
 .alert-box.theme-cyberpunk .alert-content {
-  background: #05070f;
+  background: #05070f31;
   border-radius: 0px;
   color: var(--theme-text);
   border: 1px solid var(--theme-border);
@@ -194,9 +199,8 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
 }
 
 .alert-box.theme-cyberpunk .donor-name {
-  color: var(--theme-border) !important;
+  color: var(--theme-text) !important;
   text-transform: uppercase;
-  text-shadow: 0 0 8px rgba(255, 0, 127, 0.5);
   font-weight: 700;
 }
 
