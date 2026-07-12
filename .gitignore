@@ -4,3 +4,4 @@ node_modules/
 *.log
 data/
 .env.production
+migrate-overlay-settings.js
