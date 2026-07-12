@@ -4067,16 +4067,19 @@ async function saveTimerSettings() {
   }
 }
 
-async function timerControl(action) {
+async function timerControl(action, delta = 0) {
   try {
+    const body = { action };
+    if (delta > 0) body.delta = delta;
     const res = await fetchWithCsrf('/api/timer/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if (data.success) {
-      showNotification(`Timer ${action} สำเร็จ`, 'success');
+      const label = action === 'add' ? `+${delta} วิ` : action === 'sub' ? `-${delta} วิ` : action;
+      showNotification(`Timer ${label} สำเร็จ`, 'success');
     } else {
       showNotification(data.error || 'เกิดข้อผิดพลาด', 'error');
     }
@@ -4235,20 +4238,28 @@ function initTimerSettingsUI() {
   const btnTestAnimAdd = document.getElementById('btnTestTimerAnimAdd');
   const btnTestAnimSub = document.getElementById('btnTestTimerAnimSub');
   function sendTestTimerAnim(sign) {
-    const iframe = document.getElementById('timerPreviewIframe');
-    if (!iframe?.contentWindow) return;
     const input = document.getElementById('inputTestTimerDelta');
     let raw = parseInt(input?.value) || 30;
     if (raw > 3600) { raw = 3600; input.value = 3600; }
     if (raw < 1) { raw = 1; input.value = 1; }
     const delta = raw * sign;
     const timeUnit = document.getElementById('timerTimeUnit')?.value || 'seconds';
-    iframe.contentWindow.postMessage({
-      type: 'test_delta_anim',
-      delta,
-      timeUnit,
-      source: 'preview'
-    }, location.origin);
+
+    if (timerLiveMode) {
+      // Live mode: send to server → broadcast to real overlay
+      const action = sign > 0 ? 'add' : 'sub';
+      timerControl(action, Math.abs(delta));
+    } else {
+      // Test mode: postMessage to preview iframe
+      const iframe = document.getElementById('timerPreviewIframe');
+      if (!iframe?.contentWindow) return;
+      iframe.contentWindow.postMessage({
+        type: 'test_delta_anim',
+        delta,
+        timeUnit,
+        source: 'preview'
+      }, location.origin);
+    }
   }
   if (btnTestAnimAdd) btnTestAnimAdd.addEventListener('click', () => sendTestTimerAnim(1));
   if (btnTestAnimSub) btnTestAnimSub.addEventListener('click', () => sendTestTimerAnim(-1));
@@ -4283,14 +4294,60 @@ function initTimerSettingsUI() {
     if (lbl) lbl.textContent = e.target.value;
   };
 
+  // ── Timer Test/Live mode toggle ──
+  let timerLiveMode = false;
+  const chkLive = document.getElementById('chkTimerLiveMode');
+  const lblTest = document.getElementById('lblTimerModeTest');
+  const lblLive = document.getElementById('lblTimerModeLive');
+  const modeBadge = document.getElementById('timerModeBadge');
+  const modeHint = document.getElementById('timerModeHint');
+
+  function updateTimerModeUI() {
+    if (timerLiveMode) {
+      if (lblTest) { lblTest.style.color = 'var(--text-muted)'; lblTest.style.fontWeight = '400'; }
+      if (lblLive) { lblLive.style.color = '#ef4444'; lblLive.style.fontWeight = '700'; }
+      if (modeBadge) { modeBadge.textContent = 'Live — ควบคุมบนจอจริง'; modeBadge.style.background = 'rgba(239,68,68,0.15)'; modeBadge.style.color = '#ef4444'; }
+      if (modeHint) { modeHint.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> กำลังควบคุม Timer บนหน้าจอไลฟ์สดจริง — การเปลี่ยนแปลงมีผลทันทีต่อผู้ชม'; }
+    } else {
+      if (lblTest) { lblTest.style.color = '#3b82f6'; lblTest.style.fontWeight = '700'; }
+      if (lblLive) { lblLive.style.color = 'var(--text-muted)'; lblLive.style.fontWeight = '400'; }
+      if (modeBadge) { modeBadge.textContent = 'ตัวอย่างในหน้านี้เท่านั้น'; modeBadge.style.background = 'rgba(59,130,246,0.15)'; modeBadge.style.color = '#3b82f6'; }
+      if (modeHint) { modeHint.innerHTML = '<i class="fa-solid fa-circle-info" style="color:#60a5fa;"></i> สำหรับดูตัวอย่างในหน้านี้เท่านั้น — ทดสอบได้สูงสุด 3600 วินาที (60 นาที)'; }
+    }
+  }
+
+  if (chkLive) {
+    chkLive.addEventListener('change', () => {
+      timerLiveMode = chkLive.checked;
+      updateTimerModeUI();
+    });
+  }
+
+  // Helper: send timer command to preview iframe
+  function timerPostMessage(type, data = {}) {
+    const iframe = document.getElementById('timerPreviewIframe');
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage({ type, ...data, source: 'preview' }, location.origin);
+    }
+  }
+
   // Control buttons
   const btnStart = document.getElementById('btnTimerStart');
   const btnStop  = document.getElementById('btnTimerStop');
   const btnReset = document.getElementById('btnTimerReset');
   const btnResetCap = document.getElementById('btnTimerResetCap');
-  if (btnStart) btnStart.addEventListener('click', () => timerControl('start'));
-  if (btnStop)  btnStop.addEventListener('click',  () => timerControl('stop'));
-  if (btnReset) btnReset.addEventListener('click', () => timerControl('reset'));
+  if (btnStart) btnStart.addEventListener('click', () => {
+    if (timerLiveMode) timerControl('start');
+    else timerPostMessage('timer_control', { action: 'start' });
+  });
+  if (btnStop) btnStop.addEventListener('click', () => {
+    if (timerLiveMode) timerControl('stop');
+    else timerPostMessage('timer_control', { action: 'stop' });
+  });
+  if (btnReset) btnReset.addEventListener('click', () => {
+    if (timerLiveMode) timerControl('reset');
+    else timerPostMessage('timer_control', { action: 'reset' });
+  });
   if (btnResetCap) btnResetCap.addEventListener('click', () => timerControl('reset-cap'));
   const btnRefreshCap = document.getElementById('btnRefreshCapStatus');
   if (btnRefreshCap) btnRefreshCap.addEventListener('click', refreshCapStatus);

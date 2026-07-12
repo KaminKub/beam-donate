@@ -1830,9 +1830,27 @@
                     <button class="btn-reload-preview" id="btnReloadTimerPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                     <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 500×260px, background transparent</span>
                   </div>
+                  <!-- Timer Control Mode Toggle -->
+                  <div class="timer-live-control" style="margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                      <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:13px;font-weight:600;color:var(--text-muted);">โหมด:</span>
+                        <div class="switch-group" style="margin:0;">
+                          <span class="switch-label" id="lblTimerModeTest" style="font-size:13px;font-weight:700;color:#3b82f6;">Test</span>
+                          <label class="switch" style="margin:0 6px;">
+                            <input type="checkbox" id="chkTimerLiveMode">
+                            <span class="slider-switch"></span>
+                          </label>
+                          <span class="switch-label" id="lblTimerModeLive" style="font-size:13px;color:var(--text-muted);">Live</span>
+                        </div>
+                      </div>
+                      <span id="timerModeBadge" class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:11px;padding:3px 10px;border-radius:12px;">ตัวอย่างในหน้านี้เท่านั้น</span>
+                    </div>
+                  </div>
+
                   <div class="timer-live-control">
                     <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
-                      <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer (Live)
+                      <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer
                     </p>
                     <div class="timer-control-buttons">
                       <button type="button" id="btnTimerStart" class="btn btn-outline-success">
@@ -1849,7 +1867,7 @@
 
                   <div class="timer-live-control" id="timerAnimTestPanel" style="display:none;">
                     <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
-                      <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> ทดสอบ Effect Animation
+                      <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> ปรับเวลา ±
                     </p>
                     <div class="timer-control-buttons timer-anim-test-buttons">
                       <button type="button" id="btnTestTimerAnimSub" class="btn btn-sm btn-test-sub" title="ลบเวลา">
@@ -1861,7 +1879,7 @@
                         <i class="fa-solid fa-plus"></i>
                       </button>
                     </div>
-                    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4;">
+                    <p id="timerModeHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4;">
                       <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
                       สำหรับดูตัวอย่างในหน้านี้เท่านั้น — ทดสอบได้สูงสุด 3600 วินาที (60 นาที)
                     </p>

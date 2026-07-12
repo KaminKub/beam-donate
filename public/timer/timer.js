@@ -591,6 +591,12 @@
         startDeltaAnimation(delta, currentRemaining, newRemaining, isRunning, new Date().toISOString());
       }
     }
+    if (e.data?.type === 'timer_control') {
+      const { action } = e.data;
+      if (action === 'start') { isRunning = true; lastUpdate = new Date().toISOString(); }
+      else if (action === 'stop') { remainingSeconds = Math.max(0, Math.round(getCurrentRemaining())); isRunning = false; lastUpdate = new Date().toISOString(); }
+      else if (action === 'reset') { remainingSeconds = Math.round(settings.initial_seconds || 600); isRunning = false; lastUpdate = new Date().toISOString(); }
+    }
   });
 
   init();

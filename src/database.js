@@ -1648,7 +1648,7 @@ async function addTimerCap(streamerId, amount, capValue) {
 
 // Timer control: start | stop | reset | reset-cap. Reads current state by PK,
 // freezes elapsed time, then writes the 4 state columns directly.
-async function setTimerControl(streamerId, action) {
+async function setTimerControl(streamerId, action, delta = 0) {
   await ensureConnected();
   if (isFallback || !db) return null;
   const res = await db.execute({
@@ -1676,6 +1676,8 @@ async function setTimerControl(streamerId, action) {
   else if (action === 'stop') running = 0;
   else if (action === 'reset') { remaining = Math.round(t.initial_seconds || 600); running = 0; capCurrent = 0; }
   else if (action === 'reset-cap') capCurrent = 0;
+  else if (action === 'add') remaining = Math.max(0, remaining + delta);
+  else if (action === 'sub') remaining = Math.max(0, remaining - delta);
 
   await db.execute({
     sql: 'UPDATE streamers SET timer_remaining_seconds=?, timer_last_update=?, timer_running=?, timer_cap_current=? WHERE id=?',

@@ -2689,13 +2689,14 @@ app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res
 
 app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
-    const { action } = req.body;
-    if (!['start', 'stop', 'reset', 'reset-cap'].includes(action)) {
+    const { action, delta } = req.body;
+    if (!['start', 'stop', 'reset', 'reset-cap', 'add', 'sub'].includes(action)) {
       return res.status(400).json({ error: 'invalid action' });
     }
     const streamer = await getStreamerForUser(req.user);
     if (!streamer) return res.status(404).json({ error: 'streamer not found' });
-    const updated = await db.setTimerControl(streamer.id, action);
+    const deltaSec = Math.max(1, Math.min(parseInt(delta) || 0, 86400));
+    const updated = await db.setTimerControl(streamer.id, action, deltaSec);
     const actualUsername = await getActualUsername(req.user);
     broadcastTimerUpdate(actualUsername, { ...streamer, ...updated });
     if (action === 'reset-cap') broadcastTimerCap(actualUsername, getTimerConfig(streamer), 0);
