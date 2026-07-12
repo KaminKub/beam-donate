@@ -3,12 +3,19 @@
 
   let isAnimating = false;
   let soundEnabled = true;
+  let sharedAc = null;
+
+  function getAudioCtx() {
+    if (!sharedAc) sharedAc = new (window.AudioContext || window.webkitAudioContext)();
+    if (sharedAc.state === 'suspended') sharedAc.resume();
+    return sharedAc;
+  }
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   function playLogoPop() {
     if (!soundEnabled) return;
     try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const ac = getAudioCtx();
       const osc = ac.createOscillator();
       const gain = ac.createGain();
       osc.connect(gain);
@@ -22,14 +29,13 @@
       gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
       osc.start();
       osc.stop(ac.currentTime + 0.15);
-      osc.onended = () => ac.close();
     } catch (_) {}
   }
 
   function playBubbleHit() {
     if (!soundEnabled) return;
     try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const ac = getAudioCtx();
       const osc = ac.createOscillator();
       const gain = ac.createGain();
       osc.connect(gain);
@@ -42,14 +48,13 @@
       gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.28);
       osc.start();
       osc.stop(ac.currentTime + 0.3);
-      osc.onended = () => ac.close();
     } catch (_) {}
   }
 
   function playSparkle() {
     if (!soundEnabled) return;
     try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const ac = getAudioCtx();
       [880, 1320, 1760].forEach((freq, i) => {
         const osc = ac.createOscillator();
         const gain = ac.createGain();
@@ -63,23 +68,28 @@
         osc.start(t);
         osc.stop(t + 0.2);
       });
-      setTimeout(() => ac.close(), 600);
     } catch (_) {}
   }
 
   // ── Canvas helpers ────────────────────────────────────────────────────────
-  function getCanvas() {
+  const PAD = 220;
+
+  function getCanvas(rect) {
     const c = document.getElementById('goalParticleCanvas');
-    c.width = window.innerWidth;
-    c.height = window.innerHeight;
+    const left = Math.max(0, rect.left - PAD);
+    const top = Math.max(0, rect.top - PAD);
+    const w = Math.min(window.innerWidth, rect.right + PAD) - left;
+    const h = Math.min(window.innerHeight, rect.bottom + PAD) - top;
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    c.style.left = left + 'px';
+    c.style.top = top + 'px';
     c.style.display = 'block';
-    return c;
+    return { canvas: c, ctx: c.getContext('2d'), ox: left, oy: top };
   }
 
   function sparkleParticles() {
-    const canvas = getCanvas();
-    const ctx = canvas.getContext('2d');
     const cardRect = document.getElementById('flipCard').getBoundingClientRect();
+    const { canvas, ctx, ox, oy } = getCanvas(cardRect);
     const cx = cardRect.left + cardRect.width / 2;
     const cy = cardRect.top + cardRect.height / 2;
 
@@ -93,20 +103,25 @@
     }));
 
     let frame;
-    (function draw() {
+    let lastTs = null;
+    function draw(ts) {
+      const dt = lastTs === null ? 1 / 60 : Math.min((ts - lastTs) / 1000, 0.05);
+      lastTs = ts;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(251,191,36,1)';
       let alive = false;
       sparks.forEach(s => {
-        s.x += Math.cos(s.angle) * s.speed;
-        s.y += Math.sin(s.angle) * s.speed;
-        s.alpha -= 0.03;
+        s.x += Math.cos(s.angle) * s.speed * dt * 60;
+        s.y += Math.sin(s.angle) * s.speed * dt * 60;
+        s.alpha -= 1.8 * dt;
         if (s.alpha <= 0) return;
         alive = true;
+        ctx.globalAlpha = s.alpha;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(251,191,36,${s.alpha})`;
+        ctx.arc(s.x - ox, s.y - oy, s.r, 0, Math.PI * 2);
         ctx.fill();
       });
+      ctx.globalAlpha = 1;
       if (alive) {
         frame = requestAnimationFrame(draw);
       } else {
@@ -114,7 +129,8 @@
         canvas.style.display = 'none';
         cancelAnimationFrame(frame);
       }
-    })();
+    }
+    frame = requestAnimationFrame(draw);
   }
 
   function hexToRgba(hex, alpha) {
@@ -127,13 +143,22 @@
   }
 
   function liquidBubbles() {
-    const canvas = getCanvas();
-    const ctx = canvas.getContext('2d');
     const track = document.getElementById('goalTrack');
     const rect = track.getBoundingClientRect();
+    const { canvas, ctx, ox, oy } = getCanvas(rect);
 
     const barHex = getComputedStyle(document.documentElement)
       .getPropertyValue('--bar-color').trim() || '#4ade80';
+
+    // Pre-parse hex once — avoids per-frame string ops inside draw loop
+    const baseRgb = (() => {
+      let h = barHex.replace('#', '');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const r = parseInt(h.substring(0, 2), 16);
+      const g = parseInt(h.substring(2, 4), 16);
+      const b = parseInt(h.substring(4, 6), 16);
+      return isNaN(r) ? '74,222,128' : `${r},${g},${b}`;
+    })();
 
     const bubbles = Array.from({ length: 18 }, () => ({
       x: rect.left + Math.random() * rect.width,
@@ -145,21 +170,26 @@
     }));
 
     let frame;
-    (function draw() {
+    let lastTs = null;
+    ctx.fillStyle = `rgba(${baseRgb},1)`;
+    function draw(ts) {
+      const dt = lastTs === null ? 1 / 60 : Math.min((ts - lastTs) / 1000, 0.05);
+      lastTs = ts;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let alive = false;
       bubbles.forEach(b => {
-        b.life += 0.016;
+        b.life += dt;
         if (b.life > 1.8) return;
         alive = true;
-        b.y += b.vy;
-        b.x += 0.5 * Math.sin(b.life * 5 + b.phase);
+        b.y += b.vy * dt * 60;
+        b.x += 0.5 * Math.sin(b.life * 5 + b.phase) * dt * 60;
         const alpha = Math.max(0, 0.7 - b.life * 0.39);
+        ctx.globalAlpha = alpha * 0.7;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(barHex, alpha * 0.7);
+        ctx.arc(b.x - ox, b.y - oy, b.r, 0, Math.PI * 2);
         ctx.fill();
       });
+      ctx.globalAlpha = 1;
       if (alive) {
         frame = requestAnimationFrame(draw);
       } else {
@@ -171,7 +201,8 @@
           window.onGoalAnimationComplete();
         }
       }
-    })();
+    }
+    frame = requestAnimationFrame(draw);
   }
 
   // ── Step 5: Projectile ────────────────────────────────────────────────────
@@ -202,8 +233,7 @@
       if (!t0) t0 = ts;
       const p = Math.min((ts - t0) / dur, 1);
       const ep = p * p * (3 - 2 * p); // smoothstep easing
-      proj.style.left = quad(ep, sx, cpx, tx) + 'px';
-      proj.style.top = quad(ep, sy, cpy, ty) + 'px';
+      proj.style.transform = `translate(-50%, -50%) translate3d(${quad(ep, sx, cpx, tx)}px, ${quad(ep, sy, cpy, ty)}px, 0)`;
       if (p < 1) {
         requestAnimationFrame(animate);
       } else {

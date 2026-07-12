@@ -58,17 +58,19 @@
       .replace(/{วันคงเหลือ}/g, daysLeft !== null ? daysLeft : '0');
   }
 
-  function renderBarDisplay(val) {
-    const actualPct = goalAmount > 0 ? (val / goalAmount) * 100 : 0;
-    const fillPct = Math.min(100, actualPct);
+  function renderFillWidth(val) {
+    const fillPct = Math.min(100, goalAmount > 0 ? (val / goalAmount) * 100 : 0);
     fillEl.style.width = fillPct + '%';
+  }
 
+  function renderTexts(val) {
+    const actualPct = goalAmount > 0 ? (val / goalAmount) * 100 : 0;
     barTextEl.textContent = interpolate(goalBarText, actualPct, val, goalAmount);
-
     sub1El.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
     sub2El.textContent = goalSubtitle2 ? interpolate(goalSubtitle2, actualPct, val, goalAmount) : '';
   }
 
+  let lastTextTs = 0;
   function animateCount(timestamp) {
     if (!animStartTime) animStartTime = timestamp;
     const elapsed = timestamp - animStartTime;
@@ -76,14 +78,17 @@
     const eased = 1 - Math.pow(1 - progress, 3);
     animCurrent = Math.round(animFrom + (animTarget - animFrom) * eased);
 
-    renderBarDisplay(animCurrent);
+    if (timestamp - lastTextTs >= 83 || progress >= 1) {
+      lastTextTs = timestamp;
+      renderTexts(animCurrent);
+    }
 
     if (progress < 1) {
       animFrameId = requestAnimationFrame(animateCount);
     } else {
       animCurrent = animTarget;
       animFrameId = null;
-      renderBarDisplay(animTarget);
+      renderTexts(animTarget);
     }
   }
 
@@ -108,15 +113,18 @@
     if (isFirstUpdate) {
       animCurrent = current;
       isFirstUpdate = false;
-      renderBarDisplay(current);
+      renderFillWidth(current);
+      renderTexts(current);
     } else if (current !== animCurrent) {
       if (animFrameId) cancelAnimationFrame(animFrameId);
       animFrom = animCurrent;
       animTarget = current;
       animStartTime = 0;
+      renderFillWidth(current);
       animFrameId = requestAnimationFrame(animateCount);
     } else {
-      renderBarDisplay(current);
+      renderFillWidth(current);
+      renderTexts(current);
     }
   }
 
