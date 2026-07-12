@@ -33,7 +33,7 @@ let overlaySettings = {
   backgroundColor: 'rgba(15, 15, 25, 0.88)',
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
-  theme_colors: '{"glassmorphism":{"amount":"#4ade80","border":"#667eea","bg":"rgba(15,15,25,0.88)","text":"#ffffff"},"cyberpunk":{"amount":"#00f3ff","border":"#ff007f","text":"#ffffff"},"custom":{"amount":"#667eea","border":"rgba(255,255,255,0.25)","bg":"rgba(15,15,25,0.88)","text":"#ffffff"},"text-only":{"amount":"#4ade80","text":"#ffffff"},"minimal":{"amount":"#667eea","border":"rgba(255,255,255,0.15)","text":"#ffffff"}}',
+  theme_colors: '{"glassmorphism":{"amount":"#4ade80","border":"#667eea","bg":"rgba(15,15,25,0.123)","text":"#ffffff"},"cyberpunk":{"donor":"#ff007f","amount":"#00f3ff","border":"#ff007f","text":"#00f3ff","suffix":"#ff007f"},"custom":{"amount":"#667eea","border":"rgba(255,255,255,0.25)","bg":"rgba(15,15,25,0.88)","text":"#ffffff"},"text-only":{"amount":"#4ade80","text":"#ffffff"},"minimal":{"amount":"#667eea","border":"rgba(255,255,255,0.15)","text":"#ffffff"}}',
   alert_font_sizes: '{"header":24,"message":18,"amount":48,"suffix":24}',
   alert_outline: '{"header_amount":2,"message":1}',
   particleCount: 15,

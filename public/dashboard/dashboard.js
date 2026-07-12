@@ -3420,7 +3420,7 @@ function updateColorPickerVisibility(theme) {
   }
   container.setAttribute('data-theme', theme);
   const themeKeys = {
-    glassmorphism: ['donor', 'amount', 'border', 'bg', 'text', 'suffix'],
+    glassmorphism: ['donor', 'amount', 'border', 'text', 'suffix'],
     cyberpunk: ['donor', 'amount', 'border', 'text', 'suffix'],
     custom: ['donor', 'amount', 'border', 'bg', 'text', 'suffix'],
     'text-only': ['donor', 'amount', 'text', 'suffix'],
@@ -4366,7 +4366,9 @@ async function saveOverlaySettings() {
   );
   const mergedThemeColors = {
     ...existingThemeColors,
-    [theme]: { donor: txtDonor, amount: txtAmount, border: txtBorder, bg: txtBg, text: txtText, suffix: txtSuffix }
+    [theme]: theme === 'glassmorphism'
+      ? { donor: txtDonor, amount: txtAmount, border: txtBorder, text: txtText, suffix: txtSuffix }
+      : { donor: txtDonor, amount: txtAmount, border: txtBorder, bg: txtBg, text: txtText, suffix: txtSuffix }
   };
 
   const payload = {

@@ -69,6 +69,7 @@ body {
 .alert-box.theme-glassmorphism {
   border-radius: 25px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.336);
+  --theme-bg: rgba(15, 15, 25, 0.123);
 }
 
 /* Text Outline / Stroke — all themes */
@@ -193,6 +194,12 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
 .alert-box.theme-cyberpunk .alert-amount {
   color: var(--theme-text);
   text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+}
+
+.alert-box.theme-cyberpunk .highlight-amount {
+  background: linear-gradient(90deg, var(--theme-amount), var(--theme-border));
+  background-size: initial;
+  animation: none;
 }
 
 .alert-box.theme-cyberpunk .alert-message {
