@@ -432,6 +432,19 @@ function broadcastWidgetStatus(username) {
   });
 }
 
+// broadcastTimerCap() → dona-monitor clients (donate page) — fires when timer_cap_current changes
+function broadcastTimerCap(username, t, capCurrent) {
+  if (!username) return;
+  const payload = JSON.stringify({ type: 'timer_cap', capType: t.cap_type || null, capValue: t.cap_value || 0, capCurrent: capCurrent || 0 });
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'dona-monitor') {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
 // Compute seconds to add/subtract for a donation, per the timer config rules.
 // Pure: enabled/running gating + money-cap accumulation live in applyTimerOnDonation.
 function calculateTimeDelta(amount, streamer, donorAction) {
@@ -476,13 +489,16 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
   try {
     const t = getTimerConfig(streamer);
     if (!t.enabled || !streamer.timer_running) return;
-    const delta = calculateTimeDelta(amount, streamer, timerAction);
+    let delta = calculateTimeDelta(amount, streamer, timerAction);
     // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
     if (t.cap_type === 'money' && (t.cap_value || 0) > 0) {
       const room = (t.cap_value || 0) - (streamer.timer_cap_current || 0);
       if (room <= 0) return;
+      // B4: นับเวลาเฉพาะยอดส่วนที่ยังอยู่ในลิมิต — mirror กับ preview หน้าโดเนท (getChoiceEffect)
+      if (amount > room) delta = calculateTimeDelta(room, streamer, timerAction);
       await db.addTimerCap(streamer.id, amount, t.cap_value || 0);
       streamer.timer_cap_current = Math.min((streamer.timer_cap_current || 0) + amount, t.cap_value || 0); // sync ก่อน broadcast (F3)
+      broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
     }
 
     // Time cap: track total time added (วินาที) — cap_value <= 0 = ไม่จำกัด (F1)
@@ -495,6 +511,7 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
         const effectiveDelta = Math.min(delta, room);  // clamp ส่วนเกิน
         await db.addTimerCap(streamer.id, effectiveDelta, capValue);
         streamer.timer_cap_current = Math.min(capCurrent + effectiveDelta, capValue); // sync ก่อน broadcast (F3)
+        broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
         const updated = await db.updateTimerState(streamer, effectiveDelta);
         broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, effectiveDelta);
         return;
@@ -503,6 +520,7 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
       if (delta < 0) {
         await db.addTimerCap(streamer.id, delta, capValue);
         streamer.timer_cap_current = Math.max(0, capCurrent + delta); // sync ก่อน broadcast (F3)
+        broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
       }
     }
 
@@ -2577,6 +2595,7 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
     if (capResetStreamerId) {
       await db.setTimerControl(capResetStreamerId, 'reset-cap');
       updatedStreamer.timer_cap_current = 0; // response + broadcast สะท้อนค่าจริง
+      broadcastTimerCap(actualUsername, getTimerConfig(updatedStreamer), 0);
     }
 
     broadcastAlert(actualUsername, { type: 'settings_update', settings: updatedStreamer });
@@ -2628,6 +2647,7 @@ app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, 
     const updated = await db.setTimerControl(streamer.id, action);
     const actualUsername = await getActualUsername(req.user);
     broadcastTimerUpdate(actualUsername, { ...streamer, ...updated });
+    if (action === 'reset-cap') broadcastTimerCap(actualUsername, getTimerConfig(streamer), 0);
     res.json({ success: true, ...updated });
   } catch (error) {
     console.error('Timer control error:', error);
@@ -2794,6 +2814,10 @@ app.get('/api/page/:username/settings', async (req, res) => {
             time_seconds: r.time_seconds, action: r.action,
           })),
           allowPassthrough: t.allow_passthrough !== 0 && t.allow_passthrough !== false, // default เปิด
+          // B3: cap fields — public by design (แสดงบน overlay อยู่แล้ว) ให้ donor เห็นเวลาที่ได้จริง
+          capType: t.cap_type || null,
+          capValue: t.cap_value || 0,
+          capCurrent: streamer.timer_cap_current || 0,
         };
       })(),
       socials: {

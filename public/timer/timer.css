@@ -129,3 +129,20 @@ body {
   animation: timerTickShake 0.22s ease-in-out;
 }
 
+/* B1: cap เต็ม — เหลือง warning (timer ยังเดินปกติ แค่ไม่รับเวลาเพิ่ม) */
+.timer-cap-full {
+  font-family: 'Kanit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #c00000;
+  text-align: center;
+  margin-top: 8px;
+  filter: drop-shadow(0 1px 4px rgba(255, 70, 70, 0.1));
+  animation: timer-cap-pulse 2s ease-in-out infinite;
+}
+
+@keyframes timer-cap-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+

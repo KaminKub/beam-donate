@@ -451,9 +451,9 @@ function formatChoiceTime(secs) {
   return `${s} วินาที`;
 }
 
-function getChoiceEffect(amount) {
+function rawChoiceSeconds(amount) {
   const t = timerPublicConfig;
-  if (!t || !t.enabled || !amount) return null;
+  if (!t || !amount) return 0;
   const rules = Array.isArray(t.rules) ? t.rules : [];
   if (t.mode === 'multiplier') {
     let secs = 0;
@@ -462,17 +462,44 @@ function getChoiceEffect(amount) {
       const mult = Math.floor(amount / r.base_amount);
       if (mult > 0) secs += mult * (r.time_seconds || 0);
     }
-    return secs > 0 ? { seconds: secs } : null;
+    return secs;
   }
   if (t.mode === 'threshold') {
     const tier = [...rules].sort((a, b) => b.amount - a.amount).find(r => amount >= r.amount);
-    return tier && tier.action === 'choice' ? { seconds: tier.time_seconds } : null;
+    return tier && tier.action === 'choice' ? (tier.time_seconds || 0) : 0;
   }
   if (t.mode === 'fixed') {
     const m = rules.find(r => Math.abs(r.amount - amount) < 0.01);
-    return m && m.action === 'choice' ? { seconds: m.time_seconds } : null;
+    return m && m.action === 'choice' ? (m.time_seconds || 0) : 0;
   }
-  return null;
+  return 0;
+}
+
+function getChoiceEffect(amount) {
+  const t = timerPublicConfig;
+  if (!t || !t.enabled || !amount) return null;
+  const rawSecs = rawChoiceSeconds(amount);
+  if (rawSecs <= 0) return null; // ยอดนี้ไม่เข้ากฏ choice → ซ่อนกล่อง (พฤติกรรมเดิม)
+
+  // Cap layer — mirror server applyTimerOnDonation clamp เป๊ะ (B3/B4)
+  const capOn = t.capType && (t.capValue || 0) > 0;
+  const room = capOn ? Math.max(0, (t.capValue || 0) - (t.capCurrent || 0)) : 0;
+  let addSeconds = rawSecs, subSeconds = rawSecs;
+  if (capOn && t.capType === 'money') {
+    // server: นับเสมือนโดเนทแค่ยอดที่เหลือใน room — clamp ทั้งสองทิศทาง
+    const clampedSecs = room > 0 ? rawChoiceSeconds(Math.min(amount, room)) : 0;
+    addSeconds = clampedSecs;
+    subSeconds = clampedSecs;
+  } else if (capOn && t.capType === 'time') {
+    addSeconds = Math.min(rawSecs, room); // server clamp เฉพาะฝั่งเพิ่ม — ฝั่งลดไม่จำกัด
+  }
+  return {
+    seconds: rawSecs,
+    addSeconds,
+    subSeconds,
+    clamped: addSeconds < rawSecs || subSeconds < rawSecs,
+    capFull: addSeconds <= 0 && subSeconds <= 0,
+  };
 }
 
 function updateTimerChoiceBox() {
@@ -484,7 +511,19 @@ function updateTimerChoiceBox() {
   const eff = getChoiceEffect(selectedAmount);
   if (!eff) { box.classList.remove('visible'); return; }
   box.classList.add('visible');
-  document.getElementById('timerChoiceEffect').textContent = `(±${formatChoiceTime(eff.seconds)})`;
+  const effEl = document.getElementById('timerChoiceEffect');
+  const optsEl = box.querySelector('.timer-choice-options');
+  if (eff.capFull) {
+    effEl.textContent = '(ครบลิมิตแล้ว — โดเนทนี้ไม่ปรับเวลา)';
+    if (optsEl) optsEl.style.display = 'none';
+    return;
+  }
+  if (optsEl) optsEl.style.display = '';
+  if (eff.addSeconds !== eff.subSeconds) {
+    effEl.textContent = `(+${formatChoiceTime(eff.addSeconds)} / −${formatChoiceTime(eff.subSeconds)})`;
+  } else {
+    effEl.textContent = `(±${formatChoiceTime(eff.addSeconds)})${eff.clamped ? ' ตามลิมิตที่เหลือ' : ''}`;
+  }
   const noneBtn = box.querySelector('[data-choice="none"]');
   if (noneBtn) noneBtn.style.display = timerPublicConfig.allowPassthrough ? '' : 'none';
   if (!timerPublicConfig.allowPassthrough && timerChoice === 'none') timerChoice = 'add';
@@ -497,7 +536,9 @@ function updateTimerChoiceBox() {
 
 function getTimerActionForSubmit() {
   if (!timerActive) return null;                                            // B6: defense-in-depth
-  return getChoiceEffect(selectedAmount) ? timerChoice : null;
+  const eff = getChoiceEffect(selectedAmount);
+  if (!eff || eff.capFull) return null;                                     // capFull: server ignore อยู่แล้ว — กันชั้นสอง
+  return timerChoice;
 }
 
 // Real-time widget status via SSE — drives both statusBtn and timerChoiceBox
@@ -509,6 +550,13 @@ function startWidgetStatusStream() {
   widgetStatusSource.onmessage = (ev) => {
     try {
       const data = JSON.parse(ev.data);
+      if (data.type === 'timer_cap' && timerPublicConfig) {
+        timerPublicConfig.capType = data.capType;
+        timerPublicConfig.capValue = data.capValue;
+        timerPublicConfig.capCurrent = data.capCurrent;
+        updateTimerChoiceBox();
+        return;
+      }
       if (data.type !== 'widget_status') return;
       if (typeof data.overlayActive === 'boolean' && data.overlayActive !== overlayActive) {
         overlayActive = data.overlayActive;

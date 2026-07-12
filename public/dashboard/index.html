@@ -1538,7 +1538,13 @@
                         </div>
                       </div>
                       <div id="timerCapStatusRow" style="display:none;">
-                        <p class="timer-cap-status" id="timerCapStatusText"></p>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <p class="timer-cap-status" id="timerCapStatusText" style="flex:1;margin:0;"></p>
+                          <button type="button" id="btnRefreshCapStatus" class="btn-icon-round refresh-hover" title="รีเฟรชสถานะข้อจำกัด">
+                            <i class="fa-solid fa-arrows-rotate" style="color:#60a5fa;"></i>
+                          </button>
+                        </div>
+                        <div class="cap-progress"><div class="cap-progress-fill" id="timerCapProgressFill"></div></div>
                         <button type="button" id="btnTimerResetCap" class="btn btn-outline-danger" style="width:100%;margin-top:6px;">
                           <i class="fa-solid fa-rotate-left"></i> รีเซทข้อจำกัด
                         </button>

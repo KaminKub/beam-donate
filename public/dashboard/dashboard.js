@@ -3710,6 +3710,57 @@ function renderMultiplierRules() {
   }
 }
 
+// B2: cap status + หลอด progress — shared ระหว่าง loadTimerSettings() กับ refreshCapStatus()
+function renderTimerCapStatus(t, capCurrent) {
+  const capStatusText = document.getElementById('timerCapStatusText');
+  const capStatusRow = document.getElementById('timerCapStatusRow');
+  if (!capStatusRow) return;
+  if (!t.cap_type) { capStatusRow.style.display = 'none'; return; }
+  capStatusRow.style.display = '';
+
+  capCurrent = Number(capCurrent) || 0; // ค่าใน template เป็นตัวเลขเสมอ — กัน XSS ผ่าน innerHTML
+  t = { ...t, cap_value: Number(t.cap_value) || 0 };
+  let unitLabel, dispCurr, dispMax;
+  if (t.cap_type === 'money') {
+    unitLabel = ' ฿'; dispCurr = capCurrent || 0; dispMax = t.cap_value || 0;
+  } else {
+    const isMin = (t.time_unit || 'seconds') === 'minutes';
+    unitLabel = isMin ? ' นาที' : ' วินาที';
+    dispCurr = isMin ? Math.round((capCurrent || 0) / 60) : (capCurrent || 0);
+    dispMax = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || 0);
+  }
+
+  if (capStatusText) {
+    const remaining = Math.max(0, dispMax - dispCurr);
+    if (dispCurr >= dispMax && dispMax > 0) {
+      capStatusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#fbbf24;"></i> <strong>ใช้ไป: ${dispCurr} / ${dispMax}${unitLabel}</strong> — ครบจำกัดแล้ว <span style="color:#fbbf24;font-weight:700;">ปิดปรับเวลาแบบอัตโนมัติ</span>`;
+    } else {
+      capStatusText.textContent = `ใช้ไป: ${dispCurr} / ${dispMax}${unitLabel} (เหลือ ${remaining}${unitLabel})`;
+    }
+  }
+
+  const fill = document.getElementById('timerCapProgressFill');
+  if (fill && dispMax > 0) {
+    const pct = Math.min(100, Math.round((dispCurr / dispMax) * 100));
+    fill.style.width = pct + '%';
+    fill.style.backgroundColor = pct >= 100 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981';
+  }
+}
+
+async function refreshCapStatus() {
+  try {
+    const res = await fetch('/api/overlay/settings');
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    let t = {};
+    try { t = JSON.parse(data.timer_settings || '{}'); } catch (e) {}
+    renderTimerCapStatus(t, data.timer_cap_current || 0);
+    showNotification('รีเฟรชสถานะข้อจำกัดแล้ว', 'success');
+  } catch (err) {
+    showNotification('รีเฟรชสถานะไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
+  }
+}
+
 async function loadTimerSettings() {
   try {
     const [settingsRes, tokenRes] = await Promise.all([
@@ -3789,25 +3840,7 @@ async function loadTimerSettings() {
       }
     }
 
-    const capStatusText = document.getElementById('timerCapStatusText');
-    const capStatusRow = document.getElementById('timerCapStatusRow');
-    if (t.cap_type && capStatusRow) {
-      capStatusRow.style.display = '';
-      if (capStatusText) {
-        let unitLabel, dispCurr, dispMax;
-        if (t.cap_type === 'money') {
-          unitLabel = '฿'; dispCurr = data.timer_cap_current || 0; dispMax = t.cap_value || 0;
-        } else {
-          const isMin = (t.time_unit || 'seconds') === 'minutes';
-          unitLabel = isMin ? ' นาที' : ' วินาที';
-          dispCurr = isMin ? Math.round((data.timer_cap_current || 0) / 60) : (data.timer_cap_current || 0);
-          dispMax = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || 0);
-        }
-        capStatusText.textContent = `ใช้ไป: ${dispCurr}/${dispMax}${unitLabel}`;
-      }
-    } else if (capStatusRow) {
-      capStatusRow.style.display = 'none';
-    }
+    renderTimerCapStatus(t, data.timer_cap_current || 0);
 
     const colorMainEl = document.getElementById('inputTimerColorMain');
     const txtColorMain = document.getElementById('txtTimerColorMain');
@@ -4189,6 +4222,8 @@ function initTimerSettingsUI() {
   if (btnStop)  btnStop.addEventListener('click',  () => timerControl('stop'));
   if (btnReset) btnReset.addEventListener('click', () => timerControl('reset'));
   if (btnResetCap) btnResetCap.addEventListener('click', () => timerControl('reset-cap'));
+  const btnRefreshCap = document.getElementById('btnRefreshCapStatus');
+  if (btnRefreshCap) btnRefreshCap.addEventListener('click', refreshCapStatus);
 
   // Save button
   const btnSave = document.getElementById('btnSaveTimerSettings');

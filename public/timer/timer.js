@@ -15,6 +15,8 @@
   let pendingUpdate = null;
   let animDelayTimer = null;
 
+  let capState = { capType: null, capValue: 0, capCurrent: 0 };
+
   let alertDurationMs = 8000;
   let goalBarAnimEnabled = true;
   const GOALBAR_ANIM_BUFFER_MS = 4000;
@@ -177,21 +179,41 @@
       if (floodEl) floodEl.setAttribute('flood-color', s.outline_color || '#000000');
     }
 
-    if (rulesEl) {
-      const showRules = s.show_rules !== false && s.show_rules !== 0;
-      if (showRules && s.rules && s.rules.length) {
-        rulesEl.replaceChildren();
-        const template = s.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
-        s.rules.forEach(rule => {
-          const div = document.createElement('div');
-          div.className = 'timer-rule-line';
-          div.textContent = interpolateRule(template, rule.amount || rule.base_amount || 0, rule.time_seconds || 0, rule.action || 'add');
-          rulesEl.appendChild(div);
-        });
-        rulesEl.style.display = '';
-      } else {
-        rulesEl.style.display = 'none';
-      }
+    // B1: sync cap config จาก settings (capCurrent มาจาก init/SSE เท่านั้น)
+    capState.capType = s.cap_type || null;
+    capState.capValue = s.cap_value || 0;
+    updateCapDisplay();
+  }
+
+  // B1: cap เต็ม → แทน rules ด้วย "ปิดปรับเวลาแบบอัตโนมัติ" (สำคัญกว่า show_rules toggle)
+  function updateCapDisplay() {
+    if (!rulesEl) return;
+    const { capType, capValue, capCurrent } = capState;
+    const isFull = capType && capValue > 0 && capCurrent >= capValue;
+
+    if (isFull) {
+      rulesEl.replaceChildren();
+      const div = document.createElement('div');
+      div.className = 'timer-cap-full';
+      div.textContent = 'ปิดปรับเวลาแบบอัตโนมัติ';
+      rulesEl.appendChild(div);
+      rulesEl.style.display = '';
+      return;
+    }
+
+    const showRules = settings.show_rules !== false && settings.show_rules !== 0;
+    if (showRules && settings.rules && settings.rules.length) {
+      rulesEl.replaceChildren();
+      const template = settings.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
+      settings.rules.forEach(rule => {
+        const div = document.createElement('div');
+        div.className = 'timer-rule-line';
+        div.textContent = interpolateRule(template, rule.amount || rule.base_amount || 0, rule.time_seconds || 0, rule.action || 'add');
+        rulesEl.appendChild(div);
+      });
+      rulesEl.style.display = '';
+    } else {
+      rulesEl.style.display = 'none';
     }
   }
 
@@ -237,11 +259,20 @@
       goalBarAnimEnabled = data.settings.goal_anim_enabled !== 0 && data.settings.goal_anim_enabled !== false;
       try {
         const t = JSON.parse(data.settings.timer_settings || '{}');
+        if (data.settings.timer_cap_current !== undefined) capState.capCurrent = data.settings.timer_cap_current || 0;
         applySettings(t);
       } catch (e) {}
     }
 
     if (data.type === 'timer_update') {
+      // B1: อัปเดต cap ก่อน branch อื่นทั้งหมด — animation path มี return กลางทาง
+      if (data.capType !== undefined) {
+        const nc = { capType: data.capType || null, capValue: data.capValue || 0, capCurrent: data.capCurrent || 0 };
+        if (nc.capType !== capState.capType || nc.capValue !== capState.capValue || nc.capCurrent !== capState.capCurrent) {
+          capState = nc;
+          updateCapDisplay();
+        }
+      }
       const delta = data.delta || 0;
       const newRemaining = data.remaining !== undefined ? data.remaining : remainingSeconds;
       const animOn = settings.timer_anim_enabled !== false && settings.timer_anim_enabled !== 0;
@@ -261,8 +292,9 @@
             const p = pendingUpdate;
             pendingUpdate = null;
             if (!animInProgress) {
-              const delayedDelta = p.remaining - remainingSeconds;
-              startDeltaAnimation(delayedDelta, remainingSeconds, p.remaining, p.running, p.lastUpdate);
+              const nowRemaining = Math.round(getCurrentRemaining());
+              const delayedDelta = p.remaining - nowRemaining;
+              startDeltaAnimation(delayedDelta, nowRemaining, p.remaining, p.running, p.lastUpdate);
             }
           }, totalDelay);
         } else {
@@ -308,6 +340,7 @@
       if (!t.enabled && !isDemo) return;
 
       wrapper.style.display = '';
+      capState.capCurrent = data.timer_cap_current || 0; // seed ก่อน applySettings — cap อาจเต็มตั้งแต่โหลดหน้า
       applySettings(t);
 
       remainingSeconds = data.timer_remaining_seconds ?? (t.initial_seconds || 600);
@@ -344,6 +377,10 @@
     };
   }
 
+  function animSoundOn() {
+    return settings.timer_anim_sound_enabled !== false && settings.timer_anim_sound_enabled !== 0;
+  }
+
   function calcAnimDuration(absDelta) {
     if (absDelta <= 15)  return 2500;
     if (absDelta <= 60)  return 4000;
@@ -378,6 +415,12 @@
 
   function startDeltaAnimation(delta, startRemaining, newRemaining, newRunning, newLastUpdate) {
     animInProgress = true;
+    // A1: ใช้ค่าจริงปัจจุบันเป็นจุดเริ่มนับ (ต้องเรียกก่อน clear timeoutFired — ตอน timeout ค่าจริงคือ 0)
+    startRemaining = Math.round(getCurrentRemaining());
+    if (newRemaining > 0) {
+      timeoutFired = false;
+      wrapper.classList.remove('timer-expired');
+    }
     const absDelta = Math.abs(delta);
     const duration = calcAnimDuration(absDelta);
     const isAdd = delta > 0;
@@ -402,7 +445,7 @@
       { opacity: 1, transform: 'translateX(-50%) translateY(0) scale(1)' }
     ], { duration: 220, easing: 'cubic-bezier(0.34,1.56,0.64,1)', fill: 'forwards' });
 
-    playDeltaEntrance(isAdd);
+    if (animSoundOn()) playDeltaEntrance(isAdd);
 
     lastUpdateTs = null;
 
@@ -417,14 +460,14 @@
       const currentDelta = absDelta * (1 - progress);
       deltaEl.textContent = (isAdd ? '+' : '-') + formatDeltaDisplay(currentDelta, timeUnit);
 
-      const syncedRemaining = startRemaining + delta * progress;
+      const syncedRemaining = startRemaining + (newRemaining - startRemaining) * progress;
       remainingSeconds = Math.max(0, Math.round(syncedRemaining));
 
       const currentSecond = Math.floor(elapsed / 1000);
       if (currentSecond !== lastTickSecond && currentSecond >= 1) {
         lastTickSecond = currentSecond;
         shakeTimerOnce('timer-tick-shake');
-        if (settings.timer_anim_sound_enabled !== false && settings.timer_anim_sound_enabled !== 0) {
+        if (animSoundOn()) {
           playCountdownTick(progress);
         }
       }
@@ -455,7 +498,7 @@
       deltaEl.style.transform = 'translateX(-50%)';
       finishAnimation(newRemaining, newRunning, newLastUpdate);
       glowTimer();
-      if (settings.timer_anim_sound_enabled !== false && settings.timer_anim_sound_enabled !== 0) {
+      if (animSoundOn()) {
         playGlowComplete();
       }
     }
