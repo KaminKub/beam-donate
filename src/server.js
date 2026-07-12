@@ -122,9 +122,9 @@ const defaultSettings = {
   profanityFilterEnabled: true,
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks', // asterisks, polite, block
-  messageTemplate: '{ผู้โดเนท} บริจาค {จำนวนเงิน} {สกุลเงิน}🎉',
-  template_line1: '{ผู้โดเนท} บริจาค',
-  template_line2: '{จำนวนเงิน} {สกุลเงิน}🎉',
+  messageTemplate: '{ผู้โดเนท} ได้บริจาค {จำนวนเงิน} {สกุลเงิน}🎉',
+  template_line1: '{ผู้โดเนท} ได้บริจาค🎉',
+  template_line2: '{จำนวนเงิน} {สกุลเงิน}',
   showDonorMessage: true,
   minAmount: 1, // Minimum amount to trigger alert
   theme: 'text-only', // glassmorphism, cyberpunk, minimal, custom, text-only
