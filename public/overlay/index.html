@@ -10,14 +10,71 @@
 <body>
   <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
     <defs>
-      <filter id="outline-2-black" x="-15%" y="-15%" width="130%" height="130%">
+      <filter id="outline-h-0" x="-15%" y="-15%" width="130%" height="130%">
+        <feMerge><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-h-1" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="1" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-h-2" x="-15%" y="-15%" width="130%" height="130%">
         <feMorphology operator="dilate" radius="2" in="SourceAlpha" result="expanded"/>
         <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
         <feComposite in="color" in2="expanded" operator="in" result="outline"/>
-        <feMerge>
-          <feMergeNode in="outline"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-h-3" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="3" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-h-4" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="4" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-h-5" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="5" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-0" x="-15%" y="-15%" width="130%" height="130%">
+        <feMerge><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-1" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="1" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-2" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="2" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-3" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="3" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-4" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="4" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="outline-m-5" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology operator="dilate" radius="5" in="SourceAlpha" result="expanded"/>
+        <feFlood flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>
   </svg>
@@ -36,7 +93,6 @@
         <div class="alert-info">
           <div class="alert-header">
             <span class="donor-name"></span>
-            <span class="alert-label">บริจาค</span>
           </div>
           <div class="alert-amount"></div>
           <div class="alert-message"></div>

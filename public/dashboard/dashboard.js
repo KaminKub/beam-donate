@@ -1404,12 +1404,12 @@ function loadOverlaySettingsFromData(data) {
 
   // Per-element font sizes + outline
   const fontSizes = parseJsonField(data.alert_font_sizes, {});
-  setSelectValue('selectFontSizeHeader', fontSizes.header ?? 24);
-  setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 24);
-  setSelectValue('selectFontSizeMessage', fontSizes.message ?? 18);
-  setSelectValue('selectFontSizeAmount', fontSizes.amount ?? data.fontSize ?? 48);
-  setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? data.fontSize ?? 48);
-  setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 24);
+  setSelectValue('selectFontSizeHeader', fontSizes.header ?? 36);
+  setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 40);
+  setSelectValue('selectFontSizeMessage', fontSizes.message ?? 28);
+  setSelectValue('selectFontSizeAmount', fontSizes.amount ?? data.fontSize ?? 36);
+  setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? data.fontSize ?? 72);
+  setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 72);
 
   const outline = parseJsonField(data.alert_outline, { header_amount: 2, message: 1 });
   setSelectValue('selectOutlineHeaderAmount', outline.header_amount ?? 2);
@@ -3480,12 +3480,12 @@ async function loadOverlaySettings() {
 
       // Per-element font sizes (fallback to legacy fontSize for amount)
       const fontSizes = parseJsonField(s.alert_font_sizes, {});
-      setSelectValue('selectFontSizeHeader', fontSizes.header ?? 24);
-      setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 24);
-      setSelectValue('selectFontSizeMessage', fontSizes.message ?? 18);
-      setSelectValue('selectFontSizeAmount', fontSizes.amount ?? s.fontSize ?? 48);
-      setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? s.fontSize ?? 48);
-      setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 24);
+      setSelectValue('selectFontSizeHeader', fontSizes.header ?? 36);
+      setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 40);
+      setSelectValue('selectFontSizeMessage', fontSizes.message ?? 28);
+      setSelectValue('selectFontSizeAmount', fontSizes.amount ?? s.fontSize ?? 36);
+      setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? s.fontSize ?? 72);
+      setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 72);
 
       // Outline widths
       const outline = parseJsonField(s.alert_outline, { header_amount: 2, message: 1 });
@@ -4384,17 +4384,17 @@ async function saveOverlaySettings() {
     textColor: txtText,
     backgroundColor: txtBg,
     borderColor: txtBorder,
-    fontSize: parseInt(document.getElementById('selectFontSizeAmount').value) || 48,
+    fontSize: parseInt(document.getElementById('selectFontSizeAmount').value) || 36,
 
     // New per-theme JSON fields
     theme_colors: JSON.stringify(mergedThemeColors),
     alert_font_sizes: JSON.stringify({
-      header: parseInt(document.getElementById('selectFontSizeHeader').value) || 24,
-      donor_hl: parseInt(document.getElementById('selectFontSizeDonorHl').value) || 24,
-      message: parseInt(document.getElementById('selectFontSizeMessage').value) || 18,
-      amount: parseInt(document.getElementById('selectFontSizeAmount').value) || 48,
-      amount_hl: parseInt(document.getElementById('selectFontSizeAmountHl').value) || 48,
-      suffix: parseInt(document.getElementById('selectFontSizeSuffix').value) || 24
+      header: parseInt(document.getElementById('selectFontSizeHeader').value) || 36,
+      donor_hl: parseInt(document.getElementById('selectFontSizeDonorHl').value) || 40,
+      message: parseInt(document.getElementById('selectFontSizeMessage').value) || 28,
+      amount: parseInt(document.getElementById('selectFontSizeAmount').value) || 36,
+      amount_hl: parseInt(document.getElementById('selectFontSizeAmountHl').value) || 72,
+      suffix: parseInt(document.getElementById('selectFontSizeSuffix').value) || 72
     }),
     alert_outline: JSON.stringify({
       header_amount: parseInt(document.getElementById('selectOutlineHeaderAmount').value) || 0,

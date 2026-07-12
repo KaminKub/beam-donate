@@ -136,7 +136,7 @@ const defaultSettings = {
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
   theme_colors: '{"glassmorphism":{"donor":"#fde047","amount":"#4ade80","border":"#667eea","bg":"rgba(15,15,25,0.88)","text":"#ffffff","suffix":"#f59e0b"},"cyberpunk":{"donor":"#fde047","amount":"#00f3ff","border":"#ff007f","text":"#ffffff","suffix":"#f59e0b"},"custom":{"donor":"#fde047","amount":"#667eea","border":"rgba(255,255,255,0.25)","bg":"rgba(15,15,25,0.88)","text":"#ffffff","suffix":"#f59e0b"},"text-only":{"donor":"#fde047","amount":"#4ade80","text":"#ffffff","suffix":"#f59e0b"},"minimal":{"donor":"#fde047","amount":"#667eea","border":"rgba(255,255,255,0.15)","text":"#ffffff","suffix":"#f59e0b"}}',
-  alert_font_sizes: '{"header":24,"donor_hl":24,"message":18,"amount":48,"amount_hl":48,"suffix":24}',
+  alert_font_sizes: '{"header":36,"donor_hl":40,"message":28,"amount":36,"amount_hl":72,"suffix":72}',
   alert_outline: '{"header_amount":2,"message":1}',
   particleCount: 15,
   fontSize: 48,

@@ -21,12 +21,12 @@ input, textarea, [contenteditable="true"] {
   --theme-bg: rgba(15, 15, 25, 0.88);
   --theme-text: #ffffff;
   /* Per-element font sizes (px) */
-  --font-header: 24;
-  --font-donor-hl: 24;
-  --font-message: 18;
-  --font-amount: 48;
-  --font-amount-hl: 48;
-  --font-suffix: 24;
+  --font-header: 36;
+  --font-donor-hl: 40;
+  --font-message: 28;
+  --font-amount: 36;
+  --font-amount-hl: 72;
+  --font-suffix: 72;
   --theme-suffix: #f59e0b;
   --theme-donor: #fde047;
 }
@@ -126,13 +126,13 @@ body {
   -webkit-text-fill-color: transparent;
   font-weight: 800;
   display: inline;
-  animation: shineText 3s linear infinite;
   font-size: calc(var(--font-suffix, 24) * 1px);
   line-height: 1;
 }
 
 .alert-header .highlight-amount,
-.donor-name .highlight-amount {
+.donor-name .highlight-amount,
+.alert-amount .highlight-amount {
   display: inline;
   vertical-align: baseline;
 }
@@ -325,6 +325,7 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
   font-size: calc(var(--font-amount, 48) * 1px);
   font-weight: 800;
   line-height: 1.2;
+  color: var(--theme-text);
   animation: amountReveal 0.5s ease-out 0.2s both;
   display: block;
   white-space: pre-wrap;
@@ -573,7 +574,7 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
 
 .alert-box.theme-text-only .alert-amount {
   font-size: calc(var(--font-amount) * 1px) !important;
-  color: var(--theme-amount) !important;
+  color: var(--theme-text) !important;
   text-align: center !important;
   font-weight: 800;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.3) !important;
