@@ -269,7 +269,7 @@ function checkAntiBot(req, res) {
 //                          MUST exclude ALL demo-* sources
 // broadcastDemoAlert()   → demo-overlay + demo-goal-bar only
 // broadcastDemoGoalBar() → demo-goal-bar only
-// broadcastTimerUpdate()   → real timer clients, never demo-*
+// broadcastTimerUpdate()   → real timer clients; also mirrors to demo-timer when username===DEMO_STREAMER_USERNAME
 // broadcastDemoTimerUpdate() → demo-timer only
 // When adding a new SSE source: update ALL functions above.
 // ──────────────────────────────────────────────────────────────────────
@@ -381,13 +381,13 @@ function choiceSign(donorAction) {
   return 0;
 }
 
-// broadcastTimerUpdate() → real timer clients, never demo-*
+// broadcastTimerUpdate() → real timer clients; also mirrors to demo-timer when username===DEMO_STREAMER_USERNAME
 function broadcastTimerUpdate(username, streamer, delta = 0) {
   const t = getTimerConfig(streamer);
   if (!t.enabled) return;
   const overlayOnline = sseClients.some(c => c.username === username && c.source === 'overlay');
   const goalBarOnline = sseClients.some(c => c.username === username && c.source === 'goal-bar');
-  const payload = JSON.stringify({
+  const timerData = {
     type: 'timer_update',
     remaining: streamer.timer_remaining_seconds,
     lastUpdate: streamer.timer_last_update,
@@ -398,7 +398,8 @@ function broadcastTimerUpdate(username, streamer, delta = 0) {
     delta,
     overlayOnline,
     goalBarOnline,
-  });
+  };
+  const payload = JSON.stringify(timerData);
   sseClients = sseClients.filter(client => {
     const isDemo = client.source === 'demo-timer' || client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
     if (client.username === username && !isDemo) {
@@ -407,6 +408,7 @@ function broadcastTimerUpdate(username, streamer, delta = 0) {
     }
     return true;
   });
+  if (username === DEMO_STREAMER_USERNAME) broadcastDemoTimerUpdate(username, timerData);
 }
 
 // broadcastDemoTimerUpdate() → demo-timer clients ONLY

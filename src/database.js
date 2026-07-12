@@ -1348,8 +1348,9 @@ async function getSettings(username, defaultSettings) {
   // SEC-004: Only expose keys that exist in defaultSettings — prevents payment fields,
   // auth tokens, and DB IDs from leaking via the public overlay-token endpoint.
   const merged = { ...defaultSettings };
+  const allowEmpty = new Set(['template_line1', 'template_line2']);
   for (const [key, value] of Object.entries(streamer)) {
-    if (Object.prototype.hasOwnProperty.call(defaultSettings, key) && value !== null && value !== '') {
+    if (Object.prototype.hasOwnProperty.call(defaultSettings, key) && value !== null && (value !== '' || allowEmpty.has(key))) {
       merged[key] = value;
     }
   }
