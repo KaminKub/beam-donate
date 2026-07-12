@@ -3979,9 +3979,7 @@ async function loadTimerSettings() {
       chkTimerAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
       const syncAnimTestVis = () => {
         const soundGroup = document.getElementById('timerAnimSoundGroup');
-        const testPanel = document.getElementById('timerAnimTestPanel');
         if (soundGroup) soundGroup.style.display = chkTimerAnim.checked ? '' : 'none';
-        if (testPanel) testPanel.style.display = chkTimerAnim.checked ? '' : 'none';
       };
       syncAnimTestVis();
       chkTimerAnim.addEventListener('change', syncAnimTestVis);
@@ -4119,6 +4117,8 @@ function initTimerSettingsUI() {
       if (mode === 'multiplier') renderMultiplierRules();
       else renderTimerRules(mode);
       syncCapUnit();
+      const unitLabel = document.getElementById('timerTestDeltaUnit');
+      if (unitLabel) unitLabel.textContent = timeUnitEl.value === 'minutes' ? 'นาที' : 'วินาที';
     });
   }
 
@@ -4240,22 +4240,21 @@ function initTimerSettingsUI() {
   function sendTestTimerAnim(sign) {
     const input = document.getElementById('inputTestTimerDelta');
     let raw = parseInt(input?.value) || 30;
-    if (raw > 3600) { raw = 3600; input.value = 3600; }
     if (raw < 1) { raw = 1; input.value = 1; }
-    const delta = raw * sign;
     const timeUnit = document.getElementById('timerTimeUnit')?.value || 'seconds';
+    const deltaSeconds = timeUnit === 'minutes' ? raw * 60 : raw;
 
     if (timerLiveMode) {
       // Live mode: send to server → broadcast to real overlay
       const action = sign > 0 ? 'add' : 'sub';
-      timerControl(action, Math.abs(delta));
+      timerControl(action, deltaSeconds);
     } else {
-      // Test mode: postMessage to preview iframe
+      // Test mode: postMessage to preview iframe (delta always in seconds)
       const iframe = document.getElementById('timerPreviewIframe');
       if (!iframe?.contentWindow) return;
       iframe.contentWindow.postMessage({
         type: 'test_delta_anim',
-        delta,
+        delta: deltaSeconds * sign,
         timeUnit,
         source: 'preview'
       }, location.origin);
@@ -4267,7 +4266,6 @@ function initTimerSettingsUI() {
   if (inputTestDelta) {
     inputTestDelta.addEventListener('change', () => {
       let v = parseInt(inputTestDelta.value) || 30;
-      if (v > 3600) inputTestDelta.value = 3600;
       if (v < 1) inputTestDelta.value = 1;
     });
   }
@@ -4312,7 +4310,7 @@ function initTimerSettingsUI() {
       if (lblTest) { lblTest.style.color = '#3b82f6'; lblTest.style.fontWeight = '700'; }
       if (lblLive) { lblLive.style.color = 'var(--text-muted)'; lblLive.style.fontWeight = '400'; }
       if (modeBadge) { modeBadge.textContent = 'ตัวอย่างในหน้านี้เท่านั้น'; modeBadge.style.background = 'rgba(59,130,246,0.15)'; modeBadge.style.color = '#3b82f6'; }
-      if (modeHint) { modeHint.innerHTML = '<i class="fa-solid fa-circle-info" style="color:#60a5fa;"></i> สำหรับดูตัวอย่างในหน้านี้เท่านั้น — ทดสอบได้สูงสุด 3600 วินาที (60 นาที)'; }
+      if (modeHint) { modeHint.innerHTML = '<i class="fa-solid fa-circle-info" style="color:#60a5fa;"></i> สำหรับดูตัวอย่างในหน้านี้เท่านั้น'; }
     }
   }
 

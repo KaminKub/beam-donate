@@ -2698,7 +2698,8 @@ app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, 
     const deltaSec = Math.max(1, Math.min(parseInt(delta) || 0, 86400));
     const updated = await db.setTimerControl(streamer.id, action, deltaSec);
     const actualUsername = await getActualUsername(req.user);
-    broadcastTimerUpdate(actualUsername, { ...streamer, ...updated });
+    const broadcastDelta = action === 'add' ? deltaSec : action === 'sub' ? -deltaSec : 0;
+    broadcastTimerUpdate(actualUsername, { ...streamer, ...updated }, broadcastDelta);
     if (action === 'reset-cap') broadcastTimerCap(actualUsername, getTimerConfig(streamer), 0);
     res.json({ success: true, ...updated });
   } catch (error) {
