@@ -1386,14 +1386,19 @@ label {
 
 /* ========== Section Divider ========== */
 .section-divider {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 24px 0 16px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed rgba(99, 102, 241, 0.2);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  margin: 28px 0 18px;
+  padding: 0 0 10px 14px;
+  border-bottom: 2px solid;
+  border-image: linear-gradient(90deg, var(--primary), transparent) 1;
+  border-left: 3px solid var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ========== Settings Sub Containers ========== */
@@ -1658,6 +1663,39 @@ label {
   margin-bottom: 20px;
 }
 
+.font-size-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.outline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.color-input-wrapper.compact input[type="color"] {
+  height: 28px;
+  border-radius: 6px;
+}
+
+.color-input-wrapper.compact .hex-text {
+  font-size: 10px;
+  padding: 3px;
+}
+
+@media (max-width: 768px) {
+  .color-picker-grid,
+  .font-size-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .outline-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .hex-text {
   width: 100%;

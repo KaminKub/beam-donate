@@ -122,8 +122,9 @@ const defaultSettings = {
   profanityFilterEnabled: true,
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks', // asterisks, polite, block
-  messageTemplate: '{donor} ได้บริจาค {amount} บาท! 🎉',
-  showLabel: false,
+  messageTemplate: '{ผู้โดเนท} บริจาค {จำนวนเงิน} {สกุลเงิน}🎉',
+  template_line1: '{ผู้โดเนท} บริจาค',
+  template_line2: '{จำนวนเงิน} {สกุลเงิน}🎉',
   showDonorMessage: true,
   minAmount: 1, // Minimum amount to trigger alert
   theme: 'text-only', // glassmorphism, cyberpunk, minimal, custom, text-only
@@ -134,6 +135,9 @@ const defaultSettings = {
   backgroundColor: 'rgba(15, 15, 25, 0.88)',
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
+  theme_colors: '{"glassmorphism":{"donor":"#fde047","amount":"#4ade80","border":"#667eea","bg":"rgba(15,15,25,0.88)","text":"#ffffff","suffix":"#f59e0b"},"cyberpunk":{"donor":"#fde047","amount":"#00f3ff","border":"#ff007f","text":"#ffffff","suffix":"#f59e0b"},"custom":{"donor":"#fde047","amount":"#667eea","border":"rgba(255,255,255,0.25)","bg":"rgba(15,15,25,0.88)","text":"#ffffff","suffix":"#f59e0b"},"text-only":{"donor":"#fde047","amount":"#4ade80","text":"#ffffff","suffix":"#f59e0b"},"minimal":{"donor":"#fde047","amount":"#667eea","border":"rgba(255,255,255,0.15)","text":"#ffffff","suffix":"#f59e0b"}}',
+  alert_font_sizes: '{"header":24,"donor_hl":24,"message":18,"amount":48,"amount_hl":48,"suffix":24}',
+  alert_outline: '{"header_amount":2,"message":1}',
   particleCount: 15,
   fontSize: 48,
   customImageMode: 'emoji',
@@ -937,11 +941,12 @@ function applyDemoMask(row) {
     'soundEnabled', 'soundChoice', 'soundVolume', 'alert_sound_url', 'customSoundUrl',
     'ttsEnabled', 'ttsVolume', 'ttsRate', 'ttsLanguage', 'ttsVoice',
     'ttsReadDonor', 'ttsPrefixEnabled',
-    'showLabel', 'showDonorMessage',
-    'messageTemplate', 'amountSuffix', 'minAmount',
+    'showDonorMessage',
+    'messageTemplate', 'template_line1', 'template_line2', 'amountSuffix', 'minAmount',
     'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
     'theme', 'fontFamily', 'animation',
     'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
+    'theme_colors', 'alert_font_sizes', 'alert_outline',
     'customImageMode', 'customImageValue',
     // Page customization
     'page_title', 'page_subtitle', 'thank_you_header', 'thank_you_subtitle',
@@ -2510,9 +2515,10 @@ function filterAllowedFields(body, allowedFields) {
 const OVERLAY_ALLOWED_FIELDS = [
   'theme', 'animation', 'fontFamily', 'duration', 'particleCount', 'fontSize',
   'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
+  'theme_colors', 'alert_font_sizes', 'alert_outline',
   'soundEnabled', 'soundChoice', 'soundVolume', 'customSoundUrl',
   'ttsEnabled', 'ttsReadDonor', 'ttsPrefixEnabled', 'ttsLanguage', 'ttsVolume', 'ttsRate',
-  'messageTemplate', 'amountSuffix', 'showLabel', 'showDonorMessage', 'minAmount',
+  'messageTemplate', 'template_line1', 'template_line2', 'amountSuffix', 'showDonorMessage', 'minAmount',
   'profanityFilterEnabled', 'profanityWords', 'profanityReplaceStyle',
   'customImageMode', 'customImageValue',
   'goal_enabled', 'goal_amount', 'goal_current',
@@ -2582,6 +2588,49 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       const prevStreamer = await getStreamerForUser(req.user);
       if (prevStreamer && (getTimerConfig(prevStreamer).cap_type || '') !== (t.cap_type || '')) {
         capResetStreamerId = prevStreamer.id;
+      }
+    }
+
+    // Alert overlay JSON fields validation
+    const colorRegex = /^#([A-Fa-f0-9]{3}){1,2}$|^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*(0?\.\d+|1(\.0)?)\s*\)$/;
+    const jsonValidators = {
+      theme_colors: (val) => {
+        if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
+        for (const theme of Object.values(val)) {
+          if (!theme || typeof theme !== 'object') return false;
+          for (const v of Object.values(theme)) {
+            if (typeof v !== 'string' || !colorRegex.test(v)) return false;
+          }
+        }
+        return true;
+      },
+      alert_font_sizes: (val) => {
+        if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
+        const allowedKeys = new Set(['header', 'donor_hl', 'message', 'amount', 'amount_hl', 'suffix']);
+        for (const k of Object.keys(val)) if (!allowedKeys.has(k)) return false;
+        for (const v of Object.values(val)) {
+          const n = Number(v);
+          if (!Number.isFinite(n) || n < 12 || n > 96) return false;
+        }
+        return true;
+      },
+      alert_outline: (val) => {
+        if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
+        for (const v of Object.values(val)) {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 0 || n > 5) return false;
+        }
+        return true;
+      }
+    };
+    for (const [key, validator] of Object.entries(jsonValidators)) {
+      if (safeBody[key] !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(safeBody[key]); } catch { parsed = null; }
+        if (!parsed || !validator(parsed)) {
+          return res.status(400).json({ error: `${key} ไม่ถูกต้อง` });
+        }
+        safeBody[key] = JSON.stringify(parsed);
       }
     }
 

@@ -898,41 +898,24 @@
                        </div>
                      </div>
 
-                     <!-- Custom colors picker row (Visible always for flex but labeled custom) -->
-                     <div class="custom-colors-container" id="customColorsContainer">
-                       <h5 class="section-divider">ปรับแต่งสี (Custom Colors)</h5>
-                       <div class="color-picker-grid">
-                         <div class="color-picker-group">
-                           <label>สีหลัก (Primary)</label>
-                           <div class="color-input-wrapper">
-                             <input type="color" id="colorPrimary" value="#667eea">
-                             <input type="text" id="txtPrimary" class="hex-text" value="#667eea">
-                           </div>
-                         </div>
-                         <div class="color-picker-group">
-                           <label>สีรอง (Secondary)</label>
-                           <div class="color-input-wrapper">
-                             <input type="color" id="colorSecondary" value="#764ba2">
-                             <input type="text" id="txtSecondary" class="hex-text" value="#764ba2">
-                           </div>
-                         </div>
-                         <div class="color-picker-group">
-                           <label>สีตัวอักษร</label>
-                           <div class="color-input-wrapper">
-                             <input type="color" id="colorText" value="#ffffff">
-                             <input type="text" id="txtText" class="hex-text" value="#ffffff">
-                           </div>
-                         </div>
-                         <div class="color-picker-group">
-                           <label>สีพื้นหลัง</label>
-                           <div class="color-input-wrapper bg-picker">
-                             <input type="color" id="colorBg" value="#0f0f19">
-                             <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
-                           </div>
-                         </div>
-                       </div>
-                     </div>
-
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="sliderDuration">ระยะเวลา Alert ค้างบนจอ (<span id="lblDuration">8</span> วินาที)</label>
+                        <input type="range" id="sliderDuration" name="duration" class="form-range" min="2" max="20" step="1" value="8">
+                      </div>
+                      <div class="form-group">
+                        <label for="selectParticles">เอฟเฟกต์ละอองวิบวับ</label>
+                        <select id="selectParticles" class="form-select">
+                          <option value="0">0 ชิ้น</option>
+                          <option value="5">5 ชิ้น</option>
+                          <option value="10">10 ชิ้น</option>
+                          <option value="15" selected>15 ชิ้น</option>
+                          <option value="20">20 ชิ้น</option>
+                          <option value="25">25 ชิ้น</option>
+                          <option value="30">30 ชิ้น</option>
+                        </select>
+                      </div>
+                    </div>
 
                     <div class="form-row">
                       <div class="form-group">
@@ -943,26 +926,160 @@
                            <option value="fade">Fade In - ค่อยๆ ปรากฏขึ้น</option>
                            <option value="zoom">Zoom In - เด้งขยายออกมา</option>
                          </select>
-
-                      </div>
-
-                      <div class="form-group">
-                        <label for="sliderDuration">ระยะเวลา Alert ค้างบนจอ (<span id="lblDuration">8</span> วินาที)</label>
-                        <input type="range" id="sliderDuration" name="duration" class="form-range" min="2" max="20" step="1" value="8">
-                      </div>
-                    </div>
-
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label for="sliderParticles">เอฟเฟกต์ละอองวิบวับ (<span id="lblParticles">15</span> ชิ้น)</label>
-                        <input type="range" id="sliderParticles" name="particleCount" class="form-range" min="0" max="30" step="1" value="15">
-                      </div>
-                      <div class="form-group">
-                        <label for="sliderFontSize">ขนาดตัวอักษร (<span id="lblFontSize">32</span>px)</label>
-                        <input type="range" id="sliderFontSize" name="fontSize" class="form-range" min="16" max="72" step="1" value="32">
                       </div>
                     </div>
                     </div><!-- /card-body-panel panelStyleThemes -->
+                  </div>
+
+                  <!-- Card: Text & Style Customization -->
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelTextCustom">
+                      <h4><i class="fa-solid fa-comment"></i> ปรับแต่งข้อความและรูปแบบตัวอักษร (Text & Style Customization)</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTextCustom">
+
+                     <!-- Theme-specific color overrides -->
+                     <div class="custom-colors-container" id="customColorsContainer" data-theme="glassmorphism">
+                       <h5 class="section-divider">ปรับแต่งสีของธีม (Theme Colors)</h5>
+                       <div class="color-picker-grid" id="themeColorGrid">
+                         <div class="color-picker-group color-key-donor">
+                           <label>สีชื่อผู้โดเนท (Donor)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorDonor" value="#fde047">
+                             <input type="text" id="txtDonor" class="hex-text" value="#fde047">
+                           </div>
+                         </div>
+                         <div class="color-picker-group color-key-amount">
+                           <label>สีเน้นจำนวนเงิน (Amount)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorAmount" value="#4ade80">
+                             <input type="text" id="txtAmount" class="hex-text" value="#4ade80">
+                           </div>
+                         </div>
+                         <div class="color-picker-group color-key-border">
+                           <label>สีกรอบ (Border)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorBorder" value="#667eea">
+                             <input type="text" id="txtBorder" class="hex-text" value="#667eea">
+                           </div>
+                         </div>
+                         <div class="color-picker-group color-key-bg">
+                           <label>สีพื้นหลัง (Background)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorBg" value="#0f0f19">
+                             <input type="text" id="txtBg" class="hex-text" value="rgba(15,15,25,0.88)">
+                           </div>
+                         </div>
+                         <div class="color-picker-group color-key-text">
+                           <label>สีตัวอักษร (Text)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorText" value="#ffffff">
+                             <input type="text" id="txtText" class="hex-text" value="#ffffff">
+                           </div>
+                         </div>
+                         <div class="color-picker-group color-key-suffix">
+                           <label>สีสกุลเงิน (Suffix)</label>
+                           <div class="color-input-wrapper compact">
+                             <input type="color" id="colorSuffix" value="#f59e0b">
+                             <input type="text" id="txtSuffix" class="hex-text" value="#f59e0b">
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+
+                     <h5 class="section-divider">ขนาดตัวอักษรแยกตำแหน่ง (Font Sizes)</h5>
+                     <div class="font-size-grid" id="fontSizeGrid">
+                       <div class="form-group">
+                         <label for="selectFontSizeHeader">บรรทัดที่ 1 (Line 1 Base)</label>
+                         <select id="selectFontSizeHeader" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectFontSizeDonorHl">ชื่อผู้โดเนท (Donor)</label>
+                         <select id="selectFontSizeDonorHl" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectFontSizeAmount">บรรทัดที่ 2 (Line 2 Base)</label>
+                         <select id="selectFontSizeAmount" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectFontSizeAmountHl">จำนวนเงิน (Amount)</label>
+                         <select id="selectFontSizeAmountHl" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectFontSizeMessage">ข้อความโดเนท</label>
+                         <select id="selectFontSizeMessage" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectFontSizeSuffix">สกุลเงิน (Suffix)</label>
+                         <select id="selectFontSizeSuffix" class="form-select">
+                           <option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                         </select>
+                       </div>
+                     </div>
+
+                     <h5 class="section-divider">ขอบตัวอักษร (Outline)</h5>
+                     <div class="outline-grid" id="outlineGrid">
+                       <div class="form-group">
+                         <label for="selectOutlineHeaderAmount">หัวข้อ / จำนวนเงิน</label>
+                         <select id="selectOutlineHeaderAmount" class="form-select">
+                           <option value="0">0 px</option><option value="1">1 px</option><option value="2">2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                         </select>
+                       </div>
+                       <div class="form-group">
+                         <label for="selectOutlineMessage">ข้อความโดเนท</label>
+                         <select id="selectOutlineMessage" class="form-select">
+                           <option value="0">0 px</option><option value="1">1 px</option><option value="2">2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                         </select>
+                       </div>
+                     </div>
+
+                     <h5 class="section-divider">ข้อความแจ้งเตือน (Alert Text Template)</h5>
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputTemplateLine1">ข้อความบรรทัด 1 (Template Line 1)</label>
+                        <input type="text" id="inputTemplateLine1" name="templateLine1" class="form-control" value="{ผู้โดเนท} ได้บริจาค">
+                      </div>
+                      <div class="form-group full-width">
+                        <label for="inputTemplateLine2">ข้อความบรรทัด 2 (Template Line 2)</label>
+                        <input type="text" id="inputTemplateLine2" name="templateLine2" class="form-control" value="{จำนวนเงิน} {สกุลเงิน} 🎉">
+                      </div>
+                      <div class="form-group full-width">
+                        <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
+                        <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
+                        <small class="form-hint">ตัวแปรที่ใช้ได้ : <code>{ผู้โดเนท}</code>, <code>{จำนวนเงิน}</code> และ <code>{สกุลเงิน}</code> ใน บรรทัด 1–2 (บรรทัด 2 เว้นว่างได้)</small>
+                      </div>
+                    </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkShowDonorMessage" name="showDonorMessage" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
+                          </div>
+                        </div>
+                      </div>
+
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputMinAmount">จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
+                        <input type="number" id="inputMinAmount" name="minAmount" class="form-control" min="1" value="1">
+                        <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
+                      </div>
+                    </div>
+                    </div><!-- /card-body-panel panelTextCustom -->
                   </div>
 
                   <!-- Card: Audio & TTS Settings -->
@@ -1117,59 +1234,6 @@
                       </div>
                     </div>
                     </div><!-- /card-body-panel panelProfanity -->
-                  </div>
-
-                  <!-- Card: Message Settings -->
-                  <div class="dashboard-card settings-card">
-                    <div class="settings-card-header" data-target="panelTextCustom">
-                      <h4><i class="fa-solid fa-comment"></i> ปรับแต่งข้อความแจ้งเตือน (Text Customization)</h4>
-                      <i class="fa-solid fa-chevron-down card-chevron"></i>
-                    </div>
-                    <div class="card-body-panel" id="panelTextCustom">
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="inputMessageTemplate">รูปแบบประโยคแจ้งเตือน (Template)</label>
-                        <input type="text" id="inputMessageTemplate" name="messageTemplate" class="form-control" value="{donor} ได้บริจาค {amount} บาท! 🎉">
-                        <small class="form-hint">ใช้ <code>{donor}</code> แทนชื่อผู้บริจาค และ <code>{amount}</code> แทนจำนวนเงิน</small>
-                      </div>
-                      <div class="form-group full-width">
-                        <label for="inputAmountSuffix">ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
-                        <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
-                        <small class="form-hint">ข้อความนี้จะปรากฏต่อท้ายจำนวนเงินในกล่องแจ้งเตือน (เช่น 100 บาท)</small>
-                      </div>
-                    </div>
-
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkShowLabel" name="showLabel">
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label">แสดงป้าย "บริจาค" (Show Donate Label)</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkShowDonorMessage" name="showDonorMessage" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
-                          </div>
-                        </div>
-                      </div>
-
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="inputMinAmount">จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
-                        <input type="number" id="inputMinAmount" name="minAmount" class="form-control" min="1" value="1">
-                        <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
-                      </div>
-                    </div>
-                    </div><!-- /card-body-panel panelTextCustom -->
                   </div>
 
                   <!-- Actions block -->

@@ -577,8 +577,6 @@ async function initializeDashboard() {
     // Slider Real-time Updates
     const sliders = [
       { id: 'sliderDuration', lbl: 'lblDuration', fn: v => v },
-      { id: 'sliderParticles', lbl: 'lblParticles', fn: v => v },
-      { id: 'sliderFontSize', lbl: 'lblFontSize', fn: v => v },
       { id: 'sliderSoundVolume', lbl: 'lblSoundVolume', fn: v => Math.round(v * 100) },
       { id: 'sliderTtsVolume', lbl: 'lblTtsVolume', fn: v => Math.round(v * 100) },
       { id: 'sliderTtsRate', lbl: 'lblTtsRate', fn: v => (Number(v) - 0.3).toFixed(1) },
@@ -799,7 +797,7 @@ async function initializeDashboard() {
 
     const themeSelect = document.getElementById('themeSelect');
     if (themeSelect) {
-      // Color picker visibility is now always enabled
+      themeSelect.addEventListener('change', () => updateColorPickerVisibility());
     }
 
     const chkProfanity = document.getElementById('chkProfanityFilterEnabled');
@@ -1344,19 +1342,13 @@ function loadOverlaySettingsFromData(data) {
     const lbl = document.getElementById('lblDuration');
     if (lbl) lbl.textContent = data.duration;
   }
-  const sliderParticles = document.getElementById('sliderParticles');
-  if (sliderParticles && data.particleCount !== undefined) {
-    sliderParticles.value = data.particleCount;
-    const lbl = document.getElementById('lblParticles');
-    if (lbl) lbl.textContent = data.particleCount;
-  }
+  setSelectValue('selectParticles', data.particleCount ?? 15);
 
   const checkboxMap = {
     chkSoundEnabled: 'soundEnabled',
     chkTtsEnabled: 'ttsEnabled',
     chkTtsReadDonor: 'ttsReadDonor',
     chkTtsPrefixEnabled: 'ttsPrefixEnabled',
-    chkShowLabel: 'showLabel',
     chkShowDonorMessage: 'showDonorMessage',
     chkProfanityFilterEnabled: 'profanityFilterEnabled',
   };
@@ -1366,7 +1358,6 @@ function loadOverlaySettingsFromData(data) {
   }
 
   const textMap = {
-    inputMessageTemplate: 'messageTemplate',
     inputAmountSuffix: 'amountSuffix',
     inputMinAmount: 'minAmount',
     inputProfanityWords: 'profanityWords',
@@ -1375,6 +1366,12 @@ function loadOverlaySettingsFromData(data) {
     const el = document.getElementById(id);
     if (el && data[key] !== undefined) el.value = data[key];
   }
+
+  // 2-line template (fallback to legacy messageTemplate for line 1)
+  const line1El = document.getElementById('inputTemplateLine1');
+  if (line1El) line1El.value = data.template_line1 || data.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ';
+  const line2El = document.getElementById('inputTemplateLine2');
+  if (line2El) line2El.value = data.template_line2 || '';
 
   const selectMap = {
     themeSelect: 'theme',
@@ -1390,6 +1387,33 @@ function loadOverlaySettingsFromData(data) {
       el.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }
+
+  // Per-theme color overrides
+  const theme = data.theme || 'glassmorphism';
+  const themeColors = parseJsonField(data.theme_colors, {});
+  const container = document.getElementById('customColorsContainer');
+  if (container) container.dataset.savedThemeColors = JSON.stringify(themeColors);
+  const colors = themeColors[theme] || {};
+  setColorInput('colorDonor', 'txtDonor', colors.donor || '#fde047');
+  setColorInput('colorAmount', 'txtAmount', colors.amount || data.primaryColor || '#4ade80');
+  setColorInput('colorBorder', 'txtBorder', colors.border || data.borderColor || 'rgba(255,255,255,0.25)');
+  setColorInput('colorBg', 'txtBg', colors.bg || data.backgroundColor || 'rgba(15,15,25,0.88)');
+  setColorInput('colorText', 'txtText', colors.text || data.textColor || '#ffffff');
+  setColorInput('colorSuffix', 'txtSuffix', colors.suffix || '#f59e0b');
+  updateColorPickerVisibility(theme);
+
+  // Per-element font sizes + outline
+  const fontSizes = parseJsonField(data.alert_font_sizes, {});
+  setSelectValue('selectFontSizeHeader', fontSizes.header ?? 24);
+  setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 24);
+  setSelectValue('selectFontSizeMessage', fontSizes.message ?? 18);
+  setSelectValue('selectFontSizeAmount', fontSizes.amount ?? data.fontSize ?? 48);
+  setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? data.fontSize ?? 48);
+  setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 24);
+
+  const outline = parseJsonField(data.alert_outline, { header_amount: 2, message: 1 });
+  setSelectValue('selectOutlineHeaderAmount', outline.header_amount ?? 2);
+  setSelectValue('selectOutlineMessage', outline.message ?? 1);
 
   // Sound/TTS/Profanity sub-section visibility (mirrors loadOverlaySettings logic)
   if (typeof toggleCustomSoundUrlContainer === 'function') toggleCustomSoundUrlContainer(data.soundChoice);
@@ -1410,13 +1434,7 @@ function loadOverlaySettingsFromData(data) {
   const customSoundUrlEl = document.getElementById('customSoundUrl');
   if (customSoundUrlEl) customSoundUrlEl.value = data.customSoundUrl || '';
 
-  // sliders missing from original: fontSize, soundVolume, ttsVolume, ttsRate
-  const sliderFontSize = document.getElementById('sliderFontSize');
-  if (sliderFontSize && data.fontSize !== undefined) {
-    sliderFontSize.value = data.fontSize;
-    const lbl = document.getElementById('lblFontSize');
-    if (lbl) lbl.textContent = data.fontSize;
-  }
+  // sliders missing from original: soundVolume, ttsVolume, ttsRate
   const sliderSoundVolume = document.getElementById('sliderSoundVolume');
   if (sliderSoundVolume && data.soundVolume !== undefined) {
     sliderSoundVolume.value = data.soundVolume;
@@ -1434,17 +1452,6 @@ function loadOverlaySettingsFromData(data) {
     sliderTtsRate.value = data.ttsRate;
     const lbl = document.getElementById('lblTtsRate');
     if (lbl) lbl.textContent = (data.ttsRate - 0.3).toFixed(1);
-  }
-
-  const colorMap = {
-    colorPrimary: 'primaryColor', txtPrimary: 'primaryColor',
-    colorSecondary: 'secondaryColor', txtSecondary: 'secondaryColor',
-    colorText: 'textColor', txtText: 'textColor',
-    txtBg: 'backgroundColor',
-  };
-  for (const [id, key] of Object.entries(colorMap)) {
-    const el = document.getElementById(id);
-    if (el && data[key] !== undefined) el.value = data[key];
   }
 }
 
@@ -3394,6 +3401,57 @@ function toggleProfanitySubSettings(enabled) {
   container.style.display = enabled ? 'block' : 'none';
 }
 
+function parseJsonField(value, fallback = null) {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function updateColorPickerVisibility(theme) {
+  const container = document.getElementById('customColorsContainer');
+  if (!container) return;
+  if (!theme) {
+    const themeSelect = document.getElementById('themeSelect');
+    theme = themeSelect ? themeSelect.value : 'glassmorphism';
+  }
+  container.setAttribute('data-theme', theme);
+  const themeKeys = {
+    glassmorphism: ['donor', 'amount', 'border', 'bg', 'text', 'suffix'],
+    cyberpunk: ['donor', 'amount', 'border', 'text', 'suffix'],
+    custom: ['donor', 'amount', 'border', 'bg', 'text', 'suffix'],
+    'text-only': ['donor', 'amount', 'text', 'suffix'],
+    minimal: ['donor', 'amount', 'border', 'text', 'suffix']
+  };
+  const keys = themeKeys[theme] || themeKeys.glassmorphism;
+  document.querySelectorAll('#themeColorGrid .color-picker-group').forEach(group => {
+    const match = group.className.match(/color-key-(\w+)/);
+    const key = match ? match[1] : null;
+    group.style.display = key && keys.includes(key) ? '' : 'none';
+  });
+}
+
+function setColorInput(colorId, textId, value) {
+  const colorEl = document.getElementById(colorId);
+  const textEl = document.getElementById(textId);
+  const raw = value || '';
+  if (textEl) textEl.value = raw;
+  if (colorEl && raw.startsWith('#')) {
+    colorEl.value = raw;
+  }
+}
+
+function setSelectValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.value = String(value);
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
 async function loadOverlaySettings() {
   showTabLoading('overlay-config');
   try {
@@ -3402,33 +3460,43 @@ async function loadOverlaySettings() {
       const s = await response.json();
       
       // Map to inputs
-      document.getElementById('themeSelect').value = s.theme;
+      const theme = s.theme || 'glassmorphism';
+      document.getElementById('themeSelect').value = theme;
       document.getElementById('fontSelect').value = s.fontFamily;
       document.getElementById('animSelect').value = s.animation;
-      
-      // Color pickers
-      document.getElementById('colorPrimary').value = s.primaryColor;
-      document.getElementById('txtPrimary').value = s.primaryColor;
-      document.getElementById('colorSecondary').value = s.secondaryColor;
-      document.getElementById('txtSecondary').value = s.secondaryColor;
-      document.getElementById('colorText').value = s.textColor;
-      document.getElementById('txtText').value = s.textColor;
-      
-      // Background Hex or RGBA converter support
-      document.getElementById('txtBg').value = s.backgroundColor;
-      if (s.backgroundColor.startsWith('#')) {
-        document.getElementById('colorBg').value = s.backgroundColor;
-      }
- 
+
+      // Per-theme color overrides (fallback to legacy flat colors)
+      const themeColors = parseJsonField(s.theme_colors, {});
+      const container = document.getElementById('customColorsContainer');
+      if (container) container.dataset.savedThemeColors = JSON.stringify(themeColors);
+      const colors = themeColors[theme] || {};
+      setColorInput('colorDonor', 'txtDonor', colors.donor || '#fde047');
+      setColorInput('colorAmount', 'txtAmount', colors.amount || s.primaryColor || '#4ade80');
+      setColorInput('colorBorder', 'txtBorder', colors.border || s.borderColor || 'rgba(255,255,255,0.25)');
+      setColorInput('colorBg', 'txtBg', colors.bg || s.backgroundColor || 'rgba(15,15,25,0.88)');
+      setColorInput('colorText', 'txtText', colors.text || s.textColor || '#ffffff');
+      setColorInput('colorSuffix', 'txtSuffix', colors.suffix || '#f59e0b');
+      updateColorPickerVisibility(theme);
+
+      // Per-element font sizes (fallback to legacy fontSize for amount)
+      const fontSizes = parseJsonField(s.alert_font_sizes, {});
+      setSelectValue('selectFontSizeHeader', fontSizes.header ?? 24);
+      setSelectValue('selectFontSizeDonorHl', fontSizes.donor_hl ?? fontSizes.header ?? 24);
+      setSelectValue('selectFontSizeMessage', fontSizes.message ?? 18);
+      setSelectValue('selectFontSizeAmount', fontSizes.amount ?? s.fontSize ?? 48);
+      setSelectValue('selectFontSizeAmountHl', fontSizes.amount_hl ?? fontSizes.amount ?? s.fontSize ?? 48);
+      setSelectValue('selectFontSizeSuffix', fontSizes.suffix ?? 24);
+
+      // Outline widths
+      const outline = parseJsonField(s.alert_outline, { header_amount: 2, message: 1 });
+      setSelectValue('selectOutlineHeaderAmount', outline.header_amount ?? 2);
+      setSelectValue('selectOutlineMessage', outline.message ?? 1);
+
       // Ranges
       document.getElementById('sliderDuration').value = s.duration;
       document.getElementById('lblDuration').textContent = s.duration;
- 
-      document.getElementById('sliderParticles').value = s.particleCount;
-      document.getElementById('lblParticles').textContent = s.particleCount;
- 
-      document.getElementById('sliderFontSize').value = s.fontSize || 32;
-      document.getElementById('lblFontSize').textContent = s.fontSize || 32;
+
+      setSelectValue('selectParticles', s.particleCount ?? 15);
  
        // Audio Checkboxes
        document.getElementById('chkSoundEnabled').checked = s.soundEnabled;
@@ -3449,9 +3517,9 @@ async function loadOverlaySettings() {
       document.getElementById('lblTtsRate').textContent = (s.ttsRate - 0.3).toFixed(1);
  
       // Template Strings
-      document.getElementById('inputMessageTemplate').value = s.messageTemplate;
+      document.getElementById('inputTemplateLine1').value = s.template_line1 || s.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ';
+      document.getElementById('inputTemplateLine2').value = s.template_line2 || '';
       document.getElementById('inputAmountSuffix').value = s.amountSuffix || 'บาท';
-      document.getElementById('chkShowLabel').checked = s.showLabel !== undefined ? s.showLabel : false;
        document.getElementById('chkShowDonorMessage').checked = s.showDonorMessage;
        document.getElementById('inputMinAmount').value = s.minAmount;
        
@@ -3481,7 +3549,9 @@ async function loadOverlaySettings() {
 
        // Notify CustomSelect wrappers by dispatching change events
        ['themeSelect', 'fontSelect', 'animSelect', 'soundChoiceSelect',
-        'customImageMode', 'profanityReplaceStyleSelect'].forEach(id => {
+        'customImageMode', 'profanityReplaceStyleSelect',
+        'selectFontSizeHeader', 'selectFontSizeDonorHl', 'selectFontSizeMessage', 'selectFontSizeAmount', 'selectFontSizeAmountHl', 'selectFontSizeSuffix',
+        'selectOutlineHeaderAmount', 'selectOutlineMessage', 'selectParticles'].forEach(id => {
          const el = document.getElementById(id);
          if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
        });
@@ -4260,10 +4330,12 @@ function initTimerSettingsUI() {
 
 // ========== Color picker bindings (Hex inputs <-> Color box picker) ==========
 const colorPickers = [
-  { picker: 'colorPrimary', txt: 'txtPrimary' },
-  { picker: 'colorSecondary', txt: 'txtSecondary' },
+  { picker: 'colorDonor', txt: 'txtDonor' },
+  { picker: 'colorAmount', txt: 'txtAmount' },
+  { picker: 'colorBorder', txt: 'txtBorder' },
   { picker: 'colorText', txt: 'txtText' },
-  { picker: 'colorBg', txt: 'txtBg' }
+  { picker: 'colorBg', txt: 'txtBg' },
+  { picker: 'colorSuffix', txt: 'txtSuffix' }
 ];
 
 colorPickers.forEach(group => {
@@ -4280,42 +4352,74 @@ colorPickers.forEach(group => {
 });
 
 async function saveOverlaySettings() {
+  const theme = document.getElementById('themeSelect').value;
+  const txtDonor = document.getElementById('txtDonor').value || '#fde047';
+  const txtAmount = document.getElementById('txtAmount').value || '#4ade80';
+  const txtBorder = document.getElementById('txtBorder').value || 'rgba(255,255,255,0.25)';
+  const txtBg = document.getElementById('txtBg').value || 'rgba(15,15,25,0.88)';
+  const txtText = document.getElementById('txtText').value || '#ffffff';
+  const txtSuffix = document.getElementById('txtSuffix').value || '#f59e0b';
+  const templateLine1 = document.getElementById('inputTemplateLine1').value || '{ผู้โดเนท} ได้เลี้ยงกาแฟ';
+  const existingThemeColors = parseJsonField(
+    document.getElementById('customColorsContainer').dataset.savedThemeColors || '{}',
+    {}
+  );
+  const mergedThemeColors = {
+    ...existingThemeColors,
+    [theme]: { donor: txtDonor, amount: txtAmount, border: txtBorder, bg: txtBg, text: txtText, suffix: txtSuffix }
+  };
+
   const payload = {
-    theme: document.getElementById('themeSelect').value,
+    theme,
     fontFamily: document.getElementById('fontSelect').value,
     animation: document.getElementById('animSelect').value,
     duration: parseInt(document.getElementById('sliderDuration').value),
-     particleCount: parseInt(document.getElementById('sliderParticles').value),
-     fontSize: parseInt(document.getElementById('sliderFontSize').value) || 32,
-     customImageMode: document.getElementById('customImageMode').value,
-     customImageValue: document.getElementById('customImageValue').value,
-     
-     primaryColor: document.getElementById('txtPrimary').value,
- 
-    secondaryColor: document.getElementById('txtSecondary').value,
-    textColor: document.getElementById('txtText').value,
-    backgroundColor: document.getElementById('txtBg').value,
-    borderColor: hexToRgbA(document.getElementById('txtPrimary').value, 0.25),
-    
-     soundEnabled: document.getElementById('chkSoundEnabled').checked,
-     soundChoice: document.getElementById('soundChoiceSelect').value,
-     soundVolume: parseFloat(document.getElementById('sliderSoundVolume').value),
-     customSoundUrl: document.getElementById('customSoundUrl').value,
-     
-     ttsEnabled: document.getElementById('chkTtsEnabled').checked,
-     ttsReadDonor: document.getElementById('chkTtsReadDonor').checked,
-     ttsPrefixEnabled: document.getElementById('chkTtsPrefixEnabled').checked,
-     ttsLanguage: 'th-TH',
-     ttsVolume: parseFloat(document.getElementById('sliderTtsVolume').value),
-     ttsRate: parseFloat(document.getElementById('sliderTtsRate').value),
- 
- 
-    messageTemplate: document.getElementById('inputMessageTemplate').value,
+    particleCount: parseInt(document.getElementById('selectParticles').value),
+    customImageMode: document.getElementById('customImageMode').value,
+    customImageValue: document.getElementById('customImageValue').value,
+
+    // Legacy flat colors kept as fallback
+    primaryColor: txtAmount,
+    secondaryColor: txtBorder,
+    textColor: txtText,
+    backgroundColor: txtBg,
+    borderColor: txtBorder,
+    fontSize: parseInt(document.getElementById('selectFontSizeAmount').value) || 48,
+
+    // New per-theme JSON fields
+    theme_colors: JSON.stringify(mergedThemeColors),
+    alert_font_sizes: JSON.stringify({
+      header: parseInt(document.getElementById('selectFontSizeHeader').value) || 24,
+      donor_hl: parseInt(document.getElementById('selectFontSizeDonorHl').value) || 24,
+      message: parseInt(document.getElementById('selectFontSizeMessage').value) || 18,
+      amount: parseInt(document.getElementById('selectFontSizeAmount').value) || 48,
+      amount_hl: parseInt(document.getElementById('selectFontSizeAmountHl').value) || 48,
+      suffix: parseInt(document.getElementById('selectFontSizeSuffix').value) || 24
+    }),
+    alert_outline: JSON.stringify({
+      header_amount: parseInt(document.getElementById('selectOutlineHeaderAmount').value) || 0,
+      message: parseInt(document.getElementById('selectOutlineMessage').value) || 0
+    }),
+    template_line1: templateLine1,
+    template_line2: document.getElementById('inputTemplateLine2').value || '',
+    messageTemplate: templateLine1,
+
+    soundEnabled: document.getElementById('chkSoundEnabled').checked,
+    soundChoice: document.getElementById('soundChoiceSelect').value,
+    soundVolume: parseFloat(document.getElementById('sliderSoundVolume').value),
+    customSoundUrl: document.getElementById('customSoundUrl').value,
+
+    ttsEnabled: document.getElementById('chkTtsEnabled').checked,
+    ttsReadDonor: document.getElementById('chkTtsReadDonor').checked,
+    ttsPrefixEnabled: document.getElementById('chkTtsPrefixEnabled').checked,
+    ttsLanguage: 'th-TH',
+    ttsVolume: parseFloat(document.getElementById('sliderTtsVolume').value),
+    ttsRate: parseFloat(document.getElementById('sliderTtsRate').value),
+
     amountSuffix: document.getElementById('inputAmountSuffix').value,
-    showLabel: document.getElementById('chkShowLabel').checked,
     showDonorMessage: document.getElementById('chkShowDonorMessage').checked,
     minAmount: parseInt(document.getElementById('inputMinAmount').value) || 1,
-    
+
     profanityFilterEnabled: document.getElementById('chkProfanityFilterEnabled').checked,
     profanityWords: document.getElementById('inputProfanityWords').value,
     profanityReplaceStyle: document.getElementById('profanityReplaceStyleSelect').value
@@ -4329,6 +4433,9 @@ async function saveOverlaySettings() {
     });
     if (res.ok) {
       showNotification('บันทึกสำเร็จ!');
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      showNotification(errData.error || 'บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
     }
   } catch (err) {
     showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');

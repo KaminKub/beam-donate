@@ -15,6 +15,20 @@ input, textarea, [contenteditable="true"] {
   --border-color: rgba(255, 255, 255, 0.25);
   --font-family: 'Noto Sans Thai', 'Segoe UI', sans-serif;
   --glow-color: rgba(102, 126, 234, 0.25);
+  /* Per-theme alert colors */
+  --theme-amount: #4ade80;
+  --theme-border: #667eea;
+  --theme-bg: rgba(15, 15, 25, 0.88);
+  --theme-text: #ffffff;
+  /* Per-element font sizes (px) */
+  --font-header: 24;
+  --font-donor-hl: 24;
+  --font-message: 18;
+  --font-amount: 48;
+  --font-amount-hl: 48;
+  --font-suffix: 24;
+  --theme-suffix: #f59e0b;
+  --theme-donor: #fde047;
 }
 
 /* ========== Overlay Base ========== */
@@ -58,19 +72,13 @@ body {
 }
 
 /* Text Outline / Stroke — all themes */
-.alert-header,
-.alert-amount,
-.alert-message {
-  filter: url(#outline-2-black);
-}
-
 .alert-box.theme-glassmorphism::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 25px;
   padding: 2px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color), #f093fb, var(--primary-color));
+  background: linear-gradient(135deg, var(--theme-border), var(--theme-amount), #f093fb, var(--theme-border));
   background-size: 300% 300%;
   animation: gradientShift 3s ease infinite;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -80,22 +88,22 @@ body {
 }
 
 .alert-box.theme-glassmorphism .alert-content {
-  background: rgba(15, 15, 25, 0.123);
+  background: var(--theme-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 18px;
-  color: #ffffff;
+  color: var(--theme-text);
 }
 
 /* Highlight Styles */
 .highlight-donor {
-  color: #fde047; /* Yellow color for donor */
-  font-size: 1.3em;
+  color: var(--theme-donor, #fde047);
+  font-size: calc(var(--font-donor-hl, 24) * 1px);
   font-weight: 800;
 }
 
 .highlight-amount {
-  background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+  background: linear-gradient(90deg, var(--theme-amount) 0%, #ffffff 50%, var(--theme-amount) 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -106,8 +114,40 @@ body {
   overflow: hidden;
   width: fit-content;
   animation: shineText 3s linear infinite;
-  font-size: 1.4em; /* เพิ่มขนาดให้ใหญ่ขึ้นกว่าตัวอักษรปกติในบรรทัด */
+  font-size: calc(var(--font-amount-hl, 48) * 1px);
   line-height: 1;
+}
+
+.highlight-suffix {
+  background: linear-gradient(90deg, var(--theme-suffix, #f59e0b) 0%, #ffffff 50%, var(--theme-suffix, #f59e0b) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  display: inline;
+  animation: shineText 3s linear infinite;
+  font-size: calc(var(--font-suffix, 24) * 1px);
+  line-height: 1;
+}
+
+.alert-header .highlight-amount,
+.donor-name .highlight-amount {
+  display: inline;
+  vertical-align: baseline;
+}
+
+/* Cyberpunk custom amount override: keep gradient only when using default amount */
+body.custom-amount-active .alert-box.theme-cyberpunk .highlight-amount {
+  background: none;
+  -webkit-text-fill-color: var(--theme-amount);
+}
+body.custom-amount-active .alert-box.theme-cyberpunk .highlight-suffix {
+  background: none;
+  -webkit-text-fill-color: var(--theme-suffix);
+}
+body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
+  color: var(--theme-donor);
 }
 
 
@@ -129,7 +169,7 @@ body {
 /* Theme: Neon Cyberpunk */
 .alert-box.theme-cyberpunk {
   border-radius: 0px;
-  border: 3px solid var(--primary-color);
+  border: 3px solid var(--theme-border);
   box-shadow: 0 0 20px rgba(0, 243, 255, 0.3), inset 0 0 10px rgba(0, 243, 255, 0.2);
   background: #05070f;
 }
@@ -137,42 +177,32 @@ body {
 .alert-box.theme-cyberpunk .alert-content {
   background: #05070f;
   border-radius: 0px;
-  color: #00f3ff;
-  border: 1px solid var(--secondary-color);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
   padding: 22px 26px;
   font-family: 'Chakra Petch', monospace;
 }
 
 .alert-box.theme-cyberpunk .donor-name {
-  color: #ff007f !important;
+  color: var(--theme-border) !important;
   text-transform: uppercase;
   text-shadow: 0 0 8px rgba(255, 0, 127, 0.5);
   font-weight: 700;
 }
 
-.alert-box.theme-cyberpunk .alert-label {
-  color: #05070f !important;
-  background: #00f3ff !important;
-  border-radius: 0px !important;
-  font-weight: 800;
-}
-
 .alert-box.theme-cyberpunk .alert-amount {
-  background: linear-gradient(90deg, #00f3ff, #ff007f) !important;
-  background-clip: text !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  color: var(--theme-text);
   text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
 }
 
 .alert-box.theme-cyberpunk .alert-message {
-  color: #ffffff !important;
-  border-left: 3px solid #ff007f;
+  color: var(--theme-text) !important;
+  border-left: 3px solid var(--theme-border);
   padding-left: 10px;
 }
 
 .alert-box.theme-cyberpunk .alert-progress-bar {
-  background: linear-gradient(90deg, #00f3ff, #ff007f) !important;
+  background: linear-gradient(90deg, var(--theme-amount), var(--theme-border)) !important;
 }
 
 
@@ -180,41 +210,32 @@ body {
 .alert-box.theme-custom {
   border-radius: 12px;
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
-  border: 2px solid var(--border-color);
-  background: var(--bg-color);
+  border: 2px solid var(--theme-border);
+  background: var(--theme-bg);
 }
 
 .alert-box.theme-custom .alert-content {
-  background: var(--bg-color);
-  color: var(--text-color);
+  background: var(--theme-bg);
+  color: var(--theme-text);
   border-radius: 12px;
 }
 
 .alert-box.theme-custom .donor-name {
-  color: var(--text-color) !important;
+  color: var(--theme-text) !important;
   opacity: 0.9;
 }
 
-.alert-box.theme-custom .alert-label {
-  color: var(--text-color) !important;
-  background: var(--primary-color) !important;
-  opacity: 0.8;
-}
-
 .alert-box.theme-custom .alert-amount {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-  background-clip: text !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  color: var(--theme-text);
 }
 
 .alert-box.theme-custom .alert-message {
-  color: var(--text-color) !important;
+  color: var(--theme-text) !important;
   opacity: 0.7;
 }
 
 .alert-box.theme-custom .alert-progress-bar {
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+  background: linear-gradient(90deg, var(--theme-amount), var(--theme-border)) !important;
 }
 
 
@@ -295,35 +316,27 @@ body {
 }
 
 .donor-name {
-  font-size: calc(var(--font-size, 32px) * 0.47);
+  font-size: calc(var(--font-header, 24) * 1px);
   font-weight: 600;
-}
-
-.alert-label {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  white-space: pre-wrap;
 }
 
 .alert-amount {
-  font-size: var(--font-size, 32px);
+  font-size: calc(var(--font-amount, 48) * 1px);
   font-weight: 800;
   line-height: 1.2;
   animation: amountReveal 0.5s ease-out 0.2s both;
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-start;
+  display: block;
+  white-space: pre-wrap;
 }
 
 .amount-suffix {
   white-space: pre;
+  font-size: calc(var(--font-suffix, 24) * 1px);
 }
 
 .alert-message {
-  font-size: calc(var(--font-size, 32px) * 0.53);
+  font-size: calc(var(--font-message, 18) * 1px);
   margin-top: 4px;
   line-height: 1.4;
   max-height: 2.8em;
@@ -508,7 +521,7 @@ body {
 
 .alert-box.theme-text-only .alert-content {
   background: transparent !important;
-  color: var(--text-color) !important;
+  color: var(--theme-text) !important;
   border: none !important;
   padding: 12px 0 !important;
   justify-content: center !important;
@@ -552,23 +565,23 @@ body {
 }
 
 .alert-box.theme-text-only .donor-name {
-  font-size: calc(var(--font-size) * 0.5) !important; /* Scale to 50% of the custom font size */
-  color: var(--text-color) !important;
+  font-size: calc(var(--font-header) * 1px) !important;
+  color: var(--theme-text) !important;
   opacity: 0.95;
   text-align: center !important;
 }
 
 .alert-box.theme-text-only .alert-amount {
-  font-size: var(--font-size) !important; /* Primary configurable font size */
-  color: var(--primary-color) !important;
+  font-size: calc(var(--font-amount) * 1px) !important;
+  color: var(--theme-amount) !important;
   text-align: center !important;
   font-weight: 800;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.3) !important;
 }
 
 .alert-box.theme-text-only .alert-message {
-  font-size: calc(var(--font-size) * 0.45) !important; /* Scale to 45% of custom font size */
-  color: var(--text-color) !important;
+  font-size: calc(var(--font-message) * 1px) !important;
+  color: var(--theme-text) !important;
   opacity: 0.85;
   text-align: center !important;
   margin-top: 8px !important;

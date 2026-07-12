@@ -20,7 +20,9 @@ let overlaySettings = {
   profanityFilterEnabled: true,
   profanityWords: 'ควย, เย็ด, สัส, เหี้ย, หี, แตด, ล่อ, ดอกทอง, ส้นตีน, อีดอก, อีเหี้ย, พ่อง, แม่มึง, กู, มึง',
   profanityReplaceStyle: 'asterisks',
-  messageTemplate: '{donor} ได้บริจาค {amount} บาท! 🎉',
+  messageTemplate: '{ผู้โดเนท} ได้เลี้ยงกาแฟ {จำนวนเงิน} {สกุลเงิน} 🎉',
+  template_line1: '{ผู้โดเนท} ได้เลี้ยงกาแฟ',
+  template_line2: '{จำนวนเงิน} {สกุลเงิน} 🎉',
   showDonorMessage: true,
   minAmount: 1,
   theme: 'glassmorphism',
@@ -31,6 +33,9 @@ let overlaySettings = {
   backgroundColor: 'rgba(15, 15, 25, 0.88)',
   textColor: '#ffffff',
   borderColor: 'rgba(255, 255, 255, 0.05)',
+  theme_colors: '{"glassmorphism":{"amount":"#4ade80","border":"#667eea","bg":"rgba(15,15,25,0.88)","text":"#ffffff"},"cyberpunk":{"amount":"#00f3ff","border":"#ff007f","text":"#ffffff"},"custom":{"amount":"#667eea","border":"rgba(255,255,255,0.25)","bg":"rgba(15,15,25,0.88)","text":"#ffffff"},"text-only":{"amount":"#4ade80","text":"#ffffff"},"minimal":{"amount":"#667eea","border":"rgba(255,255,255,0.15)","text":"#ffffff"}}',
+  alert_font_sizes: '{"header":24,"message":18,"amount":48,"suffix":24}',
+  alert_outline: '{"header_amount":2,"message":1}',
   particleCount: 15,
   fontSize: 48,
   customImageMode: 'emoji',
@@ -80,11 +85,33 @@ async function loadInitialSettings() {
 }
 
 // ========== Apply Settings Dynamically ==========
+function parseJsonField(value, fallback = null) {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function applySettings(settings) {
   overlaySettings = { ...overlaySettings, ...settings };
-  
-  // Inject style values to document element
+
   const doc = document.documentElement;
+  const theme = overlaySettings.theme || 'glassmorphism';
+
+  // Per-theme colors (fallback to legacy flat colors if new JSON missing)
+  const themeColors = parseJsonField(overlaySettings.theme_colors, {});
+  const colors = themeColors[theme] || {};
+  doc.style.setProperty('--theme-amount', colors.amount || overlaySettings.primaryColor || '#4ade80');
+  doc.style.setProperty('--theme-border', colors.border || overlaySettings.borderColor || 'rgba(255,255,255,0.25)');
+  doc.style.setProperty('--theme-bg', colors.bg || overlaySettings.backgroundColor || 'rgba(15,15,25,0.88)');
+  doc.style.setProperty('--theme-text', colors.text || overlaySettings.textColor || '#ffffff');
+  doc.style.setProperty('--theme-suffix', colors.suffix || '#f59e0b');
+  doc.style.setProperty('--theme-donor', colors.donor || '#fde047');
+
+  // Legacy variables (for any old CSS still using them)
   doc.style.setProperty('--primary-color', overlaySettings.primaryColor);
   doc.style.setProperty('--secondary-color', overlaySettings.secondaryColor);
   doc.style.setProperty('--bg-color', overlaySettings.backgroundColor);
@@ -92,12 +119,43 @@ function applySettings(settings) {
   doc.style.setProperty('--border-color', overlaySettings.borderColor);
   doc.style.setProperty('--font-family', `'${overlaySettings.fontFamily}', 'Segoe UI', sans-serif`);
   doc.style.setProperty('--glow-color', hexToRgbA(overlaySettings.primaryColor, 0.25));
-  doc.style.setProperty('--font-size', `${overlaySettings.fontSize || 32}px`);
+
+  // Per-element font sizes (fallback to legacy fontSize)
+  const fontSizes = parseJsonField(overlaySettings.alert_font_sizes, {});
+  doc.style.setProperty('--font-header', fontSizes.header ?? 24);
+  doc.style.setProperty('--font-donor-hl', fontSizes.donor_hl ?? fontSizes.header ?? 24);
+  doc.style.setProperty('--font-message', fontSizes.message ?? 18);
+  doc.style.setProperty('--font-amount', fontSizes.amount ?? overlaySettings.fontSize ?? 48);
+  doc.style.setProperty('--font-amount-hl', fontSizes.amount_hl ?? fontSizes.amount ?? overlaySettings.fontSize ?? 48);
+  doc.style.setProperty('--font-suffix', fontSizes.suffix ?? 24);
+  doc.style.setProperty('--font-size', `${fontSizes.amount ?? overlaySettings.fontSize ?? 32}px`);
+
+  // Cyberpunk gradient override: if user customized amount away from default, switch to solid fill
+  if (theme === 'cyberpunk' && colors.amount && colors.amount !== '#00f3ff') {
+    document.body.classList.add('custom-amount-active');
+  } else {
+    document.body.classList.remove('custom-amount-active');
+  }
+
+  applyOutline(overlaySettings);
 
   console.log('⚡ Applied settings:', overlaySettings.theme, overlaySettings.animation);
   if (!isShowing) {
     requestAnimationFrame(() => showStaticPreview());
   }
+}
+
+function applyOutline(settings) {
+  let outline = parseJsonField(settings.alert_outline, { header_amount: 2, message: 1 });
+  if (!outline) outline = { header_amount: 2, message: 1 };
+  const hw = Math.min(5, Math.max(0, parseInt(outline.header_amount, 10) || 0));
+  const mw = Math.min(5, Math.max(0, parseInt(outline.message, 10) || 0));
+  document.querySelectorAll('.alert-header, .alert-amount').forEach(el => {
+    el.style.filter = `url(#outline-h-${hw})`;
+  });
+  document.querySelectorAll('.alert-message').forEach(el => {
+    el.style.filter = `url(#outline-m-${mw})`;
+  });
 }
 
 // Helper to convert hex color to rgba with transparency
@@ -213,13 +271,32 @@ function showStaticPreview() {
   alertBox.classList.add(`theme-${overlaySettings.theme}`);
   alertBox.classList.add('static-preview');
 
-  const sampleDonor = `<span class="highlight-donor">ผู้สนับสนุนลึกลับ</span>`;
+  const sampleDonor = 'ผู้สนับสนุนลึกลับ';
   const sampleAmount = '500';
-  const headerHtml = overlaySettings.messageTemplate
-    .replace(/{donor}/g, sampleDonor)
-    .replace(/{amount}/g, sampleAmount);
+  const suffixSafe = escapeForHtml((overlaySettings.amountSuffix || 'บาท').trim());
+  const donorSpan = `<span class="highlight-donor">${escapeForHtml(sampleDonor)}</span>`;
+  const amountSpan = `<span class="highlight-amount shine-effect">${escapeForHtml(sampleAmount)}</span>`;
+  const suffixSpan = `<span class="highlight-suffix shine-effect">${suffixSafe}</span>`;
 
-  alertBox.querySelector('.donor-name').innerHTML = headerHtml;
+  function renderTemplate(tpl) {
+    return tpl
+      .replace(/\{ผู้โดเนท\}|\{donor\}/g, () => donorSpan)
+      .replace(/\{จำนวนเงิน\}|\{amount\}/g, () => amountSpan)
+      .replace(/\{สกุลเงิน\}/g, () => suffixSpan);
+  }
+
+  const line1 = renderTemplate(overlaySettings.template_line1 || overlaySettings.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ');
+  const line2 = renderTemplate(overlaySettings.template_line2 || '');
+
+  alertBox.querySelector('.donor-name').innerHTML = line1;
+  const amountEl = alertBox.querySelector('.alert-amount');
+  if (line2) {
+    amountEl.innerHTML = line2;
+    amountEl.style.display = '';
+  } else {
+    amountEl.innerHTML = '';
+    amountEl.style.display = 'none';
+  }
 
   const iconEmojiEl = alertBox.querySelector('.icon-emoji');
   const iconContainer = alertBox.querySelector('.alert-icon');
@@ -250,29 +327,6 @@ function showStaticPreview() {
     }
   }
 
-  const labelElement = alertBox.querySelector('.alert-label');
-  if (labelElement) {
-    const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : false;
-    const tempLower = overlaySettings.messageTemplate.toLowerCase();
-    if (!showLabelSetting || tempLower.includes('{amount}') || tempLower.includes('บริจาค') || tempLower.includes('donate')) {
-      labelElement.style.display = 'none';
-    } else {
-      labelElement.style.display = 'inline-block';
-      labelElement.textContent = 'บริจาค';
-    }
-  }
-
-  const rawSuffix = overlaySettings.amountSuffix ?? 'บาท';
-  const amountSuffix = rawSuffix.startsWith(' ') ? rawSuffix : (rawSuffix ? ' ' + rawSuffix : '');
-  const amountEl = alertBox.querySelector('.alert-amount');
-  if (amountEl) {
-    amountEl.innerHTML = `<span class="highlight-amount shine-effect">${escapeForHtml(sampleAmount)}</span>`;
-    const suffixSpan = document.createElement('span');
-    suffixSpan.className = 'amount-suffix';
-    suffixSpan.textContent = amountSuffix;
-    amountEl.appendChild(suffixSpan);
-  }
-
   const messageElement = alertBox.querySelector('.alert-message');
   if (messageElement) {
     messageElement.textContent = overlaySettings.showDonorMessage ? 'ขอบคุณสำหรับการสนับสนุน! 🎉' : '';
@@ -285,6 +339,7 @@ function showStaticPreview() {
   alertBox.style.transition = 'opacity 0.7s ease';
   container.appendChild(alertBox);
   staticPreviewEl = alertBox;
+  applyOutline(overlaySettings);
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -349,18 +404,28 @@ async function showAlert(data) {
   alertBox.classList.add(`theme-${overlaySettings.theme}`);
   alertBox.classList.add(`anim-${overlaySettings.animation}`);
 
-    // Format header text using template
+    // Format amount and escape values for template rendering
     const amountFormatted = Number(data.amount).toLocaleString('th-TH', { minimumFractionDigits: 0 });
-    
-    // สร้าง HTML สำหรับ Header — escape donor name ก่อน inject เพื่อป้องกัน XSS (SEC-003)
     const filteredDonor = escapeForHtml(filterProfanity(data.donor || 'Anonymous'));
     const filteredMessage = filterProfanity(data.message || '');
-    const headerHtml = overlaySettings.messageTemplate
-      .replace(/{donor}/g, `<span class="highlight-donor">${filteredDonor}</span>`)
-      .replace(/{amount}/g, amountFormatted);
+    const suffixSafe = escapeForHtml((overlaySettings.amountSuffix || 'บาท').trim());
+
+    const donorSpan = `<span class="highlight-donor">${filteredDonor}</span>`;
+    const amountSpan = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
+    const suffixSpan = `<span class="highlight-suffix shine-effect">${suffixSafe}</span>`;
+
+    function renderTemplate(tpl) {
+      return tpl
+        .replace(/\{ผู้โดเนท\}|\{donor\}/g, () => donorSpan)
+        .replace(/\{จำนวนเงิน\}|\{amount\}/g, () => amountSpan)
+        .replace(/\{สกุลเงิน\}/g, () => suffixSpan);
+    }
+
+    const line1 = renderTemplate(overlaySettings.template_line1 || overlaySettings.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ');
+    const line2 = renderTemplate(overlaySettings.template_line2 || '');
 
     // Set content
-    alertBox.querySelector('.donor-name').innerHTML = filterProfanity(headerHtml);
+    alertBox.querySelector('.donor-name').innerHTML = line1;
     
     // Handle Custom Icon/Image
     const iconEmojiEl = alertBox.querySelector('.icon-emoji');
@@ -395,34 +460,13 @@ async function showAlert(data) {
       }
     }
     
-    // ซ่อนป้าย "บริจาค" ตามการตั้งค่า หรือหากในเทมเพลตข้อความหลักมีจำนวนเงินหรือคำว่าบริจาคอยู่แล้ว
-
-  const labelElement = alertBox.querySelector('.alert-label');
-  if (labelElement) {
-    const showLabelSetting = overlaySettings.showLabel !== undefined ? overlaySettings.showLabel : false;
-    const tempLower = overlaySettings.messageTemplate.toLowerCase();
-    if (!showLabelSetting || tempLower.includes('{amount}') || tempLower.includes('บริจาค') || tempLower.includes('donate')) {
-      labelElement.style.display = 'none';
-    } else {
-      labelElement.style.display = 'inline-block';
-      if (overlaySettings.theme === 'cyberpunk' || overlaySettings.theme === 'minimal') {
-        labelElement.textContent = 'PAY';
-      } else {
-        labelElement.textContent = 'บริจาค';
-      }
-    }
-  }
-
-  // Adjust amount display (large font is standard, but since template might have it, let's keep it clean)
-  const rawSuffix2 = overlaySettings.amountSuffix ?? 'บาท';
-  const amountSuffix2 = rawSuffix2.startsWith(' ') ? rawSuffix2 : (rawSuffix2 ? ' ' + rawSuffix2 : '');
   const amountEl2 = alertBox.querySelector('.alert-amount');
-  if (amountEl2) {
-    amountEl2.innerHTML = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
-    const suffixSpan2 = document.createElement('span');
-    suffixSpan2.className = 'amount-suffix';
-    suffixSpan2.textContent = amountSuffix2;
-    amountEl2.appendChild(suffixSpan2);
+  if (line2) {
+    amountEl2.innerHTML = line2;
+    amountEl2.style.display = '';
+  } else {
+    amountEl2.innerHTML = '';
+    amountEl2.style.display = 'none';
   }
 
   // User private message
@@ -438,6 +482,7 @@ async function showAlert(data) {
   // Append to overlay
   const container = document.getElementById('alertContainer');
   container.appendChild(alertBox);
+  applyOutline(overlaySettings);
   const shownAt = performance.now();
 
   // Spawn visual particles immediately
@@ -453,7 +498,7 @@ async function showAlert(data) {
       if (overlaySettings.ttsEnabled) {
         let speakText = '';
         if (overlaySettings.ttsReadDonor) {
-          const cleanHeader = headerHtml.replace(/<[^>]*>/g, '');
+          const cleanHeader = line1.replace(/<[^>]*>/g, '');
           const ttsSuffix = (overlaySettings.amountSuffix || 'บาท').trim();
           const headerPrefix = cleanHeader.split(amountFormatted)[0];
           speakText = `${headerPrefix}${amountFormatted} ${ttsSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
