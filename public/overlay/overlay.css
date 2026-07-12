@@ -316,7 +316,10 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: flex-start;
-  gap: 4px;
+}
+
+.amount-suffix {
+  white-space: pre;
 }
 
 .alert-message {

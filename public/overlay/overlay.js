@@ -262,8 +262,16 @@ function showStaticPreview() {
     }
   }
 
-  const amountSuffix = overlaySettings.amountSuffix || 'บาท';
-  alertBox.querySelector('.alert-amount').innerHTML = `<span class="highlight-amount shine-effect">${sampleAmount}</span> ${amountSuffix}</span>`;
+  const rawSuffix = overlaySettings.amountSuffix ?? 'บาท';
+  const amountSuffix = rawSuffix.startsWith(' ') ? rawSuffix : (rawSuffix ? ' ' + rawSuffix : '');
+  const amountEl = alertBox.querySelector('.alert-amount');
+  if (amountEl) {
+    amountEl.innerHTML = `<span class="highlight-amount shine-effect">${escapeForHtml(sampleAmount)}</span>`;
+    const suffixSpan = document.createElement('span');
+    suffixSpan.className = 'amount-suffix';
+    suffixSpan.textContent = amountSuffix;
+    amountEl.appendChild(suffixSpan);
+  }
 
   const messageElement = alertBox.querySelector('.alert-message');
   if (messageElement) {
@@ -406,8 +414,16 @@ async function showAlert(data) {
   }
 
   // Adjust amount display (large font is standard, but since template might have it, let's keep it clean)
-  const amountSuffix = overlaySettings.amountSuffix || 'บาท';
-  alertBox.querySelector('.alert-amount').innerHTML = `<span class="highlight-amount shine-effect">${amountFormatted}</span> ${amountSuffix}</span>`;
+  const rawSuffix2 = overlaySettings.amountSuffix ?? 'บาท';
+  const amountSuffix2 = rawSuffix2.startsWith(' ') ? rawSuffix2 : (rawSuffix2 ? ' ' + rawSuffix2 : '');
+  const amountEl2 = alertBox.querySelector('.alert-amount');
+  if (amountEl2) {
+    amountEl2.innerHTML = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
+    const suffixSpan2 = document.createElement('span');
+    suffixSpan2.className = 'amount-suffix';
+    suffixSpan2.textContent = amountSuffix2;
+    amountEl2.appendChild(suffixSpan2);
+  }
 
   // User private message
   const messageElement = alertBox.querySelector('.alert-message');
@@ -438,9 +454,9 @@ async function showAlert(data) {
         let speakText = '';
         if (overlaySettings.ttsReadDonor) {
           const cleanHeader = headerHtml.replace(/<[^>]*>/g, '');
-          const amountSuffix = overlaySettings.amountSuffix || 'บาท';
+          const ttsSuffix = (overlaySettings.amountSuffix || 'บาท').trim();
           const headerPrefix = cleanHeader.split(amountFormatted)[0];
-          speakText = `${headerPrefix}${amountFormatted} ${amountSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
+          speakText = `${headerPrefix}${amountFormatted} ${ttsSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
         } else {
           speakText = filteredMessage;
         }
