@@ -440,7 +440,7 @@
     const absDelta = Math.abs(delta);
     const duration = calcAnimDuration(absDelta);
     const isAdd = delta > 0;
-    const timeUnit = settings.time_unit || 'seconds';
+    const timeUnit = settings.time_unit || 'minutes';
 
     const deltaEl = document.getElementById('timerDeltaEl');
     if (!deltaEl) { finishAnimation(newRemaining, newRunning, newLastUpdate); return; }

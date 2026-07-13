@@ -3866,7 +3866,7 @@ async function loadTimerSettings() {
 
     const timeUnitEl = document.getElementById('timerTimeUnit');
     if (timeUnitEl) {
-      timeUnitEl.value = t.time_unit || 'seconds';
+      timeUnitEl.value = t.time_unit || 'minutes';
       timeUnitEl.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
@@ -3903,7 +3903,7 @@ async function loadTimerSettings() {
     const capValEl = document.getElementById('inputTimerCapValue');
     if (capValEl) {
       if (t.cap_type === 'time') {
-        const isMin = (t.time_unit || 'seconds') === 'minutes';
+        const isMin = (t.time_unit || 'minutes') === 'minutes';
         capValEl.value = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || '');
       } else {
         capValEl.value = t.cap_value || '';

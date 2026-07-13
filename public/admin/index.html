@@ -94,6 +94,7 @@
     <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-circle-check" style="color:#10b981;"></i></div><div class="stat-value" id="statToday">—</div><div class="stat-label">Tx Today</div></div>
     <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-calendar-week" style="color:#8b5cf6;"></i></div><div class="stat-value" id="statWeek">—</div><div class="stat-label">Tx This Week</div></div>
     <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-bullseye" style="color:#8b5cf6;"></i></div><div class="stat-value" id="statGoalBar">—</div><div class="stat-label">Goal Bar Online</div></div>
+    <div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-hourglass-half" style="color:#f59e0b;"></i></div><div class="stat-value" id="statTimer">—</div><div class="stat-label">Timer Online</div></div>
   </div>
 
   <p class="section-title">Quick Access</p>
@@ -143,6 +144,7 @@ async function fetchStats() {
     document.getElementById('statSseTotal').textContent = d.sse.total;
     document.getElementById('statOverlays').textContent = d.sse.overlays;
     if (d.sse) document.getElementById('statGoalBar').textContent = d.sse.goalBars ?? 0;
+    if (d.sse) document.getElementById('statTimer').textContent   = d.sse.timers ?? 0;
     document.getElementById('statPayment').textContent = d.users.withPayment;
     document.getElementById('statToday').textContent = d.transactions.today;
     document.getElementById('statWeek').textContent = d.transactions.week;
