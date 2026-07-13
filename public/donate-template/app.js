@@ -451,35 +451,47 @@ function formatChoiceTime(secs) {
   return `${s} วินาที`;
 }
 
-function rawChoiceSeconds(amount) {
+function resolveTimerAction(amount) {
+  // returns { seconds, action } or null — ครอบคลุม add/sub/choice ทั้ง 3 mode
   const t = timerPublicConfig;
-  if (!t || !amount) return 0;
+  if (!t || !amount) return null;
   const rules = Array.isArray(t.rules) ? t.rules : [];
   if (t.mode === 'multiplier') {
-    let secs = 0;
+    let addSecs = 0, subSecs = 0, choiceSecs = 0;
     for (const r of rules) {
-      if (r.action !== 'choice' || !r.base_amount || r.base_amount <= 0) continue;
+      if (!r.base_amount || r.base_amount <= 0) continue;
       const mult = Math.floor(amount / r.base_amount);
-      if (mult > 0) secs += mult * (r.time_seconds || 0);
+      if (mult <= 0) continue;
+      const s = mult * (r.time_seconds || 0);
+      if (r.action === 'add') addSecs += s;
+      else if (r.action === 'sub') subSecs += s;
+      else if (r.action === 'choice') choiceSecs += s;
     }
-    return secs;
+    if (choiceSecs > 0) return { seconds: choiceSecs, action: 'choice' };
+    if (addSecs > 0 && subSecs === 0) return { seconds: addSecs, action: 'add' };
+    if (subSecs > 0 && addSecs === 0) return { seconds: subSecs, action: 'sub' };
+    if (addSecs > 0 || subSecs > 0) return null; // mixed add+sub — net delta ไม่ตรง preview → ซ่อน
+    return null;
   }
   if (t.mode === 'threshold') {
     const tier = [...rules].sort((a, b) => b.amount - a.amount).find(r => amount >= r.amount);
-    return tier && tier.action === 'choice' ? (tier.time_seconds || 0) : 0;
+    if (!tier || !tier.time_seconds) return null;
+    return { seconds: tier.time_seconds, action: tier.action || 'add' };
   }
   if (t.mode === 'fixed') {
     const m = rules.find(r => Math.abs(r.amount - amount) < 0.01);
-    return m && m.action === 'choice' ? (m.time_seconds || 0) : 0;
+    if (!m || !m.time_seconds) return null;
+    return { seconds: m.time_seconds, action: m.action || 'add' };
   }
-  return 0;
+  return null;
 }
 
 function getChoiceEffect(amount) {
   const t = timerPublicConfig;
   if (!t || !t.enabled || !amount) return null;
-  const rawSecs = rawChoiceSeconds(amount);
-  if (rawSecs <= 0) return null; // ยอดนี้ไม่เข้ากฏ choice → ซ่อนกล่อง (พฤติกรรมเดิม)
+  const resolved = resolveTimerAction(amount);
+  if (!resolved) return null;
+  const { seconds: rawSecs, action } = resolved;
 
   // Cap layer — mirror server applyTimerOnDonation clamp เป๊ะ (B3/B4)
   const capOn = t.capType && (t.capValue || 0) > 0;
@@ -487,18 +499,22 @@ function getChoiceEffect(amount) {
   let addSeconds = rawSecs, subSeconds = rawSecs;
   if (capOn && t.capType === 'money') {
     // server: นับเสมือนโดเนทแค่ยอดที่เหลือใน room — clamp ทั้งสองทิศทาง
-    const clampedSecs = room > 0 ? rawChoiceSeconds(Math.min(amount, room)) : 0;
+    const clampedSecs = room > 0 ? (resolveTimerAction(Math.min(amount, room))?.seconds || 0) : 0;
     addSeconds = clampedSecs;
     subSeconds = clampedSecs;
   } else if (capOn && t.capType === 'time') {
     addSeconds = Math.min(rawSecs, room); // server clamp เฉพาะฝั่งเพิ่ม — ฝั่งลดไม่จำกัด
   }
+  const capFull = action === 'add' ? addSeconds <= 0 :
+                  action === 'sub' ? subSeconds <= 0 :
+                  (addSeconds <= 0 && subSeconds <= 0);
   return {
     seconds: rawSecs,
+    action,
     addSeconds,
     subSeconds,
     clamped: addSeconds < rawSecs || subSeconds < rawSecs,
-    capFull: addSeconds <= 0 && subSeconds <= 0,
+    capFull,
   };
 }
 
@@ -507,22 +523,46 @@ function updateTimerChoiceBox() {
   if (!box) return;
   // Gate 1 (TIMER_CHOICE_GATE B3): timer widget ต้องเปิดอยู่บน OBS (มี SSE client source='timer' ค้าง)
   if (!timerActive) { box.classList.remove('visible'); return; }
-  // Gate 2: ยอดต้องเข้ากฏ choice (เดิม)
+  // Gate 2: ยอดต้องเข้ากฏ (add/sub/choice ทั้งหมด)
   const eff = getChoiceEffect(selectedAmount);
   if (!eff) { box.classList.remove('visible'); return; }
   box.classList.add('visible');
   const effEl = document.getElementById('timerChoiceEffect');
   const optsEl = box.querySelector('.timer-choice-options');
+  const titleText = document.getElementById('timerChoiceTitleText');
+
   if (eff.capFull) {
+    if (titleText) titleText.textContent = 'เลือกปรับเวลานับถอยหลัง';
+    effEl.className = 'timer-choice-effect';
     effEl.textContent = '(ครบเป้าหมายแล้ว — โดเนทนี้ไม่ปรับเวลา)';
     if (optsEl) optsEl.style.display = 'none';
     return;
   }
+
+  // กรณี action ถูกกำหนดตายตัว — ซ่อน options, แสดงสีแดง/เขียว
+  if (eff.action === 'add') {
+    if (titleText) titleText.textContent = 'โดเนทนี้จะปรับเวลานับถอยหลัง';
+    effEl.className = 'timer-choice-effect timer-choice-effect--add';
+    effEl.textContent = `+${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)' : ''}`;
+    if (optsEl) optsEl.style.display = 'none';
+    return;
+  }
+  if (eff.action === 'sub') {
+    if (titleText) titleText.textContent = 'โดเนทนี้จะลดเวลานับถอยหลัง';
+    effEl.className = 'timer-choice-effect timer-choice-effect--sub';
+    effEl.textContent = `−${formatChoiceTime(eff.subSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)`;
+    if (optsEl) optsEl.style.display = 'none';
+    return;
+  }
+
+  // action === 'choice': พฤติกรรมเดิม — donor เลือกเองได้
+  if (titleText) titleText.textContent = 'เลือกปรับเวลานับถอยหลัง';
+  effEl.className = 'timer-choice-effect';
   if (optsEl) optsEl.style.display = '';
   if (eff.addSeconds !== eff.subSeconds) {
     effEl.textContent = `(+${formatChoiceTime(eff.addSeconds)} / −${formatChoiceTime(eff.subSeconds)})`;
   } else {
-    effEl.textContent = `±${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(เกินเป้าหมายแล้ว)' : ''}`;
+    effEl.textContent = `±${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)' : ''}`;
   }
   const noneBtn = box.querySelector('[data-choice="none"]');
   if (noneBtn) noneBtn.style.display = timerPublicConfig.allowPassthrough ? '' : 'none';
@@ -538,6 +578,7 @@ function getTimerActionForSubmit() {
   if (!timerActive) return null;                                            // B6: defense-in-depth
   const eff = getChoiceEffect(selectedAmount);
   if (!eff || eff.capFull) return null;                                     // capFull: server ignore อยู่แล้ว — กันชั้นสอง
+  if (eff.action !== 'choice') return eff.action;                          // กฏตายตัว — ส่งตรง
   return timerChoice;
 }
 

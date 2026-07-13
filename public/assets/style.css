@@ -1664,6 +1664,8 @@ input[type=number] {
   text-align: center;
 }
 .timer-choice-effect { color: #fbbf24; font-weight: 600; font-size: 18px; white-space: pre-line;}
+.timer-choice-effect--add { color: #22c55e; }
+.timer-choice-effect--sub { color: #ef4444; }
 .timer-choice-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .timer-choice-btn {
   flex: 1 1 0;
