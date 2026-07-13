@@ -4334,18 +4334,9 @@ function initTimerSettingsUI() {
   const btnStop  = document.getElementById('btnTimerStop');
   const btnReset = document.getElementById('btnTimerReset');
   const btnResetCap = document.getElementById('btnTimerResetCap');
-  if (btnStart) btnStart.addEventListener('click', () => {
-    if (timerLiveMode) timerControl('start');
-    else timerPostMessage('timer_control', { action: 'start' });
-  });
-  if (btnStop) btnStop.addEventListener('click', () => {
-    if (timerLiveMode) timerControl('stop');
-    else timerPostMessage('timer_control', { action: 'stop' });
-  });
-  if (btnReset) btnReset.addEventListener('click', () => {
-    if (timerLiveMode) timerControl('reset');
-    else timerPostMessage('timer_control', { action: 'reset' });
-  });
+  if (btnStart) btnStart.addEventListener('click', () => timerControl('start'));
+  if (btnStop)  btnStop.addEventListener('click',  () => timerControl('stop'));
+  if (btnReset) btnReset.addEventListener('click', () => timerControl('reset'));
   if (btnResetCap) btnResetCap.addEventListener('click', () => timerControl('reset-cap'));
   const btnRefreshCap = document.getElementById('btnRefreshCapStatus');
   if (btnRefreshCap) btnRefreshCap.addEventListener('click', refreshCapStatus);

@@ -3563,6 +3563,9 @@ label {
 .cap-progress { height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.15); overflow: hidden; margin-top: 6px; }
 .cap-progress-fill { height: 100%; width: 0%; border-radius: 3px; background-color: #10b981; transition: width 0.4s ease, background-color 0.4s ease; }
 .timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.timer-test-zone { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.18); border-radius: 10px; padding: 12px; }
+.timer-test-zone__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.timer-test-zone__divider { height: 1px; background: rgba(139,92,246,0.2); margin: 10px 0; }
 .timer-anim-test-buttons { align-items: center; }
 .timer-anim-test-buttons .btn-sm { padding: 6px 12px; font-size: 13px; line-height: 1; border-width: 2px; transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 .timer-anim-test-buttons input[type="number"] { -moz-appearance: textfield; }
