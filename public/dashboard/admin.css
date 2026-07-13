@@ -3633,3 +3633,111 @@ label {
   .timer-control-buttons { flex-direction: column; }
   .timer-mode-cards { grid-template-columns: 1fr; }
 }
+
+/* ===== TrueMoney Webhook ===== */
+.webhook-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.webhook-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.webhook-quota-mini {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.webhook-methods-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.webhook-method-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #c7d2fe;
+  background: rgba(102, 126, 234, 0.12);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+}
+
+.webhook-conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #fbbf24;
+}
+
+.webhook-conflict-banner i {
+  flex-shrink: 0;
+}
+
+.webhook-steps {
+  padding-left: 20px;
+  margin: 0 0 16px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.webhook-steps li {
+  margin-bottom: 6px;
+}
+
+.webhook-method-choices,
+.webhook-consents {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.webhook-method-choices .checkbox,
+.webhook-consents .checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.webhook-method-choices .checkbox.disabled,
+.webhook-consents .checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.webhook-method-choices .checkbox input[type="checkbox"],
+.webhook-consents .checkbox input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.webhook-method-choices .checkbox small,
+.webhook-consents .checkbox small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}

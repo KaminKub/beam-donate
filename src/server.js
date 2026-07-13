@@ -19,6 +19,8 @@ const fs = require('fs');
 const beam = require('./beam');
 const https = require('https');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
+const promptparse = require('promptparse');
 const session = require('express-session');
 const TursoStore = require('./sessionStore');
 const passport = require('passport');
@@ -438,6 +440,19 @@ function broadcastWidgetStatus(username) {
   });
 }
 
+// broadcastDonateStatus() → donate-status SSE clients waiting for a specific refId to confirm
+function broadcastDonateStatus(refId, payload) {
+  if (!refId) return;
+  const data = JSON.stringify({ type: 'donate_status', ...payload });
+  sseClients = sseClients.filter(client => {
+    if (client.source === 'donate-status' && client.ref === refId) {
+      try { client.res.write(`data: ${data}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
 // broadcastTimerCap() → dona-monitor clients (donate page) — fires when timer_cap_current changes
 function broadcastTimerCap(username, t, capCurrent) {
   if (!username) return;
@@ -536,6 +551,45 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
   } catch (e) {
     console.error('Timer donation update failed:', e.message);
   }
+}
+
+// Single donation confirm entry point — every confirm path (webhook, slip, manual, charge) must call this.
+// Atomic pending->successful transition guards against cross-path double-confirm (QA Q1 2026-07-13):
+// confirmTransactionPaid updates only WHERE status='pending' (or inserts a new row) and reports rowsAffected.
+// If another path already confirmed this tx, rowsAffected===0 → skip goal/alert/timer so nothing double-fires.
+async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = {}, extraAlert = {} } = {}) {
+  const confirmResult = await db.confirmTransactionPaid({
+    id: txId,
+    paidAt: new Date().toISOString(),
+    ...(amount != null ? { amount } : {}),
+    ...(rawWebhook ? { raw_webhook: rawWebhook } : {}),
+    ...extraTx
+  });
+  const affected = confirmResult ? (confirmResult.rowsAffected ?? 0) : 0;
+  const tx = (await db.getTransactionById(txId)) || {};
+  if (!affected) return tx; // already confirmed by another path — no double side-effects
+  const finalAmount = amount ?? tx.amount ?? 0;
+  broadcastAlert(tx.streamer_username, {
+    type: 'donation',
+    donor: tx.donor || 'Anonymous',
+    amount: finalAmount,
+    message: tx.message || '',
+    timestamp: new Date().toISOString(),
+    ...extraAlert
+  });
+  if (tx.streamer_username && finalAmount > 0) {
+    try {
+      const streamer = await db.getStreamer(tx.streamer_username);
+      if (streamer && streamer.goal_enabled) {
+        const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
+        broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
+      }
+      if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(tx.timer_action));
+    } catch (e) {
+      console.error('Confirm side-effects failed:', e.message);
+    }
+  }
+  return tx;
 }
 
 async function logTransaction(data) {
@@ -1915,38 +1969,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
       if (paymentLinkId) tx = await db.getTransactionById(paymentLinkId);
       if (!tx && chargeId) tx = await db.getTransactionById(chargeId);
       const targetId = tx ? tx.id : (paymentLinkId || chargeId);
-      await logTransaction({
-        id: targetId,
-        streamer_username: tx?.streamer_username,
-        amount: amount || (tx ? tx.amount : 0),
-        status: 'successful',
-        paidAt: new Date().toISOString(),
-        raw_webhook: event
-      });
-      const txDetails = (await db.getTransactionById(targetId)) || {};
-      
-      broadcastAlert(txDetails.streamer_username, {
-        type: 'donation',
-        donor: txDetails.donor || 'Anonymous',
-        amount: amount || txDetails.amount || 0,
-        message: txDetails.message || charge.description || '',
-        timestamp: new Date().toISOString()
-      });
-
-      // Update donation goal if enabled
-      const finalAmount = amount || txDetails.amount || 0;
-      if (txDetails.streamer_username && finalAmount > 0) {
-        try {
-          const streamer = await db.getStreamer(txDetails.streamer_username);
-          if (streamer && streamer.goal_enabled) {
-            const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
-            broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
-          }
-          if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(txDetails.timer_action));
-        } catch (e) {
-          console.error('Goal update after webhook failed:', e.message);
-        }
-      }
+      await confirmDonationSideEffects(targetId, { amount: amount || (tx ? tx.amount : 0), rawWebhook: event });
     }
     res.json({ received: true });
   } catch (error) {
@@ -2236,7 +2259,31 @@ app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
     const expiredCount = await db.cleanupExpiredTransactions();
     const deletedCount = await db.hardDeleteExpiredTransactions();
     const ipDeleted = await db.cleanupOldIpEvents(90);
-    res.json({ success: true, expired: expiredCount, deleted: deletedCount, ip_events_deleted: ipDeleted });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const webhookStreamers = await db.getStreamersWithWebhookEnabled();
+    let webhookDisabledCount = 0;
+    for (const s of webhookStreamers) {
+      if (s.truemoney_webhook_expiry && s.truemoney_webhook_expiry < today) {
+        await db.saveStreamer({
+          twitch_id: s.twitch_id || null,
+          streamlabs_id: s.streamlabs_id || null,
+          username: s.username,
+          truemoney_webhook_enabled: 0
+        });
+        webhookDisabledCount++;
+      }
+    }
+    const processedDeleted = await db.cleanupProcessedWebhooks(90);
+
+    res.json({
+      success: true,
+      expired: expiredCount,
+      deleted: deletedCount,
+      ip_events_deleted: ipDeleted,
+      webhook_disabled: webhookDisabledCount,
+      processed_webhooks_deleted: processedDeleted
+    });
   } catch (err) {
     console.error('Cron cleanup-expired error:', err);
     res.status(500).json({ error: 'Cleanup failed' });
@@ -2320,31 +2367,11 @@ app.post('/api/transactions/:id/status', ensureAuthenticated, csrfProtection, as
       return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์จัดการธุรกรรมนี้' });
     }
 
-    const updatedTx = await db.saveTransaction({ ...tx, id, status });
+    let updatedTx;
     if (status === 'successful') {
-      const txDetails = await db.getTransactionById(id);
-      broadcastAlert(txDetails.streamer_username, {
-        type: 'donation',
-        donor: updatedTx.donor || 'Anonymous',
-        amount: updatedTx.amount || 0,
-        message: updatedTx.message || '',
-        timestamp: new Date().toISOString(),
-        isManualTrigger: true
-      });
-
-      const finalAmount = updatedTx.amount || 0;
-      if (txDetails.streamer_username && finalAmount > 0) {
-        try {
-          const streamer = await db.getStreamer(txDetails.streamer_username);
-          if (streamer && streamer.goal_enabled) {
-            const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
-            broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
-          }
-          if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(txDetails.timer_action));
-        } catch (e) {
-          console.error('Goal update after manual confirm failed:', e.message);
-        }
-      }
+      updatedTx = await confirmDonationSideEffects(id, { amount: tx.amount, extraAlert: { isManualTrigger: true } });
+    } else {
+      updatedTx = await db.saveTransaction({ ...tx, id, status });
     }
     res.json({ success: true, transaction: updatedTx });
   } catch (err) {
@@ -3383,6 +3410,12 @@ function decryptPaymentFields(streamer) {
     if (result.truemoney_slipok_api_key_encrypted && result.truemoney_slipok_api_key_encrypted.includes(':')) {
       result.truemoney_slipok_api_key = decrypt(result.truemoney_slipok_api_key_encrypted);
     }
+    if (result.truemoney_webhook_secret_encrypted && result.truemoney_webhook_secret_encrypted.includes(':')) {
+      result.truemoney_webhook_secret = decrypt(result.truemoney_webhook_secret_encrypted);
+    }
+    if (result.truemoney_promptpay_id_encrypted && result.truemoney_promptpay_id_encrypted.includes(':')) {
+      result.truemoney_promptpay_id = decrypt(result.truemoney_promptpay_id_encrypted);
+    }
     if (result.bank_account_number_encrypted && result.bank_account_number_encrypted.includes(':')) {
       result.bank_account_number = decrypt(result.bank_account_number_encrypted);
     }
@@ -3425,6 +3458,13 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       truemoney_slipok_api_key: censor(decrypted.truemoney_slipok_api_key || ''),
       truemoney_slipok_connected: decrypted.truemoney_slipok_connected || 0,
       truemoney_slipok_last_check: decrypted.truemoney_slipok_last_check || '',
+      truemoney_webhook_enabled: decrypted.truemoney_webhook_enabled || 0,
+      truemoney_webhook_secret_set: !!streamer.truemoney_webhook_secret_encrypted,
+      truemoney_webhook_methods: decrypted.truemoney_webhook_methods || 'P2P',
+      truemoney_webhook_expiry: decrypted.truemoney_webhook_expiry || '',
+      truemoney_webhook_kyc_confirmed: decrypted.truemoney_webhook_kyc_confirmed || 0,
+      truemoney_promptpay_id: censor(decrypted.truemoney_promptpay_id || '', 3, 2),
+      truemoney_webhook_tx_month: await db.countMonthlyWebhookTx(actualUsername),
       bank_enabled: decrypted.bank_enabled || 0,
       bank_name: decrypted.bank_name || '',
       bank_account_number: censor(decrypted.bank_account_number || '', 3, 2),
@@ -3774,6 +3814,33 @@ function crc16(data) {
   return (crc & 0xFFFF);
 }
 
+// POST /api/truemoney/webhook - TrueMoney Wallet webhook (public)
+const truemoneyWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { error: 'Too many webhook requests' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// POST /api/truemoney/create-qr - Create TrueMoney QR (public)
+const truemoneyQrLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'กรุณารอสักครู่ก่อนสร้าง QR ใหม่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// GET /api/donate/status/stream - Donation status SSE (public)
+const donateStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many status connections' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // POST /api/create-promptpay-qr - Create PromptPay QR for donation
 const promptPayQrLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -3847,6 +3914,290 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     console.error('Create PromptPay QR error:', err);
     res.status(500).json({ error: 'ไม่สามารถสร้าง QR Code ได้' });
   }
+});
+
+// POST /api/truemoney/webhook - TrueMoney Open API webhook (public, JWT-signed)
+app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => {
+  try {
+    const streamerId = req.query.streamerId;
+    if (!streamerId) return res.status(400).json({ error: 'Missing streamerId' });
+
+    const streamer = await db.getStreamer(streamerId);
+    if (!streamer || streamer.truemoney_webhook_enabled !== 1) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    if (!streamer.truemoney_webhook_secret_encrypted) {
+      return res.status(404).json({ error: 'Not found' }); // same as missing/disabled — no enumeration (Audit A2)
+    }
+
+    let secret;
+    try {
+      secret = decrypt(streamer.truemoney_webhook_secret_encrypted);
+    } catch (e) {
+      console.error('Failed to decrypt TrueMoney webhook secret:', e.message);
+      return res.status(500).json({ error: 'Secret decryption failed' });
+    }
+
+    const token = typeof req.body === 'string' ? req.body : (req.body?.message || '');
+    if (!token) return res.status(400).json({ error: 'Missing token' });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
+    } catch (e) {
+      console.warn('TrueMoney webhook JWT verification failed:', e.message);
+      return res.status(401).json({ error: 'Invalid JWT' });
+    }
+
+    if (decoded.event_type === 'DIRECT_TOPUP') {
+      return res.json({ success: true, ignored: 'direct_topup' });
+    }
+
+    const allowedMethods = (streamer.truemoney_webhook_methods || '').split(',').filter(Boolean);
+    if (!allowedMethods.includes(decoded.event_type)) {
+      return res.json({ success: true, ignored: 'method_not_enabled' });
+    }
+
+    const eventHash = crypto.createHash('sha256')
+      .update(`${decoded.refId || ''}:${decoded.amount}:${decoded.sender_mobile || ''}:${decoded.received_time}`)
+      .digest('hex');
+
+    const { duplicate } = await db.insertProcessedWebhook({
+      streamer_username: streamerId,
+      event_hash: eventHash,
+      ref_id: decoded.refId || null,
+      amount_satang: decoded.amount || 0,
+      sender_mobile_masked: db.maskMobile ? db.maskMobile(decoded.sender_mobile) : '',
+      event_type: decoded.event_type,
+      received_time: decoded.received_time,
+      matched: 0
+    });
+    if (duplicate) return res.json({ success: true, duplicate: true });
+
+    let tx = null;
+    let matched = false;
+
+    if (decoded.event_type === 'P2P') {
+      const refId = ((decoded.message || '').trim().match(/donate-[a-z0-9-]+/i) || [])[0];
+      if (refId) {
+        const candidate = await db.getTransactionById(refId);
+        if (candidate &&
+            candidate.status === 'pending' &&
+            candidate.payment_method === 'truemoney_webhook' &&
+            candidate.streamer_username === streamerId) {
+          if (Math.abs((decoded.amount / 100) - candidate.amount) <= 1) {
+            tx = candidate;
+            matched = true;
+          }
+        }
+      }
+    } else if (decoded.event_type === 'PROMPTPAY_IN') {
+      const candidates = await db.getPendingWebhookTxByAmount(streamerId, decoded.amount);
+      if (candidates.length === 1) {
+        tx = candidates[0];
+        matched = true;
+      }
+    }
+
+    if (matched && tx) {
+      // Store minimal event as raw_webhook — sender_mobile masked (PDPA data-minimization, Audit A1)
+      const safeWebhook = {
+        event_type: decoded.event_type,
+        amount: decoded.amount,
+        refId: decoded.refId || null,
+        received_time: decoded.received_time || null,
+        sender_mobile: db.maskMobile ? db.maskMobile(decoded.sender_mobile) : undefined
+      };
+      await confirmDonationSideEffects(tx.id, { amount: tx.amount, rawWebhook: safeWebhook });
+      broadcastDonateStatus(tx.id, { status: 'confirmed' });
+      return res.json({ success: true, matched: true, refId: tx.id });
+    }
+
+    return res.json({ success: true, matched: false });
+  } catch (err) {
+    console.error('TrueMoney webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// POST /api/truemoney/setup-webhook - Enable/disable TrueMoney webhook (authenticated)
+app.post('/api/truemoney/setup-webhook', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { action, jwtSecret, methods, promptpayId, expiryDate } = req.body;
+    const streamer = await getStreamerForUser(req.user);
+    const actualUsername = await getActualUsername(req.user);
+    if (!streamer) return res.status(404).json({ error: 'Streamer not found' });
+
+    const ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: actualUsername };
+
+    if (action === 'disable') {
+      await db.saveStreamer({ ...ids, truemoney_webhook_enabled: 0 });
+      return res.json({ success: true, enabled: false });
+    }
+
+    if (action !== 'enable') return res.status(400).json({ error: 'Invalid action' });
+
+    const ALLOWED_METHODS = ['P2P', 'PROMPTPAY_IN'];
+    const cleanMethods = (Array.isArray(methods) ? methods : [methods])
+      .filter(Boolean)
+      .filter(m => ALLOWED_METHODS.includes(m));
+    if (cleanMethods.length === 0) {
+      return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
+    }
+
+    const { kycConfirmed, acceptFees, acceptExpiry } = req.body;
+    if (!kycConfirmed || !acceptFees || !acceptExpiry) {
+      return res.status(400).json({ error: 'กรุณายอมรับเงื่อนไขทั้งหมด' });
+    }
+
+    if (!jwtSecret || jwtSecret.length < 32) {
+      return res.status(400).json({ error: 'JWT Secret must be at least 32 characters' });
+    }
+
+    if (cleanMethods.includes('PROMPTPAY_IN')) {
+      if (!promptpayId || !/^\d{15}$/.test(String(promptpayId).replace(/\D/g, ''))) {
+        return res.status(400).json({ error: 'PromptPay e-Wallet ID must be 15 digits' });
+      }
+    }
+
+    let conflict = false;
+    if (cleanMethods.includes('PROMPTPAY_IN') && streamer.promptpay_enabled === 1) {
+      await db.saveStreamer({ ...ids, promptpay_enabled: 0 });
+      conflict = true;
+    }
+
+    await db.saveStreamer({
+      ...ids,
+      truemoney_webhook_secret: jwtSecret,
+      truemoney_webhook_enabled: 1,
+      truemoney_webhook_kyc_confirmed: 1,
+      truemoney_webhook_methods: cleanMethods.join(','),
+      truemoney_webhook_expiry: expiryDate || null,
+      ...(cleanMethods.includes('PROMPTPAY_IN') ? { truemoney_promptpay_id: promptpayId } : {})
+    });
+
+    res.json({ success: true, enabled: true, methods: cleanMethods, promptpaySlipokDisabled: conflict });
+  } catch (err) {
+    console.error('TrueMoney setup-webhook error:', err);
+    res.status(500).json({ error: 'Failed to save webhook settings' });
+  }
+});
+
+// POST /api/truemoney/test-webhook - Verify stored JWT secret can sign/verify (authenticated)
+app.post('/api/truemoney/test-webhook', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer || !streamer.truemoney_webhook_secret_encrypted) {
+      return res.status(400).json({ error: 'Webhook secret not saved' });
+    }
+    let secret;
+    try {
+      secret = decrypt(streamer.truemoney_webhook_secret_encrypted);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to decrypt stored secret' });
+    }
+    const testToken = jwt.sign({ event_type: 'TEST', amount: 0 }, secret, { algorithm: 'HS256' });
+    jwt.verify(testToken, secret, { algorithms: ['HS256'] });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('TrueMoney test-webhook error:', err);
+    res.status(400).json({ error: 'JWT secret test failed' });
+  }
+});
+
+// POST /api/truemoney/create-qr - Create TrueMoney P2P or PromptPay QR (public)
+app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
+  try {
+    if (!checkAntiBot(req, res)) return blockBot(req, res);
+
+    const { username, amount, name, message, timerAction, method } = req.body;
+    if (!username || !amount) return res.status(400).json({ error: 'Missing username or amount' });
+    if (amount < 1) return res.status(400).json({ error: 'Amount must be at least 1' });
+    if (!['P2P', 'PROMPTPAY_IN'].includes(method)) {
+      return res.status(400).json({ error: 'Invalid method' });
+    }
+
+    await db.cleanupExpiredTransactions();
+    const pendingCount = await db.countPendingTransactions(username);
+    if (pendingCount >= 50) {
+      return res.status(429).json({ error: 'Too many pending transactions' });
+    }
+
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'Streamer not found' });
+    if (streamer.truemoney_webhook_enabled !== 1) {
+      return res.status(400).json({ error: 'TrueMoney webhook not enabled' });
+    }
+    const allowedMethods = (streamer.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
+    if (!allowedMethods.includes(method)) {
+      return res.status(400).json({ error: 'Method not enabled for this streamer' });
+    }
+
+    const refId = `donate-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+    let qrData;
+    let displayAmount = parseFloat(amount);
+
+    if (method === 'P2P') {
+      const decrypted = decryptPaymentFields(streamer);
+      const phone = decrypted.truemoney_phone;
+      if (!phone) return res.status(400).json({ error: 'TrueMoney phone not configured' });
+      qrData = promptparse.generate.trueMoney({ mobileNo: phone, amount: parseFloat(amount), message: refId });
+    } else {
+      const decrypted = decryptPaymentFields(streamer);
+      const promptpayId = decrypted.truemoney_promptpay_id;
+      if (!promptpayId) return res.status(400).json({ error: 'PromptPay e-Wallet ID not configured' });
+      const extraSatang = crypto.randomInt(1, 100) / 100;
+      displayAmount = parseFloat(amount) + extraSatang;
+      qrData = generatePromptPayPayload(promptpayId, displayAmount);
+    }
+
+    await db.saveTransaction({
+      id: refId,
+      amount: displayAmount,
+      donor: name || 'Anonymous',
+      message: message || '',
+      status: 'pending',
+      streamer_username: username,
+      payment_method: 'truemoney_webhook',
+      createdAt,
+      timer_action: sanitizeTimerAction(timerAction)
+    });
+    db.logIpEvent('donate_submit', req.ip, username, { amount: displayAmount, method, ref: refId }).catch(() => {});
+
+    res.json({ success: true, qrData, referenceId: refId, expiresAt, method, displayAmount });
+  } catch (err) {
+    console.error('TrueMoney create-qr error:', err);
+    res.status(500).json({ error: 'Failed to create QR' });
+  }
+});
+
+// GET /api/donate/status/stream - Public SSE for donors waiting on a pending transaction
+app.get('/api/donate/status/stream', donateStatusLimiter, async (req, res) => {
+  const ref = (req.query.ref || '').trim();
+  if (!/^donate-[a-z0-9-]{1,60}$/.test(ref)) {
+    return res.status(400).json({ error: 'Invalid reference' });
+  }
+  if (sseClients.length >= MAX_SSE_CLIENTS) {
+    return res.status(503).json({ error: 'Too many concurrent connections' });
+  }
+
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*', 'X-Accel-Buffering': 'no' });
+  const clientObj = { res, validated: false, ref, authMethod: 'public', lastActivity: Date.now(), source: 'donate-status' };
+  sseClients.push(clientObj);
+
+  const keepAlive = setInterval(() => {
+    try { res.write(`: keep-alive\n\n`); clientObj.lastActivity = Date.now(); }
+    catch { /* connection lost */ }
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseClients = sseClients.filter(client => client.res !== res);
+  });
 });
 
 // POST /api/verify-slip — actual slip upload (10/min per IP)
@@ -3965,116 +4316,62 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
         if (referenceId) {
           const tx = pendingTx;
           if (tx) {
-            await db.saveTransaction({
-              id: referenceId,
-              streamer_username: tx.streamer_username,
-              status: 'successful',
-              promptpay_verified: 1,
-              promptpay_verified_at: new Date().toISOString(),
-              promptpay_slip_id: d.transRef || null,
-              paidAt: new Date().toISOString()
-            });
-
-            broadcastAlert(tx.streamer_username, {
-              type: 'donation',
-              donor: tx.donor,
+            await confirmDonationSideEffects(referenceId, {
               amount: tx.amount,
-              message: tx.message
-            });
-
-            // Update donation goal if enabled
-            if (tx.streamer_username && tx.amount > 0) {
-              try {
-                const goalStreamer = await db.getStreamer(tx.streamer_username);
-                if (goalStreamer && goalStreamer.goal_enabled) {
-                  const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, tx.amount);
-                  broadcastGoalUpdate(goalStreamer.username, { ...goalStreamer, ...goalUpdated });
-                }
-                if (goalStreamer) await applyTimerOnDonation(goalStreamer, tx.amount, sanitizeTimerAction(tx.timer_action));
-              } catch (e) {
-                console.error('Goal update after slip verify failed:', e.message);
+              extraTx: {
+                streamer_username: tx.streamer_username,
+                promptpay_verified: 1,
+                promptpay_verified_at: new Date().toISOString(),
+                promptpay_slip_id: d.transRef || null
               }
-            }
+            });
           }
         } else if (isTruemoney) {
           const referenceIdNew = `truemoney-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          const txAmount = parseFloat(amount) || 0;
           await db.saveTransaction({
             id: referenceIdNew,
-            amount: parseFloat(amount) || 0,
+            amount: txAmount,
             donor: donorName || 'Anonymous',
             message: donorMessage || '',
-            status: 'successful',
+            status: 'pending',
             streamer_username: username,
             payment_method: 'truemoney',
-            promptpay_verified: 1,
-            promptpay_verified_at: new Date().toISOString(),
-            promptpay_slip_id: d.transRef || null,
-            paidAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             timer_action: donorTimerAction
           });
-          db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'truemoney', ref: referenceIdNew }).catch(() => {});
-
-          broadcastAlert(username, {
-            type: 'donation',
-            donor: donorName || 'Anonymous',
-            amount: parseFloat(amount) || 0,
-            message: donorMessage || ''
-          });
-
-          // Update donation goal if enabled
-          const finalAmount = parseFloat(amount) || 0;
-          if (username && finalAmount > 0) {
-            try {
-              const goalStreamer = await db.getStreamer(username);
-              if (goalStreamer && goalStreamer.goal_enabled) {
-                const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, finalAmount);
-                broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
-              }
-              if (goalStreamer) await applyTimerOnDonation(goalStreamer, finalAmount, donorTimerAction);
-            } catch (e) {
-              console.error('Goal update after truemoney verify failed:', e.message);
+          await confirmDonationSideEffects(referenceIdNew, {
+            amount: txAmount,
+            extraTx: {
+              promptpay_verified: 1,
+              promptpay_verified_at: new Date().toISOString(),
+              promptpay_slip_id: d.transRef || null
             }
-          }
+          });
+          db.logIpEvent('donate_submit', req.ip, username, { amount: txAmount, method: 'truemoney', ref: referenceIdNew }).catch(() => {});
         } else if (method === 'bank') {
           const referenceIdNew = `bank-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          const txAmount = parseFloat(amount) || 0;
           await db.saveTransaction({
             id: referenceIdNew,
-            amount: parseFloat(amount) || 0,
+            amount: txAmount,
             donor: donorName || 'Anonymous',
             message: donorMessage || '',
-            status: 'successful',
+            status: 'pending',
             streamer_username: username,
             payment_method: 'bank',
-            promptpay_verified: 1,
-            promptpay_verified_at: new Date().toISOString(),
-            promptpay_slip_id: d.transRef || null,
-            paidAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             timer_action: donorTimerAction
           });
-          db.logIpEvent('donate_submit', req.ip, username, { amount, method: 'bank', ref: referenceIdNew }).catch(() => {});
-
-          broadcastAlert(username, {
-            type: 'donation',
-            donor: donorName || 'Anonymous',
-            amount: parseFloat(amount) || 0,
-            message: donorMessage || ''
-          });
-
-          const bankAmount = parseFloat(amount) || 0;
-          if (username && bankAmount > 0) {
-            try {
-              const goalStreamer = await db.getStreamer(username);
-              if (goalStreamer && goalStreamer.goal_enabled) {
-                const goalUpdated = await db.updateGoalCurrent(goalStreamer.id, bankAmount);
-                broadcastGoalUpdate(username, { ...goalStreamer, ...goalUpdated });
-              }
-              if (goalStreamer) await applyTimerOnDonation(goalStreamer, bankAmount, donorTimerAction);
-            } catch (e) {
-              console.error('Goal update after bank verify failed:', e.message);
+          await confirmDonationSideEffects(referenceIdNew, {
+            amount: txAmount,
+            extraTx: {
+              promptpay_verified: 1,
+              promptpay_verified_at: new Date().toISOString(),
+              promptpay_slip_id: d.transRef || null
             }
-          }
+          });
+          db.logIpEvent('donate_submit', req.ip, username, { amount: txAmount, method: 'bank', ref: referenceIdNew }).catch(() => {});
         }
 
         return res.json({
@@ -4182,6 +4479,8 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
       slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1 || streamer.truemoney_slipok_connected === 1,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
+      truemoney_webhook: streamer.truemoney_webhook_enabled === 1,
+      truemoney_webhook_methods: streamer.truemoney_webhook_enabled === 1 ? (streamer.truemoney_webhook_methods || 'P2P') : '',
       bank_name: bankEnabled ? (streamer.bank_name || '') : '',
       bank_account_number: bankEnabled ? (decrypted.bank_account_number || '') : '',
       bank_account_name: bankEnabled ? (decrypted.bank_account_name || '') : ''

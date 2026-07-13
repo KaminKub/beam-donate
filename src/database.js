@@ -213,7 +213,14 @@ async function migrateDB() {
         timer_remaining_seconds INTEGER DEFAULT 600,
         timer_last_update TEXT DEFAULT NULL,
         timer_running INTEGER DEFAULT 0,
-        timer_cap_current INTEGER DEFAULT 0
+        timer_cap_current INTEGER DEFAULT 0,
+        -- TrueMoney Webhook
+        truemoney_webhook_secret_encrypted TEXT,
+        truemoney_webhook_enabled INTEGER DEFAULT 0,
+        truemoney_webhook_kyc_confirmed INTEGER DEFAULT 0,
+        truemoney_webhook_expiry TEXT,
+        truemoney_webhook_methods TEXT DEFAULT 'P2P',
+        truemoney_promptpay_id_encrypted TEXT
       )
     `);
 
@@ -256,6 +263,21 @@ async function migrateDB() {
         created_at TEXT NOT NULL
       )
     `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS processed_webhooks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        streamer_username TEXT NOT NULL,
+        event_hash TEXT NOT NULL UNIQUE,
+        ref_id TEXT,
+        amount_satang INTEGER NOT NULL,
+        sender_mobile_masked TEXT,
+        event_type TEXT,
+        received_time TEXT,
+        matched INTEGER DEFAULT 0,
+        processed_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_processed_webhooks_streamer ON processed_webhooks(streamer_username, processed_at);');
 
     // A. Fix transaction column names
 
@@ -378,6 +400,12 @@ async function migrateDB() {
       { name: 'timer_last_update', type: 'TEXT DEFAULT NULL' },
       { name: 'timer_running', type: 'INTEGER DEFAULT 0' },
       { name: 'timer_cap_current', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_webhook_secret_encrypted', type: 'TEXT' },
+      { name: 'truemoney_webhook_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_webhook_kyc_confirmed', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_webhook_expiry', type: 'TEXT' },
+      { name: 'truemoney_webhook_methods', type: "TEXT DEFAULT 'P2P'" },
+      { name: 'truemoney_promptpay_id_encrypted', type: 'TEXT' },
       { name: 'theme_colors', type: 'TEXT' },
       { name: 'alert_font_sizes', type: 'TEXT' },
       { name: 'alert_outline', type: 'TEXT' },
@@ -708,6 +736,87 @@ async function saveTransaction(data) {
   return data;
 }
 
+// Atomically confirm a transaction (pending -> successful) exactly once.
+// New id: inserts a successful row. Existing pending: flips to successful. Already successful: no-op.
+// Returns { rowsAffected } — 1 when this call performed the confirm, 0 when another path already did.
+// Callers use rowsAffected to gate one-time side-effects (goal/alert/timer). See server confirmDonationSideEffects.
+async function confirmTransactionPaid(data) {
+  await ensureConnected();
+  const now = new Date().toISOString();
+
+  if (isFallback) {
+    const idx = memoryTransactions.findIndex(t => t.id === data.id);
+    if (idx >= 0) {
+      if (memoryTransactions[idx].status !== 'pending') return { rowsAffected: 0 };
+      memoryTransactions[idx] = { ...memoryTransactions[idx], ...data, status: 'successful', paidAt: data.paidAt || now, updatedAt: now };
+    } else {
+      memoryTransactions.push({ id: data.id, status: 'successful', paidAt: data.paidAt || now, createdAt: now, updatedAt: now, donor: data.donor || 'Anonymous', amount: data.amount || 0, message: data.message || '', streamer_username: data.streamer_username || null, payment_method: data.payment_method || 'ffp', timer_action: data.timer_action ?? null });
+    }
+    try {
+      const DB_DIR = path.join(__dirname, '../data');
+      fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
+    } catch (e) {}
+    return { rowsAffected: 1 };
+  }
+
+  if (!db) throw new Error('Database not initialized');
+
+  // Backfill NOT NULL columns (streamer_username, amount) from the existing pending row.
+  // SQLite validates NOT NULL on the INSERT arm of an upsert BEFORE resolving ON CONFLICT DO UPDATE,
+  // so a partial confirm ({id, amount?, paidAt}) would otherwise throw. Mirrors saveTransaction backfill.
+  if (data.id) {
+    try {
+      const existing = await db.execute({
+        sql: 'SELECT streamer_username, amount, donor, message, payment_method, timer_action FROM transactions WHERE id = ?',
+        args: [data.id]
+      });
+      if (existing.rows[0]) {
+        const ex = existing.rows[0];
+        if (data.streamer_username == null) data.streamer_username = ex.streamer_username;
+        if (data.amount == null) data.amount = ex.amount;
+        if (data.donor == null) data.donor = ex.donor;
+        if (data.message == null) data.message = ex.message;
+        if (data.payment_method == null) data.payment_method = ex.payment_method;
+        if (data.timer_action === undefined) data.timer_action = ex.timer_action;
+      }
+    } catch (e) {}
+  }
+
+  const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
+  const result = await db.execute({
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action)
+          VALUES (?, ?, ?, ?, 'successful', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            status = 'successful',
+            paidAt = excluded.paidAt,
+            updatedAt = excluded.updatedAt,
+            amount = COALESCE(excluded.amount, transactions.amount),
+            raw_webhook = COALESCE(excluded.raw_webhook, transactions.raw_webhook),
+            streamer_username = COALESCE(excluded.streamer_username, transactions.streamer_username),
+            promptpay_slip_id = COALESCE(excluded.promptpay_slip_id, transactions.promptpay_slip_id),
+            promptpay_verified = COALESCE(excluded.promptpay_verified, transactions.promptpay_verified),
+            promptpay_verified_at = COALESCE(excluded.promptpay_verified_at, transactions.promptpay_verified_at)
+          WHERE transactions.status = 'pending'`,
+    args: [
+      data.id,
+      data.amount != null ? data.amount : null,
+      data.donor || 'Anonymous',
+      data.message || '',
+      rawWebhook,
+      now,
+      now,
+      data.paidAt || now,
+      data.streamer_username || null,
+      data.payment_method || 'ffp',
+      data.promptpay_slip_id || null,
+      data.promptpay_verified !== undefined ? (data.promptpay_verified ? 1 : 0) : null,
+      data.promptpay_verified_at || null,
+      data.timer_action ?? null
+    ]
+  });
+  return { rowsAffected: result.rowsAffected || 0 };
+}
+
 async function getStreamerByToken(token) {
   await ensureConnected();
   if (isFallback) return null;
@@ -785,6 +894,7 @@ async function getDecryptedStreamer(username) {
 const PAYMENT_ENCRYPT_FIELDS = [
   'promptpay_value', 'slipok_api', 'slipok_api_key',
   'truemoney_phone', 'truemoney_slipok_api', 'truemoney_slipok_api_key',
+  'truemoney_webhook_secret', 'truemoney_promptpay_id',
   'bank_account_number'
 ];
 
@@ -970,7 +1080,13 @@ async function saveStreamer(data) {
                goal_bar_width = COALESCE(?, streamers.goal_bar_width),
                tos_accepted_at = COALESCE(?, streamers.tos_accepted_at),
                primary_auth_provider = COALESCE(?, streamers.primary_auth_provider),
-               timer_settings = COALESCE(?, streamers.timer_settings)
+               timer_settings = COALESCE(?, streamers.timer_settings),
+               truemoney_webhook_secret_encrypted = COALESCE(?, streamers.truemoney_webhook_secret_encrypted),
+               truemoney_webhook_enabled = COALESCE(?, streamers.truemoney_webhook_enabled),
+               truemoney_webhook_kyc_confirmed = COALESCE(?, streamers.truemoney_webhook_kyc_confirmed),
+               truemoney_webhook_expiry = COALESCE(?, streamers.truemoney_webhook_expiry),
+               truemoney_webhook_methods = COALESCE(?, streamers.truemoney_webhook_methods),
+               truemoney_promptpay_id_encrypted = COALESCE(?, streamers.truemoney_promptpay_id_encrypted)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1080,6 +1196,12 @@ async function saveStreamer(data) {
           finalData.tos_accepted_at !== undefined ? finalData.tos_accepted_at : null,
           finalData.primary_auth_provider !== undefined ? finalData.primary_auth_provider : null,
           finalData.timer_settings !== undefined ? finalData.timer_settings : null,
+          finalData.truemoney_webhook_secret_encrypted !== undefined ? finalData.truemoney_webhook_secret_encrypted : null,
+          finalData.truemoney_webhook_enabled !== undefined ? (finalData.truemoney_webhook_enabled ? 1 : 0) : null,
+          finalData.truemoney_webhook_kyc_confirmed !== undefined ? (finalData.truemoney_webhook_kyc_confirmed ? 1 : 0) : null,
+          finalData.truemoney_webhook_expiry !== undefined ? finalData.truemoney_webhook_expiry : null,
+          finalData.truemoney_webhook_methods !== undefined ? finalData.truemoney_webhook_methods : null,
+          finalData.truemoney_promptpay_id_encrypted !== undefined ? finalData.truemoney_promptpay_id_encrypted : null,
           existing.id
         ]
       });
@@ -1098,8 +1220,9 @@ async function saveStreamer(data) {
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
-              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, tos_accepted_at, primary_auth_provider, timer_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, tos_accepted_at, primary_auth_provider, timer_settings,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1208,7 +1331,13 @@ async function saveStreamer(data) {
         finalData.goal_bar_width || '600',
         finalData.tos_accepted_at || null,
         finalData.primary_auth_provider || null,
-        finalData.timer_settings !== undefined ? finalData.timer_settings : null
+        finalData.timer_settings !== undefined ? finalData.timer_settings : null,
+        finalData.truemoney_webhook_secret_encrypted || null,
+        finalData.truemoney_webhook_enabled !== undefined ? (finalData.truemoney_webhook_enabled ? 1 : 0) : 0,
+        finalData.truemoney_webhook_kyc_confirmed !== undefined ? (finalData.truemoney_webhook_kyc_confirmed ? 1 : 0) : 0,
+        finalData.truemoney_webhook_expiry || null,
+        finalData.truemoney_webhook_methods || 'P2P',
+        finalData.truemoney_promptpay_id_encrypted || null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1777,6 +1906,120 @@ function maskIpLocal(ip) {
     : ip.split('.').slice(0, 2).join('.') + '.x.x';
 }
 
+function maskMobile(mobile) {
+  if (!mobile) return '';
+  const s = String(mobile).replace(/\D/g, '');
+  if (s.length < 7) return s;
+  return s.slice(0, 2) + 'xxxx' + s.slice(-4);
+}
+
+function getMonthStartISO() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString();
+}
+
+async function insertProcessedWebhook(data) {
+  await ensureConnected();
+  if (isFallback) {
+    if (!memoryProcessedWebhooks) memoryProcessedWebhooks = [];
+    const dup = memoryProcessedWebhooks.find(w => w.event_hash === data.event_hash);
+    if (dup) return { duplicate: true };
+    memoryProcessedWebhooks.push({ ...data, processed_at: new Date().toISOString() });
+    return { duplicate: false };
+  }
+  if (!db) return { duplicate: false };
+  try {
+    await db.execute({
+      sql: 'INSERT INTO processed_webhooks ' +
+        '(streamer_username, event_hash, ref_id, amount_satang, sender_mobile_masked, event_type, received_time, matched) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [
+        data.streamer_username,
+        data.event_hash,
+        data.ref_id || null,
+        data.amount_satang != null ? data.amount_satang : 0,
+        data.sender_mobile_masked || null,
+        data.event_type || null,
+        data.received_time || null,
+        data.matched ? 1 : 0
+      ]
+    });
+    return { duplicate: false };
+  } catch (e) {
+    if (e.message && /UNIQUE/i.test(e.message)) return { duplicate: true };
+    console.error('insertProcessedWebhook failed:', e.message);
+    throw e;
+  }
+}
+
+// amountSatang: integer satang from the webhook (decoded.amount). Matching on integer satang avoids
+// IEEE-754 float-equality misses between stored baht (e.g. 100.37) and decoded.amount/100 (QA Q2 2026-07-13).
+async function getPendingWebhookTxByAmount(username, amountSatang) {
+  await ensureConnected();
+  const satang = Math.round(amountSatang);
+  if (isFallback) {
+    return memoryTransactions.filter(t =>
+      t.streamer_username === username &&
+      t.payment_method === 'truemoney_webhook' &&
+      t.status === 'pending' &&
+      Math.round(t.amount * 100) === satang
+    );
+  }
+  if (!db) return [];
+  const result = await db.execute({
+    sql: 'SELECT * FROM transactions WHERE streamer_username = ? ' +
+        "AND payment_method = 'truemoney_webhook' " +
+        "AND status = 'pending' " +
+        'AND CAST(ROUND(amount * 100) AS INTEGER) = ?',
+    args: [username, satang]
+  });
+  return result.rows || [];
+}
+
+async function getStreamersWithWebhookEnabled() {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const result = await db.execute({
+    sql: 'SELECT id, username, truemoney_webhook_expiry, twitch_id, streamlabs_id ' +
+        'FROM streamers WHERE truemoney_webhook_enabled = 1',
+  });
+  return result.rows || [];
+}
+
+async function countMonthlyWebhookTx(username) {
+  await ensureConnected();
+  const monthStart = getMonthStartISO();
+  if (isFallback) {
+    return memoryTransactions.filter(t =>
+      t.streamer_username === username &&
+      t.payment_method === 'truemoney_webhook' &&
+      t.status === 'successful' &&
+      t.paidAt && t.paidAt >= monthStart
+    ).length;
+  }
+  if (!db) return 0;
+  const result = await db.execute({
+    sql: 'SELECT COUNT(*) as cnt FROM transactions WHERE streamer_username = ? ' +
+        "AND payment_method = 'truemoney_webhook' " +
+        "AND status = 'successful' " +
+        'AND paidAt >= ?',
+    args: [username, monthStart]
+  });
+  return result.rows[0]?.cnt || 0;
+}
+
+async function cleanupProcessedWebhooks(days = 90) {
+  await ensureConnected();
+  if (isFallback || !db) return 0;
+  const result = await db.execute({
+    sql: 'DELETE FROM processed_webhooks WHERE datetime(processed_at) < datetime(\'now\', ?)',
+    args: [`-${Math.max(1, parseInt(days, 10) || 90)} days`]
+  });
+  return result.rowsAffected || 0;
+}
+
+let memoryProcessedWebhooks = [];
+
 module.exports = {
   initDB,
   getDB,
@@ -1785,6 +2028,7 @@ module.exports = {
   getTransactions,
   getTransactionById,
   saveTransaction,
+  confirmTransactionPaid,
   cleanupExpiredTransactions,
   hardDeleteExpiredTransactions,
   hardDeleteOldTransactions,
@@ -1814,4 +2058,10 @@ module.exports = {
   getAdminTxStats,
   getAdminUsers,
   getAdminIpEvents,
+  maskMobile,
+  insertProcessedWebhook,
+  getPendingWebhookTxByAmount,
+  getStreamersWithWebhookEnabled,
+  countMonthlyWebhookTx,
+  cleanupProcessedWebhooks,
 };

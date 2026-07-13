@@ -14,6 +14,14 @@ const POLLING_TIMEOUT = 600000; // 10 minutes
 const QR_EXPIRY = 10 * 60 * 1000; // 10 minutes
 let pollingStartTime = null;
 
+// TrueMoney webhook QR state
+let trueMoneyQrMethod = 'P2P';
+let trueMoneyQrRefId = null;
+let trueMoneyQrSource = null;
+let trueMoneyQrFallbackTimer = null;
+let trueMoneyQrCountdownInterval = null;
+let trueMoneyQrExpiresAt = null;
+
 // ========== Anti-Bot: Page Token from Server ==========
 let pageToken = '';
 const metaToken = document.querySelector('meta[name="page-token"]');
@@ -645,7 +653,7 @@ btnDonate.addEventListener('click', async () => {
     if (res.ok) {
       const methods = await res.json();
       streamerPaymentMethods = methods;
-      const hasAnyMethod = methods.promptpay || methods.truemoney || methods.bank || methods.ffp;
+      const hasAnyMethod = methods.promptpay || methods.truemoney || methods.truemoney_webhook || methods.bank || methods.ffp;
 
       if (!hasAnyMethod) {
         // Shake + Red Glow + Message
@@ -682,13 +690,13 @@ btnDonate.addEventListener('click', async () => {
 
       if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
       if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
-      if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney ? '' : 'none';
+      if (optionTrueMoney) optionTrueMoney.style.display = (methods.truemoney || methods.truemoney_webhook) ? '' : 'none';
       if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
 
       // Auto-select first available method
       if (methods.promptpay) {
         selectPaymentMethod('promptpay');
-      } else if (methods.truemoney) {
+      } else if (methods.truemoney || methods.truemoney_webhook) {
         selectPaymentMethod('truemoney');
       } else if (methods.bank) {
         selectPaymentMethod('bank');
@@ -1220,6 +1228,20 @@ const trueMoneyPaymentStatus = document.getElementById('trueMoneyPaymentStatus')
 const trueMoneyPaymentError = document.getElementById('trueMoneyPaymentError');
 const trueMoneyPaymentErrorMessage = document.getElementById('trueMoneyPaymentErrorMessage');
 
+// TrueMoney webhook QR elements
+const stepTrueMoneyQr = document.getElementById('step-truemoney-qr');
+const trueMoneyQrImage = document.getElementById('trueMoneyQrImage');
+const trueMoneyQrLoading = document.getElementById('trueMoneyQrLoading');
+const trueMoneyQrAmount = document.getElementById('trueMoneyQrAmount');
+const trueMoneyQrHint = document.getElementById('trueMoneyQrHint');
+const trueMoneyQrExpiry = document.getElementById('trueMoneyQrExpiry');
+const trueMoneyQrWaiting = document.getElementById('trueMoneyQrWaiting');
+const trueMoneyQrStatus = document.getElementById('trueMoneyQrStatus');
+const trueMoneyQrMethodToggle = document.getElementById('trueMoneyQrMethodToggle');
+const btnTrueMoneyQrSlipFallback = document.getElementById('btnTrueMoneyQrSlipFallback');
+const btnBackTrueMoneyQr = document.getElementById('btnBackTrueMoneyQr');
+const btnRetryTrueMoneyQr = document.getElementById('btnRetryTrueMoneyQr');
+
 // Copy phone number button
 if (btnCopyTrueMoneyPhone) {
   btnCopyTrueMoneyPhone.addEventListener('click', () => {
@@ -1595,25 +1617,327 @@ if (btnBackBank) {
   });
 }
 
-// Override btnProceedPayment to handle TrueMoney
+// TrueMoney webhook QR method toggle
+if (trueMoneyQrMethodToggle) {
+  trueMoneyQrMethodToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('.qr-method-btn');
+    if (!btn) return;
+    trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    trueMoneyQrMethod = btn.dataset.method || 'P2P';
+  });
+}
+
+function getTrueMoneyPendingKey() {
+  const username = window.location.pathname.split('/')[1];
+  return username ? `truemoney_webhook_pending_${username}` : 'truemoney_webhook_pending';
+}
+
+function saveTrueMoneyPendingQR(data) {
+  try {
+    const pending = {
+      referenceId: data.referenceId,
+      qrData: data.qrData,
+      amount: selectedAmount,
+      donorName: donorNameInput?.value?.trim() || '',
+      message: donorMessageInput?.value?.trim() || '',
+      expiresAt: data.expiresAt,
+      method: data.method || 'P2P',
+      displayAmount: data.displayAmount ?? selectedAmount,
+      timerAction: getTimerActionForSubmit()
+    };
+    localStorage.setItem(getTrueMoneyPendingKey(), JSON.stringify(pending));
+  } catch (e) {}
+}
+
+function getTrueMoneyPendingQR() {
+  try {
+    const raw = localStorage.getItem(getTrueMoneyPendingKey());
+    if (!raw) return null;
+    const pending = JSON.parse(raw);
+    if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
+    if (Date.now() >= new Date(pending.expiresAt).getTime()) {
+      localStorage.removeItem(getTrueMoneyPendingKey());
+      return null;
+    }
+    return pending;
+  } catch (e) { return null; }
+}
+
+function clearTrueMoneyPendingQR() {
+  try { localStorage.removeItem(getTrueMoneyPendingKey()); } catch (e) {}
+}
+
+function generateTrueMoneyQRImage(qrData) {
+  if (!trueMoneyQrImage) return;
+  trueMoneyQrLoading.style.display = 'block';
+  trueMoneyQrImage.style.display = 'none';
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
+  trueMoneyQrImage.src = qrUrl;
+  trueMoneyQrImage.onload = () => {
+    trueMoneyQrLoading.style.display = 'none';
+    trueMoneyQrImage.style.display = 'block';
+  };
+  trueMoneyQrImage.onerror = () => {
+    trueMoneyQrLoading.innerHTML = '<p>ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่</p>';
+  };
+}
+
+function stopTrueMoneyQr() {
+  if (trueMoneyQrSource) {
+    trueMoneyQrSource.close();
+    trueMoneyQrSource = null;
+  }
+  if (trueMoneyQrFallbackTimer) {
+    clearTimeout(trueMoneyQrFallbackTimer);
+    trueMoneyQrFallbackTimer = null;
+  }
+  if (trueMoneyQrCountdownInterval) {
+    clearInterval(trueMoneyQrCountdownInterval);
+    trueMoneyQrCountdownInterval = null;
+  }
+}
+
+function setTrueMoneyQrWaitingError(message) {
+  if (!trueMoneyQrWaiting) return;
+  trueMoneyQrWaiting.className = 'qr-waiting-indicator expired';
+  trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>';
+  const span = document.createElement('span');
+  span.textContent = message || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+  trueMoneyQrWaiting.appendChild(span);
+}
+
+function updateTrueMoneyQrCountdown() {
+  if (!trueMoneyQrExpiresAt || !trueMoneyQrExpiry) return;
+  const remaining = Math.max(0, trueMoneyQrExpiresAt - Date.now());
+  const minutes = Math.floor(remaining / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  trueMoneyQrExpiry.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  if (remaining < 60000 && remaining > 0) trueMoneyQrExpiry.classList.add('urgent');
+  else trueMoneyQrExpiry.classList.remove('urgent');
+  if (remaining <= 0) {
+    stopTrueMoneyQr();
+    if (trueMoneyQrWaiting) {
+      trueMoneyQrWaiting.className = 'qr-waiting-indicator expired';
+      trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-clock" style="color:#ef4444;"></i><span>QR หมดอายุแล้ว กดสร้าง QR ใหม่เพื่อบริจาคต่อ</span>';
+    }
+    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'none';
+    if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
+  }
+}
+
+function startTrueMoneyQrCountdown(expiresAt) {
+  trueMoneyQrExpiresAt = new Date(expiresAt).getTime();
+  updateTrueMoneyQrCountdown();
+  trueMoneyQrCountdownInterval = setInterval(updateTrueMoneyQrCountdown, 1000);
+}
+
+function startTrueMoneyStatusStream(refId) {
+  stopTrueMoneyQr();
+  if (!refId) return;
+  trueMoneyQrSource = new EventSource(`/api/donate/status/stream?ref=${encodeURIComponent(refId)}`);
+  trueMoneyQrSource.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.type === 'donate_status' && data.status === 'confirmed') {
+        stopTrueMoneyQr();
+        if (trueMoneyQrWaiting) {
+          trueMoneyQrWaiting.className = 'qr-waiting-indicator confirmed';
+          trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i><span>ได้รับเงินบริจาคแล้ว! ขอบคุณมากครับ</span>';
+        }
+        clearTrueMoneyPendingQR();
+        setTimeout(() => {
+          window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
+        }, 1500);
+      }
+    } catch (_) {}
+  };
+  trueMoneyQrSource.onerror = () => {};
+}
+
+async function createTrueMoneyQR() {
+  const username = window.location.pathname.split('/')[1];
+  if (!username) return;
+
+  // Check cached pending first
+  const pending = getTrueMoneyPendingQR();
+  const currentDonorName = donorNameInput?.value?.trim() || '';
+  const currentMessage = donorMessageInput?.value?.trim() || '';
+  const currentTimerAction = getTimerActionForSubmit() || '';
+  if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && pending.timerAction === currentTimerAction && pending.method === trueMoneyQrMethod) {
+    showTrueMoneyQrStep(pending);
+    return;
+  }
+  clearTrueMoneyPendingQR();
+
+  if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'block';
+  if (trueMoneyQrImage) trueMoneyQrImage.style.display = 'none';
+  if (trueMoneyQrStatus) trueMoneyQrStatus.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/truemoney/create-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...getAntiBotPayload(),
+        username,
+        amount: selectedAmount,
+        name: donorNameInput.value,
+        message: donorMessageInput.value,
+        timerAction: getTimerActionForSubmit(),
+        method: trueMoneyQrMethod
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      setTrueMoneyQrWaitingError(data.error || 'ไม่สามารถสร้าง QR ได้');
+      if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
+      return;
+    }
+
+    saveTrueMoneyPendingQR(data);
+    showTrueMoneyQrStep(data);
+  } catch (error) {
+    setTrueMoneyQrWaitingError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
+  }
+}
+
+function showTrueMoneyQrStep(data) {
+  stepPaymentMethod.classList.remove('active');
+  stepTrueMoneyQr.classList.add('active');
+  trueMoneyQrRefId = data.referenceId;
+
+  generateTrueMoneyQRImage(data.qrData);
+  if (trueMoneyQrAmount) {
+    const displayAmount = data.displayAmount != null ? data.displayAmount : data.amount;
+    trueMoneyQrAmount.textContent = `฿${Number(displayAmount).toLocaleString('th-TH', { minimumFractionDigits: displayAmount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+  }
+  if (trueMoneyQrHint) {
+    trueMoneyQrHint.textContent = data.method === 'PROMPTPAY_IN'
+      ? 'สแกนด้วยแอปธนาคาร/พร้อมเพย์ แล้วโอนตามยอดนี้เป๊ะ ๆ'
+      : 'สแกนด้วยแอป TrueMoney แล้วโอนตามยอดนี้เป๊ะ ๆ';
+  }
+  if (trueMoneyQrWaiting) {
+    trueMoneyQrWaiting.className = 'qr-waiting-indicator';
+    trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:#3b82f6;"></i><span>รอการยืนยันอัตโนมัติ... โอนแล้วระบบจะขึ้นสำเร็จเองใน 1 นาที</span>';
+  }
+  if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'none';
+  if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'none';
+
+  startTrueMoneyStatusStream(data.referenceId);
+  startTrueMoneyQrCountdown(data.expiresAt);
+
+  trueMoneyQrFallbackTimer = setTimeout(() => {
+    if (btnTrueMoneyQrSlipFallback) {
+      btnTrueMoneyQrSlipFallback.style.display = 'block';
+    }
+  }, 90000);
+}
+
+function restoreTrueMoneyQrStep(pending) {
+  trueMoneyQrRefId = pending.referenceId;
+  selectedAmount = pending.amount;
+  trueMoneyQrMethod = pending.method || 'P2P';
+  if (trueMoneyQrMethodToggle) {
+    trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.method === trueMoneyQrMethod);
+    });
+  }
+  stepPaymentMethod.classList.remove('active');
+  stepTrueMoneyQr.classList.add('active');
+  generateTrueMoneyQRImage(pending.qrData);
+  if (trueMoneyQrAmount) {
+    const displayAmount = Number(pending.displayAmount || pending.amount);
+    trueMoneyQrAmount.textContent = `฿${displayAmount.toLocaleString('th-TH', { minimumFractionDigits: displayAmount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+  }
+  startTrueMoneyStatusStream(pending.referenceId);
+  startTrueMoneyQrCountdown(pending.expiresAt);
+
+  // Show fallback button if 90s window already elapsed
+  const expiresMs = new Date(pending.expiresAt).getTime();
+  const createdMs = expiresMs - 30 * 60 * 1000;
+  const elapsed = Date.now() - createdMs;
+  if (elapsed >= 90000) {
+    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
+  } else {
+    trueMoneyQrFallbackTimer = setTimeout(() => {
+      if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
+    }, 90000 - elapsed);
+  }
+}
+
+if (btnBackTrueMoneyQr) {
+  btnBackTrueMoneyQr.addEventListener('click', () => {
+    stopTrueMoneyQr();
+    stepTrueMoneyQr.classList.remove('active');
+    stepPaymentMethod.classList.add('active');
+    if (btnProceedPayment) {
+      btnProceedPayment.disabled = false;
+      btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
+    }
+  });
+}
+
+if (btnTrueMoneyQrSlipFallback) {
+  btnTrueMoneyQrSlipFallback.addEventListener('click', () => {
+    stopTrueMoneyQr();
+    stepTrueMoneyQr.classList.remove('active');
+    stepTrueMoney.classList.add('active');
+    if (trueMoneyAmount) trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
+    if (trueMoneyPhoneDisplay) {
+      trueMoneyPhoneDisplay.textContent = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
+    }
+  });
+}
+
+if (btnRetryTrueMoneyQr) {
+  btnRetryTrueMoneyQr.addEventListener('click', () => {
+    clearTrueMoneyPendingQR();
+    if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'none';
+    createTrueMoneyQR();
+  });
+}
+
+// Override btnProceedPayment to handle TrueMoney & Bank
 const originalProceedHandler = btnProceedPayment.onclick;
 btnProceedPayment.addEventListener('click', async (e) => {
   if (selectedPaymentMethod === 'truemoney') {
     e.stopImmediatePropagation();
 
-    stepPaymentMethod.classList.remove('active');
-    stepTrueMoney.classList.add('active');
+    // Determine available webhook methods
+    const webhookMethods = (streamerPaymentMethods.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
+    const webhookEnabled = !!streamerPaymentMethods.truemoney_webhook;
 
-    updateSlipOkWarning('truemoney');
+    if (webhookEnabled) {
+      // Show method toggle only if both P2P and PROMPTPAY_IN are enabled
+      if (trueMoneyQrMethodToggle) {
+        const p2p = webhookMethods.includes('P2P');
+        const ppin = webhookMethods.includes('PROMPTPAY_IN');
+        trueMoneyQrMethodToggle.style.display = (p2p && ppin) ? 'flex' : 'none';
+        trueMoneyQrMethod = p2p ? 'P2P' : (ppin ? 'PROMPTPAY_IN' : 'P2P');
+        trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.method === trueMoneyQrMethod);
+        });
+      }
+      await createTrueMoneyQR();
+    } else {
+      stepPaymentMethod.classList.remove('active');
+      stepTrueMoney.classList.add('active');
 
-    if (trueMoneyAmount) {
-      trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
-    }
+      updateSlipOkWarning('truemoney');
 
-    // Display phone number
-    if (trueMoneyPhoneDisplay) {
-      const phone = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
-      trueMoneyPhoneDisplay.textContent = phone;
+      if (trueMoneyAmount) {
+        trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
+      }
+
+      // Display phone number
+      if (trueMoneyPhoneDisplay) {
+        const phone = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
+        trueMoneyPhoneDisplay.textContent = phone;
+      }
     }
 
     btnProceedPayment.disabled = false;

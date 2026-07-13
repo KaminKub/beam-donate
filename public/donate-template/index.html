@@ -23,6 +23,82 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
+  <style>
+    /* ===== TrueMoney Webhook QR step ===== */
+    #step-truemoney-qr .qr-method-toggle {
+      display: flex;
+      gap: 8px;
+      margin: 0 -4px 16px;
+    }
+    #step-truemoney-qr .qr-method-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, color .2s;
+    }
+    #step-truemoney-qr .qr-method-btn:hover {
+      background: rgba(102,126,234,.15);
+    }
+    #step-truemoney-qr .qr-method-btn.active {
+      border-color: var(--primary, #667eea);
+      background: rgba(102,126,234,.18);
+      color: #c7d2fe;
+    }
+    #step-truemoney-qr .qr-display-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    #step-truemoney-qr .qr-amount {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fbbf24;
+      margin-top: 12px;
+      font-family: 'Kanit', sans-serif;
+    }
+    #step-truemoney-qr .qr-hint {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    #step-truemoney-qr .qr-waiting-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+    }
+    #step-truemoney-qr .qr-waiting-indicator.confirmed {
+      background: rgba(34,197,94,0.1);
+      border-color: rgba(34,197,94,0.3);
+    }
+    #step-truemoney-qr .qr-waiting-indicator.confirmed i {
+      color: #22c55e;
+    }
+    #step-truemoney-qr .qr-waiting-indicator.expired {
+      background: rgba(239,68,68,0.08);
+      border-color: rgba(239,68,68,0.2);
+    }
+    @media (max-width: 768px) {
+      #step-truemoney-qr .qr-method-toggle { gap: 6px; }
+      #step-truemoney-qr .qr-method-btn { font-size: 12px; padding: 10px 4px; }
+    }
+  </style>
 </head>
 
 <body>
@@ -397,6 +473,66 @@
         </div>
       </div>
     </div>  <!-- end step-truemoney -->
+
+    <!-- หน้า TrueMoney Webhook QR -->
+    <div id="step-truemoney-qr" class="step">
+      <div class="card glass-card">
+        <div class="header">
+          <img src="/assets/payment/TrueWallate.png" alt="TrueMoney" style="width: 192px; height: 192px; object-fit: contain; margin-bottom: 12px;">
+          <h2>TrueMoney Wallet</h2>
+          <p class="subtitle">สแกน QR เพื่อบริจาคแบบอัตโนมัติ</p>
+        </div>
+
+        <div class="qr-method-toggle" id="trueMoneyQrMethodToggle" style="display: none;">
+          <button type="button" class="qr-method-btn active" data-method="P2P">
+            โอนในแอป TrueMoney
+          </button>
+          <button type="button" class="qr-method-btn" data-method="PROMPTPAY_IN">
+            สแกนพร้อมเพย์
+          </button>
+        </div>
+
+        <div class="qr-display-box">
+          <div id="trueMoneyQrLoading" class="loading">
+            <div class="spinner"></div>
+            <p>กำลังสร้าง QR Code...</p>
+          </div>
+          <img id="trueMoneyQrImage" src="" alt="QR Code" width="250" height="250" style="display: none;">
+          <div class="qr-amount" id="trueMoneyQrAmount">฿0</div>
+          <div class="qr-hint" id="trueMoneyQrHint">สแกนด้วยแอป TrueMoney แล้วโอนตามยอดนี้เป๊ะ ๆ</div>
+        </div>
+
+        <div class="qr-info-box" style="margin-bottom: 16px;">
+          <div class="info-row">
+            <span class="info-label">หมดอายุใน:</span>
+            <span id="trueMoneyQrExpiry" class="info-value countdown">30:00</span>
+          </div>
+        </div>
+
+        <div class="qr-waiting-indicator" id="trueMoneyQrWaiting">
+          <i class="fa-solid fa-circle-notch fa-spin" style="color: #3b82f6;"></i>
+          <span>รอการยืนยันอัตโนมัติ... โอนแล้วระบบจะขึ้นสำเร็จเองใน 1 นาที</span>
+        </div>
+
+        <div id="trueMoneyQrStatus" class="status checking" style="display: none;">
+          <div class="spinner-small"></div>
+          <span>กำลังตรวจสอบ...</span>
+        </div>
+
+        <button id="btnTrueMoneyQrSlipFallback" class="btn-secondary" style="display: none; margin-bottom: 10px;">
+          <i class="fa-solid fa-receipt" style="color: #94a3b8;"></i> อัพโหลดสลิปแทน
+        </button>
+
+        <div class="button-group">
+          <button id="btnBackTrueMoneyQr" class="btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> ย้อนกลับ
+          </button>
+          <button id="btnRetryTrueMoneyQr" class="btn-primary" style="display: none;">
+            <i class="fa-solid fa-rotate"></i> สร้าง QR ใหม่
+          </button>
+        </div>
+      </div>
+    </div>  <!-- end step-truemoney-qr -->
 
     <!-- หน้าโอนเงินผ่านธนาคาร -->
     <div id="step-bank" class="step">

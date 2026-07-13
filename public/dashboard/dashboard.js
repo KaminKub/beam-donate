@@ -1140,7 +1140,7 @@ async function initializeDashboard() {
     }
 
     // PW-1: numeric-only enforcement for payment inputs
-    ['inputBankAccountNumber', 'inputTrueMoneyPhone', 'inputPromptPay'].forEach(id => {
+    ['inputBankAccountNumber', 'inputTrueMoneyPhone', 'inputPromptPay', 'webhookPromptpayId'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', () => {
         const clean = el.value.replace(/\D/g, '');
@@ -1153,6 +1153,9 @@ async function initializeDashboard() {
     if (btnTestSlipOk) {
       btnTestSlipOk.onclick = testSlipOkConnection;
     }
+
+    // TrueMoney Webhook modal
+    initTrueMoneyWebhookModal();
 
     if (btnSavePayment) {
       btnSavePayment.onclick = savePaymentSettings;
@@ -1333,6 +1336,8 @@ function loadDemoPaymentInfo(data) {
   const bankAccName = document.getElementById('inputBankAccountName');
   if (bankAccNo) { bankAccNo.value = censor; bankAccNo.disabled = true; }
   if (bankAccName) { bankAccName.value = censor; bankAccName.disabled = true; }
+
+  renderTrueMoneyWebhookState(data);
 }
 
 function loadOverlaySettingsFromData(data) {
@@ -5306,16 +5311,267 @@ function validatePromptPaySettings() {
   return { valid: errors.length === 0, errors };
 }
 
+function renderTrueMoneyWebhookState(data) {
+  const badge = document.getElementById('webhookStatusBadge');
+  const quota = document.getElementById('webhookQuotaMini');
+  const methodsRow = document.getElementById('webhookMethodsRow');
+  const conflictBanner = document.getElementById('webhookConflictBanner');
+  const urlInput = document.getElementById('webhookUrlInput');
+
+  if (!badge) return;
+
+  const username = document.getElementById('accUsername')?.textContent?.trim() || '';
+  if (urlInput && username) {
+    urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
+  }
+
+  const enabled = data.truemoney_webhook_enabled === 1 || data.truemoney_webhook_enabled === true || data.truemoney_webhook_enabled === '1';
+  const secretSet = !!data.truemoney_webhook_secret_set;
+  const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
+  const expiry = data.truemoney_webhook_expiry || '';
+
+  let badgeClass = 'webhook-badge';
+  let badgeText = 'ใช้สลิป SlipOK';
+  let badgeColor = '#94a3b8';
+
+  if (enabled) {
+    if (expiry) {
+      const days = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24));
+      if (days <= 7 && days >= 0) {
+        badgeText = `หมดอายุใน ${days} วัน`;
+        badgeColor = '#f59e0b';
+      } else if (days < 0) {
+        badgeText = 'Webhook หมดอายุแล้ว';
+        badgeColor = '#ef4444';
+      } else {
+        badgeText = 'Webhook Active';
+        badgeColor = '#10b981';
+      }
+    } else {
+      badgeText = 'Webhook Active';
+      badgeColor = '#10b981';
+    }
+  } else if (secretSet) {
+    badgeText = 'Webhook ปิดอยู่/หมดอายุ';
+    badgeColor = '#ef4444';
+  }
+
+  badge.className = 'webhook-badge';
+  badge.style.background = `${badgeColor}26`;
+  badge.style.color = badgeColor;
+  badge.style.border = `1px solid ${badgeColor}40`;
+  badge.textContent = badgeText;
+
+  if (quota) {
+    const tx = data.truemoney_webhook_tx_month || 0;
+    quota.textContent = `เดือนนี้ ${tx}/100 ครั้งฟรี`;
+  }
+
+  if (methodsRow) {
+    methodsRow.style.display = enabled ? 'flex' : 'none';
+    methodsRow.replaceChildren();
+    if (methods.includes('P2P')) {
+      const chip = document.createElement('span');
+      chip.className = 'webhook-method-chip';
+      chip.textContent = 'โอนในแอป TrueMoney';
+      methodsRow.appendChild(chip);
+    }
+    if (methods.includes('PROMPTPAY_IN')) {
+      const chip = document.createElement('span');
+      chip.className = 'webhook-method-chip';
+      chip.textContent = 'พร้อมเพย์ทรูมันนี่';
+      methodsRow.appendChild(chip);
+    }
+  }
+
+  if (conflictBanner) {
+    const hasPromptpayIn = methods.includes('PROMPTPAY_IN');
+    const slipokPromptpayEnabled = data.promptpay_enabled === 1 || data.promptpay_enabled === true || data.promptpay_enabled === '1';
+    conflictBanner.style.display = (enabled && hasPromptpayIn && !slipokPromptpayEnabled) ? 'flex' : 'none';
+  }
+}
+
+function initTrueMoneyWebhookModal() {
+  const modal = document.getElementById('webhookSetupModal');
+  const btnOpen = document.getElementById('btnOpenWebhookModal');
+  const btnClose = document.getElementById('btnCloseWebhookModal');
+  const btnCancel = document.getElementById('btnCancelWebhook');
+  const btnSave = document.getElementById('btnSaveWebhook');
+  const btnTest = document.getElementById('btnTestWebhook');
+  const btnCopy = document.getElementById('btnCopyWebhookUrl');
+  const chkPromptpay = document.getElementById('webhookMethodPromptpay');
+  const promptpayGroup = document.getElementById('webhookPromptpayIdGroup');
+
+  if (!modal || !btnOpen) return;
+
+  function openModal() {
+    const data = window._lastPaymentSettings || {};
+    const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
+    document.getElementById('webhookMethodP2P').checked = methods.includes('P2P');
+    if (chkPromptpay) chkPromptpay.checked = methods.includes('PROMPTPAY_IN');
+    if (promptpayGroup) promptpayGroup.style.display = chkPromptpay?.checked ? 'block' : 'none';
+    document.getElementById('webhookPromptpayId').value = data.truemoney_promptpay_id || '';
+    document.getElementById('webhookExpiryDate').value = data.truemoney_webhook_expiry || '';
+
+    ['webhookJwtSecret', 'webhookConsentKyc', 'webhookConsentFee', 'webhookConsentExpiry', 'webhookConsentFallback'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+      if (el) el.checked = false;
+    });
+
+    modal.style.display = 'flex';
+    modal.style.animation = 'modalFade 0.25s ease forwards';
+  }
+
+  function closeModal() {
+    modal.style.animation = 'modalFadeOut 0.2s ease forwards';
+    modal.addEventListener('animationend', function handler() {
+      modal.style.display = 'none';
+      modal.style.animation = '';
+      modal.removeEventListener('animationend', handler);
+    });
+  }
+
+  btnOpen.addEventListener('click', (e) => { e.stopPropagation(); openModal(); });
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCancel) btnCancel.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  if (chkPromptpay && promptpayGroup) {
+    chkPromptpay.addEventListener('change', () => {
+      promptpayGroup.style.display = chkPromptpay.checked ? 'block' : 'none';
+    });
+  }
+
+  if (btnCopy) {
+    btnCopy.addEventListener('click', async () => {
+      const input = document.getElementById('webhookUrlInput');
+      if (!input?.value) return;
+      try {
+        await navigator.clipboard.writeText(input.value);
+        const icon = btnCopy.querySelector('i');
+        if (icon) { icon.className = 'fa-solid fa-check'; icon.style.color = '#22c55e'; }
+        setTimeout(() => { if (icon) { icon.className = 'fa-solid fa-copy'; icon.style.color = '#3b82f6'; } }, 2000);
+      } catch (err) {
+        showNotification('ไม่สามารถคัดลอก URL ได้', 'error');
+      }
+    });
+  }
+
+  if (btnTest) {
+    btnTest.addEventListener('click', async () => {
+      try {
+        const res = await fetchWithCsrf('/api/truemoney/test-webhook', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showNotification('ทดสอบ JWT Secret สำเร็จ ✅', 'success');
+        } else {
+          showNotification(data.error || 'ทดสอบไม่สำเร็จ กรุณาตรวจสอบ JWT Secret', 'error');
+        }
+      } catch (err) {
+        showNotification(err.message || 'ทดสอบไม่สำเร็จ', 'error');
+      }
+    });
+  }
+
+  if (btnSave) {
+    btnSave.addEventListener('click', async () => {
+      const secret = document.getElementById('webhookJwtSecret').value.trim();
+      const p2p = document.getElementById('webhookMethodP2P').checked;
+      const promptpay = document.getElementById('webhookMethodPromptpay').checked;
+      const promptpayId = document.getElementById('webhookPromptpayId').value.trim();
+      const expiry = document.getElementById('webhookExpiryDate').value;
+      const kyc = document.getElementById('webhookConsentKyc').checked;
+      const fee = document.getElementById('webhookConsentFee').checked;
+      const expConsent = document.getElementById('webhookConsentExpiry').checked;
+      const fallback = document.getElementById('webhookConsentFallback').checked;
+
+      const methods = [];
+      if (p2p) methods.push('P2P');
+      if (promptpay) methods.push('PROMPTPAY_IN');
+
+      if (secret.length < 32) {
+        showNotification('JWT Secret ต้องยาวอย่างน้อย 32 ตัวอักษร กรุณาคัดลอกจากแอป TrueMoney', 'error');
+        return;
+      }
+      if (methods.length === 0) {
+        showNotification('กรุณาเลือกอย่างน้อย 1 วิธีรับเงิน', 'error');
+        return;
+      }
+      if (promptpay && !/^\d{15}$/.test(promptpayId)) {
+        showNotification('PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก', 'error');
+        return;
+      }
+      if (!kyc || !fee || !expConsent || !fallback) {
+        showNotification('กรุณายอมรับเงื่อนไขทั้งหมดก่อนเปิดใช้งาน', 'error');
+        return;
+      }
+
+      const payload = {
+        action: 'enable',
+        jwtSecret: secret,
+        methods,
+        promptpayId: promptpay ? promptpayId : undefined,
+        expiryDate: expiry || undefined,
+        kycConfirmed: true,
+        acceptFees: true,
+        acceptExpiry: true
+      };
+
+      const submit = async () => {
+        try {
+          const res = await fetchWithCsrf('/api/truemoney/setup-webhook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showNotification('เชื่อมต่อ Webhook สำเร็จ! ✅ ทดสอบระบบด้วยปุ่มทดสอบได้เลย', 'success');
+            if (data.promptpaySlipokDisabled) {
+              showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
+            }
+            closeModal();
+            await loadPaymentSettings();
+          } else {
+            showNotification(data.error || 'ไม่สามารถบันทึก Webhook ได้', 'error');
+          }
+        } catch (err) {
+          showNotification(err.message || 'ไม่สามารถบันทึก Webhook ได้', 'error');
+        }
+      };
+
+      const currentSettings = window._lastPaymentSettings || {};
+      const slipokPromptpayEnabled = currentSettings.promptpay_enabled === 1 || currentSettings.promptpay_enabled === true || currentSettings.promptpay_enabled === '1';
+      if (promptpay && slipokPromptpayEnabled) {
+        showConfirmModal(
+          '⚠️ ปิดพร้อมเพย์ SlipOK อัตโนมัติ',
+          'ถ้าเปิดพร้อมเพย์ทรูมันนี่ผ่าน Webhook ระบบจะปิดพร้อมเพย์แบบ SlipOK ให้อัตโนมัติ เพราะเงินเข้า wallet เดียวกัน (เปิดกลับได้ที่การตั้งค่าพร้อมเพย์)',
+          '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
+          submit,
+          'เข้าใจและดำเนินการต่อ',
+          'btn-primary'
+        );
+      } else {
+        await submit();
+      }
+    });
+  }
+}
+
 async function loadPaymentSettings() {
   showTabLoading('payment-setup');
   try {
     const response = await fetch('/api/payment/settings');
     if (!response.ok) {
+      window._lastPaymentSettings = {};
+
       // No settings yet (404) or auth issue — show SlipOK setup panel so user can configure
       updateSlipOkStatus(false, null);
       return;
     }
     const data = await response.json();
+    window._lastPaymentSettings = data || {};
 
     // ไม่ auto-select — โหลดสถานะจาก database
     document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
@@ -5363,6 +5619,8 @@ async function loadPaymentSettings() {
 
     const bankCard = document.getElementById('cardBank');
     if (data.bank_enabled && bankCard) bankCard.classList.add('active');
+
+    renderTrueMoneyWebhookState(data);
 
     if (data.slipok_connected) fetchQuotaMini('promptpay');
   } catch (err) {
