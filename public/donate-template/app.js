@@ -543,14 +543,14 @@ function updateTimerChoiceBox() {
   if (eff.action === 'add') {
     if (titleText) titleText.textContent = 'โดเนทนี้จะปรับเวลานับถอยหลัง';
     effEl.className = 'timer-choice-effect timer-choice-effect--add';
-    effEl.textContent = `+${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)' : ''}`;
+    effEl.textContent = `+${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดที่ปรับได้แล้ว)' : ''}`;
     if (optsEl) optsEl.style.display = 'none';
     return;
   }
   if (eff.action === 'sub') {
     if (titleText) titleText.textContent = 'โดเนทนี้จะลดเวลานับถอยหลัง';
     effEl.className = 'timer-choice-effect timer-choice-effect--sub';
-    effEl.textContent = `−${formatChoiceTime(eff.subSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)`;
+    effEl.textContent = `−${formatChoiceTime(eff.subSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดที่ปรับได้แล้ว)' : ''}`;
     if (optsEl) optsEl.style.display = 'none';
     return;
   }
@@ -562,7 +562,7 @@ function updateTimerChoiceBox() {
   if (eff.addSeconds !== eff.subSeconds) {
     effEl.textContent = `(+${formatChoiceTime(eff.addSeconds)} / −${formatChoiceTime(eff.subSeconds)})`;
   } else {
-    effEl.textContent = `±${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดแล้ว)' : ''}`;
+    effEl.textContent = `±${formatChoiceTime(eff.addSeconds)}${eff.clamped ? '\n(ถึงยอดสูงสุดที่ปรับได้แล้ว)' : ''}`;
   }
   const noneBtn = box.querySelector('[data-choice="none"]');
   if (noneBtn) noneBtn.style.display = timerPublicConfig.allowPassthrough ? '' : 'none';
