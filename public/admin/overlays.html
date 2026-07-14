@@ -58,6 +58,9 @@
     .type-goal    { background: rgba(139,92,246,0.12); color: #8b5cf6; }
     .badge-timer  { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .type-timer   { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .link-cell { display: flex; gap: 0.5rem; }
+    .tbl-link { color: #3b82f6; text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; }
+    .tbl-link:hover { color: #60a5fa; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -86,9 +89,9 @@
   </div>
   <div class="table-wrap">
     <table class="monitor-table">
-      <thead><tr><th>USERNAME</th><th>TYPE</th><th>CONN</th><th>LAST SEEN</th></tr></thead>
+      <thead><tr><th>USERNAME</th><th>TYPE</th><th>CONN</th><th>LAST SEEN</th><th>LINKS</th></tr></thead>
       <tbody id="tbody">
-        <tr><td colspan="4" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+        <tr><td colspan="5" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
       </tbody>
     </table>
   </div>
@@ -124,7 +127,7 @@ function renderTable(data) {
   document.getElementById('sseTotal').textContent     = data.sseTotal;
   const tbody = document.getElementById('tbody');
   if (!data.active || data.active.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty"><i class="fa-solid fa-circle-dot" style="color:#94a3b8;margin-right:6px;"></i>ยังไม่มีใครเชื่อมต่ออยู่ตอนนี้</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty"><i class="fa-solid fa-circle-dot" style="color:#94a3b8;margin-right:6px;"></i>ยังไม่มีใครเชื่อมต่ออยู่ตอนนี้</td></tr>';
     return;
   }
   tbody.innerHTML = data.active.map(row => {
@@ -142,6 +145,10 @@ function renderTable(data) {
       <td class="type-cell">${overlayBadge}${goalBadge}${timerBadge}</td>
       <td class="${row.connections > 1 ? 'conn-warn' : ''}">${row.connections}${row.connections > 1 ? ' ⚠' : ''}</td>
       <td>${formatLastSeen(row.lastSeenSec)}</td>
+      <td class="link-cell">
+        <a href="/${escapeHtml(row.username)}" target="_blank" class="tbl-link"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
+        <a href="/${escapeHtml(row.username)}/dashboard" target="_blank" class="tbl-link"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -170,7 +177,7 @@ async function fetchData() {
     updateTimestamp();
   } catch (err) {
     document.getElementById('tbody').innerHTML =
-      '<tr><td colspan="4" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถโหลดข้อมูลได้ — จะลองใหม่ใน 30 วินาที</td></tr>';
+      '<tr><td colspan="5" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> ไม่สามารถโหลดข้อมูลได้ — จะลองใหม่ใน 30 วินาที</td></tr>';
     console.error('[Monitor] fetch error:', err);
   } finally {
     setLoadingState(false);
