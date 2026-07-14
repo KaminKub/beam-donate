@@ -5373,6 +5373,10 @@ function renderTrueMoneyWebhookState(data) {
     connectedActions.style.display = (secretSet || enabled) ? 'flex' : 'none';
   }
 
+  // "ตั้งค่าวิธีรับเงิน" — hidden until connected (gate method config behind active webhook)
+  const openMethodsBtn = document.getElementById('btnOpenWebhookModal');
+  if (openMethodsBtn) openMethodsBtn.style.display = enabled ? '' : 'none';
+
   // method switches — reflect stored state (preference only until connected)
   if (swP2P) { swP2P.checked = methods.includes('P2P') || methods.length === 0; swP2P.dispatchEvent(new Event('change', { bubbles: true })); }
   if (swPromptpay) { swPromptpay.checked = methods.includes('PROMPTPAY_IN'); swPromptpay.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -5423,6 +5427,17 @@ function initTrueMoneyWebhookModal() {
       methodSettings.style.display = open ? 'block' : 'none';
       const chev = btnOpenMethods.querySelector('i');
       if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+    });
+  }
+
+  // ---- toggle whole webhook section (collapsed shows only h5) ----
+  const sectionToggle = document.getElementById('webhookSectionToggle');
+  const sectionBody = document.getElementById('webhookSectionBody');
+  if (sectionToggle && sectionBody) {
+    sectionToggle.addEventListener('click', () => {
+      const open = sectionBody.style.display === 'none' || !sectionBody.style.display;
+      sectionBody.style.display = open ? 'block' : 'none';
+      sectionToggle.classList.toggle('is-open', open);
     });
   }
 

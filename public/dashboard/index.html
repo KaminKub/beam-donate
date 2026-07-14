@@ -728,16 +728,19 @@
 
                           <!-- TrueMoney Webhook Auto-Confirm (secondary — SlipOK is default) -->
                           <div class="settings-section" id="truemoneyWebhookSection">
-                            <div class="webhook-hero">
-                              <h5><i class="fa-solid fa-bolt" style="color:#f59e0b;"></i> รับเงินอัตโนมัติผ่าน TrueMoney</h5>
+                            <h5 id="webhookSectionToggle" class="webhook-section-toggle">
+                              <i class="fa-solid fa-bolt" style="color:#f59e0b;"></i>
+                              <span>รับเงินอัตโนมัติผ่าน TrueMoney (เฉพาะบัญชี Bussiness เท่านั้น)</span>
+                              <i class="fa-solid fa-chevron-down webhook-section-chevron"></i>
+                            </h5>
+                            <div class="webhook-section-body" id="webhookSectionBody" style="display:none;">
                               <div class="webhook-hero-badge">
                                 <i class="fa-solid fa-circle-check"></i> ไม่ต้องใช้สลิป · รับเงินไม่จำกัด · ยืนยันอัตโนมัติใน 1 นาที
                               </div>
-                              <div class="webhook-eligibility-note">
+                              <div class="webhook-eligibility-note single-line">
                                 <i class="fa-solid fa-circle-info" style="color:#f59e0b;"></i>
-                                หากบัญชี TrueMoney ของคุณมีเงินเข้าเกิน <strong>100 ครั้ง/เดือน</strong> สามารถใช้ Webhook รับเงินอัตโนมัติได้ — ยอดยังไม่ถึง? ใช้สลิปได้ตามปกติ ไม่ต้องตั้งค่าส่วนนี้
+                                <span class="webhook-eligibility-text">เกณฑ์: เงินเข้าเกิน 100 ครั้ง/เดือน — ยอดไม่ถึงใช้สลิปได้ตามปกติ</span>
                               </div>
-                            </div>
 
                             <div class="webhook-status-row">
                               <span class="webhook-badge" id="webhookStatusBadge">ยังไม่เชื่อมต่อ</span>
@@ -794,6 +797,7 @@
                                 </label>
                               </div>
                             </div>
+                            </div><!-- /webhook-section-body -->
                           </div>
                         </div>
                       </div>

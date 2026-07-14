@@ -3777,6 +3777,35 @@ label {
 
 .webhook-eligibility-note i { flex-shrink: 0; margin-top: 2px; }
 
+/* section dropdown — collapsed shows only h5 */
+.webhook-section-toggle {
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.webhook-section-toggle .webhook-section-chevron {
+  margin-left: auto;
+  transition: transform .2s;
+}
+.webhook-section-toggle.is-open .webhook-section-chevron { transform: rotate(180deg); }
+.webhook-section-body { margin-top: 10px; }
+
+/* single-line eligibility (section instance only — guide modal note stays multi-line) */
+.webhook-eligibility-note.single-line {
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.webhook-eligibility-note.single-line .webhook-eligibility-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #truemoneyWebhookSection .btn-primary,
 #truemoneyWebhookSection .btn-secondary,
 #truemoneyWebhookSection .btn-danger,
