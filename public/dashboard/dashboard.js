@@ -5314,9 +5314,14 @@ function validatePromptPaySettings() {
 function renderTrueMoneyWebhookState(data) {
   const badge = document.getElementById('webhookStatusBadge');
   const quota = document.getElementById('webhookQuotaMini');
-  const methodsRow = document.getElementById('webhookMethodsRow');
   const conflictBanner = document.getElementById('webhookConflictBanner');
   const urlInput = document.getElementById('webhookUrlInput');
+  const connectBtn = document.getElementById('btnConnectWebhook');
+  const connectedActions = document.getElementById('webhookConnectedActions');
+  const swP2P = document.getElementById('swMethodP2P');
+  const swPromptpay = document.getElementById('swMethodPromptpay');
+  const promptpayGroup = document.getElementById('webhookPromptpayIdGroup');
+  const promptpayIdInput = document.getElementById('webhookPromptpayId');
 
   if (!badge) return;
 
@@ -5328,34 +5333,19 @@ function renderTrueMoneyWebhookState(data) {
   const enabled = data.truemoney_webhook_enabled === 1 || data.truemoney_webhook_enabled === true || data.truemoney_webhook_enabled === '1';
   const secretSet = !!data.truemoney_webhook_secret_set;
   const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
-  const expiry = data.truemoney_webhook_expiry || '';
 
-  let badgeClass = 'webhook-badge';
-  let badgeText = 'ใช้สลิป SlipOK';
-  let badgeColor = '#94a3b8';
-
+  // badge — three states (no expiry countdown: Open API expiry unknown, RT#5)
+  let badgeText, badgeColor;
   if (enabled) {
-    if (expiry) {
-      const days = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24));
-      if (days <= 7 && days >= 0) {
-        badgeText = `หมดอายุใน ${days} วัน`;
-        badgeColor = '#f59e0b';
-      } else if (days < 0) {
-        badgeText = 'Webhook หมดอายุแล้ว';
-        badgeColor = '#ef4444';
-      } else {
-        badgeText = 'Webhook Active';
-        badgeColor = '#10b981';
-      }
-    } else {
-      badgeText = 'Webhook Active';
-      badgeColor = '#10b981';
-    }
+    badgeText = '🟢 เชื่อมต่อแล้ว · ไม่ต้องใช้สลิป';
+    badgeColor = '#10b981';
   } else if (secretSet) {
-    badgeText = 'Webhook ปิดอยู่/หมดอายุ';
+    badgeText = '🔴 เชื่อมต่อไม่ได้ · กดต่ออายุ';
     badgeColor = '#ef4444';
+  } else {
+    badgeText = '⚪ ยังไม่เชื่อมต่อ';
+    badgeColor = '#94a3b8';
   }
-
   badge.className = 'webhook-badge';
   badge.style.background = `${badgeColor}26`;
   badge.style.color = badgeColor;
@@ -5367,22 +5357,27 @@ function renderTrueMoneyWebhookState(data) {
     quota.textContent = `เดือนนี้ ${tx}/100 ครั้งฟรี`;
   }
 
-  if (methodsRow) {
-    methodsRow.style.display = enabled ? 'flex' : 'none';
-    methodsRow.replaceChildren();
-    if (methods.includes('P2P')) {
-      const chip = document.createElement('span');
-      chip.className = 'webhook-method-chip';
-      chip.textContent = 'โอนในแอป TrueMoney';
-      methodsRow.appendChild(chip);
-    }
-    if (methods.includes('PROMPTPAY_IN')) {
-      const chip = document.createElement('span');
-      chip.className = 'webhook-method-chip';
-      chip.textContent = 'พร้อมเพย์ทรูมันนี่';
-      methodsRow.appendChild(chip);
+  // connect button — hidden when enabled; "เชื่อมต่อใหม่" when secret exists but disabled
+  if (connectBtn) {
+    if (enabled) {
+      connectBtn.style.display = 'none';
+    } else {
+      connectBtn.style.display = '';
+      const labelEl = connectBtn.querySelector('span');
+      if (labelEl) labelEl.textContent = secretSet ? 'เชื่อมต่อใหม่' : 'เชื่อมต่อ TrueMoney';
     }
   }
+
+  // connected actions (ต่ออายุ/ตัดการเชื่อมต่อ) — visible once a secret exists or connected
+  if (connectedActions) {
+    connectedActions.style.display = (secretSet || enabled) ? 'flex' : 'none';
+  }
+
+  // method switches — reflect stored state (preference only until connected)
+  if (swP2P) { swP2P.checked = methods.includes('P2P') || methods.length === 0; swP2P.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (swPromptpay) { swPromptpay.checked = methods.includes('PROMPTPAY_IN'); swPromptpay.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (promptpayGroup) promptpayGroup.style.display = (swPromptpay?.checked) ? 'block' : 'none';
+  if (promptpayIdInput) promptpayIdInput.value = data.truemoney_promptpay_id || '';
 
   if (conflictBanner) {
     const hasPromptpayIn = methods.includes('PROMPTPAY_IN');
@@ -5392,38 +5387,26 @@ function renderTrueMoneyWebhookState(data) {
 }
 
 function initTrueMoneyWebhookModal() {
-  const modal = document.getElementById('webhookSetupModal');
-  const btnOpen = document.getElementById('btnOpenWebhookModal');
-  const btnClose = document.getElementById('btnCloseWebhookModal');
-  const btnCancel = document.getElementById('btnCancelWebhook');
-  const btnSave = document.getElementById('btnSaveWebhook');
-  const btnTest = document.getElementById('btnTestWebhook');
-  const btnCopy = document.getElementById('btnCopyWebhookUrl');
-  const chkPromptpay = document.getElementById('webhookMethodPromptpay');
+  const guideModal = document.getElementById('webhookGuideModal');
+  const consentModal = document.getElementById('webhookConsentModal');
+  const btnOpenMethods = document.getElementById('btnOpenWebhookModal');
+  const methodSettings = document.getElementById('webhookMethodSettings');
+  const btnConnect = document.getElementById('btnConnectWebhook');
+  const btnRenew = document.getElementById('btnRenewWebhook');
+  const btnDisconnect = document.getElementById('btnDisconnectWebhook');
+  const swPromptpay = document.getElementById('swMethodPromptpay');
   const promptpayGroup = document.getElementById('webhookPromptpayIdGroup');
 
-  if (!modal || !btnOpen) return;
+  if (!guideModal) return;
 
-  function openModal() {
-    const data = window._lastPaymentSettings || {};
-    const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
-    document.getElementById('webhookMethodP2P').checked = methods.includes('P2P');
-    if (chkPromptpay) chkPromptpay.checked = methods.includes('PROMPTPAY_IN');
-    if (promptpayGroup) promptpayGroup.style.display = chkPromptpay?.checked ? 'block' : 'none';
-    document.getElementById('webhookPromptpayId').value = data.truemoney_promptpay_id || '';
-    document.getElementById('webhookExpiryDate').value = data.truemoney_webhook_expiry || '';
+  const TMN_LINK = 'https://tmn.app.link/PFCCLT';
+  const isMobile = () => /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    ['webhookJwtSecret', 'webhookConsentKyc', 'webhookConsentFee', 'webhookConsentExpiry', 'webhookConsentFallback'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-      if (el) el.checked = false;
-    });
-
+  function openModal(modal) {
     modal.style.display = 'flex';
     modal.style.animation = 'modalFade 0.25s ease forwards';
   }
-
-  function closeModal() {
+  function closeModal(modal) {
     modal.style.animation = 'modalFadeOut 0.2s ease forwards';
     modal.addEventListener('animationend', function handler() {
       modal.style.display = 'none';
@@ -5432,17 +5415,84 @@ function initTrueMoneyWebhookModal() {
     });
   }
 
-  btnOpen.addEventListener('click', (e) => { e.stopPropagation(); openModal(); });
-  if (btnClose) btnClose.addEventListener('click', closeModal);
-  if (btnCancel) btnCancel.addEventListener('click', closeModal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-
-  if (chkPromptpay && promptpayGroup) {
-    chkPromptpay.addEventListener('change', () => {
-      promptpayGroup.style.display = chkPromptpay.checked ? 'block' : 'none';
+  // ---- toggle method settings (replaces old modal open) ----
+  if (btnOpenMethods && methodSettings) {
+    btnOpenMethods.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = methodSettings.style.display === 'none' || !methodSettings.style.display;
+      methodSettings.style.display = open ? 'block' : 'none';
+      const chev = btnOpenMethods.querySelector('i');
+      if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
     });
   }
 
+  if (swPromptpay && promptpayGroup) {
+    swPromptpay.addEventListener('change', () => {
+      promptpayGroup.style.display = swPromptpay.checked ? 'block' : 'none';
+    });
+  }
+
+  // ---- 5-step guide stepper ----
+  let currentStep = 1;
+  const steps = guideModal.querySelectorAll('.webhook-step');
+  const dots = guideModal.querySelectorAll('#webhookStepDots .dot');
+  const btnPrev = document.getElementById('btnWebhookGuidePrev');
+  const btnNext = document.getElementById('btnWebhookGuideNext');
+  const btnSave = document.getElementById('btnSaveWebhook');
+  const stepCount = document.getElementById('webhookStepCount');
+  const btnOpenApp = document.getElementById('btnOpenTrueMoneyApp');
+
+  function showStep(n) {
+    currentStep = n;
+    steps.forEach(s => { s.style.display = (Number(s.dataset.step) === n) ? 'block' : 'none'; });
+    dots.forEach((d, i) => d.classList.toggle('active', i === n - 1));
+    if (stepCount) stepCount.textContent = `${n} / 5`;
+    if (btnPrev) btnPrev.style.visibility = n > 1 ? 'visible' : 'hidden';
+    if (btnNext) btnNext.style.display = n < 5 ? '' : 'none';
+    if (btnSave) btnSave.style.display = n === 5 ? '' : 'none';
+    // mobile gate on step 1
+    const deskGate = document.getElementById('webhookMobileGateDesktop');
+    const mobGate = document.getElementById('webhookMobileGateMobile');
+    if (n === 1 && deskGate && mobGate) {
+      const mob = isMobile();
+      deskGate.style.display = mob ? 'none' : 'block';
+      mobGate.style.display = mob ? 'block' : 'none';
+    }
+  }
+
+  function openGuide() {
+    const data = window._lastPaymentSettings || {};
+    const username = document.getElementById('accUsername')?.textContent?.trim() || '';
+    const urlInput = document.getElementById('webhookUrlInput');
+    if (urlInput && username) {
+      urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
+    }
+    const tokenInput = document.getElementById('webhookConnectToken');
+    if (tokenInput) tokenInput.value = '';
+    showStep(1);
+    openModal(guideModal);
+  }
+
+  if (btnConnect) btnConnect.addEventListener('click', openGuide);
+  document.getElementById('btnCloseWebhookGuide')?.addEventListener('click', () => closeModal(guideModal));
+  guideModal.addEventListener('click', e => { if (e.target === guideModal) closeModal(guideModal); });
+  if (btnPrev) btnPrev.addEventListener('click', () => { if (currentStep > 1) showStep(currentStep - 1); });
+  if (btnNext) btnNext.addEventListener('click', () => { if (currentStep < 5) showStep(currentStep + 1); });
+
+  // step 4 — open TrueMoney app (mobile-only enabled)
+  if (btnOpenApp) {
+    if (!isMobile()) btnOpenApp.disabled = true;
+    btnOpenApp.addEventListener('click', () => {
+      if (btnOpenApp.disabled) {
+        showNotification('เปิดหน้านี้ในมือถือเพื่อเปิดแอพ TrueMoney ได้', 'error');
+        return;
+      }
+      window.open(TMN_LINK, '_blank', 'noopener');
+    });
+  }
+
+  // copy webhook url (step 3)
+  const btnCopy = document.getElementById('btnCopyWebhookUrl');
   if (btnCopy) {
     btnCopy.addEventListener('click', async () => {
       const input = document.getElementById('webhookUrlInput');
@@ -5458,40 +5508,20 @@ function initTrueMoneyWebhookModal() {
     });
   }
 
-  if (btnTest) {
-    btnTest.addEventListener('click', async () => {
-      try {
-        const res = await fetchWithCsrf('/api/truemoney/test-webhook', { method: 'POST' });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          showNotification('ทดสอบ JWT Secret สำเร็จ ✅', 'success');
-        } else {
-          showNotification(data.error || 'ทดสอบไม่สำเร็จ กรุณาตรวจสอบ JWT Secret', 'error');
-        }
-      } catch (err) {
-        showNotification(err.message || 'ทดสอบไม่สำเร็จ', 'error');
-      }
-    });
-  }
-
+  // ---- single save (บันทึก+เปิดใช้งาน) ----
   if (btnSave) {
     btnSave.addEventListener('click', async () => {
-      const secret = document.getElementById('webhookJwtSecret').value.trim();
-      const p2p = document.getElementById('webhookMethodP2P').checked;
-      const promptpay = document.getElementById('webhookMethodPromptpay').checked;
-      const promptpayId = document.getElementById('webhookPromptpayId').value.trim();
-      const expiry = document.getElementById('webhookExpiryDate').value;
-      const kyc = document.getElementById('webhookConsentKyc').checked;
-      const fee = document.getElementById('webhookConsentFee').checked;
-      const expConsent = document.getElementById('webhookConsentExpiry').checked;
-      const fallback = document.getElementById('webhookConsentFallback').checked;
+      const token = (document.getElementById('webhookConnectToken')?.value || '').trim();
+      const p2p = document.getElementById('swMethodP2P')?.checked;
+      const promptpay = document.getElementById('swMethodPromptpay')?.checked;
+      const promptpayId = (document.getElementById('webhookPromptpayId')?.value || '').trim();
 
       const methods = [];
       if (p2p) methods.push('P2P');
       if (promptpay) methods.push('PROMPTPAY_IN');
 
-      if (secret.length < 32) {
-        showNotification('JWT Secret ต้องยาวอย่างน้อย 32 ตัวอักษร กรุณาคัดลอกจากแอป TrueMoney', 'error');
+      if (token.replace(/\s+/g, '').length < 32) {
+        showNotification('Key ไม่ถูกต้อง กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney', 'error');
         return;
       }
       if (methods.length === 0) {
@@ -5502,21 +5532,18 @@ function initTrueMoneyWebhookModal() {
         showNotification('PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก', 'error');
         return;
       }
-      if (!kyc || !fee || !expConsent || !fallback) {
-        showNotification('กรุณายอมรับเงื่อนไขทั้งหมดก่อนเปิดใช้งาน', 'error');
-        return;
-      }
 
       const payload = {
         action: 'enable',
-        jwtSecret: secret,
+        token,
         methods,
-        promptpayId: promptpay ? promptpayId : undefined,
-        expiryDate: expiry || undefined,
-        kycConfirmed: true,
-        acceptFees: true,
-        acceptExpiry: true
+        promptpayId: promptpay ? promptpayId : undefined
+        // consented ไม่ส่งเป็น default — set เฉพาะใน onAccept หลัง user ติ๊กยอมรับ (F-01)
       };
+
+      const currentSettings = window._lastPaymentSettings || {};
+      const kycConfirmed = Number(currentSettings.truemoney_webhook_kyc_confirmed) === 1;
+      const slipokPromptpayEnabled = currentSettings.promptpay_enabled === 1 || currentSettings.promptpay_enabled === true || currentSettings.promptpay_enabled === '1';
 
       const submit = async () => {
         try {
@@ -5527,34 +5554,103 @@ function initTrueMoneyWebhookModal() {
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            showNotification('เชื่อมต่อ Webhook สำเร็จ! ✅ ทดสอบระบบด้วยปุ่มทดสอบได้เลย', 'success');
+            showNotification('เชื่อมต่อ TrueMoney สำเร็จ! ✅ รับเงินอัตโนมัติได้เลย ไม่ต้องใช้สลิป', 'success');
             if (data.promptpaySlipokDisabled) {
               showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
             }
-            closeModal();
+            closeModal(guideModal);
             await loadPaymentSettings();
           } else {
-            showNotification(data.error || 'ไม่สามารถบันทึก Webhook ได้', 'error');
+            showNotification(data.error || 'Key ใช้ไม่ได้ กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney', 'error');
           }
         } catch (err) {
           showNotification(err.message || 'ไม่สามารถบันทึก Webhook ได้', 'error');
         }
       };
 
-      const currentSettings = window._lastPaymentSettings || {};
-      const slipokPromptpayEnabled = currentSettings.promptpay_enabled === 1 || currentSettings.promptpay_enabled === true || currentSettings.promptpay_enabled === '1';
-      if (promptpay && slipokPromptpayEnabled) {
-        showConfirmModal(
-          '⚠️ ปิดพร้อมเพย์ SlipOK อัตโนมัติ',
-          'ถ้าเปิดพร้อมเพย์ทรูมันนี่ผ่าน Webhook ระบบจะปิดพร้อมเพย์แบบ SlipOK ให้อัตโนมัติ เพราะเงินเข้า wallet เดียวกัน (เปิดกลับได้ที่การตั้งค่าพร้อมเพย์)',
-          '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
-          submit,
-          'เข้าใจและดำเนินการต่อ',
-          'btn-primary'
-        );
+      // PROMPTPAY switch ON + SlipOK enabled → confirm disable SlipOK (§5.7)
+      const runWithConflictConfirm = async () => {
+        if (promptpay && slipokPromptpayEnabled) {
+          showConfirmModal(
+            'เปิดพร้อมเพย์ทรูมันนี่',
+            'เปิดพร้อมเพย์ทรูมันนี่ → ระบบจะปิดพร้อมเพย์ SlipOK อัตโนมัติ (เงินเข้า wallet เดียวกัน) เปิดกลับได้ที่ตั้งค่าพร้อมเพย์',
+            '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
+            submit,
+            'ตกลง',
+            'btn-primary'
+          );
+        } else {
+          await submit();
+        }
+      };
+
+      // consent popup — first time only
+      if (!kycConfirmed) {
+        const agree = document.getElementById('webhookConsentAgree');
+        if (agree) agree.checked = false;
+        openModal(consentModal);
+        const acceptBtn = document.getElementById('btnAcceptWebhookConsent');
+        const onAccept = async () => {
+          if (!agree?.checked) {
+            showNotification('กรุณาติ๊กยอมรับเงื่อนไขก่อน', 'error');
+            return;
+          }
+          acceptBtn?.removeEventListener('click', onAccept);
+          closeModal(consentModal);
+          payload.consented = true; // set เฉพาะหลัง user ยอมรับจริง (F-01)
+          await runWithConflictConfirm();
+        };
+        acceptBtn?.addEventListener('click', onAccept);
       } else {
-        await submit();
+        await runWithConflictConfirm();
       }
+    });
+  }
+
+  // consent modal close handlers
+  document.getElementById('btnCloseWebhookConsent')?.addEventListener('click', () => closeModal(consentModal));
+  document.getElementById('btnCancelWebhookConsent')?.addEventListener('click', () => closeModal(consentModal));
+  consentModal?.addEventListener('click', e => { if (e.target === consentModal) closeModal(consentModal); });
+
+  // ---- ต่ออายุ ----
+  if (btnRenew) {
+    btnRenew.addEventListener('click', () => {
+      if (!isMobile()) {
+        showNotification('แนะนำให้กดต่ออายุในมือถือ — เปิดแอพ TrueMoney หน้า บริการ Webhook และ API', 'error');
+      }
+      window.open(TMN_LINK, '_blank', 'noopener');
+    });
+  }
+
+  // ---- ตัดการเชื่อมต่อ ----
+  if (btnDisconnect) {
+    btnDisconnect.addEventListener('click', () => {
+      showConfirmModal(
+        'ตัดการเชื่อมต่อ TrueMoney Webhook',
+        'ระบบจะปิด Webhook ฝั่ง TipKub และเปิดหน้าจัดการในแอพ TrueMoney ให้คุณ revoke การเชื่อมต่อ (หน้าเดียวกับต่ออายุ)',
+        '<i class="fa-solid fa-link-slash" style="color:#ef4444;"></i>',
+        async () => {
+          try {
+            const res = await fetchWithCsrf('/api/truemoney/setup-webhook', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'disable' })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              showNotification('ตัดการเชื่อมต่อแล้ว — ระบบกลับไปใช้สลิป SlipOK', 'success');
+              window.open(TMN_LINK, '_blank', 'noopener');
+              await loadPaymentSettings();
+            } else {
+              showNotification(data.error || 'ตัดการเชื่อมต่อไม่สำเร็จ', 'error');
+            }
+          } catch (err) {
+            showNotification(err.message || 'ตัดการเชื่อมต่อไม่สำเร็จ', 'error');
+          }
+        },
+        'ตัดการเชื่อมต่อ',
+        'btn-danger'
+      );
     });
   }
 }

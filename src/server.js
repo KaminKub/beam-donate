@@ -3848,6 +3848,15 @@ const promptPayQrLimiter = rateLimit({
   message: { error: 'กรุณารอสักครู่ก่อนสร้าง QR ใหม่' }
 });
 
+// POST /api/truemoney/setup-webhook - Webhook connect/disconnect (authenticated) — F-02: throttle spam (each hit = 2 DB writes + JWT sign/verify)
+const setupWebhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'คำขอมากเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
@@ -4021,10 +4030,19 @@ app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => 
   }
 });
 
+// Minimal sanitize for TrueMoney webhook Key/รหัสลับ copied from the app.
+// Key is a raw HS256 shared secret — no URL/JWT to parse (research 2026-07-14).
+// ponytail: no parse branches — dead code per RT#3; sanitize+length only.
+function parseTrueMoneyToken(raw) {
+  const s = String(raw || '').trim().replace(/\s+/g, '');
+  if (s.length < 32) return { secret: null };
+  return { secret: s };
+}
+
 // POST /api/truemoney/setup-webhook - Enable/disable TrueMoney webhook (authenticated)
-app.post('/api/truemoney/setup-webhook', ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
-    const { action, jwtSecret, methods, promptpayId, expiryDate } = req.body;
+    const { action, token, methods, promptpayId, consented } = req.body;
     const streamer = await getStreamerForUser(req.user);
     const actualUsername = await getActualUsername(req.user);
     if (!streamer) return res.status(404).json({ error: 'Streamer not found' });
@@ -4032,6 +4050,7 @@ app.post('/api/truemoney/setup-webhook', ensureAuthenticated, csrfProtection, as
     const ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: actualUsername };
 
     if (action === 'disable') {
+      // keep kyc_confirmed so consent popup doesn't reappear on reconnect
       await db.saveStreamer({ ...ids, truemoney_webhook_enabled: 0 });
       return res.json({ success: true, enabled: false });
     }
@@ -4046,19 +4065,28 @@ app.post('/api/truemoney/setup-webhook', ensureAuthenticated, csrfProtection, as
       return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
     }
 
-    const { kycConfirmed, acceptFees, acceptExpiry } = req.body;
-    if (!kycConfirmed || !acceptFees || !acceptExpiry) {
-      return res.status(400).json({ error: 'กรุณายอมรับเงื่อนไขทั้งหมด' });
+    // consent gate — only first time (kyc_confirmed persists after first successful connect)
+    if (Number(streamer.truemoney_webhook_kyc_confirmed) !== 1 && !consented) {
+      return res.status(400).json({ error: 'กรุณายอมรับเงื่อนไข' });
     }
 
-    if (!jwtSecret || jwtSecret.length < 32) {
-      return res.status(400).json({ error: 'JWT Secret must be at least 32 characters' });
+    const { secret } = parseTrueMoneyToken(token);
+    if (!secret) {
+      return res.status(400).json({ error: 'Key ไม่ถูกต้อง กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney' });
     }
 
     if (cleanMethods.includes('PROMPTPAY_IN')) {
       if (!promptpayId || !/^\d{15}$/.test(String(promptpayId).replace(/\D/g, ''))) {
         return res.status(400).json({ error: 'PromptPay e-Wallet ID must be 15 digits' });
       }
+    }
+
+    // fold test — sign+verify with the provided secret; catches EasyDonate token that passes length
+    try {
+      const testToken = jwt.sign({ event_type: 'TEST', amount: 0 }, secret, { algorithm: 'HS256' });
+      jwt.verify(testToken, secret, { algorithms: ['HS256'] });
+    } catch (e) {
+      return res.status(400).json({ error: 'Key ใช้ไม่ได้ — ตรวจว่าคัดลอก "Key/รหัสลับ" จากหน้าตั้งค่า Webhook (ไม่ใช่ Token จากบริการอื่นเช่น EasyDonate)' });
     }
 
     let conflict = false;
@@ -4069,40 +4097,17 @@ app.post('/api/truemoney/setup-webhook', ensureAuthenticated, csrfProtection, as
 
     await db.saveStreamer({
       ...ids,
-      truemoney_webhook_secret: jwtSecret,
+      truemoney_webhook_secret: secret,
       truemoney_webhook_enabled: 1,
       truemoney_webhook_kyc_confirmed: 1,
       truemoney_webhook_methods: cleanMethods.join(','),
-      truemoney_webhook_expiry: expiryDate || null,
       ...(cleanMethods.includes('PROMPTPAY_IN') ? { truemoney_promptpay_id: promptpayId } : {})
     });
 
-    res.json({ success: true, enabled: true, methods: cleanMethods, promptpaySlipokDisabled: conflict });
+    res.json({ success: true, enabled: true, methods: cleanMethods, connected: true, promptpaySlipokDisabled: conflict });
   } catch (err) {
     console.error('TrueMoney setup-webhook error:', err);
     res.status(500).json({ error: 'Failed to save webhook settings' });
-  }
-});
-
-// POST /api/truemoney/test-webhook - Verify stored JWT secret can sign/verify (authenticated)
-app.post('/api/truemoney/test-webhook', ensureAuthenticated, csrfProtection, async (req, res) => {
-  try {
-    const streamer = await getStreamerForUser(req.user);
-    if (!streamer || !streamer.truemoney_webhook_secret_encrypted) {
-      return res.status(400).json({ error: 'Webhook secret not saved' });
-    }
-    let secret;
-    try {
-      secret = decrypt(streamer.truemoney_webhook_secret_encrypted);
-    } catch (e) {
-      return res.status(500).json({ error: 'Failed to decrypt stored secret' });
-    }
-    const testToken = jwt.sign({ event_type: 'TEST', amount: 0 }, secret, { algorithm: 'HS256' });
-    jwt.verify(testToken, secret, { algorithms: ['HS256'] });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('TrueMoney test-webhook error:', err);
-    res.status(400).json({ error: 'JWT secret test failed' });
   }
 });
 

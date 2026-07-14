@@ -726,21 +726,22 @@
                             </div>
                           </div>
 
-                          <!-- TrueMoney Webhook Auto-Confirm -->
+                          <!-- TrueMoney Webhook Auto-Confirm (secondary — SlipOK is default) -->
                           <div class="settings-section" id="truemoneyWebhookSection">
-                            <h5>
-                              <i class="fa-solid fa-bolt" style="color:#f59e0b;"></i>
-                              Webhook รับเงินอัตโนมัติ (ไม่ต้องใช้สลิป)
-                            </h5>
-
-                            <div class="webhook-status-row">
-                              <span class="webhook-badge" id="webhookStatusBadge">ใช้สลิป SlipOK</span>
-                              <span class="webhook-quota-mini" id="webhookQuotaMini"></span>
+                            <div class="webhook-hero">
+                              <h5><i class="fa-solid fa-bolt" style="color:#f59e0b;"></i> รับเงินอัตโนมัติผ่าน TrueMoney</h5>
+                              <div class="webhook-hero-badge">
+                                <i class="fa-solid fa-circle-check"></i> ไม่ต้องใช้สลิป · รับเงินไม่จำกัด · ยืนยันอัตโนมัติใน 1 นาที
+                              </div>
+                              <div class="webhook-eligibility-note">
+                                <i class="fa-solid fa-circle-info" style="color:#f59e0b;"></i>
+                                หากบัญชี TrueMoney ของคุณมีเงินเข้าเกิน <strong>100 ครั้ง/เดือน</strong> สามารถใช้ Webhook รับเงินอัตโนมัติได้ — ยอดยังไม่ถึง? ใช้สลิปได้ตามปกติ ไม่ต้องตั้งค่าส่วนนี้
+                              </div>
                             </div>
 
-                            <div class="webhook-methods-row" id="webhookMethodsRow" style="display: none;">
-                              <span class="webhook-method-chip">โอนในแอป TrueMoney</span>
-                              <span class="webhook-method-chip">พร้อมเพย์ทรูมันนี่</span>
+                            <div class="webhook-status-row">
+                              <span class="webhook-badge" id="webhookStatusBadge">ยังไม่เชื่อมต่อ</span>
+                              <span class="webhook-quota-mini" id="webhookQuotaMini"></span>
                             </div>
 
                             <div class="webhook-conflict-banner" id="webhookConflictBanner" style="display: none;">
@@ -748,10 +749,51 @@
                               <span>พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ เพราะเปิดพร้อมเพย์ทรูมันนี่ผ่าน Webhook เปิดกลับได้ที่การตั้งค่าพร้อมเพย์</span>
                             </div>
 
-                            <button type="button" id="btnOpenWebhookModal" class="btn btn-secondary btn-open-webhook-modal">
-                              <span>ตั้งค่า Webhook</span>
+                            <button type="button" id="btnConnectWebhook" class="btn btn-primary">
+                              <i class="fa-solid fa-link"></i> <span>เชื่อมต่อ TrueMoney</span>
+                            </button>
+
+                            <div class="webhook-connected-actions" id="webhookConnectedActions" style="display: none;">
+                              <button type="button" id="btnRenewWebhook" class="btn btn-secondary">
+                                <i class="fa-solid fa-rotate"></i> ต่ออายุ
+                              </button>
+                              <button type="button" id="btnDisconnectWebhook" class="btn btn-danger">
+                                <i class="fa-solid fa-link-slash"></i> ตัดการเชื่อมต่อ
+                              </button>
+                            </div>
+
+                            <button type="button" id="btnOpenWebhookModal" class="btn btn-ghost btn-open-webhook-modal">
+                              <span>ตั้งค่าวิธีรับเงิน</span>
                               <i class="fas fa-chevron-down"></i>
                             </button>
+
+                            <div class="webhook-method-settings" id="webhookMethodSettings" style="display: none;">
+                              <div class="webhook-switch-row">
+                                <label>โอนในแอป TrueMoney (P2P)</label>
+                                <label class="switch">
+                                  <input type="checkbox" id="swMethodP2P" checked>
+                                  <span class="slider"></span>
+                                </label>
+                              </div>
+                              <div class="webhook-switch-row">
+                                <label>พร้อมเพย์ทรูมันนี่</label>
+                                <label class="switch">
+                                  <input type="checkbox" id="swMethodPromptpay">
+                                  <span class="slider"></span>
+                                </label>
+                              </div>
+                              <div class="form-group" id="webhookPromptpayIdGroup" style="display:none;">
+                                <label for="webhookPromptpayId">PromptPay e-Wallet ID 15 หลัก</label>
+                                <input type="text" id="webhookPromptpayId" class="form-control" maxlength="15" inputmode="numeric" placeholder="PromptPay e-Wallet ID 15 หลัก จากแอป TrueMoney">
+                              </div>
+                              <div class="webhook-switch-row disabled">
+                                <label>อั่งเปาทรูมันนี่ <small>เร็วๆ นี้</small></label>
+                                <label class="switch disabled">
+                                  <input type="checkbox" id="swMethodAngpao" disabled>
+                                  <span class="slider"></span>
+                                </label>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2100,89 +2142,111 @@
     </div>
   </div>
 
-  <!-- TrueMoney Webhook Setup Modal -->
-  <div class="modal" id="webhookSetupModal">
-    <div class="modal-content" style="max-width: 520px;">
+  <!-- TrueMoney Webhook Guide Modal (5-step) -->
+  <div class="modal" id="webhookGuideModal">
+    <div class="modal-content" style="max-width: 540px;">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-bolt" style="color:#f59e0b;margin-right:8px;"></i>ตั้งค่า TrueMoney Webhook</h3>
-        <button class="btn-close" id="btnCloseWebhookModal">&times;</button>
+        <h3><i class="fa-solid fa-bolt" style="color:#f59e0b;margin-right:8px;"></i>เชื่อมต่อ TrueMoney Webhook</h3>
+        <button class="btn-close" id="btnCloseWebhookGuide">&times;</button>
       </div>
       <div class="modal-body">
-        <ol class="webhook-steps">
-          <li>เปิดแอป TrueMoney Wallet → เมนู “รับเงิน” → “Webhook”</li>
-          <li>คัดลอก Webhook URL ด้านล่างไปวางในแอป</li>
-          <li>ก๊อป JWT Secret จากแอปมาใส่ในช่องด้านล่าง แล้วเลือกวิธีรับเงิน</li>
-        </ol>
+        <div class="webhook-stepper">
+          <div class="webhook-step-dots" id="webhookStepDots">
+            <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
 
-        <div class="form-group">
-          <label>Webhook URL</label>
-          <div style="display:flex;gap:8px;">
-            <input type="text" id="webhookUrlInput" class="form-control" readonly>
-            <button type="button" id="btnCopyWebhookUrl" class="btn btn-secondary" style="flex-shrink:0;">
-              <i class="fa-solid fa-copy" style="color:#3b82f6;"></i>
+          <div class="webhook-step" data-step="1">
+            <h4>ขั้นที่ 1 · ต้องทำผ่านมือถือเท่านั้น</h4>
+            <div class="webhook-mobile-gate" id="webhookMobileGateDesktop">
+              <div class="webhook-warn"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> คุณกำลังใช้คอมพิวเตอร์ — การเชื่อมต่อต้องทำในแอพ TrueMoney บนมือถือ คุณสามารถอ่านคู่มือต่อได้ แต่ปุ่มเปิดแอพในขั้นที่ 4 จะกดไม่ได้</div>
+            </div>
+            <div class="webhook-mobile-gate" id="webhookMobileGateMobile" style="display:none;">
+              <div class="webhook-ok"><i class="fa-solid fa-circle-check" style="color:#10b981;"></i> คุณอยู่บนมือถือ ✅ ไปต่อได้เลย</div>
+            </div>
+          </div>
+
+          <div class="webhook-step" data-step="2" style="display:none;">
+            <h4>ขั้นที่ 2 · ติดตั้งแอพ + ยืนยันตัวตน (KYC)</h4>
+            <p>ติดตั้งแอพ <strong>TrueMoney</strong> และยืนยันตัวตน (KYC) ในแอพให้เรียบร้อยก่อน</p>
+            <p style="margin-top:8px;">
+              <a href="https://apps.apple.com/th/app/truemoney/id485240128" target="_blank" rel="noopener" class="btn btn-secondary" style="margin-right:8px;"><i class="fa-brands fa-apple"></i> App Store</a>
+              <a href="https://play.google.com/store/apps/details?id=com.truemoney.wallet" target="_blank" rel="noopener" class="btn btn-secondary"><i class="fa-brands fa-google-play"></i> Play Store</a>
+            </p>
+            <div class="webhook-eligibility-note" style="margin-top:12px;">
+              <i class="fa-solid fa-circle-info" style="color:#f59e0b;"></i>
+              TrueMoney กำหนดว่าบัญชีต้องมีธุรกรรมเงินเข้า <strong>ไม่น้อยกว่า 100 ครั้ง/เดือน (ขั้นต่ำ 10 บาท/ครั้ง)</strong> จึงจะใช้บริการ Webhook ได้ — ถ้าไม่เข้าเกณฑ์ เมนูในแอพอาจไม่เปิดให้สมัคร ใช้สลิป SlipOK แทนได้ตามปกติ
+            </div>
+            <div class="webhook-warn" style="margin-top:8px;">
+              <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> ถ้าคุณใช้บริการ EasyDonate อยู่ อาจต้องเลือกอย่างใดอย่างหนึ่ง (webhook ผูกได้จำกัด)
+            </div>
+          </div>
+
+          <div class="webhook-step" data-step="3" style="display:none;">
+            <h4>ขั้นที่ 3 · คัดลอก Webhook URL ของคุณ</h4>
+            <p>นี่คือ URL ของ TipKub ของคุณ — เอาไปวางในแอพ TrueMoney หน้า <strong>บริการ Webhook และ API</strong> ในขั้นถัดไป</p>
+            <div class="form-group" style="margin-top:12px;">
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="webhookUrlInput" class="form-control" readonly>
+                <button type="button" id="btnCopyWebhookUrl" class="btn btn-secondary" style="flex-shrink:0;">
+                  <i class="fa-solid fa-copy" style="color:#3b82f6;"></i>
+                </button>
+              </div>
+              <small class="text-muted">URL นี้ใช้ในแอป TrueMoney เท่านั้น ห้ามเผยแพร่</small>
+            </div>
+          </div>
+
+          <div class="webhook-step" data-step="4" style="display:none;">
+            <h4>ขั้นที่ 4 · เปิดแอพ TrueMoney และวาง URL</h4>
+            <div class="webhook-warn"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> ⚠️ ต้องดำเนินการในมือถือเท่านั้น</div>
+            <button type="button" id="btnOpenTrueMoneyApp" class="btn btn-primary" style="margin-top:12px;">
+              <i class="fa-solid fa-mobile-screen"></i> เปิดแอพ TrueMoney
             </button>
+            <p class="text-muted" style="margin-top:10px;font-size:12px;">ในแอพ: หาเมนู <strong>บริการ Webhook และ API</strong> → วาง Webhook URL จากขั้นที่ 3 → คัดลอก <strong>Key / รหัสลับ</strong> ที่แอพโชว์ → กลับมา TipKub</p>
+            <p class="text-muted" style="font-size:12px;">ถ้าปุ่มไม่เปิดแอพ เปิดแอพเองแล้วหาเมนู บริการ Webhook และ API</p>
           </div>
-          <small class="text-muted">URL นี้ใช้ในแอป TrueMoney Wallet เท่านั้น ห้ามเผยแพร่</small>
-        </div>
 
-        <div class="form-group">
-          <label for="webhookJwtSecret">JWT Secret จากแอป TrueMoney</label>
-          <input type="password" id="webhookJwtSecret" class="form-control" placeholder="วาง JWT Secret 64 ตัวอักษรจากแอป">
-          <small class="text-muted">Secret จะถูกเข้ารหัสก่อนบันทึก ระบบไม่สามารถอ่านค่าเดิมได้</small>
-        </div>
-
-        <div class="form-group">
-          <label for="webhookExpiryDate">วันหมดอายุ Webhook (ถ้ามี)</label>
-          <input type="date" id="webhookExpiryDate" class="form-control">
-          <small class="text-muted">วันหมดอายุตามที่แอปแจ้ง ถ้ามี ระบบจะปิด Webhook อัตโนมัติเมื่อถึงวัน</small>
-        </div>
-
-        <div class="webhook-method-choices">
-          <label class="checkbox">
-            <input type="checkbox" id="webhookMethodP2P" value="P2P" checked>
-            <span>โอนในแอปทรูมันนี่ (P2P)</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="webhookMethodPromptpay" value="PROMPTPAY_IN">
-            <span>พร้อมเพย์ทรูมันนี่ (PROMPTPAY_IN)</span>
-          </label>
-          <div id="webhookPromptpayIdGroup" class="form-group" style="display:none; margin-left: 24px;">
-            <label for="webhookPromptpayId">PromptPay e-Wallet ID 15 หลัก</label>
-            <input type="text" id="webhookPromptpayId" class="form-control" maxlength="15" inputmode="numeric" placeholder="PromptPay e-Wallet ID 15 หลัก จากแอป TrueMoney">
+          <div class="webhook-step" data-step="5" style="display:none;">
+            <h4>ขั้นที่ 5 · วาง Key / รหัสลับ</h4>
+            <div class="form-group">
+              <label for="webhookConnectToken">วาง Key/รหัสลับที่คัดลอกจากแอพ</label>
+              <textarea id="webhookConnectToken" class="form-control" rows="3" placeholder="วาง Key/รหัสลับที่คัดลอกจากแอพ (อย่างน้อย 32 ตัวอักษร)"></textarea>
+            </div>
           </div>
-          <label class="checkbox disabled">
-            <input type="checkbox" disabled>
-            <span>อั่งเปาทรูมันนี่ <small>ยังไม่รองรับ (เฟสถัดไป)</small></span>
-          </label>
-        </div>
-
-        <div class="webhook-consents">
-          <label class="checkbox">
-            <input type="checkbox" id="webhookConsentKyc">
-            <span>บัญชี TrueMoney ของฉันยืนยันตัวตน (KYC) แล้ว</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="webhookConsentFee">
-            <span>เข้าใจว่าเกิน 100 ธุรกรรมฟรี/เดือน คิด 10 บาท/ธุรกรรม</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="webhookConsentExpiry">
-            <span>เข้าใจว่า Webhook มีวันหมดอายุ และต้องต่ออายุในแอป TrueMoney</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="webhookConsentFallback">
-            <span>เข้าใจว่าถ้า Webhook ปิด ระบบจะกลับไปใช้สลิป SlipOK แทน</span>
-          </label>
         </div>
       </div>
-      <div class="modal-footer" style="padding: 16px 24px; border-top:1px solid rgba(255,255,255,0.05); display:flex; gap:10px; justify-content:flex-end;">
-        <button type="button" id="btnCancelWebhook" class="btn btn-secondary">ยกเลิก</button>
-        <button type="button" id="btnTestWebhook" class="btn btn-secondary">
-          <i class="fas fa-flask"></i> ทดสอบ
-        </button>
-        <button type="button" id="btnSaveWebhook" class="btn btn-primary">
-          <i class="fa-solid fa-floppy-disk"></i> บันทึกและเปิดใช้งาน
-        </button>
+      <div class="modal-footer" style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:10px;justify-content:space-between;align-items:center;">
+        <button type="button" id="btnWebhookGuidePrev" class="btn btn-secondary"><i class="fas fa-chevron-left"></i> ย้อนกลับ</button>
+        <span id="webhookStepCount" style="font-size:12px;color:#94a3b8;">1 / 5</span>
+        <div style="display:flex;gap:10px;">
+          <button type="button" id="btnWebhookGuideNext" class="btn btn-primary">ถัดไป <i class="fas fa-chevron-right"></i></button>
+          <button type="button" id="btnSaveWebhook" class="btn btn-primary" style="display:none;">
+            <i class="fa-solid fa-floppy-disk"></i> บันทึกและเปิดใช้งาน
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TrueMoney Webhook Consent Modal (first-time only) -->
+  <div class="modal" id="webhookConsentModal">
+    <div class="modal-content" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-signature" style="color:#f59e0b;margin-right:8px;"></i>ยอมรับเงื่อนไข</h3>
+        <button class="btn-close" id="btnCloseWebhookConsent">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="checkbox" style="display:flex;align-items:flex-start;gap:10px;">
+          <input type="checkbox" id="webhookConsentAgree" style="margin-top:4px;">
+          <span>ฉันยืนยันว่า:<br>
+            • ยืนยันตัวตน (KYC) ในแอพ TrueMoney แล้ว<br>
+            • เข้าใจว่า TrueMoney อาจคิดค่าธรรมเนียมเมื่อธุรกรรมเกินโควตาฟรีต่อเดือน ตามเงื่อนไขของ TrueMoney (TipKub ไม่เกี่ยวข้อง ไม่ได้รับเงินส่วนนี้)<br>
+            • เข้าใจว่าถ้า Webhook เชื่อมต่อไม่ได้ ระบบจะกลับไปใช้สลิป SlipOK แทน
+          </span>
+        </label>
+      </div>
+      <div class="modal-footer" style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" id="btnCancelWebhookConsent" class="btn btn-secondary">ยกเลิก</button>
+        <button type="button" id="btnAcceptWebhookConsent" class="btn btn-primary">ยอมรับและดำเนินการต่อ</button>
       </div>
     </div>
   </div>

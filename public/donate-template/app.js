@@ -1820,6 +1820,8 @@ function showTrueMoneyQrStep(data) {
       ? 'สแกนด้วยแอปธนาคาร/พร้อมเพย์ แล้วโอนตามยอดนี้เป๊ะ ๆ'
       : 'สแกนด้วยแอป TrueMoney แล้วโอนตามยอดนี้เป๊ะ ๆ';
   }
+  const providerBadge = document.getElementById('trueMoneyQrProvider');
+  if (providerBadge) providerBadge.style.display = (data.method === 'PROMPTPAY_IN') ? 'flex' : 'none';
   if (trueMoneyQrWaiting) {
     trueMoneyQrWaiting.className = 'qr-waiting-indicator';
     trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:#3b82f6;"></i><span>รอการยืนยันอัตโนมัติ... โอนแล้วระบบจะขึ้นสำเร็จเองใน 1 นาที</span>';
