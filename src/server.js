@@ -510,7 +510,14 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
   try {
     const t = getTimerConfig(streamer);
     if (!t.enabled) return;
+    // Gate หน้าโดเนทอาจ stale (แท็บมือถือ frozen / widget-status SSE ตาย) แล้วส่ง timerAction=null
+    // ทั้งที่ timer เปิดอยู่ → default 'add' ให้ตรงกับ default ฝั่ง frontend (timerChoice='add')
+    // donor ที่เลือก "ไม่ปรับเวลา" ส่ง 'none' มาชัดเจน → ยังเป็น 0 เหมือนเดิม
+    if (timerAction == null) timerAction = 'add';
     let delta = calculateTimeDelta(amount, streamer, timerAction);
+    if (delta === 0 && amount > 0) {
+      console.log(`⏱️ Timer no-op: amount=${amount} action=${timerAction} mode=${t.mode} (no matching rule or choice=none)`);
+    }
     // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
     if (t.cap_type === 'money' && (t.cap_value || 0) > 0) {
       const room = (t.cap_value || 0) - (streamer.timer_cap_current || 0);
@@ -534,20 +541,27 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
         streamer.timer_cap_current = Math.min(capCurrent + effectiveDelta, capValue); // sync ก่อน broadcast (F3)
         broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
         const updated = await db.updateTimerState(streamer, effectiveDelta);
-        broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, effectiveDelta);
+        broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, updated ? updated.applied_delta : effectiveDelta);
         return;
       }
-      // delta < 0 (subtraction): ลด timer_cap_current (คืน room ให้โดเนทถัดไป) — ข้าม delta=0 (F5)
+      // delta < 0 (subtraction): ปรับเวลาก่อน แล้วคืน room ตามที่ลดได้จริง — ข้าม delta=0 (F5)
+      // ลบตอนเวลาเหลือ 0 → applied=0 → ไม่คืน room + ไม่มี phantom animation
       if (delta < 0) {
-        await db.addTimerCap(streamer.id, delta, capValue);
-        streamer.timer_cap_current = Math.max(0, capCurrent + delta); // sync ก่อน broadcast (F3)
-        broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
+        const updated = await db.updateTimerState(streamer, delta);
+        const applied = updated ? updated.applied_delta : delta;
+        if (applied < 0) {
+          await db.addTimerCap(streamer.id, applied, capValue);
+          streamer.timer_cap_current = Math.max(0, capCurrent + applied); // sync ก่อน broadcast (F3)
+          broadcastTimerCap(streamer.username, t, streamer.timer_cap_current);
+        }
+        broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, applied);
+        return;
       }
     }
 
     if (delta === 0) return;
     const updated = await db.updateTimerState(streamer, delta);
-    broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, delta);
+    broadcastTimerUpdate(streamer.username, { ...streamer, ...updated }, updated ? updated.applied_delta : delta);
   } catch (e) {
     console.error('Timer donation update failed:', e.message);
   }
@@ -2730,7 +2744,8 @@ app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, 
     const deltaSec = Math.max(1, Math.min(parseInt(delta) || 0, 86400));
     const updated = await db.setTimerControl(streamer.id, action, deltaSec);
     const actualUsername = await getActualUsername(req.user);
-    const broadcastDelta = action === 'add' ? deltaSec : action === 'sub' ? -deltaSec : 0;
+    // ใช้ delta ที่ apply จริงหลัง clamp 0 — sub 300 ตอนเหลือ 30 ต้อง broadcast -30 ไม่ใช่ -300
+    const broadcastDelta = (action === 'add' || action === 'sub') ? (updated ? updated.applied_delta : 0) : 0;
     broadcastTimerUpdate(actualUsername, { ...streamer, ...updated }, broadcastDelta);
     if (action === 'reset-cap') broadcastTimerCap(actualUsername, getTimerConfig(streamer), 0);
     res.json({ success: true, ...updated });

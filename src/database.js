@@ -1762,7 +1762,9 @@ async function updateTimerState(streamer, deltaSeconds) {
     sql: 'UPDATE streamers SET timer_remaining_seconds=?, timer_last_update=? WHERE id=?',
     args: [newRemaining, now, streamer.id]
   });
-  return { timer_remaining_seconds: newRemaining, timer_last_update: now };
+  // applied_delta = delta ที่เกิดขึ้นจริงหลัง clamp ที่ 0 — ใช้ broadcast แทน delta ดิบ
+  // (ลบ 300 ตอนเหลือ 60 → applied -60, ลบตอนเหลือ 0 → applied 0 = ไม่มี animation)
+  return { timer_remaining_seconds: newRemaining, timer_last_update: now, applied_delta: newRemaining - Math.round(remaining) };
 }
 
 // Timer: accumulate money-cap progress, clamped to capValue (money-cap mode only).
@@ -1800,6 +1802,7 @@ async function setTimerControl(streamerId, action, delta = 0) {
 
   let running = s.timer_running;
   let capCurrent = s.timer_cap_current || 0;
+  const beforeRemaining = remaining;
 
   if (action === 'start') running = 1;
   else if (action === 'stop') running = 0;
@@ -1812,7 +1815,8 @@ async function setTimerControl(streamerId, action, delta = 0) {
     sql: 'UPDATE streamers SET timer_remaining_seconds=?, timer_last_update=?, timer_running=?, timer_cap_current=? WHERE id=?',
     args: [remaining, now, running, capCurrent, streamerId]
   });
-  return { timer_remaining_seconds: remaining, timer_last_update: now, timer_running: running, timer_cap_current: capCurrent };
+  // applied_delta: delta ที่เกิดจริงหลัง clamp 0 (มีความหมายเฉพาะ add/sub — caller gate เอง)
+  return { timer_remaining_seconds: remaining, timer_last_update: now, timer_running: running, timer_cap_current: capCurrent, applied_delta: remaining - beforeRemaining };
 }
 
 async function getAdminUserStats() {
@@ -1821,7 +1825,7 @@ async function getAdminUserStats() {
   const [total, inactive, byProvider, withPayment] = await Promise.all([
     db.execute('SELECT COUNT(*) as n FROM streamers WHERE is_active = 1'),
     db.execute('SELECT COUNT(*) as n FROM streamers WHERE is_active = 0'),
-    db.execute('SELECT primary_auth_provider as p, COUNT(*) as n FROM streamers GROUP BY primary_auth_provider'),
+    db.execute(`SELECT CASE WHEN (twitch_id IS NOT NULL AND twitch_id != '') AND (streamlabs_id IS NOT NULL AND streamlabs_id != '') THEN 'Twitch & Streamlabs' WHEN (twitch_id IS NOT NULL AND twitch_id != '') THEN 'Twitch Only' WHEN (streamlabs_id IS NOT NULL AND streamlabs_id != '') THEN 'Streamlabs Only' ELSE 'Unknown' END AS p, COUNT(*) as n FROM streamers GROUP BY p`),
     db.execute('SELECT COUNT(*) as n FROM streamers WHERE promptpay_enabled = 1 OR truemoney_enabled = 1 OR tfp_connected = 1'),
   ]);
   return {

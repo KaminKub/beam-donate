@@ -14,6 +14,7 @@
   let animInProgress = false;
   let pendingUpdate = null;
   let animDelayTimer = null;
+  let hadFirstOpen = false;
 
   let capState = { capType: null, capValue: 0, capCurrent: 0 };
 
@@ -147,7 +148,9 @@
       const s = formatTime(r);
       if (s !== lastDisplayStr) { digitsEl.textContent = s; lastDisplayStr = s; }
     }
-    if (r <= 0 && isRunning) handleTimeout();
+    // ห้ามยิง timeout กลาง animation — ease-in ทำให้เลขค้าง 0 ช่วงแรกของ anim บวกเวลา
+    // ไม่งั้น timeoutFired ถูก set ซ้ำ → getCurrentRemaining คืน 0 ตลอด anim (เลขแช่ที่ 00:00)
+    if (r <= 0 && isRunning && !animInProgress) handleTimeout();
   }
 
   setInterval(tick, 100);
@@ -296,18 +299,22 @@
           clearTimeout(animDelayTimer);
           animDelayTimer = setTimeout(() => {
             if (!pendingUpdate) return;
+            // anim อื่นกำลังเล่น → เก็บ pendingUpdate ไว้ให้ finishAnimation เล่นต่อ ห้ามทิ้ง (update หายถาวร)
+            if (animInProgress) return;
             const p = pendingUpdate;
             pendingUpdate = null;
-            if (!animInProgress) {
-              const nowRemaining = Math.round(getCurrentRemaining());
-              const delayedDelta = p.remaining - nowRemaining;
-              startDeltaAnimation(delayedDelta, nowRemaining, p.remaining, p.running, p.lastUpdate);
-            }
+            const nowRemaining = Math.round(getCurrentRemaining());
+            const delayedDelta = p.remaining - nowRemaining;
+            startDeltaAnimation(delayedDelta, nowRemaining, p.remaining, p.running, p.lastUpdate);
           }, totalDelay);
         } else {
           if (animInProgress) {
             pendingUpdate = pending;
           } else {
+            // event นี้ใหม่กว่า pendingUpdate ที่ค้างคิวเสมอ (remaining เป็นค่าสะสมจาก server)
+            // — เคลียร์ทิ้งกัน finishAnimation เอา state เก่ามาทับทีหลัง (เวลาถอยกลับ)
+            pendingUpdate = null;
+            clearTimeout(animDelayTimer);
             startDeltaAnimation(delta, remainingSeconds, newRemaining, !!data.running, data.lastUpdate);
           }
         }
@@ -318,6 +325,8 @@
         pendingUpdate = { remaining: newRemaining, delta: 0, running: !!data.running, lastUpdate: data.lastUpdate };
         return;
       }
+      pendingUpdate = null;
+      clearTimeout(animDelayTimer);
       remainingSeconds = newRemaining;
       lastUpdateTs = data.lastUpdate ? new Date(data.lastUpdate).getTime() : Date.now();
       isRunning = !!data.running;
@@ -328,13 +337,17 @@
     }
   }
 
+  function settingsUrl() {
+    const isDemo = window.DEMO_MODE === true;
+    return isDemo
+      ? '/api/demo/overlay/settings'
+      : (token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings');
+  }
+
   async function init() {
     try {
       const isDemo = window.DEMO_MODE === true;
-      const settingsUrl = isDemo
-        ? '/api/demo/overlay/settings'
-        : (token ? `/api/overlay/settings?token=${encodeURIComponent(token)}` : '/api/overlay/settings');
-      const res = await fetch(settingsUrl);
+      const res = await fetch(settingsUrl());
       if (!res.ok) return;
       const data = await res.json();
 
@@ -374,7 +387,12 @@
       try { handleEvent(JSON.parse(e.data)); } catch (err) {}
     };
 
-    eventSource.onopen = function() { reconnectDelay = 2000; };
+    eventSource.onopen = function() {
+      reconnectDelay = 2000;
+      // reconnect (ไม่ใช่ connect แรก) → timer_update ระหว่างหลุดอาจหายไป — ดึง state จริงมาทับ
+      if (hadFirstOpen) resyncState();
+      hadFirstOpen = true;
+    };
 
     eventSource.onerror = function() {
       eventSource.close();
@@ -382,6 +400,26 @@
       setTimeout(connectSSE, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 1.5, 30000);
     };
+  }
+
+  // Re-sync timer state หลัง SSE reconnect — โดเนทช่วงหลุด (server restart/network blip) จะไม่หายอีก
+  async function resyncState() {
+    try {
+      const res = await fetch(settingsUrl());
+      if (!res.ok) return;
+      const data = await res.json();
+      // มี anim/queue ค้างอยู่ = มี event ใหม่กว่ากำลังจัดการ — ข้าม (event ถัดไป sync เอง)
+      if (animInProgress || pendingUpdate) return;
+      capState.capCurrent = data.timer_cap_current || 0;
+      updateCapDisplay();
+      remainingSeconds = data.timer_remaining_seconds ?? remainingSeconds;
+      isRunning = !!data.timer_running;
+      lastUpdateTs = data.timer_last_update ? new Date(data.timer_last_update).getTime() : Date.now();
+      const cur = (isRunning && lastUpdateTs)
+        ? remainingSeconds - (Date.now() - lastUpdateTs) / 1000
+        : remainingSeconds;
+      if (cur > 0) { timeoutFired = false; wrapper.classList.remove('timer-expired'); }
+    } catch (e) {}
   }
 
   function animSoundOn() {
@@ -609,9 +647,9 @@
     }
     if (e.data?.type === 'timer_control') {
       const { action } = e.data;
-      if (action === 'start') { isRunning = true; lastUpdate = new Date().toISOString(); }
-      else if (action === 'stop') { remainingSeconds = Math.max(0, Math.round(getCurrentRemaining())); isRunning = false; lastUpdate = new Date().toISOString(); }
-      else if (action === 'reset') { remainingSeconds = Math.round(settings.initial_seconds || 600); isRunning = false; lastUpdate = new Date().toISOString(); }
+      if (action === 'start') { isRunning = true; lastUpdateTs = Date.now(); }
+      else if (action === 'stop') { remainingSeconds = Math.max(0, Math.round(getCurrentRemaining())); isRunning = false; lastUpdateTs = null; }
+      else if (action === 'reset') { remainingSeconds = Math.round(settings.initial_seconds || 600); isRunning = false; lastUpdateTs = null; timeoutFired = false; wrapper.classList.remove('timer-expired'); }
     }
   });
 
