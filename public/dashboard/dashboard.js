@@ -5435,8 +5435,8 @@ function initTrueMoneyWebhookModal() {
   const sectionBody = document.getElementById('webhookSectionBody');
   if (sectionToggle && sectionBody) {
     sectionToggle.addEventListener('click', () => {
-      const open = sectionBody.style.display === 'none' || !sectionBody.style.display;
-      sectionBody.style.display = open ? 'block' : 'none';
+      const open = !sectionBody.classList.contains('is-open');
+      sectionBody.classList.toggle('is-open', open);
       sectionToggle.classList.toggle('is-open', open);
     });
   }

@@ -3793,6 +3793,16 @@ label {
 .webhook-section-toggle.is-open .webhook-section-chevron { transform: rotate(180deg); }
 .webhook-section-body { margin-top: 10px; }
 
+/* slide-down animation via grid 0fr→1fr (no height measure needed) */
+.webhook-section-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .28s ease;
+  margin-top: 0;
+}
+.webhook-section-body.is-open { grid-template-rows: 1fr; }
+.webhook-section-body-inner { overflow: hidden; min-height: 0; padding-top: 10px; }
+
 /* single-line eligibility (section instance only — guide modal note stays multi-line) */
 .webhook-eligibility-note.single-line {
   align-items: center;
