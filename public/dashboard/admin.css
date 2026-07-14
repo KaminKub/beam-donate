@@ -1823,6 +1823,21 @@ label {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* TrueMoney Webhook guide stepper — fixed-height modal so footer (prev/next) stays put and never jumps between steps */
+#webhookGuideModal .modal-content {
+  display: flex;
+  flex-direction: column;
+  height: min(85vh, 560px);
+}
+#webhookGuideModal .modal-header { flex: 0 0 auto; }
+#webhookGuideModal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none; /* override global 70vh — flex handles sizing */
+  overflow-y: auto;
+}
+#webhookGuideModal .modal-footer { flex: 0 0 auto; }
+
 @keyframes modalFadeOut {
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.95); }
