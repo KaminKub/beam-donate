@@ -2154,7 +2154,7 @@ label {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: 9999;
+  z-index: 10001; /* above modal overlay (10000) so notifications show during guide/consent modals */
   display: flex;
   flex-direction: column;
   gap: 10px;
