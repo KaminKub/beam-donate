@@ -3803,6 +3803,34 @@ function generatePromptPayIdCardPayload(idCardNumber, amount) {
   return payload;
 }
 
+function generatePromptPayEWalletPayload(eWalletId, amount) {
+  const cleaned = eWalletId.replace(/[^0-9]/g, '');
+  if (cleaned.length !== 15) throw new Error('e-Wallet ID ต้องมี 15 หลัก');
+
+  const amountStr = amount ? amount.toFixed(2) : '';
+  const idLen = cleaned.length.toString().padStart(2, '0');
+
+  const tags = [];
+  tags.push({ id: '00', value: '01' });
+  tags.push({ id: '01', value: amount ? '12' : '11' });
+  tags.push({ id: '29', value: `0016A00000067701011103${idLen}${cleaned}` });
+  tags.push({ id: '58', value: 'TH' });
+  tags.push({ id: '53', value: '764' });
+  if (amountStr) tags.push({ id: '54', value: amountStr });
+
+  let payload = '';
+  tags.forEach(tag => {
+    const len = tag.value.length.toString().padStart(2, '0');
+    payload += `${tag.id}${len}${tag.value}`;
+  });
+
+  payload += '6304';
+  const crc = crc16(payload);
+  payload += crc.toString(16).toUpperCase().padStart(4, '0');
+
+  return payload;
+}
+
 function crc16(data) {
   let crc = 0xFFFF;
   for (let i = 0; i < data.length; i++) {
@@ -3894,7 +3922,9 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     const referenceId = `donate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const qrPayload = promptpayType === 'idcard'
       ? generatePromptPayIdCardPayload(phone, amount)
-      : generatePromptPayPayload(phone, amount);
+      : promptpayType === 'ewallet'
+        ? generatePromptPayEWalletPayload(phone, amount)
+        : generatePromptPayPayload(phone, amount);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Record transaction
