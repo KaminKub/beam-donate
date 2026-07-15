@@ -3815,6 +3815,27 @@ label {
   color: #d8b4fe;
 }
 
+/* "ฟีเจอร์เสริม" chip — amber, signals optional add-on (not default flow) */
+.webhook-addon-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+/* muted sub-text for Business constraint in toggle header */
+.webhook-toggle-sub {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 /* section dropdown — collapsed shows only h5 */
 .webhook-section-toggle {
   margin: 0 0 4px;
