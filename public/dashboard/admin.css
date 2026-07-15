@@ -3831,7 +3831,7 @@ label {
 }
 /* muted sub-text for Business constraint in toggle header */
 .webhook-toggle-sub {
-  font-size: 0.78em;
+  font-size: 1em;
   color: var(--text-muted);
   font-weight: 400;
 }
