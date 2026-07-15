@@ -214,6 +214,7 @@ async function loadPageContent() {
       renderSocialLinks(data.socials);
       timerPublicConfig = data.timer || null;
       timerActive = !!(timerPublicConfig && timerPublicConfig.timerActive);  // B2
+      applyTimerStatus(timerActive);
       updateTimerChoiceBox();
       startWidgetStatusStream();                                              // Real-time (B5')
 
@@ -613,11 +614,31 @@ function startWidgetStatusStream() {
       }
       if (typeof data.timerActive === 'boolean' && data.timerActive !== timerActive) {
         timerActive = data.timerActive;
+        applyTimerStatus(timerActive);
         updateTimerChoiceBox();
       }
     } catch (_) { /* ignore parse blip */ }
   };
   // EventSource auto-reconnects; browser handles visibility
+}
+
+function applyTimerStatus(active) {
+  const btn = document.getElementById('timerStatusBtn');
+  const dot = btn?.querySelector('.status-dot');
+  const text = document.getElementById('timerStatusText');
+  if (!btn) return;
+  if (timerPublicConfig && timerPublicConfig.statusBtnEnabled === false) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  if (active) {
+    if (dot) dot.classList.add('online');
+    if (text) text.textContent = 'ไทม์เมอร์ | เปิดอยู่';
+  } else {
+    if (dot) dot.classList.remove('online');
+    if (text) text.textContent = 'ไทม์เมอร์ | ปิดอยู่';
+  }
 }
 
 function applyOverlayStatus(active) {

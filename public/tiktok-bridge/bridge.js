@@ -36,7 +36,7 @@ function addLog(text, cls = '') {
   while (log.children.length > 50) log.removeChild(log.firstChild);
 }
 function updateCounter() {
-  setText('counter', `ส่ง gift: ${giftCount} ครั้ง | coins รวม (โดยประมาณ): ${totalCoins}`);
+  setText('counter', `ส่ง gift: ${giftCount} ครั้ง | coins รวม: ${totalCoins}`);
 }
 
 // ── CSRF token ──────────────────────────────────────────────────
@@ -106,10 +106,8 @@ async function relayGift(coins) {
     giftCount++;
     totalCoins += coins;
     updateCounter();
-    // C4: แสดงเป็น "โดยประมาณ"
-    const thbLabel = d.thb != null ? ` (~${d.thb.toFixed(2)} ฿ โดยประมาณ)` : '';
-    addLog(`gift ${coins} coins${thbLabel} → timer ✓`, 'ok');
-    setText('lblServer', `ส่งล่าสุด: ${coins} coins${thbLabel}`);
+    addLog(`gift ${coins} coins → timer ✓`, 'ok');
+    setText('lblServer', `ส่งล่าสุด: ${coins} coins`);
     setDot('dotServer', 'green');
   } catch (e) {
     addLog('relay error: ' + e.message, 'err');

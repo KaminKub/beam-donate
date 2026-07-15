@@ -468,9 +468,10 @@ function broadcastTimerCap(username, t, capCurrent) {
 
 // Compute seconds to add/subtract for a donation, per the timer config rules.
 // Pure: enabled/running gating + money-cap accumulation live in applyTimerOnDonation.
-function calculateTimeDelta(amount, streamer, donorAction) {
+function calculateTimeDelta(amount, streamer, donorAction, currency = 'thb') {
   const t = getTimerConfig(streamer);
-  const rules = Array.isArray(t.rules) ? t.rules : [];
+  const rules = (Array.isArray(t.rules) ? t.rules : [])
+    .filter(r => (r.currency || 'thb') === currency);
   const mode = t.mode;
 
   if (mode === 'multiplier') {
@@ -506,7 +507,7 @@ function calculateTimeDelta(amount, streamer, donorAction) {
 }
 
 // Single donation side-effect for the timer — called at all 5 donation-confirm sites.
-async function applyTimerOnDonation(streamer, amount, timerAction) {
+async function applyTimerOnDonation(streamer, amount, timerAction, currency = 'thb') {
   try {
     const t = getTimerConfig(streamer);
     if (!t.enabled) return;
@@ -514,12 +515,13 @@ async function applyTimerOnDonation(streamer, amount, timerAction) {
     // ทั้งที่ timer เปิดอยู่ → default 'add' ให้ตรงกับ default ฝั่ง frontend (timerChoice='add')
     // donor ที่เลือก "ไม่ปรับเวลา" ส่ง 'none' มาชัดเจน → ยังเป็น 0 เหมือนเดิม
     if (timerAction == null) timerAction = 'add';
-    let delta = calculateTimeDelta(amount, streamer, timerAction);
+    let delta = calculateTimeDelta(amount, streamer, timerAction, currency);
     if (delta === 0 && amount > 0) {
-      console.log(`⏱️ Timer no-op: amount=${amount} action=${timerAction} mode=${t.mode} (no matching rule or choice=none)`);
+      console.log(`⏱️ Timer no-op: amount=${amount} currency=${currency} action=${timerAction} mode=${t.mode} (no matching rule or choice=none)`);
     }
     // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
-    if (t.cap_type === 'money' && (t.cap_value || 0) > 0) {
+    // Gift เหรียญไม่มี rate แปลง → ไม่สะสมใน money cap (ใช้ time cap แทนถ้าต้องการคุม gift)
+    if (currency === 'thb' && t.cap_type === 'money' && (t.cap_value || 0) > 0) {
       const room = (t.cap_value || 0) - (streamer.timer_cap_current || 0);
       if (room <= 0) return;
       // B4: นับเวลาเฉพาะยอดส่วนที่ยังอยู่ในลิมิต — mirror กับ preview หน้าโดเนท (getChoiceEffect)
@@ -2773,10 +2775,9 @@ app.post('/api/tiktok/gift', ensureAuthenticated, csrfProtection, tiktokGiftLimi
     if (!streamer) return res.status(404).json({ error: 'ไม่พบ streamer' });
     const t = getTimerConfig(streamer);
     if (!t.enabled) return res.json({ success: true, skipped: 'timer_disabled' });
-    const rate = Number(t.coinRate) > 0 ? Number(t.coinRate) : 0.17;
-    const thb = coins * rate;
-    await applyTimerOnDonation(streamer, thb, 'add');
-    return res.json({ success: true, coins, thb });
+    if (!t.tiktokEnabled) return res.json({ success: true, skipped: 'tiktok_disabled' });
+    await applyTimerOnDonation(streamer, coins, 'add', 'coin');
+    return res.json({ success: true, coins });
   } catch (e) {
     console.error('Gift relay failed:', e.message);
     return res.status(500).json({ error: 'ปรับ timer ไม่สำเร็จ' });
@@ -2936,11 +2937,15 @@ app.get('/api/page/:username/settings', async (req, res) => {
           enabled: true,
           timerActive,                              // ← ใหม่ (TIMER_CHOICE_GATE A1)
           mode: t.mode || 'multiplier',
+          statusBtnEnabled: t.statusBtnEnabled !== 0 && t.statusBtnEnabled !== false, // default เปิด
           // whitelist-map: ส่งเฉพาะ field ที่หน้าโดเนทต้องใช้ — กัน field หลุดเกิน
-          rules: (Array.isArray(t.rules) ? t.rules : []).map(r => ({
-            amount: r.amount, base_amount: r.base_amount,
-            time_seconds: r.time_seconds, action: r.action,
-          })),
+          // donor จ่ายบาทเท่านั้น — กฏเหรียญ (currency='coin') ไม่โชว์หน้าโดเนท
+          rules: (Array.isArray(t.rules) ? t.rules : [])
+            .filter(r => (r.currency || 'thb') === 'thb')
+            .map(r => ({
+              amount: r.amount, base_amount: r.base_amount,
+              time_seconds: r.time_seconds, action: r.action,
+            })),
           allowPassthrough: t.allow_passthrough !== 0 && t.allow_passthrough !== false, // default เปิด
           // B3: cap fields — public by design (แสดงบน overlay อยู่แล้ว) ให้ donor เห็นเวลาที่ได้จริง
           capType: t.cap_type || null,
@@ -4672,7 +4677,7 @@ app.use((req, res) => {
 
 // Centralized error handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err.message);
+  console.error(`Server Error [${req.method} ${req.originalUrl}]:`, err.message);
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);
   }

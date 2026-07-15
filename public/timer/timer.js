@@ -211,7 +211,12 @@
       settings.rules.forEach(rule => {
         const div = document.createElement('div');
         div.className = 'timer-rule-line';
-        div.textContent = interpolateRule(template, rule.amount || rule.base_amount || 0, rule.time_seconds || 0, rule.action || 'add');
+        const isCoin = (rule.currency || 'thb') === 'coin';
+        // ponytail: coin format hardcode — template แยกสำหรับ coin เพิ่มเมื่อมีคนขอ
+        const tpl = isCoin
+          ? 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}'
+          : template;
+        div.textContent = interpolateRule(tpl, rule.amount || rule.base_amount || 0, rule.time_seconds || 0, rule.action || 'add');
         rulesEl.appendChild(div);
       });
       rulesEl.style.display = '';

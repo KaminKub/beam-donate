@@ -3663,6 +3663,18 @@ const setTiktokAcked = () => localStorage.setItem(TIKTOK_ACK_KEY, '1');
 
 // ── TikTok Bridge card logic ────────────────────────────────────
 
+function goToTiktokPanel() {
+  const header = document.querySelector('.settings-card-header[data-target="panelTiktok"]');
+  const panel = document.getElementById('panelTiktok');
+  const card = header?.closest('.dashboard-card');
+  if (!card) return;
+  if (panel && panel.style.display === 'none') header.click();
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.remove('tiktok-attention');
+  void card.offsetWidth;
+  card.classList.add('tiktok-attention');
+}
+
 function syncTiktokCard() {
   const toggle = document.getElementById('tiktokEnableToggle');
   const panel = document.getElementById('tiktokSettingsPanel');
@@ -3672,6 +3684,11 @@ function syncTiktokCard() {
   panel.style.display = on ? '' : 'none';
   badge.textContent = on ? 'เปิดอยู่' : 'ปิดอยู่';
   badge.style.color = on ? '#22c55e' : '#64748b';
+  const bridgeBtn = document.getElementById('btnTimerTiktokBridge');
+  if (bridgeBtn) bridgeBtn.style.display = on ? '' : 'none';
+  if (!on && timerRules.some(r => r.currency === 'coin')) {
+    showNotification('กฏสกุลเหรียญจะหยุดทำงานชั่วคราวจนกว่าจะเปิด TikTok Live อีกครั้ง', 'error');
+  }
 }
 
 function initTiktokCard() {
@@ -3778,7 +3795,24 @@ function renderTimerRules(mode) {
     amtInput.value = rule.amount || '';
     amtInput.oninput = (e) => { timerRules[idx].amount = parseFloat(e.target.value) || 0; };
 
-    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '฿ →');
+    const curSel = makeEl('select', { style: 'width:92px;' });
+    [['thb', '฿ บาท'], ['coin', '🪙 เหรียญ']].forEach(([val, label]) => {
+      const opt = makeEl('option', { value: val }, label);
+      if ((rule.currency || 'thb') === val) opt.selected = true;
+      curSel.appendChild(opt);
+    });
+    curSel.onchange = (e) => {
+      if (e.target.value === 'coin' && !document.getElementById('tiktokEnableToggle')?.checked) {
+        e.target.value = 'thb';
+        e.target.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification('เปิดใช้งาน TikTok Live ก่อน จึงจะตั้งกฏสกุลเหรียญได้', 'error');
+        goToTiktokPanel();
+        return;
+      }
+      timerRules[idx].currency = e.target.value;
+    };
+
+    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '→');
 
     const actionSel = makeEl('select', { style: 'width:130px;' });
     [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
@@ -3802,8 +3836,9 @@ function renderTimerRules(mode) {
     delBtn.appendChild(Object.assign(document.createElement('i'), { className: 'fa-solid fa-trash-can' }));
     delBtn.onclick = () => { timerRules.splice(idx, 1); renderTimerRules(mode); };
 
-    [lbl, amtInput, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
+    [lbl, amtInput, curSel, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
     container.appendChild(row);
+    CustomDropdown.wrapEl(curSel);
     CustomDropdown.wrapEl(actionSel);
   });
   if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
@@ -3828,11 +3863,28 @@ function renderMultiplierRules() {
 
     const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
 
-    const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X฿' });
+    const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X หน่วย' });
     baseInput.value = rule.base_amount || rule.amount || '';
     baseInput.oninput = (e) => { timerRules[idx].base_amount = parseFloat(e.target.value) || 0; };
 
-    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '฿ →');
+    const curSel = makeEl('select', { style: 'width:92px;' });
+    [['thb', '฿ บาท'], ['coin', '🪙 เหรียญ']].forEach(([val, label]) => {
+      const opt = makeEl('option', { value: val }, label);
+      if ((rule.currency || 'thb') === val) opt.selected = true;
+      curSel.appendChild(opt);
+    });
+    curSel.onchange = (e) => {
+      if (e.target.value === 'coin' && !document.getElementById('tiktokEnableToggle')?.checked) {
+        e.target.value = 'thb';
+        e.target.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification('เปิดใช้งาน TikTok Live ก่อน จึงจะตั้งกฏสกุลเหรียญได้', 'error');
+        goToTiktokPanel();
+        return;
+      }
+      timerRules[idx].currency = e.target.value;
+    };
+
+    const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '→');
 
     const actionSel = makeEl('select', { style: 'width:130px;' });
     [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
@@ -3856,8 +3908,9 @@ function renderMultiplierRules() {
     delBtn.appendChild(Object.assign(document.createElement('i'), { className: 'fa-solid fa-trash-can' }));
     delBtn.onclick = () => { timerRules.splice(idx, 1); renderMultiplierRules(); };
 
-    [lbl, baseInput, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
+    [lbl, baseInput, curSel, arrow, actionSel, timeInput, unitLbl, delBtn].forEach(el => row.appendChild(el));
     container.appendChild(row);
+    CustomDropdown.wrapEl(curSel);
     CustomDropdown.wrapEl(actionSel);
   });
   if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
@@ -3985,6 +4038,9 @@ async function loadTimerSettings() {
     const chkShowRules = document.getElementById('chkTimerShowRules');
     if (chkShowRules) chkShowRules.checked = t.show_rules !== false && t.show_rules !== 0;
 
+    const chkStatusBtn = document.getElementById('chkTimerStatusBtn');
+    if (chkStatusBtn) chkStatusBtn.checked = t.statusBtnEnabled !== 0 && t.statusBtnEnabled !== false;
+
     const tmplEl = document.getElementById('inputTimerRulesTemplate');
     if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
 
@@ -4084,8 +4140,6 @@ async function loadTimerSettings() {
     // TikTok card
     const tiktokToggle = document.getElementById('tiktokEnableToggle');
     if (tiktokToggle) tiktokToggle.checked = !!t.tiktokEnabled;
-    const coinRateEl = document.getElementById('tiktokCoinRate');
-    if (coinRateEl) coinRateEl.value = parseFloat(t.coinRate) > 0 ? t.coinRate : 0.17;
     syncTiktokCard();
 
     if (tokenRes.ok) {
@@ -4130,6 +4184,7 @@ async function saveTimerSettings() {
     time_unit: document.getElementById('timerTimeUnit')?.value || 'seconds',
     allow_passthrough: document.getElementById('chkTimerAllowPassthrough')?.checked ? 1 : 0,
     show_rules: document.getElementById('chkTimerShowRules')?.checked ? 1 : 0,
+    statusBtnEnabled: document.getElementById('chkTimerStatusBtn')?.checked ? 1 : 0,
     rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
     cap_type: capType || null,
     cap_value: capType === 'time' && capUnitForSave === 'minutes' ? rawCapVal * 60 : rawCapVal,
@@ -4147,7 +4202,6 @@ async function saveTimerSettings() {
     timer_anim_enabled: document.getElementById('chkTimerAnimEnabled')?.checked ? 1 : 0,
     timer_anim_sound_enabled: document.getElementById('chkTimerAnimSound')?.checked ? 1 : 0,
     tiktokEnabled: document.getElementById('tiktokEnableToggle')?.checked ? 1 : 0,
-    coinRate: parseFloat(document.getElementById('tiktokCoinRate')?.value) || 0.17,
   };
 
   try {

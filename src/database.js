@@ -33,7 +33,20 @@ async function initDB() {
         url,
         authToken
       });
-      
+
+      // Turso ใช้ HTTP ต่อ query — network สะดุดชั่วคราวทำ query fail; retry เดียวก็รอด
+      const _rawExecute = db.execute.bind(db);
+      db.execute = async (...args) => {
+        try { return await _rawExecute(...args); }
+        catch (e) {
+          if (/fetch failed|ECONNRESET|socket hang up|UND_ERR/i.test(e.message || '')) {
+            await new Promise(r => setTimeout(r, 300));
+            return _rawExecute(...args);
+          }
+          throw e;
+        }
+      };
+
       // Critical check: Ensure main table exists to prevent 503 on first deploy
       try {
         await db.execute('SELECT 1 FROM streamers LIMIT 1');
