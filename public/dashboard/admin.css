@@ -4033,3 +4033,20 @@ label {
 @media (prefers-reduced-motion: reduce) {
   .tiktok-attention { animation: none; }
 }
+
+/* สถานะ Bridge — pattern เดียวกับ .status-dot หน้าโดเนท (assets/style.css) */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #4b5563;
+  flex-shrink: 0;
+}
+.status-dot.online {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+.status-dot.warn {
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}

@@ -3678,16 +3678,31 @@ function goToTiktokPanel() {
 // ── Bridge connection badge (แยกจาก toggle: toggle=setting, badge=สถานะจริง) ──
 let tiktokPollTimer = null;
 
+// state → [dotClass, label, textColor] — dot ใช้ .status-dot เหมือนหน้าโดเนท (ไม่ใช้ emoji)
 function renderTiktokBadge(state) {
   const badge = document.getElementById('tiktokStatusBadge');
-  if (!badge) return;
+  const dot = badge?.querySelector('.status-dot');
+  const text = document.getElementById('tiktokStatusText');
+  if (!badge || !dot || !text) return;
   const map = {
-    ready:   ['🟢 พร้อมรับ Gift', '#22c55e'],
-    open:    ['🟡 เปิด Bridge แล้ว · TikFinity ยังไม่เชื่อม', '#f59e0b'],
-    notopen: ['⚪ ยังไม่เปิดหน้า Bridge', '#94a3b8'],
+    ready:   ['online', 'พร้อมรับ Gift', '#22c55e'],
+    open:    ['warn', 'เปิดตัวเชื่อมต่อแล้ว · TikFinity ยังไม่เชื่อม', '#f59e0b'],
+    notopen: ['', 'ยังไม่เปิดตัวเชื่อมต่อ', '#94a3b8'],
   };
-  const [text, color] = map[state] || map.notopen;
-  badge.textContent = text;
+  const [dotCls, label, color] = map[state] || map.notopen;
+  dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
+  text.textContent = label;
+  badge.style.color = color;
+}
+
+// set dot+text โดยไม่แตะ structure (placeholder / ปิดอยู่)
+function setTiktokBadgeText(label, color, dotCls = '') {
+  const badge = document.getElementById('tiktokStatusBadge');
+  const dot = badge?.querySelector('.status-dot');
+  const text = document.getElementById('tiktokStatusText');
+  if (!badge || !dot || !text) return;
+  dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
+  text.textContent = label;
   badge.style.color = color;
 }
 
@@ -3702,8 +3717,7 @@ async function pollTiktokStatus() {
 
 function startTiktokPoll() {
   stopTiktokPoll();
-  const badge = document.getElementById('tiktokStatusBadge');
-  if (badge) { badge.textContent = '⏳ กำลังตรวจสอบ…'; badge.style.color = '#94a3b8'; }
+  setTiktokBadgeText('กำลังตรวจสอบ…', '#94a3b8');
   pollTiktokStatus();
   tiktokPollTimer = setInterval(pollTiktokStatus, 10000);
 }
@@ -3726,8 +3740,7 @@ function syncTiktokCard() {
     startTiktokPoll();                       // badge = สถานะ Bridge จริง (poll ทุก 10s)
   } else {
     stopTiktokPoll();
-    badge.textContent = 'ปิดอยู่';
-    badge.style.color = '#64748b';
+    setTiktokBadgeText('ปิดอยู่', '#64748b');
   }
   if (!on && timerRules.some(r => r.currency === 'coin')) {
     showNotification('กฏสกุลเหรียญจะหยุดทำงานชั่วคราวจนกว่าจะเปิด TikTok Live อีกครั้ง', 'error');
