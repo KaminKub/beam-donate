@@ -1730,13 +1730,17 @@
                           <span style="font-size:0.9rem;font-weight:600;color:#e2e8f0;">
                             <i class="fa-brands fa-tiktok" style="color:#69c9d0;margin-right:6px;"></i>รับ Gift จาก TikTok Live
                           </span>
-                          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">ผ่าน TikFinity Bridge</div>
+                          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">ผ่านตัวเชื่อม TikFinity</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:10px;">
-                          <span id="tiktokStatusBadge" style="font-size:0.8rem;color:#64748b;">ปิดอยู่</span>
+                          <span id="tiktokStatusBadge" style="font-size:0.8rem;color:#64748b;white-space:nowrap;">ปิดอยู่</span>
+                          <button type="button" id="tiktokStatusRefresh" title="รีเฟรชสถานะ Bridge"
+                                  style="display:none;background:none;border:none;color:#94a3b8;cursor:pointer;padding:4px;font-size:0.9rem;">
+                            <i class="fa-solid fa-rotate"></i>
+                          </button>
                           <label class="switch" style="margin:0;">
                             <input type="checkbox" id="tiktokEnableToggle">
-                            <span class="slider"></span>
+                            <span class="slider-switch"></span>
                           </label>
                         </div>
                       </div>
@@ -1750,9 +1754,9 @@
                         </div>
                         <div style="margin-top:4px;">
                           <button type="button" id="tiktokBridgeBtn" class="btn btn-outline-primary" onclick="window.open('/tiktok-bridge/','_blank')">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดหน้า Bridge
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดตัวเชื่อมต่อ
                           </button>
-                          <small style="display:block;color:#94a3b8;margin-top:6px;">เปิดหน้า Bridge ทิ้งไว้ใน browser ขณะ Live เพื่อรับ Gift อัตโนมัติ</small>
+                          <small style="display:block;color:#94a3b8;margin-top:6px;">เปิดหน้าตัวเชื่อต่อนี้ทิ้งไว้ใน browser ขณะ Live เพื่อรับ Gift อัตโนมัติ</small>
                         </div>
                         <!-- disclaimer ย้ายมาอยู่ใน settingsPanel -->
                         <div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:0.78rem;color:#94a3b8;line-height:1.5;">
@@ -1991,8 +1995,8 @@
                     <button type="button" id="btnTimerTiktokBridge" class="btn btn-outline-primary"
                             style="width:100%;margin-top:8px;display:none;"
                             onclick="window.open('/tiktok-bridge/','_blank')">
-                      <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live
-                      <span style="font-size:11px;color:var(--text-muted);">(เปิดหน้า Bridge)</span>
+                      <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live (TikFinity)
+                      <span style="font-size:11px;color:var(--text-muted);">(เปิดตัวเชื่อมต่อ)</span>
                     </button>
                   </div>
 
@@ -2334,7 +2338,7 @@
   <div class="modal" id="tiktokAckModal">
     <div class="modal-content" style="max-width:480px;">
       <div class="modal-header">
-        <h3><i class="fa-brands fa-tiktok" style="color:#69c9d0;margin-right:8px;"></i>ยืนยันการใช้ TikFinity Bridge</h3>
+        <h3><i class="fa-brands fa-tiktok" style="color:#69c9d0;margin-right:8px;"></i>ยืนยันการใช้ตัวเชื่อม TikFinity</h3>
         <button class="btn-close" id="btnCloseTiktokAck">&times;</button>
       </div>
       <div class="modal-body" style="font-size:0.87rem;line-height:1.65;color:#cbd5e1;">
@@ -2357,7 +2361,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260716_1"></script>
+  <script src="/dashboard/dashboard.js?v=20260716_2"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

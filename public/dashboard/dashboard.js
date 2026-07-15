@@ -3675,6 +3675,42 @@ function goToTiktokPanel() {
   card.classList.add('tiktok-attention');
 }
 
+// ── Bridge connection badge (แยกจาก toggle: toggle=setting, badge=สถานะจริง) ──
+let tiktokPollTimer = null;
+
+function renderTiktokBadge(state) {
+  const badge = document.getElementById('tiktokStatusBadge');
+  if (!badge) return;
+  const map = {
+    ready:   ['🟢 พร้อมรับ Gift', '#22c55e'],
+    open:    ['🟡 เปิด Bridge แล้ว · TikFinity ยังไม่เชื่อม', '#f59e0b'],
+    notopen: ['⚪ ยังไม่เปิดหน้า Bridge', '#94a3b8'],
+  };
+  const [text, color] = map[state] || map.notopen;
+  badge.textContent = text;
+  badge.style.color = color;
+}
+
+async function pollTiktokStatus() {
+  try {
+    const r = await fetch('/api/tiktok/status', { credentials: 'include' });
+    if (!r.ok) return;
+    const d = await r.json();
+    renderTiktokBadge(d.state);
+  } catch { /* network blip — คงสถานะเดิมไว้ */ }
+}
+
+function startTiktokPoll() {
+  stopTiktokPoll();
+  const badge = document.getElementById('tiktokStatusBadge');
+  if (badge) { badge.textContent = '⏳ กำลังตรวจสอบ…'; badge.style.color = '#94a3b8'; }
+  pollTiktokStatus();
+  tiktokPollTimer = setInterval(pollTiktokStatus, 10000);
+}
+function stopTiktokPoll() {
+  if (tiktokPollTimer) { clearInterval(tiktokPollTimer); tiktokPollTimer = null; }
+}
+
 function syncTiktokCard() {
   const toggle = document.getElementById('tiktokEnableToggle');
   const panel = document.getElementById('tiktokSettingsPanel');
@@ -3682,10 +3718,17 @@ function syncTiktokCard() {
   if (!toggle || !panel || !badge) return;
   const on = toggle.checked;
   panel.style.display = on ? '' : 'none';
-  badge.textContent = on ? 'เปิดอยู่' : 'ปิดอยู่';
-  badge.style.color = on ? '#22c55e' : '#64748b';
   const bridgeBtn = document.getElementById('btnTimerTiktokBridge');
   if (bridgeBtn) bridgeBtn.style.display = on ? '' : 'none';
+  const refreshBtn = document.getElementById('tiktokStatusRefresh');
+  if (refreshBtn) refreshBtn.style.display = on ? '' : 'none';
+  if (on) {
+    startTiktokPoll();                       // badge = สถานะ Bridge จริง (poll ทุก 10s)
+  } else {
+    stopTiktokPoll();
+    badge.textContent = 'ปิดอยู่';
+    badge.style.color = '#64748b';
+  }
   if (!on && timerRules.some(r => r.currency === 'coin')) {
     showNotification('กฏสกุลเหรียญจะหยุดทำงานชั่วคราวจนกว่าจะเปิด TikTok Live อีกครั้ง', 'error');
   }
@@ -3694,6 +3737,13 @@ function syncTiktokCard() {
 function initTiktokCard() {
   const toggle = document.getElementById('tiktokEnableToggle');
   if (!toggle) return;
+
+  const refreshBtn = document.getElementById('tiktokStatusRefresh');
+  if (refreshBtn) refreshBtn.addEventListener('click', () => {
+    const icon = refreshBtn.querySelector('i');
+    if (icon) { icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 600); }
+    pollTiktokStatus();
+  });
 
   toggle.addEventListener('change', async (e) => {
     if (!e.target.checked) {

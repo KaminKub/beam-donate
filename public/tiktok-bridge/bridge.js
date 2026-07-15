@@ -149,6 +149,24 @@ function connect() {
   });
 }
 
+// ── Heartbeat → dashboard badge ──────────────────────────────────
+// ping ทุก 10s บอก server ว่า bridge เปิดอยู่ + DAPI เชื่อมหรือยัง (in-memory, ไม่เก็บ)
+async function sendHeartbeat() {
+  const dapi = !!(ws && ws.readyState === WebSocket.OPEN);
+  if (!csrfToken) await fetchCsrf();
+  try {
+    const r = await fetch('/api/tiktok/heartbeat', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken || '' },
+      body: JSON.stringify({ dapi }),
+    });
+    if (r.status === 403) csrfToken = null; // refresh รอบหน้า
+  } catch { /* heartbeat หายรอบเดียวไม่เป็นไร */ }
+}
+
 // ── Init ─────────────────────────────────────────────────────────
 fetchCsrf().then(connect);
 updateCounter();
+sendHeartbeat();
+setInterval(sendHeartbeat, 10000);

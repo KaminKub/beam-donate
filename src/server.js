@@ -989,6 +989,20 @@ const tiktokGiftLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Polling limiter สำหรับ bridge heartbeat + dashboard status poll (แยกจาก gift ตาม CLAUDE.md)
+// bridge ping 6/min + dashboard poll 6/min → max 30 เผื่อ refresh มือ
+const tiktokStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// In-memory bridge liveness — C1 aligned (in-memory only, ไม่แตะ DB, ไม่มี PII)
+// username(lowercase) → { at: lastSeenMs, dapi: bool }  ; VPS restart = หาย, heartbeat ถัดไปเติมใหม่
+const bridgeHeartbeats = new Map();
+const BRIDGE_STALE_MS = 25000; // 2.5× heartbeat interval — กัน network blip
+
 // Redirect authenticated users to their dashboard (used on landing/login/register pages).
 // Avoids the redundant "click login again" flow when a session cookie is still valid.
 async function redirectIfAuthenticated(req, res, next) {
@@ -2781,6 +2795,34 @@ app.post('/api/tiktok/gift', ensureAuthenticated, csrfProtection, tiktokGiftLimi
   } catch (e) {
     console.error('Gift relay failed:', e.message);
     return res.status(500).json({ error: 'ปรับ timer ไม่สำเร็จ' });
+  }
+});
+
+// Bridge heartbeat — bridge page ping ทุก ~10s ขณะเปิด (dapi = TikFinity ws เชื่อมอยู่ไหม)
+app.post('/api/tiktok/heartbeat', ensureAuthenticated, csrfProtection, tiktokStatusLimiter, async (req, res) => {
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบ streamer' });
+    bridgeHeartbeats.set(streamer.username.toLowerCase(), { at: Date.now(), dapi: req.body.dapi === true });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Heartbeat failed:', e.message);
+    return res.status(500).json({ error: 'heartbeat ไม่สำเร็จ' });
+  }
+});
+
+// Dashboard poll — สถานะ Bridge จริง: notopen / open-no-dapi / ready
+app.get('/api/tiktok/status', ensureAuthenticated, tiktokStatusLimiter, async (req, res) => {
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบ streamer' });
+    const hb = bridgeHeartbeats.get(streamer.username.toLowerCase());
+    const fresh = hb && (Date.now() - hb.at) < BRIDGE_STALE_MS;
+    const state = !fresh ? 'notopen' : (hb.dapi ? 'ready' : 'open');
+    return res.json({ success: true, state });
+  } catch (e) {
+    console.error('Status check failed:', e.message);
+    return res.status(500).json({ error: 'ตรวจสถานะไม่สำเร็จ' });
   }
 });
 
