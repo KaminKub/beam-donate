@@ -2799,11 +2799,12 @@ app.post('/api/tiktok/gift', ensureAuthenticated, csrfProtection, tiktokGiftLimi
 });
 
 // Bridge heartbeat — bridge page ping ทุก ~10s ขณะเปิด (dapi = TikFinity ws เชื่อมอยู่ไหม)
+// dapi ส่งผ่าน query (ไม่มี body) — กัน "stream is not readable" ตอน fetch ถูก abort ระหว่าง page reload
 app.post('/api/tiktok/heartbeat', ensureAuthenticated, csrfProtection, tiktokStatusLimiter, async (req, res) => {
   try {
     const streamer = await getStreamerForUser(req.user);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบ streamer' });
-    bridgeHeartbeats.set(streamer.username.toLowerCase(), { at: Date.now(), dapi: req.body.dapi === true });
+    bridgeHeartbeats.set(streamer.username.toLowerCase(), { at: Date.now(), dapi: req.query.dapi === '1' });
     return res.json({ success: true });
   } catch (e) {
     console.error('Heartbeat failed:', e.message);

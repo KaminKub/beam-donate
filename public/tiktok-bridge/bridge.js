@@ -152,14 +152,14 @@ function connect() {
 // ── Heartbeat → dashboard badge ──────────────────────────────────
 // ping ทุก 10s บอก server ว่า bridge เปิดอยู่ + DAPI เชื่อมหรือยัง (in-memory, ไม่เก็บ)
 async function sendHeartbeat() {
-  const dapi = !!(ws && ws.readyState === WebSocket.OPEN);
+  const dapi = (ws && ws.readyState === WebSocket.OPEN) ? 1 : 0;
   if (!csrfToken) await fetchCsrf();
   try {
-    const r = await fetch('/api/tiktok/heartbeat', {
+    // dapi ผ่าน query, ไม่มี body → เลี่ยง "stream is not readable" ตอน fetch โดน abort ระหว่าง reload
+    const r = await fetch('/api/tiktok/heartbeat?dapi=' + dapi, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken || '' },
-      body: JSON.stringify({ dapi }),
+      headers: { 'X-CSRF-Token': csrfToken || '' },
     });
     if (r.status === 403) csrfToken = null; // refresh รอบหน้า
   } catch { /* heartbeat หายรอบเดียวไม่เป็นไร */ }

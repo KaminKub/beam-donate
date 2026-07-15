@@ -3782,9 +3782,9 @@ function initTiktokCard() {
   const ackCheck = document.getElementById('tiktokAckCheck');
   const btnAccept = document.getElementById('btnAcceptTiktokAck');
   if (ackCheck && btnAccept) {
-    ackCheck.addEventListener('change', () => {
-      btnAccept.disabled = !ackCheck.checked;
-    });
+    const syncAckBtn = () => { btnAccept.disabled = !ackCheck.checked; };
+    ackCheck.addEventListener('change', syncAckBtn);
+    ackCheck.addEventListener('input', syncAckBtn);   // กัน change ไม่ fire บาง browser
   }
 
   // Disclaimer link in card opens modal (C6)
