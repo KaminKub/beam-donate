@@ -3731,9 +3731,9 @@ function syncTiktokCard() {
   const badge = document.getElementById('tiktokStatusBadge');
   if (!toggle || !panel || !badge) return;
   const on = toggle.checked;
-  panel.style.display = on ? '' : 'none';
-  const bridgeBtn = document.getElementById('btnTimerTiktokBridge');
-  if (bridgeBtn) bridgeBtn.style.display = on ? '' : 'none';
+  panel.classList.toggle('tk-open', on);                   // grid slide-down
+  const bridgeWrap = document.getElementById('btnTimerTiktokBridgeWrap');
+  if (bridgeWrap) bridgeWrap.classList.toggle('tk-open', on);
   const refreshBtn = document.getElementById('tiktokStatusRefresh');
   if (refreshBtn) refreshBtn.style.display = on ? '' : 'none';
   if (on) {

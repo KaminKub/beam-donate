@@ -4050,3 +4050,22 @@ label {
   background-color: #f59e0b;
   box-shadow: 0 0 8px #f59e0b;
 }
+
+/* slide-down เปิด/ปิด (grid 0fr→1fr, no height measure) — reuse pattern webhook-section-body */
+.tk-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows .28s ease, opacity .28s ease;
+}
+.tk-collapse.tk-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.tk-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-collapse { transition: none; }
+}
