@@ -3983,3 +3983,41 @@ label {
 .webhook-warn i, .webhook-ok i { flex-shrink: 0; margin-top: 2px; }
 
 #btnWebhookGuidePrev:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── New Feature Badge (TikTok panel) — ดุ๊กดิ๊กเด่นตา ─────────────── */
+.new-feature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, #ec4899, #f59e0b);
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: 6px;
+  animation: tipkub-new-wiggle 1.6s ease-in-out infinite,
+             tipkub-new-pulse 1.6s ease-out infinite;
+  transform-origin: center;
+}
+.new-feature-badge i { font-size: 0.6rem; }
+
+@keyframes tipkub-new-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  15%      { transform: rotate(-9deg); }
+  30%      { transform: rotate(8deg); }
+  45%      { transform: rotate(-6deg); }
+  60%      { transform: rotate(4deg); }
+  75%      { transform: rotate(0deg); }
+}
+@keyframes tipkub-new-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(236, 72, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-feature-badge { animation: none; }
+}

@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260715_1">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260715_2">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1707,22 +1707,29 @@
                   <!-- Card 5: TikTok Live (TikFinity Bridge) -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header" data-target="panelTiktok">
-                      <h4><i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> TikTok Live <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">(ผ่าน TikFinity)</span></h4>
+                      <h4><i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> TikTok Live <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">(ผ่าน TikFinity)</span> <span class="new-feature-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> ใหม่!</span></h4>
                       <i class="fa-solid fa-chevron-down card-chevron"></i>
                     </div>
                     <div class="card-body-panel" id="panelTiktok" style="display:none;">
-                      <div class="form-row" style="margin-bottom:14px;">
-                        <div class="form-group">
-                          <label><i class="fa-solid fa-toggle-on" style="color:#22c55e"></i> เปิดรับ Gift จาก TikTok Live</label>
-                          <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
-                            <label class="switch">
-                              <input type="checkbox" id="tiktokEnableToggle">
-                              <span class="slider"></span>
-                            </label>
-                            <span id="tiktokStatusBadge" style="font-size:0.8rem;color:#64748b;">ปิดอยู่</span>
-                          </div>
+
+                      <!-- Top switch row -->
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <div>
+                          <span style="font-size:0.9rem;font-weight:600;color:#e2e8f0;">
+                            <i class="fa-brands fa-tiktok" style="color:#69c9d0;margin-right:6px;"></i>รับ Gift จาก TikTok Live
+                          </span>
+                          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">ผ่าน TikFinity Bridge</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                          <span id="tiktokStatusBadge" style="font-size:0.8rem;color:#64748b;">ปิดอยู่</span>
+                          <label class="switch" style="margin:0;">
+                            <input type="checkbox" id="tiktokEnableToggle">
+                            <span class="slider"></span>
+                          </label>
                         </div>
                       </div>
+
+                      <!-- Settings (shown when toggle ON) -->
                       <div id="tiktokSettingsPanel" style="display:none;">
                         <div class="form-row">
                           <div class="form-group">
@@ -1736,12 +1743,14 @@
                           </button>
                           <small style="display:block;color:#94a3b8;margin-top:6px;">เปิดหน้า Bridge ทิ้งไว้ใน browser ขณะ Live เพื่อรับ Gift อัตโนมัติ</small>
                         </div>
+                        <!-- disclaimer ย้ายมาอยู่ใน settingsPanel -->
+                        <div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:0.78rem;color:#94a3b8;line-height:1.5;">
+                          <i class="fa-solid fa-circle-info" style="color:#64748b"></i>
+                          TikFinity เป็นเครื่องมือบุคคลที่สาม — TipKub ทำหน้าที่ relay ตัวเลขเหรียญเท่านั้น ไม่เก็บข้อมูลส่วนบุคคล
+                          <a href="#" id="tiktokDisclaimerLink" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">อ่านเพิ่มเติม</a>
+                        </div>
                       </div>
-                      <div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.78rem;color:#94a3b8;line-height:1.5;">
-                        <i class="fa-solid fa-circle-info" style="color:#64748b"></i>
-                        TikFinity เป็นเครื่องมือบุคคลที่สาม — TipKub ทำหน้าที่ relay ตัวเลขเหรียญเท่านั้น ไม่เก็บข้อมูลส่วนบุคคล
-                        <a href="#" id="tiktokDisclaimerLink" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">อ่านเพิ่มเติม</a>
-                      </div>
+
                     </div>
                   </div>
 
@@ -2331,7 +2340,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260715_1"></script>
+  <script src="/dashboard/dashboard.js?v=20260715_2"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

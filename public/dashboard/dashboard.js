@@ -3655,7 +3655,11 @@ function updateGoalPreview(current, amount) {
 // Rules builder helpers
 const MAX_TIMER_RULES = 10;
 let timerRules = [];
-let tiktokAcked = false;
+
+// TikTok ack = browser-level consent (localStorage), ไม่ใช่ account setting
+const TIKTOK_ACK_KEY = 'tipkub_tiktok_ack';
+const isTiktokAcked = () => localStorage.getItem(TIKTOK_ACK_KEY) === '1';
+const setTiktokAcked = () => localStorage.setItem(TIKTOK_ACK_KEY, '1');
 
 // ── TikTok Bridge card logic ────────────────────────────────────
 
@@ -3679,7 +3683,7 @@ function initTiktokCard() {
       syncTiktokCard();
       return;
     }
-    if (tiktokAcked) {
+    if (isTiktokAcked()) {
       syncTiktokCard();
       return;
     }
@@ -3730,7 +3734,7 @@ function initTiktokCard() {
 
   if (btnAccept) {
     btnAccept.addEventListener('click', async () => {
-      tiktokAcked = true;
+      setTiktokAcked();           // ← localStorage แทน tiktokAcked = true
       closeModal();
       const toggle = document.getElementById('tiktokEnableToggle');
       if (toggle) toggle.checked = true;
@@ -4078,7 +4082,6 @@ async function loadTimerSettings() {
     if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
 
     // TikTok card
-    tiktokAcked = !!t.tiktokAcked;
     const tiktokToggle = document.getElementById('tiktokEnableToggle');
     if (tiktokToggle) tiktokToggle.checked = !!t.tiktokEnabled;
     const coinRateEl = document.getElementById('tiktokCoinRate');
@@ -4145,7 +4148,6 @@ async function saveTimerSettings() {
     timer_anim_sound_enabled: document.getElementById('chkTimerAnimSound')?.checked ? 1 : 0,
     tiktokEnabled: document.getElementById('tiktokEnableToggle')?.checked ? 1 : 0,
     coinRate: parseFloat(document.getElementById('tiktokCoinRate')?.value) || 0.17,
-    tiktokAcked: tiktokAcked ? 1 : 0,
   };
 
   try {
