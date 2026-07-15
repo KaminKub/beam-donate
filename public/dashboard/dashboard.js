@@ -1036,6 +1036,7 @@ async function initializeDashboard() {
     }
 
     initTimerSettingsUI();
+    initTiktokCard();
 
     const btnLogout = document.getElementById('btnLogout');
     if (btnLogout) {
@@ -1759,7 +1760,7 @@ function switchTab(tabId) {
   const titles = {
     'dashboard': { title: 'Dashboard Overview', subtitle: 'ภาพรวมยอดบริจาคและสถิติระบบ' },
     'transactions': { title: 'Donation History', subtitle: 'ประวัติธุรกรรมและการจำลองส่ง Alert' },
-    'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของ OBS Stream' },
+    'overlay-config': { title: 'Overlay Live Settings', subtitle: 'ปรับแต่งดีไซน์ รูปแบบ เสียง และข้อความเตือนของโปรแกรมสตรีมไลฟ์สด' },
     'page-customization': { title: 'Page Customization', subtitle: 'ปรับแต่งหน้าโดเนท โปรไฟล์ และลิงก์โซเชียลมีเดีย' },
     'account': { title: 'User Account', subtitle: 'จัดการข้อมูลส่วนตัวและความปลอดภัยของบัญชี' },
     'payment-setup': { title: 'Payment Setup', subtitle: 'ตั้งค่าวิธีรับเงินบริจาคจากผู้ชม' },
@@ -3654,6 +3655,90 @@ function updateGoalPreview(current, amount) {
 // Rules builder helpers
 const MAX_TIMER_RULES = 10;
 let timerRules = [];
+let tiktokAcked = false;
+
+// ── TikTok Bridge card logic ────────────────────────────────────
+
+function syncTiktokCard() {
+  const toggle = document.getElementById('tiktokEnableToggle');
+  const panel = document.getElementById('tiktokSettingsPanel');
+  const badge = document.getElementById('tiktokStatusBadge');
+  if (!toggle || !panel || !badge) return;
+  const on = toggle.checked;
+  panel.style.display = on ? '' : 'none';
+  badge.textContent = on ? 'เปิดอยู่' : 'ปิดอยู่';
+  badge.style.color = on ? '#22c55e' : '#64748b';
+}
+
+function initTiktokCard() {
+  const toggle = document.getElementById('tiktokEnableToggle');
+  if (!toggle) return;
+
+  toggle.addEventListener('change', async (e) => {
+    if (!e.target.checked) {
+      syncTiktokCard();
+      return;
+    }
+    if (tiktokAcked) {
+      syncTiktokCard();
+      return;
+    }
+    // C3: ack gate — show modal before enabling
+    e.target.checked = false;
+    syncTiktokCard();
+    const modal = document.getElementById('tiktokAckModal');
+    const ackCheck = document.getElementById('tiktokAckCheck');
+    const btnAccept = document.getElementById('btnAcceptTiktokAck');
+    if (!modal) return;
+    if (ackCheck) ackCheck.checked = false;
+    if (btnAccept) btnAccept.disabled = true;
+    modal.style.display = 'flex';
+  });
+
+  const ackCheck = document.getElementById('tiktokAckCheck');
+  const btnAccept = document.getElementById('btnAcceptTiktokAck');
+  if (ackCheck && btnAccept) {
+    ackCheck.addEventListener('change', () => {
+      btnAccept.disabled = !ackCheck.checked;
+    });
+  }
+
+  // Disclaimer link in card opens modal (C6)
+  const disclaimerLink = document.getElementById('tiktokDisclaimerLink');
+  if (disclaimerLink) {
+    disclaimerLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('tiktokAckModal');
+      const ackCheck = document.getElementById('tiktokAckCheck');
+      const btnAccept = document.getElementById('btnAcceptTiktokAck');
+      if (modal) {
+        if (ackCheck) ackCheck.checked = false;
+        if (btnAccept) btnAccept.disabled = true;
+        modal.style.display = 'flex';
+      }
+    });
+  }
+
+  const btnCancel = document.getElementById('btnCancelTiktokAck');
+  const btnClose = document.getElementById('btnCloseTiktokAck');
+  const closeModal = () => {
+    const modal = document.getElementById('tiktokAckModal');
+    if (modal) modal.style.display = 'none';
+  };
+  if (btnCancel) btnCancel.addEventListener('click', closeModal);
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+
+  if (btnAccept) {
+    btnAccept.addEventListener('click', async () => {
+      tiktokAcked = true;
+      closeModal();
+      const toggle = document.getElementById('tiktokEnableToggle');
+      if (toggle) toggle.checked = true;
+      syncTiktokCard();
+      await saveTimerSettings();
+    });
+  }
+}
 
 function timerRulesSetMode(mode) {
   const multSec = document.getElementById('timerMultiplierSection');
@@ -3992,6 +4077,14 @@ async function loadTimerSettings() {
     const chkTimerAnimSound = document.getElementById('chkTimerAnimSound');
     if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
 
+    // TikTok card
+    tiktokAcked = !!t.tiktokAcked;
+    const tiktokToggle = document.getElementById('tiktokEnableToggle');
+    if (tiktokToggle) tiktokToggle.checked = !!t.tiktokEnabled;
+    const coinRateEl = document.getElementById('tiktokCoinRate');
+    if (coinRateEl) coinRateEl.value = parseFloat(t.coinRate) > 0 ? t.coinRate : 0.17;
+    syncTiktokCard();
+
     if (tokenRes.ok) {
       const { token } = await tokenRes.json();
       const timerUrl = `${location.origin}/timer?token=${token}`;
@@ -4050,6 +4143,9 @@ async function saveTimerSettings() {
     sound_volume: (() => { const v = parseFloat(document.getElementById('sliderTimerSoundVolume')?.value); return isNaN(v) ? 0.7 : v; })(),
     timer_anim_enabled: document.getElementById('chkTimerAnimEnabled')?.checked ? 1 : 0,
     timer_anim_sound_enabled: document.getElementById('chkTimerAnimSound')?.checked ? 1 : 0,
+    tiktokEnabled: document.getElementById('tiktokEnableToggle')?.checked ? 1 : 0,
+    coinRate: parseFloat(document.getElementById('tiktokCoinRate')?.value) || 0.17,
+    tiktokAcked: tiktokAcked ? 1 : 0,
   };
 
   try {

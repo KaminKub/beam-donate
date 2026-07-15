@@ -646,7 +646,7 @@ if (helmet) {
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", 'https://www.myinstants.com', 'https://*.r2.cloudflarestorage.com', 'https://cdn.jsdelivr.net'],
+        connectSrc: ["'self'", 'https://www.myinstants.com', 'https://*.r2.cloudflarestorage.com', 'https://cdn.jsdelivr.net', 'ws://127.0.0.1:21213', 'ws://localhost:21213'],
         workerSrc: ["'self'", 'blob:'],
         mediaSrc: ["'self'", 'https://translate.google.com', 'https://www.myinstants.com', 'data:', process.env.R2_PUBLIC_URL || 'https://pub-db8500a3bce347deb31e3ac1eb556de8.r2.dev'],
         frameAncestors: ["'self'"],
@@ -975,6 +975,14 @@ const reportLimiter = rateLimit({
 const adminMonitorLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const tiktokGiftLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'ส่ง gift บ่อยเกินไป กรุณารอสักครู่' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -2752,6 +2760,26 @@ app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, 
   } catch (error) {
     console.error('Timer control error:', error);
     res.status(500).json({ error: 'ไม่สามารถควบคุม Timer ได้' });
+  }
+});
+
+app.post('/api/tiktok/gift', ensureAuthenticated, csrfProtection, tiktokGiftLimiter, async (req, res) => {
+  try {
+    const coins = Number(req.body.coins);
+    if (!Number.isFinite(coins) || coins <= 0 || coins > 1_000_000) {
+      return res.status(400).json({ error: 'coins ไม่ถูกต้อง' });
+    }
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบ streamer' });
+    const t = getTimerConfig(streamer);
+    if (!t.enabled) return res.json({ success: true, skipped: 'timer_disabled' });
+    const rate = Number(t.coinRate) > 0 ? Number(t.coinRate) : 0.17;
+    const thb = coins * rate;
+    await applyTimerOnDonation(streamer, thb, 'add');
+    return res.json({ success: true, coins, thb });
+  } catch (e) {
+    console.error('Gift relay failed:', e.message);
+    return res.status(500).json({ error: 'ปรับ timer ไม่สำเร็จ' });
   }
 });
 

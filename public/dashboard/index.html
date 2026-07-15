@@ -1704,7 +1704,48 @@
                     </div>
                   </div>
 
-                  <!-- Card 5: Appearance -->
+                  <!-- Card 5: TikTok Live (TikFinity Bridge) -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelTiktok">
+                      <h4><i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> TikTok Live <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">(ผ่าน TikFinity)</span></h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTiktok" style="display:none;">
+                      <div class="form-row" style="margin-bottom:14px;">
+                        <div class="form-group">
+                          <label><i class="fa-solid fa-toggle-on" style="color:#22c55e"></i> เปิดรับ Gift จาก TikTok Live</label>
+                          <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                            <label class="switch">
+                              <input type="checkbox" id="tiktokEnableToggle">
+                              <span class="slider"></span>
+                            </label>
+                            <span id="tiktokStatusBadge" style="font-size:0.8rem;color:#64748b;">ปิดอยู่</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="tiktokSettingsPanel" style="display:none;">
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label><i class="fa-solid fa-coins" style="color:#f59e0b"></i> อัตราแลก Coin → บาท <small style="color:#94a3b8">(โดยประมาณ, ค่าเริ่มต้น 0.17)</small></label>
+                            <input type="number" id="tiktokCoinRate" class="form-control" min="0.01" max="10" step="0.01" value="0.17" style="max-width:140px;">
+                          </div>
+                        </div>
+                        <div style="margin-top:10px;">
+                          <button type="button" id="tiktokBridgeBtn" class="btn btn-outline-primary" onclick="window.open('/tiktok-bridge/','_blank')">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดหน้า Bridge
+                          </button>
+                          <small style="display:block;color:#94a3b8;margin-top:6px;">เปิดหน้า Bridge ทิ้งไว้ใน browser ขณะ Live เพื่อรับ Gift อัตโนมัติ</small>
+                        </div>
+                      </div>
+                      <div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.78rem;color:#94a3b8;line-height:1.5;">
+                        <i class="fa-solid fa-circle-info" style="color:#64748b"></i>
+                        TikFinity เป็นเครื่องมือบุคคลที่สาม — TipKub ทำหน้าที่ relay ตัวเลขเหรียญเท่านั้น ไม่เก็บข้อมูลส่วนบุคคล
+                        <a href="#" id="tiktokDisclaimerLink" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">อ่านเพิ่มเติม</a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 6: Appearance -->
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header" data-target="panelTimerAppearance">
                       <h4><i class="fa-solid fa-palette" style="color:#a78bfa"></i> ปรับแต่งหน้าตา</h4>
@@ -2259,6 +2300,32 @@
       <div class="modal-footer" style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" id="btnCancelWebhookConsent" class="btn btn-secondary">ยกเลิก</button>
         <button type="button" id="btnAcceptWebhookConsent" class="btn btn-primary">ยอมรับและดำเนินการต่อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TikTok Bridge Ack Modal (C3: ack gate) -->
+  <div class="modal" id="tiktokAckModal">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h3><i class="fa-brands fa-tiktok" style="color:#69c9d0;margin-right:8px;"></i>ยืนยันการใช้ TikFinity Bridge</h3>
+        <button class="btn-close" id="btnCloseTiktokAck">&times;</button>
+      </div>
+      <div class="modal-body" style="font-size:0.87rem;line-height:1.65;color:#cbd5e1;">
+        <p style="margin-bottom:10px;">
+          ฟีเจอร์นี้เชื่อมต่อกับ <strong>TikFinity</strong> เครื่องมือบุคคลที่สาม (ไม่ใช่ของ TikTok หรือ TipKub) เพื่อดึงของขวัญจาก TikTok Live เข้า Timer
+        </p>
+        <p style="margin-bottom:10px;">
+          TipKub รับเฉพาะตัวเลขเหรียญ — <strong>ไม่เก็บข้อมูลส่วนบุคคล</strong> ของผู้ชม และไม่ใช่ผู้ให้บริการ TikFinity
+        </p>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="tiktokAckCheck" style="margin-top:3px;flex-shrink:0;">
+          <span>ฉันรับทราบ</span>
+        </label>
+      </div>
+      <div class="modal-footer" style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.05);display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" id="btnCancelTiktokAck" class="btn btn-secondary">ยกเลิก</button>
+        <button type="button" id="btnAcceptTiktokAck" class="btn btn-primary" disabled>เปิดใช้งาน</button>
       </div>
     </div>
   </div>

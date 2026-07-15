@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TipKub × TikFinity Bridge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f14;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 28px 32px;
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 16px;
+    }
+    .logo {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #a78bfa;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #475569;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.green { background: #22c55e; }
+    .dot.amber { background: #f59e0b; }
+    .dot.red   { background: #ef4444; }
+    .status-text { font-size: 0.92rem; }
+    .counter {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .disclaimer {
+      background: #1e1b2e;
+      border: 1px solid #4c1d95;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.8rem;
+      color: #c4b5fd;
+      line-height: 1.6;
+    }
+    .disclaimer strong { color: #ddd6fe; }
+    .log {
+      background: #0d0d18;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.76rem;
+      color: #64748b;
+      max-height: 160px;
+      overflow-y: auto;
+      margin-top: 14px;
+    }
+    .log .entry { margin-bottom: 3px; }
+    .log .ok { color: #22c55e; }
+    .log .warn { color: #f59e0b; }
+    .log .err { color: #ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">TipKub × TikFinity Bridge</div>
+  <div class="subtitle">เปิดหน้าต่างนี้ทิ้งไว้ระหว่าง Live เพื่อแปลง Gift → Timer</div>
+
+  <div class="status-row">
+    <div class="dot" id="dotDapi"></div>
+    <span class="status-text" id="lblDapi">กำลังเชื่อมต่อ TikFinity…</span>
+  </div>
+  <div class="status-row">
+    <div class="dot" id="dotServer"></div>
+    <span class="status-text" id="lblServer">รอ gift…</span>
+  </div>
+  <div class="counter" id="counter">ส่ง gift: 0 ครั้ง | coins รวม: 0</div>
+
+  <div class="log" id="log"></div>
+</div>
+
+<div class="card disclaimer">
+  TikFinity เป็นเครื่องมือบุคคลที่สาม — TipKub รับเฉพาะตัวเลขเหรียญ <strong>ไม่เก็บข้อมูลส่วนบุคคล</strong> ของผู้ชม<br>
+  ยอดเงินเป็น<strong>ค่าโดยประมาณ</strong>เท่านั้น
+</div>
+
+<script src="bridge.js"></script>
+</body>
+</html>
