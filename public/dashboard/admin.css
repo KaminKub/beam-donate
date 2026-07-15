@@ -1838,6 +1838,22 @@ label {
 }
 #webhookGuideModal .modal-footer { flex: 0 0 auto; }
 
+/* Desktop only: enlarge webhook guide modal so screenshot + step text read clearly.
+   !important overrides the inline max-width:540px on .modal-content. Mobile untouched. */
+@media (min-width: 769px) {
+  #webhookGuideModal .modal-content {
+    max-width: 880px !important;
+    height: min(88vh, 820px) !important;
+  }
+  #webhookGuideModal .modal-body { padding: 20px 28px; }
+  #webhookGuideModal .webhook-step h4 { font-size: 1.15rem; }
+  #webhookGuideModal .webhook-step p,
+  #webhookGuideModal .webhook-warn,
+  #webhookGuideModal .webhook-eligibility-note { font-size: 15px; line-height: 1.6; }
+  /* Guide screenshot: fill column so 480×360 native scales up to modal width (4:3 kept by height:auto) */
+  #webhookGuideModal .webhook-step img { width: 100%; }
+}
+
 @keyframes modalFadeOut {
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.95); }
@@ -3791,6 +3807,13 @@ label {
 }
 
 .webhook-eligibility-note i { flex-shrink: 0; margin-top: 2px; }
+
+/* Tip variant — purple tint to distinguish from amber eligibility note */
+.webhook-eligibility-note.webhook-tip-note {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: #d8b4fe;
+}
 
 /* section dropdown — collapsed shows only h5 */
 .webhook-section-toggle {

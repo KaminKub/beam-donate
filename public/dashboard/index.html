@@ -743,6 +743,11 @@
                                 <span class="webhook-eligibility-text">เกณฑ์: ต้องยอดเข้าหรือเติมเงินเกิน 50 ครั้ง/เดือน (บัญชี Business)</span>
                               </div>
 
+                              <div class="webhook-eligibility-note webhook-tip-note">
+                                <i class="fa-solid fa-lightbulb" style="color:#a855f7;"></i>
+                                <span><strong>เร่งให้ถึงเกณฑ์เร็วขึ้น:</strong> ลองตั้งรับเงินผ่าน PromptPay ด้วย e-Wallet ID ของ TrueMoney (ตั้งใน SlipOK และ TipKub ให้ตรงกัน) — ทุกรายการเข้านับเพิ่มยอด ช่วยเพิ่มโอกาสเปิดใช้ Webhook ได้ง่ายขึ้น</span>
+                              </div>
+
                             <div class="webhook-status-row">
                               <span class="webhook-badge" id="webhookStatusBadge">ยังไม่เชื่อมต่อ</span>
                               <span class="webhook-quota-mini" id="webhookQuotaMini"></span>
@@ -1407,9 +1412,13 @@
                         <div class="form-group full-width">
                           <label for="inputGoalBarText"><i class="fa-solid fa-font" style="color:#a855f7;"></i> ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)"></span></label>
                           <input type="text" id="inputGoalBarText" class="form-control" maxlength="60" placeholder="{เปอร์เซนต์}">
-                          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-                            <i class="fa-solid fa-brackets-curly" style="color:#a78bfa"></i>
-                            ตัวแปร: <code>{เปอร์เซนต์}</code> &nbsp;<code>{ยอดปัจจุบัน}</code> &nbsp;<code>{ยอดเป้าหมาย}</code> &nbsp;<code>{ยอดคงเหลือ}</code> &nbsp;<code>{วันคงเหลือ}</code>
+                          <div class="template-vars-hint">
+                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                            <code class="template-var-tag">{เปอร์เซนต์}</code>
+                            <code class="template-var-tag">{ยอดปัจจุบัน}</code>
+                            <code class="template-var-tag">{ยอดเป้าหมาย}</code>
+                            <code class="template-var-tag">{ยอดคงเหลือ}</code>
+                            <code class="template-var-tag">{วันคงเหลือ}</code>
                           </div>
                         </div>
                       </div>
@@ -1612,8 +1621,12 @@
                         <div class="form-group full-width">
                           <label for="inputTimerRulesTemplate" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> Template ข้อความ</label>
                           <input type="text" id="inputTimerRulesTemplate" class="form-control" placeholder="โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}">
-                          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-                            ตัวแปร: <code>{จำนวนเงิน}</code> <code>{เวลา}</code> <code>{เครื่องหมาย}</code> <code>{ทิศทาง}</code>
+                          <div class="template-vars-hint">
+                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                            <code class="template-var-tag">{จำนวนเงิน}</code>
+                            <code class="template-var-tag">{เวลา}</code>
+                            <code class="template-var-tag">{เครื่องหมาย}</code>
+                            <code class="template-var-tag">{ทิศทาง}</code>
                           </div>
                         </div>
                       </div>

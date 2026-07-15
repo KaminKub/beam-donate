@@ -5357,6 +5357,14 @@ function renderTrueMoneyWebhookState(data) {
     quota.textContent = `เดือนนี้ ${tx}/100 ครั้งฟรี`;
   }
 
+  // hide eligibility + tip notes once connected — no longer relevant
+  const section = document.getElementById('truemoneyWebhookSection');
+  if (section) {
+    section.querySelectorAll('.webhook-eligibility-note').forEach(n => {
+      n.style.display = enabled ? 'none' : '';
+    });
+  }
+
   // connect button — hidden when enabled; "เชื่อมต่อใหม่" when secret exists but disabled
   if (connectBtn) {
     if (enabled) {

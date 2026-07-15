@@ -8,3 +8,4 @@ migrate-overlay-settings.js
 db_new_funcs.js
 patch_db_insert.js
 verify_db_counts.js
+diag-alert-sound.js
