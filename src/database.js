@@ -1673,15 +1673,29 @@ async function getAllR2Refs(r2PublicUrl) {
       alert_sound_url,
       profile_image_value,
       header_bg_url,
-      page_bg_url
+      page_bg_url,
+      timer_settings
     FROM streamers`
   );
   const refs = new Set();
+  const addRef = (val) => {
+    if (typeof val === 'string' && val.startsWith(r2PublicUrl)) {
+      refs.add(val.split('?')[0]);
+    }
+  };
   for (const row of result.rows) {
-    for (const val of Object.values(row)) {
-      if (typeof val === 'string' && val.startsWith(r2PublicUrl)) {
-        refs.add(val.split('?')[0]);
-      }
+    for (const [col, val] of Object.entries(row)) {
+      if (col === 'timer_settings') continue; // JSON blob, handled below
+      addRef(val);
+    }
+    // timer_settings is a JSON blob; R2 URLs hidden inside (e.g. sound_url)
+    // must be registered too, else cleanup-r2-orphans treats them as orphans and deletes them.
+    // NOTE: any future JSON-blob column that stores an R2 URL must be parsed here as well.
+    if (typeof row.timer_settings === 'string') {
+      try {
+        const t = JSON.parse(row.timer_settings);
+        addRef(t.sound_url);
+      } catch { /* malformed blob → skip */ }
     }
   }
   return refs;
