@@ -1590,7 +1590,7 @@
                   </div>
 
                   <!-- Card 2: Rules -->
-                  <div class="dashboard-card settings-card panel-open">
+                  <div class="dashboard-card settings-card">
                     <div class="settings-card-header" data-target="panelTimerRules">
                       <h4><i class="fa-solid fa-list-check" style="color:#10b981"></i> กฏการปรับเวลา</h4>
                       <i class="fa-solid fa-chevron-down card-chevron"></i>
@@ -1632,13 +1632,6 @@
                         <div class="form-group full-width">
                           <label for="inputTimerRulesTemplate" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> Template ข้อความ (บาท)</label>
                           <input type="text" id="inputTimerRulesTemplate" class="form-control" placeholder="โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}">
-                          <div class="template-vars-hint">
-                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
-                            <code class="template-var-tag">{จำนวนเงิน}</code>
-                            <code class="template-var-tag">{เวลา}</code>
-                            <code class="template-var-tag">{เครื่องหมาย}</code>
-                            <code class="template-var-tag">{ทิศทาง}</code>
-                          </div>
                         </div>
                       </div>
                       <div class="form-row" id="timerRulesTemplateCoinRow">
@@ -1663,8 +1656,8 @@
                         <div id="timerMultWarn" style="background:#7c2d12;border:2px solid #ef4444;border-radius:8px;padding:10px 14px;margin-top:8px;display:none;align-items:flex-start;gap:8px;opacity:0;transform:translateY(-6px);transition:opacity 0.3s ease,transform 0.3s ease;">
                           <i class="fa-solid fa-triangle-exclamation" style="color:#fbbf24;font-size:18px;margin-top:1px;flex-shrink:0;"></i>
                           <div>
-                            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:3px;">ไม่แนะนำ: ตั้งมากกว่า 1 กฏ ในรูปแบบ "คูณยอดโดเนท"</div>
-                            <div style="font-size:11px;color:#fcd34d;">หลายกฏจะ<strong>รวมผลกันทั้งหมด</strong> — โดเนท 100฿ ที่ตรงหลายกฏจะได้เวลาเพิ่มหลายเท่ากว่าที่คาดไว้</div>
+                            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:3px;">ไม่แนะนำ: ตั้งสกุลเงินเดียวกันมากกว่า 1 กฏ ในรูปแบบ "คูณยอดโดเนท"</div>
+                            <div style="font-size:11px;color:#fcd34d;">กฏสกุลเดียวกันจะ<strong>รวมผลคูณกันทั้งหมด</strong> — โดเนทที่ตรงหลายกฏจะได้เวลาเพิ่มหลายเท่ากว่าที่คาดไว้ (กฏคนละสกุลไม่ทับกัน)</div>
                           </div>
                         </div>
                       </div>

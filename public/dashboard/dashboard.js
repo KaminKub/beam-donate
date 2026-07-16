@@ -3871,7 +3871,7 @@ function renderTimerRules(mode) {
 
     const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
 
-    const amtInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;' });
+    const amtInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '10', style: 'width:70px;' });
     amtInput.value = rule.amount || '';
     amtInput.oninput = (e) => { timerRules[idx].amount = parseFloat(e.target.value) || 0; };
 
@@ -3898,8 +3898,8 @@ function renderTimerRules(mode) {
     const actionSel = buildRuleActionSelect(idx);
 
     const rawSecs = rule.time_seconds || 0;
-    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
-    timeInput.value = unit === 'minutes' ? Math.round(rawSecs / 60) : rawSecs;
+    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '60', style: 'width:70px;' });
+    timeInput.value = unit === 'minutes' ? +(rawSecs / 60).toFixed(2) : rawSecs;
     timeInput.oninput = (e) => {
       const factor = document.getElementById('timerTimeUnit')?.value === 'minutes' ? 60 : 1;
       timerRules[idx].time_seconds = (parseFloat(e.target.value) || 0) * factor;
@@ -3938,7 +3938,7 @@ function renderMultiplierRules() {
 
     const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
 
-    const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X หน่วย' });
+    const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X หน่วย' });
     baseInput.value = rule.base_amount || rule.amount || '';
     baseInput.oninput = (e) => { timerRules[idx].base_amount = parseFloat(e.target.value) || 0; };
 
@@ -3965,8 +3965,8 @@ function renderMultiplierRules() {
     const actionSel = buildRuleActionSelect(idx);
 
     const rawSecs = rule.time_seconds || 0;
-    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
-    timeInput.value = unit === 'minutes' ? Math.round(rawSecs / 60) : rawSecs;
+    const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '60', style: 'width:70px;' });
+    timeInput.value = unit === 'minutes' ? +(rawSecs / 60).toFixed(2) : rawSecs;
     timeInput.oninput = (e) => {
       const factor = document.getElementById('timerTimeUnit')?.value === 'minutes' ? 60 : 1;
       timerRules[idx].time_seconds = (parseFloat(e.target.value) || 0) * factor;
@@ -3986,13 +3986,17 @@ function renderMultiplierRules() {
   if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
   const warn = document.getElementById('timerMultWarn');
   if (warn) {
-    if (timerRules.length > 1) {
+    // เตือนเฉพาะเมื่อมี >=2 กฏใช้สกุลเงินเดียวกัน (ผลคูณจะรวมกันจริง) — คนละสกุลไม่ทับกัน
+    const curCounts = {};
+    timerRules.forEach(r => { const c = r.currency || 'thb'; curCounts[c] = (curCounts[c] || 0) + 1; });
+    const hasDupCurrency = Object.values(curCounts).some(n => n > 1);
+    if (hasDupCurrency) {
       warn.style.display = 'flex';
       requestAnimationFrame(() => { warn.style.opacity = '1'; warn.style.transform = 'translateY(0)'; });
     } else {
       warn.style.opacity = '0';
       warn.style.transform = 'translateY(-6px)';
-      setTimeout(() => { if (timerRules.length <= 1) warn.style.display = 'none'; }, 300);
+      setTimeout(() => { if (!hasDupCurrency) warn.style.display = 'none'; }, 300);
     }
   }
 }
