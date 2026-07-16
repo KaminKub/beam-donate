@@ -159,6 +159,71 @@ const socialLinksContainer = document.getElementById('socialLinks');
 
 function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
 
+// ⚠️ CANONICAL COLOR TABLE — duplicate byte-per-byte ใน dashboard/dashboard.js
+function getBadgeDefinitions() {
+  return {
+    dev:          { icon: 'fa-solid fa-code',   color: '#8b5cf6', label: 'TipKub Dev — ผู้พัฒนา TipKub',                    tier: 99 },
+    beta_tester:  { icon: 'fa-solid fa-flask',  color: '#22c55e', label: 'TestKub — Beta Tester ผู้ทดสอบระบบยุคแรกเริ่ม',      tier: 0 },
+    member_1m:    { icon: 'fa-solid fa-medal',  color: '#cd7f32', label: 'สมาชิก 1 เดือน',                                  tier: 1 },
+    member_3m:    { icon: 'fa-solid fa-medal',  color: '#c0c0c0', label: 'สมาชิก 3 เดือน',                                  tier: 2 },
+    member_6m:    { icon: 'fa-solid fa-medal',  color: '#ffd700', label: 'สมาชิก 6 เดือน',                                  tier: 3 },
+    member_1y:    { icon: 'fa-solid fa-trophy', color: '#ffd700', label: 'สมาชิก 1 ปี — ขอบคุณที่อยู่ด้วยกัน',               tier: 4 },
+    member_2y:    { icon: 'fa-solid fa-crown',  color: '#f59e0b', label: 'สมาชิก 2 ปี — ตำนานผู้ภักดี',                      tier: 5 }
+  };
+}
+
+function renderDonorBadges(displayKeys) {
+  const container = document.getElementById('donorBadges');
+  if (!container || !Array.isArray(displayKeys) || displayKeys.length === 0) return;
+  container.innerHTML = '';
+
+  const badgeDefs = getBadgeDefinitions();
+  const active = displayKeys
+    .filter(k => badgeDefs[k])
+    .sort((a, b) => badgeDefs[b].tier - badgeDefs[a].tier); // tier สูง→ต่ำ
+
+  for (const key of active) {
+    const def = badgeDefs[key];
+    const badge = document.createElement('span');
+    badge.className = 'donor-badge';
+    badge.innerHTML = `<i class="${def.icon}"></i>`;
+    badge.style.color = def.color;
+
+    // Touch-friendly tooltip for mobile
+    badge.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      showBadgeTooltip(badge, def.label);
+    });
+    // Hover tooltip for desktop
+    badge.addEventListener('mouseenter', function() { showBadgeTooltip(badge, def.label); });
+    badge.addEventListener('mouseleave', function() { hideBadgeTooltip(); });
+
+    container.appendChild(badge);
+  }
+}
+
+function showBadgeTooltip(anchor, text) {
+  hideBadgeTooltip();
+  const tip = document.createElement('div');
+  tip.className = 'badge-tooltip';
+  tip.textContent = text;
+  tip.id = 'badgeTooltip';
+  document.body.appendChild(tip);
+
+  const rect = anchor.getBoundingClientRect();
+  tip.style.left = rect.left + rect.width / 2 + 'px';
+  tip.style.top = rect.top - 8 + 'px';
+  tip.style.transform = 'translate(-50%, -100%)';
+
+  requestAnimationFrame(() => tip.classList.add('visible'));
+}
+
+function hideBadgeTooltip() {
+  const existing = document.getElementById('badgeTooltip');
+  if (existing) existing.remove();
+}
+
 async function loadPageContent() {
   const username = window.location.pathname.split('/')[1];
   if (!username) { TipKubLoading.hide(); return; }
@@ -222,6 +287,9 @@ async function loadPageContent() {
        if (favicon) {
          favicon.href = data.profileImage || '/avatar.jpg';
        }
+
+       // Render badges (หลัง if/else webm จบ — รันทั้ง webm และ static avatar path)
+       if (Array.isArray(data.badges) && data.badges.length > 0) renderDonorBadges(data.badges);
 
        // Apply custom background images (validate protocol before use)
        if (data.headerBgUrl) {

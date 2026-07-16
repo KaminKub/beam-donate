@@ -1805,6 +1805,7 @@ function switchTab(tabId) {
       tabLoaded['page-customization'] = true;
       loadPageSettings();
     }
+    if (!DEMO_MODE) ensureBadgesLoaded(); // badge selector ในหน้านี้ต้องมีข้อมูล แม้เปิด account tab ยังไม่เคยโหลด
   }
   if (tabId === 'account') {
     if (!DEMO_MODE && !tabLoaded['account']) {
@@ -1928,6 +1929,132 @@ btnConfirmOk.onclick = async () => {
 
 // ========== Account Management Logic ==========
 
+// ponytail: single source of truth for badge metadata
+// ⚠️ CANONICAL COLOR TABLE — duplicate byte-per-byte ใน donate-template/app.js
+function getBadgeDefinitions() {
+  return {
+    dev:          { icon: 'fa-solid fa-code',   color: '#8b5cf6', label: 'TipKub Dev — ผู้พัฒนา TipKub',                    tier: 99 },
+    beta_tester:  { icon: 'fa-solid fa-flask',  color: '#22c55e', label: 'TestKub — Beta Tester ผู้ทดสอบระบบยุคแรกเริ่ม',      tier: 0 },
+    member_1m:    { icon: 'fa-solid fa-medal',  color: '#cd7f32', label: 'สมาชิก 1 เดือน',                                  tier: 1 },
+    member_3m:    { icon: 'fa-solid fa-medal',  color: '#c0c0c0', label: 'สมาชิก 3 เดือน',                                  tier: 2 },
+    member_6m:    { icon: 'fa-solid fa-medal',  color: '#ffd700', label: 'สมาชิก 6 เดือน',                                  tier: 3 },
+    member_1y:    { icon: 'fa-solid fa-trophy', color: '#ffd700', label: 'สมาชิก 1 ปี — ขอบคุณที่อยู่ด้วยกัน',               tier: 4 },
+    member_2y:    { icon: 'fa-solid fa-crown',  color: '#f59e0b', label: 'สมาชิก 2 ปี — ตำนานผู้ภักดี',                      tier: 5 }
+  };
+}
+
+let currentBadgeDisplay = []; // state ปัจจุบัน (subset ที่โชว์)
+const MEMBERSHIP_KEYS_UI = ['member_1m','member_3m','member_6m','member_1y','member_2y'];
+
+function showBadgeTooltip(anchor, text) {
+  hideBadgeTooltip();
+  const tip = document.createElement('div');
+  tip.className = 'badge-tooltip';
+  tip.textContent = text;
+  tip.id = 'badgeTooltip';
+  document.body.appendChild(tip);
+  const rect = anchor.getBoundingClientRect();
+  tip.style.left = rect.left + rect.width / 2 + 'px';
+  tip.style.top = rect.top - 8 + 'px';
+  tip.style.transform = 'translate(-50%, -100%)';
+  requestAnimationFrame(() => tip.classList.add('visible'));
+}
+
+function hideBadgeTooltip() {
+  const existing = document.getElementById('badgeTooltip');
+  if (existing) existing.remove();
+}
+
+let earnedBadgesCache = {}; // เก็บ earned ไว้ re-render container ที่โผล่ทีหลัง (customization tab)
+let badgesLoaded = false;
+
+// รับประกันว่า badge selector มีข้อมูล — ใช้ cache ถ้าโหลดแล้ว, ไม่งั้น fetch /api/user/me
+async function ensureBadgesLoaded() {
+  if (badgesLoaded) { renderMembershipBadges(earnedBadgesCache, currentBadgeDisplay); return; }
+  try {
+    const r = await fetch('/api/user/me');
+    if (!r.ok) return;
+    const d = await r.json();
+    badgesLoaded = true;
+    renderMembershipBadges(d.badges || {}, d.badgeDisplay || []);
+  } catch (e) { /* silent — badge selector เป็น optional UI */ }
+}
+
+// render badge selector เข้าทุก container ที่มี class .membership-badges (tab-account + page-customization)
+function renderMembershipBadges(earned, badgeDisplay) {
+  earnedBadgesCache = earned || {};
+  if (Array.isArray(badgeDisplay)) currentBadgeDisplay = [...badgeDisplay];
+
+  const badgeDefs = getBadgeDefinitions();
+  document.querySelectorAll('.membership-badges').forEach(container => {
+    container.innerHTML = '';
+    for (const [key, def] of Object.entries(badgeDefs)) {
+      if (!earnedBadgesCache[key]) continue; // แสดงเฉพาะ badge ที่ได้จริง
+      const badge = document.createElement('button');
+      badge.type = 'button';
+      badge.className = 'membership-badge' + (currentBadgeDisplay.includes(key) ? ' selected' : '');
+      badge.dataset.key = key;
+      badge.innerHTML = `<i class="${def.icon}" style="color:${def.color};"></i>`;
+      badge.addEventListener('click', () => toggleBadgeDisplay(key));
+      badge.addEventListener('mouseenter', () => showBadgeTooltip(badge, def.label));
+      badge.addEventListener('mouseleave', () => hideBadgeTooltip());
+      container.appendChild(badge);
+    }
+    // แสดง/ซ่อนข้อความ "ยังไม่มี badge" ที่เป็น sibling ถัดไป (customization tab)
+    const emptyHint = container.nextElementSibling;
+    if (emptyHint && emptyHint.classList.contains('badge-selector-empty')) {
+      emptyHint.style.display = container.children.length ? 'none' : 'block';
+    }
+  });
+}
+
+function toggleBadgeDisplay(key) {
+  const isMember = MEMBERSHIP_KEYS_UI.includes(key);
+  const on = currentBadgeDisplay.includes(key);
+
+  if (on) {
+    currentBadgeDisplay = currentBadgeDisplay.filter(k => k !== key); // แตะซ้ำ = ยกเลิก
+  } else if (isMember) {
+    // membership = radio: เอา member เดิมออกก่อน แล้วใส่ใหม่
+    currentBadgeDisplay = currentBadgeDisplay.filter(k => !MEMBERSHIP_KEYS_UI.includes(k));
+    currentBadgeDisplay.push(key);
+  } else {
+    currentBadgeDisplay.push(key); // dev/beta = checkbox independent
+  }
+
+  document.querySelectorAll('.membership-badge').forEach(el => {
+    el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
+  });
+  saveBadgeDisplay();
+}
+
+let badgeSaveSeq = 0;
+let badgeSaveTimer = null;
+function saveBadgeDisplay() {
+  clearTimeout(badgeSaveTimer);
+  badgeSaveTimer = setTimeout(async () => {
+    const seq = ++badgeSaveSeq;
+    try {
+      const res = await fetchWithCsrf('/api/badges/display', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display: currentBadgeDisplay })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'save failed');
+      if (seq !== badgeSaveSeq) return; // stale response — newer request in flight
+      currentBadgeDisplay = data.badgeDisplay; // sync กับ server (เผื่อ clamp)
+      document.querySelectorAll('.membership-badge').forEach(el => {
+        el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
+      });
+      showNotification('บันทึกการแสดง badge แล้ว ✅', 'success');
+    } catch (e) {
+      if (seq !== badgeSaveSeq) return; // stale error — ignore
+      showNotification('บันทึก badge ไม่สำเร็จ กรุณาลองใหม่', 'error');
+    }
+  }, 400); // debounce กันแตะรัวๆ
+}
+
 async function loadAccountInfo() {
   showTabLoading('account');
   try {
@@ -1940,6 +2067,33 @@ async function loadAccountInfo() {
       updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch', data.authProvider);
       // Handle Streamlabs Connection
       updateConnectionBtn('btnConnectStreamlabs', data.streamlabsId, '/auth/streamlabs', 'statusStreamlabs', data.authProvider);
+
+      // Render membership card
+      const memberSince = data.memberSince;
+      const earnedBadges = data.badges || {};
+
+      if (memberSince) {
+        const joined = new Date(memberSince);
+        document.getElementById('memberJoinDate').textContent = joined.toLocaleDateString('th-TH', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const now = new Date();
+        const totalDays = Math.floor((now - joined) / (1000 * 60 * 60 * 24));
+        const years = Math.floor(totalDays / 365);
+        const months = Math.floor((totalDays % 365) / 30);
+        const days = totalDays % 30;
+        let durationText = '';
+        if (years > 0) durationText += `${years} ปี `;
+        if (months > 0) durationText += `${months} เดือน `;
+        durationText += `${days} วัน`;
+        document.getElementById('memberDuration').textContent = durationText;
+      } else {
+        document.getElementById('memberJoinDate').textContent = 'ผู้ใช้ยุคบุกเบิก 🏛️';
+        document.getElementById('memberDuration').textContent = 'ก่อนระบบบันทึกเวลา';
+      }
+
+      badgesLoaded = true;
+      renderMembershipBadges(earnedBadges, data.badgeDisplay || []);
 
     } else {
       throw new Error('Failed to load account info');

@@ -233,7 +233,9 @@ async function migrateDB() {
         truemoney_webhook_kyc_confirmed INTEGER DEFAULT 0,
         truemoney_webhook_expiry TEXT,
         truemoney_webhook_methods TEXT DEFAULT 'P2P',
-        truemoney_promptpay_id_encrypted TEXT
+        truemoney_promptpay_id_encrypted TEXT,
+        badges TEXT DEFAULT '{}',
+        badge_display TEXT DEFAULT NULL
       )
     `);
 
@@ -423,7 +425,9 @@ async function migrateDB() {
       { name: 'alert_font_sizes', type: 'TEXT' },
       { name: 'alert_outline', type: 'TEXT' },
       { name: 'template_line1', type: 'TEXT' },
-      { name: 'template_line2', type: 'TEXT' }
+      { name: 'template_line2', type: 'TEXT' },
+      { name: 'badges', type: "TEXT DEFAULT '{}'" },
+      { name: 'badge_display', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -1099,7 +1103,9 @@ async function saveStreamer(data) {
                truemoney_webhook_kyc_confirmed = COALESCE(?, streamers.truemoney_webhook_kyc_confirmed),
                truemoney_webhook_expiry = COALESCE(?, streamers.truemoney_webhook_expiry),
                truemoney_webhook_methods = COALESCE(?, streamers.truemoney_webhook_methods),
-               truemoney_promptpay_id_encrypted = COALESCE(?, streamers.truemoney_promptpay_id_encrypted)
+               truemoney_promptpay_id_encrypted = COALESCE(?, streamers.truemoney_promptpay_id_encrypted),
+               badges = COALESCE(?, streamers.badges),
+               badge_display = COALESCE(?, streamers.badge_display)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1215,6 +1221,8 @@ async function saveStreamer(data) {
           finalData.truemoney_webhook_expiry !== undefined ? finalData.truemoney_webhook_expiry : null,
           finalData.truemoney_webhook_methods !== undefined ? finalData.truemoney_webhook_methods : null,
           finalData.truemoney_promptpay_id_encrypted !== undefined ? finalData.truemoney_promptpay_id_encrypted : null,
+          finalData.badges !== undefined ? finalData.badges : null,
+          finalData.badge_display !== undefined ? finalData.badge_display : null,
           existing.id
         ]
       });
@@ -1234,8 +1242,8 @@ async function saveStreamer(data) {
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1350,7 +1358,9 @@ async function saveStreamer(data) {
         finalData.truemoney_webhook_kyc_confirmed !== undefined ? (finalData.truemoney_webhook_kyc_confirmed ? 1 : 0) : 0,
         finalData.truemoney_webhook_expiry || null,
         finalData.truemoney_webhook_methods || 'P2P',
-        finalData.truemoney_promptpay_id_encrypted || null
+        finalData.truemoney_promptpay_id_encrypted || null,
+        finalData.badges || '{}',
+        finalData.badge_display !== undefined ? finalData.badge_display : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1421,6 +1431,67 @@ async function resolveProfileImage(streamer) {
   }
 
   return '/avatar.jpg';
+}
+
+// ========== Badges ==========
+
+function parseBadges(badgesStr) {
+  try { return JSON.parse(badgesStr || '{}'); } catch (e) { return {}; }
+}
+
+/**
+ * Compute membership badges based on join date (tos_accepted_at).
+ * Returns updated badges JSON string. Does NOT save — caller persists.
+ */
+function computeMemberBadges(streamer) {
+  const badges = parseBadges(streamer.badges);
+  const joinedAt = streamer.tos_accepted_at;
+  if (!joinedAt) return JSON.stringify(badges); // no join date → skip auto
+
+  const now = new Date();
+  const joined = new Date(joinedAt);
+  if (isNaN(joined.getTime())) return JSON.stringify(badges); // guard: date string เพี้ยน
+  let monthsDiff = (now.getFullYear() - joined.getFullYear()) * 12
+                 + (now.getMonth() - joined.getMonth());
+  if (now.getDate() < joined.getDate()) monthsDiff--; // ยังไม่ถึงวันครบรอบเดือน — กันได้ badge ก่อนเวลา
+
+  // ponytail: simple threshold chain, no cron needed for this
+  if (monthsDiff >= 24) badges.member_2y = true;
+  if (monthsDiff >= 12) badges.member_1y = true;
+  if (monthsDiff >= 6)  badges.member_6m = true;
+  if (monthsDiff >= 3)  badges.member_3m = true;
+  if (monthsDiff >= 1)  badges.member_1m = true;
+
+  return JSON.stringify(badges);
+}
+
+const MEMBERSHIP_KEYS = ['member_2y', 'member_1y', 'member_6m', 'member_3m', 'member_1m']; // สูง→ต่ำ
+
+/**
+ * คืน array ของ badge key ที่ควรโชว์บนหน้าโดเนท
+ * - guard: คืนเฉพาะ badge ที่ "ได้จริง" (intersect กับ earned) เสมอ
+ * - NULL prefs → default = [] (opt-in: ไม่โชว์จนกว่า user เลือกเอง)
+ */
+function resolveBadgeDisplay(streamer) {
+  const earned = parseBadges(streamer.badges);
+  let selected;
+
+  if (streamer.badge_display == null) {
+    // default = ไม่โชว์ badge จนกว่า user จะเลือกเองในหน้า dashboard (opt-in)
+    selected = [];
+  } else {
+    try { selected = JSON.parse(streamer.badge_display); } catch (e) { selected = []; }
+    if (!Array.isArray(selected)) selected = [];
+  }
+
+  // guard: เฉพาะ earned + clamp membership เหลือ tier สูงสุด 1 อัน
+  selected = selected.filter(k => earned[k]);
+  const members = selected.filter(k => MEMBERSHIP_KEYS.includes(k));
+  if (members.length > 1) {
+    const keep = MEMBERSHIP_KEYS.find(k => members.includes(k)); // สูงสุด
+    selected = selected.filter(k => !MEMBERSHIP_KEYS.includes(k) || k === keep);
+  }
+  return selected;
 }
 
 async function deleteStreamer(id) {
@@ -1892,7 +1963,7 @@ async function getAdminUsers({ page = 1, q = '', filter = 'all' } = {}) {
       `SELECT username, is_active, primary_auth_provider,
               (twitch_id IS NOT NULL AND twitch_id != '') AS has_twitch,
               (streamlabs_id IS NOT NULL AND streamlabs_id != '') AS has_streamlabs,
-              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected
+              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected, badges
        FROM streamers ${whereClause} ORDER BY username ASC LIMIT ? OFFSET ?`,
       [...args, PAGE_SIZE, offset]
     ),
@@ -2082,6 +2153,9 @@ module.exports = {
   resetGoalCurrent,
   deleteStreamer,
   resolveProfileImage,
+  parseBadges,
+  computeMemberBadges,
+  resolveBadgeDisplay,
   getAllR2Refs,
   logIpEvent,
   cleanupOldIpEvents,

@@ -4120,3 +4120,97 @@ label {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.8rem; color: #64748b; white-space: nowrap;
 }
+
+/* ========== Membership Card — 3 กล่องสถิติแนวนอน ========== */
+.membership-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.membership-stat-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  min-height: 92px;
+}
+
+.membership-label { font-size: 13px; color: #94a3b8; }
+.membership-value { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+
+.membership-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* badge = ปุ่ม toggle เลือกได้ — unselected จางลง, selected สีเต็ม + ring */
+.membership-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.4;
+  filter: grayscale(0.6);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.membership-badge.selected {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(102, 126, 234, 0.6);
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.25);
+}
+
+.membership-badge:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(102, 126, 234, 0.3);
+}
+
+@media (max-width: 768px) {
+  .membership-card { grid-template-columns: 1fr; }
+  .membership-badge { width: 32px; height: 32px; font-size: 14px; }
+}
+
+/* Badge tooltip (hover) — อธิบายความหมาย badge */
+.badge-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(15, 15, 25, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.badge-tooltip.visible { opacity: 1; }
+
+/* Badge selector ในหน้า page-customization — ชิดซ้ายตามฟอร์ม */
+.badge-selector-inline {
+  justify-content: flex-start;
+  margin-top: 8px;
+  min-height: 34px;
+}

@@ -1694,3 +1694,68 @@ input[type=number] {
   .timer-choice-options { flex-direction: column; }
   .timer-choice-btn { min-width: 100%; }
 }
+
+/* ========== Donor Badges ========== */
+.donor-badges {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.donor-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.25s ease,
+              background 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+
+.donor-badge:hover,
+.donor-badge:active {
+  transform: scale(1.2);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 16px rgba(102, 126, 234, 0.4);
+}
+
+/* Tooltip */
+.badge-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(15, 15, 25, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.badge-tooltip.visible { opacity: 1; }
+
+/* Mobile: slightly smaller badges */
+@media (max-width: 768px) {
+  .donor-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}

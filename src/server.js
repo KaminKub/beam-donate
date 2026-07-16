@@ -1902,6 +1902,10 @@ app.get('/api/admin/users', adminMonitorLimiter, ensureAdmin, async (req, res) =
     const q = (req.query.q || '').trim().toLowerCase();
     const filter = req.query.filter || 'all';
     const users = await db.getAdminUsers({ page, q, filter });
+    users.users = users.users.map(u => ({
+      ...u,
+      hasBetaBadge: !!db.parseBadges(u.badges).beta_tester
+    }));
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'Users query failed' });
@@ -1916,6 +1920,36 @@ app.get('/api/admin/ip-events', adminMonitorLimiter, ensureAdmin, async (req, re
     res.json(events);
   } catch (err) {
     res.status(500).json({ error: 'IP events query failed' });
+  }
+});
+
+// POST /api/admin/badges — manual badge assign/revoke (admin only)
+app.post('/api/admin/badges', adminMonitorLimiter, ensureAdmin, csrfProtection, async (req, res) => {
+  try {
+    const { username, badge, action } = req.body; // action: 'assign' | 'revoke'
+    const ALLOWED_MANUAL_BADGES = ['beta_tester'];
+    if (!username || !badge || !ALLOWED_MANUAL_BADGES.includes(badge)) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'User not found' });
+
+    const badges = db.parseBadges(streamer.badges);
+    if (action === 'assign') {
+      badges[badge] = true;
+    } else if (action === 'revoke') {
+      delete badges[badge];
+    } else {
+      return res.status(400).json({ error: 'Invalid action. Use "assign" or "revoke".' });
+    }
+
+    await db.saveStreamer({ ...streamer, badges: JSON.stringify(badges) });
+    console.log(`🛡️ Admin: ${action}ed badge '${badge}' for ${username}`);
+    res.json({ success: true, badges });
+  } catch (err) {
+    console.error('Admin badge assign error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -2427,6 +2461,22 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
 
     const profileImage = await db.resolveProfileImage(streamer);
 
+    // Auto-assign membership badges + dev badge (identity check เดียวกับ ensureAdmin)
+    let updatedBadges = db.computeMemberBadges(streamer);
+    const isAdmin = ADMIN_TWITCH_ID && String(req.user.twitch_id) === ADMIN_TWITCH_ID;
+    {
+      const b = db.parseBadges(updatedBadges);
+      if (isAdmin && !b.dev) { b.dev = true; updatedBadges = JSON.stringify(b); }
+      if (!isAdmin && b.dev) { delete b.dev; updatedBadges = JSON.stringify(b); } // revoke stale dev
+    }
+    if (updatedBadges !== (streamer.badges || '{}')) {
+      await db.saveStreamer({ ...streamer, badges: updatedBadges });
+      streamer.badges = updatedBadges;
+    }
+
+    const badges = db.parseBadges(streamer.badges);
+    const memberSince = streamer.tos_accepted_at || null;
+
     res.json({
       username: streamer.username,
       twitchId: streamer.twitch_id,
@@ -2436,7 +2486,10 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       slipok_connected: !!streamer.slipok_connected,
       truemoney_slipok_connected: !!streamer.truemoney_slipok_connected,
       profileImage,
-      profileGlowColor: streamer.profile_glow_color || '#005704'
+      profileGlowColor: streamer.profile_glow_color || '#005704',
+      badges,
+      memberSince,
+      badgeDisplay: db.resolveBadgeDisplay(streamer)
     });
   } catch (err) {
     console.error('Get user info error:', err);
@@ -2744,6 +2797,30 @@ app.post('/api/goal/adjust', ensureAuthenticated, csrfProtection, async (req, re
   }
 });
 
+// POST /api/badges/display — user เลือก badge ที่จะโชว์บนหน้าโดเนท
+app.post('/api/badges/display', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    let { display } = req.body; // array of badge keys
+    if (!Array.isArray(display)) return res.status(400).json({ error: 'รูปแบบข้อมูลไม่ถูกต้อง' });
+
+    const earned = db.parseBadges(streamer.badges);
+    const ALL_KEYS = ['dev', 'beta_tester', 'member_1m', 'member_3m', 'member_6m', 'member_1y', 'member_2y'];
+    // sanitize: เฉพาะ key ที่รู้จัก + ได้จริง
+    display = [...new Set(display)].filter(k => ALL_KEYS.includes(k) && earned[k]);
+
+    await db.saveStreamer({ ...streamer, badge_display: JSON.stringify(display) });
+    // resolve กลับ (clamp membership เหลือ 1) เพื่อคืน state จริงหลัง save
+    const resolved = db.resolveBadgeDisplay({ ...streamer, badge_display: JSON.stringify(display) });
+    res.json({ success: true, badgeDisplay: resolved });
+  } catch (err) {
+    console.error('Badge display save error:', err);
+    res.status(500).json({ error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' });
+  }
+});
+
 app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const streamer = await getStreamerForUser(req.user);
@@ -3005,7 +3082,8 @@ app.get('/api/page/:username/settings', async (req, res) => {
         x: streamer.social_x,
         discord: streamer.social_discord,
         instagram: streamer.social_instagram,
-      }
+      },
+      badges: db.resolveBadgeDisplay(streamer)  // array key ที่ user เลือกโชว์เท่านั้น (ปิดหมด → [])
     });
   } catch (err) {
     console.error('Get page settings error:', err);
@@ -3560,7 +3638,7 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       bank_enabled: decrypted.bank_enabled || 0,
       bank_name: decrypted.bank_name || '',
       bank_account_number: censor(decrypted.bank_account_number || '', 3, 2),
-      bank_account_name: decrypted.bank_account_name || ''
+      bank_account_name: censor(decrypted.bank_account_name || '', 1, 1)
     });
   } catch (err) {
     console.error('Get payment settings error:', err);

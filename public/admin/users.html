@@ -67,6 +67,13 @@
     .badge-inactive { background: rgba(239,68,68,0.15); color: #ef4444; }
     .badge-provider { background: rgba(102,126,234,0.15); color: #818cf8; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
     .badge-payment { background: rgba(245,158,11,0.15); color: #f59e0b; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .badge-toggle-btn {
+      padding: 4px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+      color: #64748b; transition: all 0.2s ease;
+    }
+    .badge-toggle-btn.active { color: #22c55e; border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.1); }
+    .badge-toggle-btn:disabled { opacity: 0.5; cursor: wait; }
     .link-cell { display: flex; gap: 0.5rem; }
     .tbl-link { color: #3b82f6; text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.25rem; }
     .tbl-link:hover { color: #60a5fa; text-decoration: underline; }
@@ -116,9 +123,9 @@
   </div>
   <div class="table-wrap">
     <table class="user-table">
-      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>LINKS</th></tr></thead>
+      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>TestKub</th><th>LINKS</th></tr></thead>
       <tbody id="tbody">
-        <tr><td colspan="5" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+        <tr><td colspan="6" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
       </tbody>
     </table>
   </div>
@@ -167,7 +174,7 @@ function renderTable(data) {
   document.getElementById('totalCount').textContent = data.total;
   const tbody = document.getElementById('tbody');
   if (!data.users.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
   } else {
     tbody.innerHTML = data.users.map(u => `
       <tr>
@@ -178,6 +185,7 @@ function renderTable(data) {
         </span></td>
         <td>${providerLogos(u)}</td>
         <td><span class="badge-payment">${escapeHtml(paymentLabel(u))}</span></td>
+        <td><button class="badge-toggle-btn ${u.hasBetaBadge ? 'active' : ''}" data-username="${escapeHtml(u.username)}" data-active="${u.hasBetaBadge ? '1' : '0'}"><i class="fa-solid fa-flask"></i> TestKub</button></td>
         <td class="link-cell">
           <a href="/${escapeHtml(u.username)}" target="_blank" class="tbl-link"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
         </td>
@@ -186,6 +194,40 @@ function renderTable(data) {
   }
   renderPagination(data.total, data.page, data.pageSize);
 }
+
+let _csrf = null;
+async function csrfToken() {
+  if (_csrf) return _csrf;
+  const r = await fetch('/api/csrf-token', { credentials: 'include' });
+  if (r.ok) _csrf = (await r.json()).csrfToken;
+  return _csrf;
+}
+
+document.getElementById('tbody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.badge-toggle-btn');
+  if (!btn) return;
+  const username = btn.dataset.username;
+  const isActive = btn.dataset.active === '1';
+  if (!confirm(`${isActive ? 'ถอด' : 'มอบ'} TestKub badge ให้ ${username}?`)) return;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/badges', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': await csrfToken() },
+      body: JSON.stringify({ username, badge: 'beta_tester', action: isActive ? 'revoke' : 'assign' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'failed');
+    btn.dataset.active = isActive ? '0' : '1';
+    btn.classList.toggle('active', !isActive);
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function renderPagination(total, page, pageSize) {
   const totalPages = Math.ceil(total / pageSize);
@@ -216,7 +258,7 @@ async function fetchUsers() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     renderTable(await res.json());
   } catch (err) {
-    document.getElementById('tbody').innerHTML = '<tr><td colspan="5" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="6" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
     console.error('[Users] fetch error:', err);
   } finally {
     setLoadingState(false);
