@@ -1695,39 +1695,67 @@ input[type=number] {
   .timer-choice-btn { min-width: 100%; }
 }
 
-/* ========== Donor Badges ========== */
-.donor-badges {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  margin-bottom: 4px;
+/* ========== Avatar Badge Overlay (Orbit Ring) ========== */
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin: 0 auto 25px;
+  --orbit-r: 95px;
 }
+.avatar-wrap .glowing-avatar { margin: 0; }
 
-.donor-badge {
-  width: 32px;
-  height: 32px;
+.orbit-badge,
+.avatar-tier-crown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.25s ease,
-              background 0.25s ease;
+  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-  position: relative;
 }
 
-.donor-badge:hover,
-.donor-badge:active {
-  transform: scale(1.2);
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 16px rgba(102, 126, 234, 0.4);
+.orbit-badge {
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  background: rgba(18, 18, 32, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 14px;
+  z-index: 2;
+  transform: rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))) rotate(calc(-1 * var(--a)));
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.orbit-badge:hover,
+.orbit-badge:active {
+  transform: rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))) rotate(calc(-1 * var(--a))) scale(1.2);
+  z-index: 4;
+}
+
+.avatar-tier-crown {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  background: linear-gradient(135deg, var(--tier-color, #f59e0b), rgba(0, 0, 0, 0.55));
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  color: #ffffff;
+  font-size: 18px;
+  z-index: 3;
+  transform: rotate(180deg) translateY(calc(-1 * var(--orbit-r))) rotate(-180deg);
+  box-shadow: 0 0 14px var(--tier-color, rgba(245, 158, 11, 0.6));
+  animation: tierCrownPulse 2.4s infinite ease-in-out;
+}
+@keyframes tierCrownPulse {
+  0%, 100% { box-shadow: 0 0 14px var(--tier-color, rgba(245, 158, 11, 0.6)); }
+  50%      { box-shadow: 0 0 22px var(--tier-color, rgba(245, 158, 11, 0.9)); }
+}
+
+@media (max-width: 768px) {
+  .orbit-badge { width: 28px; height: 28px; margin: -14px 0 0 -14px; font-size: 12px; }
+  .avatar-tier-crown { width: 40px; height: 40px; margin: -20px 0 0 -20px; font-size: 16px; }
 }
 
 /* Tooltip */
@@ -1750,12 +1778,3 @@ input[type=number] {
 }
 
 .badge-tooltip.visible { opacity: 1; }
-
-/* Mobile: slightly smaller badges */
-@media (max-width: 768px) {
-  .donor-badge {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-  }
-}

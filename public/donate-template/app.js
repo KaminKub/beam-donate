@@ -172,35 +172,52 @@ function getBadgeDefinitions() {
   };
 }
 
-function renderDonorBadges(displayKeys) {
-  const container = document.getElementById('donorBadges');
-  if (!container || !Array.isArray(displayKeys) || displayKeys.length === 0) return;
-  container.innerHTML = '';
+function attachBadgeTooltip(el, label) {
+  el.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); showBadgeTooltip(el, label); });
+  el.addEventListener('mouseenter', function() { showBadgeTooltip(el, label); });
+  el.addEventListener('mouseleave', function() { hideBadgeTooltip(); });
+}
 
-  const badgeDefs = getBadgeDefinitions();
+function renderAvatarBadges(displayKeys, applyTierGlow) {
+  const orbit = document.getElementById('avatarOrbit');
+  const crown = document.getElementById('avatarTierCrown');
+  if (!orbit || !crown) return;
+  orbit.innerHTML = '';
+  crown.innerHTML = '';
+  crown.style.display = 'none';
+  if (!Array.isArray(displayKeys) || displayKeys.length === 0) return;
+
+  const defs = getBadgeDefinitions();
   const active = displayKeys
-    .filter(k => badgeDefs[k])
-    .sort((a, b) => badgeDefs[b].tier - badgeDefs[a].tier); // tier สูง→ต่ำ
+    .filter(k => defs[k])
+    .sort((a, b) => defs[b].tier - defs[a].tier)
+    .slice(0, 5); // cap 5
+  if (active.length === 0) return;
 
-  for (const key of active) {
-    const def = badgeDefs[key];
-    const badge = document.createElement('span');
-    badge.className = 'donor-badge';
-    badge.innerHTML = `<i class="${def.icon}"></i>`;
-    badge.style.color = def.color;
-
-    // Touch-friendly tooltip for mobile
-    badge.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      showBadgeTooltip(badge, def.label);
-    });
-    // Hover tooltip for desktop
-    badge.addEventListener('mouseenter', function() { showBadgeTooltip(badge, def.label); });
-    badge.addEventListener('mouseleave', function() { hideBadgeTooltip(); });
-
-    container.appendChild(badge);
+  // tier สูงสุด → crown + (optional) glow override
+  const topDef = defs[active[0]];
+  crown.innerHTML = `<i class="${topDef.icon}"></i>`;
+  crown.style.setProperty('--tier-color', topDef.color);
+  crown.style.display = '';
+  attachBadgeTooltip(crown, topDef.label);
+  if (applyTierGlow) {
+    document.documentElement.style.setProperty('--avatar-glow-color', topDef.color);
   }
+
+  // ที่เหลือ (สูงสุด 4) → necklace โค้งล่าง สลับข้างจากจี้ (tier สูงใกล้จี้)
+  const NECKLACE_OFFSETS = [-28, 28, -56, 56];
+  const rest = active.slice(1);
+  rest.forEach(function(key, i) {
+    const def = defs[key];
+    const angle = 180 + NECKLACE_OFFSETS[i];
+    const b = document.createElement('span');
+    b.className = 'orbit-badge';
+    b.innerHTML = `<i class="${def.icon}"></i>`;
+    b.style.color = def.color;
+    b.style.setProperty('--a', angle + 'deg');
+    attachBadgeTooltip(b, def.label);
+    orbit.appendChild(b);
+  });
 }
 
 function showBadgeTooltip(anchor, text) {
@@ -288,8 +305,8 @@ async function loadPageContent() {
          favicon.href = data.profileImage || '/avatar.jpg';
        }
 
-       // Render badges (หลัง if/else webm จบ — รันทั้ง webm และ static avatar path)
-       if (Array.isArray(data.badges) && data.badges.length > 0) renderDonorBadges(data.badges);
+       // Render badges (หลัง if/else webm จบ — glow override เฉพาะเมื่อ streamer ไม่ได้ตั้งสีเอง)
+       if (Array.isArray(data.badges) && data.badges.length > 0) renderAvatarBadges(data.badges, !data.profileGlowColor);
 
        // Apply custom background images (validate protocol before use)
        if (data.headerBgUrl) {
@@ -307,7 +324,7 @@ async function loadPageContent() {
              if (isWebm(data.headerBgUrl)) {
                styleEl.textContent = `
                  .header { position: relative; margin: -35px -30px 0 -30px; padding: 35px 30px 25px; overflow: hidden; }
-                 #step-amount .header .glowing-avatar { margin-top: 80px; }
+                 #step-amount .header .avatar-wrap { margin-top: 80px; }
                  #step-payment-method .header, #step-qr .header, #step-truemoney .header, #step-bank .header { padding-top: 180px; }
                  .header > * { position: relative; z-index: 1; }
                  #header-bg-video { position: absolute; top: 0; left: 0; right: 0; height: 170px; width: 100%; object-fit: cover; object-position: center ${y}%; z-index: 0; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); }
@@ -330,7 +347,7 @@ async function loadPageContent() {
                    margin: -35px -30px 0 -30px;
                    padding: 35px 30px 25px;
                  }
-                 #step-amount .header .glowing-avatar {
+                 #step-amount .header .avatar-wrap {
                    margin-top: 80px;
                  }
                  #step-payment-method .header,

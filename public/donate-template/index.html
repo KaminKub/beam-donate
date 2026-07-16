@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260717_1">
+  <link rel="stylesheet" href="/assets/style.css?v=20260717_2">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -126,8 +126,11 @@
     <div id="step-amount" class="step active">
       <div class="card glass-card">
         <div class="header">
-          <img src="avatar.jpg" id="profileImage" class="glowing-avatar" alt="Profile" width="190" height="190">
-          <div class="donor-badges" id="donorBadges"><!-- rendered by JS --></div>
+          <div class="avatar-wrap">
+            <img src="avatar.jpg" id="profileImage" class="glowing-avatar" alt="Profile" width="190" height="190">
+            <div class="avatar-orbit" id="avatarOrbit"><!-- rendered by JS --></div>
+            <div class="avatar-tier-crown" id="avatarTierCrown" style="display:none"></div>
+          </div>
           <h1 id="pageTitle">กำลังโหลด...</h1>
           <div id="socialLinks" class="social-links-grid">
             <a href="https://twitch.tv/kaminkub" target="_blank" class="social-btn twitch">
@@ -663,6 +666,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260717_3"></script>
+  <script src="/donate-template/app.js?v=20260717_4"></script>
 </body>
 </html>
