@@ -384,7 +384,7 @@ function choiceSign(donorAction) {
 }
 
 // broadcastTimerUpdate() → real timer clients; also mirrors to demo-timer when username===DEMO_STREAMER_USERNAME
-function broadcastTimerUpdate(username, streamer, delta = 0) {
+function broadcastTimerUpdate(username, streamer, delta = 0, immediate = false) {
   const t = getTimerConfig(streamer);
   if (!t.enabled) return;
   const overlayOnline = sseClients.some(c => c.username === username && c.source === 'overlay');
@@ -400,6 +400,7 @@ function broadcastTimerUpdate(username, streamer, delta = 0) {
     delta,
     overlayOnline,
     goalBarOnline,
+    immediate,
   };
   const payload = JSON.stringify(timerData);
   sseClients = sseClients.filter(client => {
@@ -2770,7 +2771,7 @@ app.post('/api/timer/control', ensureAuthenticated, csrfProtection, async (req, 
     const actualUsername = await getActualUsername(req.user);
     // ใช้ delta ที่ apply จริงหลัง clamp 0 — sub 300 ตอนเหลือ 30 ต้อง broadcast -30 ไม่ใช่ -300
     const broadcastDelta = (action === 'add' || action === 'sub') ? (updated ? updated.applied_delta : 0) : 0;
-    broadcastTimerUpdate(actualUsername, { ...streamer, ...updated }, broadcastDelta);
+    broadcastTimerUpdate(actualUsername, { ...streamer, ...updated }, broadcastDelta, true);
     if (action === 'reset-cap') broadcastTimerCap(actualUsername, getTimerConfig(streamer), 0);
     res.json({ success: true, ...updated });
   } catch (error) {

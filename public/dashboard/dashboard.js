@@ -4577,6 +4577,14 @@ function initTimerSettingsUI() {
   const btnRefreshCap = document.getElementById('btnRefreshCapStatus');
   if (btnRefreshCap) btnRefreshCap.addEventListener('click', refreshCapStatus);
 
+  // Post-click pulse — delegate ครอบทั้ง 2 กลุ่มปุ่ม (control + test)
+  document.querySelectorAll('.timer-control-buttons .btn, .btn-test-add, .btn-test-sub')
+    .forEach(btn => btn.addEventListener('click', () => {
+      btn.classList.remove('timer-btn-pulse');
+      void btn.offsetWidth;                 // reflow → เล่นซ้ำได้ทุกคลิก
+      btn.classList.add('timer-btn-pulse');
+    }));
+
   // Save button
   const btnSave = document.getElementById('btnSaveTimerSettings');
   if (btnSave) btnSave.addEventListener('click', saveTimerSettings);

@@ -1457,6 +1457,7 @@ label {
 .settings-panel-scroll {
   overflow-y: auto;
   padding-right: 8px;
+  min-width: 0; /* grid child: allow track to shrink so wide children wrap instead of overflowing viewport (Timer HH:MM:SS inputs) */
 }
 
 /* Custom scrollbars */
@@ -1549,6 +1550,7 @@ label {
   position: sticky;
   top: 0;
   height: fit-content;
+  min-width: 0; /* grid child: allow track to shrink (see .settings-panel-scroll) */
 }
 
 .preview-card {
@@ -3628,6 +3630,32 @@ label {
   box-shadow: 0 4px 10px rgba(239,68,68,0.35);
 }
 .timer-anim-test-buttons .btn-test-sub:active { transform: translateY(0) scale(0.96); }
+
+/* ── Control button hover glow (per-semantic color via --btn-glow) ── */
+.timer-control-buttons .btn {
+  transition: transform .15s ease, background-color .15s ease,
+              border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+#btnTimerStart:hover   { background:#10b981; border-color:#10b981; color:#fff; transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,185,129,.4); }
+#btnTimerStop:hover    { background:#f59e0b; border-color:#f59e0b; color:#fff; transform:translateY(-2px); box-shadow:0 4px 12px rgba(245,158,11,.4); }
+#btnTimerReset:hover   { background:#3b82f6; border-color:#3b82f6; color:#fff; transform:translateY(-2px); box-shadow:0 4px 12px rgba(59,130,246,.4); }
+#btnTimerResetCap:hover{ background:#ef4444; border-color:#ef4444; color:#fff; transform:translateY(-2px); box-shadow:0 4px 12px rgba(239,68,68,.4); }
+/* icon ในปุ่มต้องเป็นขาวตอน hover (ทับ inline style สีเดิม) */
+.timer-control-buttons .btn:hover i { color:#fff !important; }
+.timer-control-buttons .btn:active { transform:translateY(0) scale(.96); }
+
+/* ── Post-click pulse ring (ใช้ร่วมทั้งปุ่มหลัก + test buttons) ── */
+@keyframes timerBtnPulse {
+  0%   { box-shadow:0 0 0 0 var(--pulse-color, rgba(59,130,246,.5)); }
+  100% { box-shadow:0 0 0 14px rgba(0,0,0,0); }
+}
+.timer-btn-pulse { animation: timerBtnPulse .45s ease-out; }
+#btnTimerStart.timer-btn-pulse    { --pulse-color:rgba(16,185,129,.55); }
+#btnTimerStop.timer-btn-pulse     { --pulse-color:rgba(245,158,11,.55); }
+#btnTimerReset.timer-btn-pulse    { --pulse-color:rgba(59,130,246,.55); }
+#btnTimerResetCap.timer-btn-pulse { --pulse-color:rgba(239,68,68,.55); }
+.btn-test-add.timer-btn-pulse     { --pulse-color:rgba(16,185,129,.55); }
+.btn-test-sub.timer-btn-pulse     { --pulse-color:rgba(239,68,68,.55); }
 
 .timer-mode-cards {
   display: grid;

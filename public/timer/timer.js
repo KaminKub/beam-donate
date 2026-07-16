@@ -294,7 +294,9 @@
       if (animOn && delta !== 0) {
         const overlayDelay = (data.overlayOnline && alertDurationMs > 0) ? alertDurationMs : 0;
         const goalBarDelay = (data.goalBarOnline && goalBarAnimEnabled) ? GOALBAR_ANIM_BUFFER_MS : 0;
-        const totalDelay = overlayDelay + goalBarDelay;
+        // immediate=true → manual control button (Live mode) → ข้าม alert+goalbar delay ทันที
+        // immediate=false (default) → donation path ทั้ง 5 จุด → sequence Alert→GoalBar→Timer เดิม
+        const totalDelay = data.immediate ? 0 : (overlayDelay + goalBarDelay);
 
         const pending = { remaining: newRemaining, running: !!data.running, lastUpdate: data.lastUpdate };
 
