@@ -1630,8 +1630,21 @@
                       </div>
                       <div class="form-row" id="timerRulesTemplateRow">
                         <div class="form-group full-width">
-                          <label for="inputTimerRulesTemplate" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> Template ข้อความ</label>
+                          <label for="inputTimerRulesTemplate" style="font-size:12px;color:var(--text-muted);"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> Template ข้อความ (บาท)</label>
                           <input type="text" id="inputTimerRulesTemplate" class="form-control" placeholder="โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}">
+                          <div class="template-vars-hint">
+                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                            <code class="template-var-tag">{จำนวนเงิน}</code>
+                            <code class="template-var-tag">{เวลา}</code>
+                            <code class="template-var-tag">{เครื่องหมาย}</code>
+                            <code class="template-var-tag">{ทิศทาง}</code>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row" id="timerRulesTemplateCoinRow">
+                        <div class="form-group full-width">
+                          <label for="inputTimerRulesTemplateCoin" style="font-size:12px;color:var(--text-muted);"><i class="fa-brands fa-tiktok" style="color:#69c9d0;"></i> Template ข้อความ (เหรียญ TikTok)</label>
+                          <input type="text" id="inputTimerRulesTemplateCoin" class="form-control" placeholder="Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}">
                           <div class="template-vars-hint">
                             <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
                             <code class="template-var-tag">{จำนวนเงิน}</code>
@@ -1733,9 +1746,9 @@
                           <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">ผ่านตัวเชื่อม TikFinity</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:10px;">
-                          <span id="tiktokStatusBadge" style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;color:#64748b;white-space:nowrap;">
+                          <span id="tiktokStatusBadge" class="js-tiktok-badge" style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;color:#64748b;white-space:nowrap;">
                             <span class="status-dot"></span>
-                            <span id="tiktokStatusText">ปิดอยู่</span>
+                            <span id="tiktokStatusText" class="js-tiktok-badge-text">ปิดอยู่</span>
                           </span>
                           <button type="button" id="tiktokStatusRefresh" title="รีเฟรชสถานะ Bridge"
                                   style="display:none;background:none;border:none;color:#94a3b8;cursor:pointer;padding:4px;font-size:0.9rem;">
@@ -1999,12 +2012,16 @@
                     </div>
                     <div id="btnTimerTiktokBridgeWrap" class="tk-collapse">
                      <div class="tk-collapse-inner">
-                      <button type="button" id="btnTimerTiktokBridge" class="btn btn-outline-primary"
-                              style="width:100%;margin-top:8px;"
-                              onclick="window.open('/tiktok-bridge/','_blank')">
-                        <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live (TikFinity)
-                        <span style="font-size:11px;color:var(--text-muted);">(เปิดตัวเชื่อมต่อ)</span>
-                      </button>
+                      <div class="timer-bridge-row">
+                        <button type="button" id="btnTimerTiktokBridge" class="btn btn-outline-primary btn-timer-bridge"
+                                onclick="window.open('/tiktok-bridge/','_blank')">
+                          <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live
+                        </button>
+                        <span class="js-tiktok-badge timer-bridge-badge">
+                          <span class="status-dot"></span>
+                          <span class="js-tiktok-badge-text">ปิดอยู่</span>
+                        </span>
+                      </div>
                      </div>
                     </div>
                   </div>

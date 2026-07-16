@@ -84,6 +84,30 @@
     .log .ok { color: #22c55e; }
     .log .warn { color: #f59e0b; }
     .log .err { color: #ef4444; }
+    .first-run-overlay {
+      position: fixed; inset: 0; background: rgba(8,8,14,0.82);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; z-index: 999;
+    }
+    .first-run-overlay.show { display: flex; }
+    .first-run-modal {
+      background: #1a1a2e; border: 1px solid #4c1d95; border-radius: 14px;
+      padding: 26px 28px; max-width: 440px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .first-run-modal h2 { font-size: 1.15rem; color: #a78bfa; margin-bottom: 12px; }
+    .first-run-modal p  { font-size: 0.9rem; color: #cbd5e1; line-height: 1.65; margin-bottom: 12px; }
+    .first-run-modal .hl { color: #fbbf24; font-weight: 700; }
+    .first-run-modal .allow-chip {
+      display: inline-block; background: #22c55e; color: #06240f; font-weight: 700;
+      border-radius: 6px; padding: 1px 8px; font-size: 0.85rem;
+    }
+    .first-run-modal button {
+      margin-top: 8px; width: 100%; background: #7c3aed; color: #fff; border: none;
+      border-radius: 9px; padding: 11px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .first-run-modal button:hover { background: #8b5cf6; }
   </style>
 </head>
 <body>
@@ -109,6 +133,19 @@
   TikFinity เป็นเครื่องมือบุคคลที่สาม — TipKub รับเฉพาะตัวเลขเหรียญ <strong>ไม่เก็บข้อมูลส่วนบุคคล</strong> ของผู้ชม
 </div>
 
-<script src="bridge.js?v=20260716_2"></script>
+<div class="first-run-overlay" id="firstRunOverlay">
+  <div class="first-run-modal">
+    <h2>⚠️ ครั้งแรก: กด "Allow" ในเบราว์เซอร์</h2>
+    <p>
+      หน้านี้ต้องเชื่อมกับ <strong>TikFinity</strong> ที่รันในเครื่องคุณ
+      เบราว์เซอร์จะถาม<span class="hl">สิทธิ์เข้าถึงเซิร์ฟเวอร์ในเครื่อง</span>
+      ให้กดปุ่ม <span class="allow-chip">Allow</span> (อนุญาต) ที่เด้งขึ้นมา
+    </p>
+    <p>ถ้าไม่กดอนุญาต จะรับ Gift อัตโนมัติจาก TikTok Live <strong>ไม่ได้</strong></p>
+    <button id="btnFirstRunOk">เข้าใจแล้ว เริ่มเชื่อมต่อ</button>
+  </div>
+</div>
+
+<script src="bridge.js?v=20260716_3"></script>
 </body>
 </html>

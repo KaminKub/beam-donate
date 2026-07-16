@@ -3680,30 +3680,30 @@ let tiktokPollTimer = null;
 
 // state → [dotClass, label, textColor] — dot ใช้ .status-dot เหมือนหน้าโดเนท (ไม่ใช้ emoji)
 function renderTiktokBadge(state) {
-  const badge = document.getElementById('tiktokStatusBadge');
-  const dot = badge?.querySelector('.status-dot');
-  const text = document.getElementById('tiktokStatusText');
-  if (!badge || !dot || !text) return;
   const map = {
     ready:   ['online', 'พร้อมรับ Gift', '#22c55e'],
     open:    ['warn', 'เปิดตัวเชื่อมต่อแล้ว · TikFinity ยังไม่เชื่อม', '#f59e0b'],
     notopen: ['', 'ยังไม่เปิดตัวเชื่อมต่อ', '#94a3b8'],
   };
   const [dotCls, label, color] = map[state] || map.notopen;
-  dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
-  text.textContent = label;
-  badge.style.color = color;
+  document.querySelectorAll('.js-tiktok-badge').forEach(badge => {
+    const dot = badge.querySelector('.status-dot');
+    const text = badge.querySelector('.js-tiktok-badge-text');
+    if (dot) dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
+    if (text) text.textContent = label;
+    badge.style.color = color;
+  });
 }
 
 // set dot+text โดยไม่แตะ structure (placeholder / ปิดอยู่)
 function setTiktokBadgeText(label, color, dotCls = '') {
-  const badge = document.getElementById('tiktokStatusBadge');
-  const dot = badge?.querySelector('.status-dot');
-  const text = document.getElementById('tiktokStatusText');
-  if (!badge || !dot || !text) return;
-  dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
-  text.textContent = label;
-  badge.style.color = color;
+  document.querySelectorAll('.js-tiktok-badge').forEach(badge => {
+    const dot = badge.querySelector('.status-dot');
+    const text = badge.querySelector('.js-tiktok-badge-text');
+    if (dot) dot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
+    if (text) text.textContent = label;
+    badge.style.color = color;
+  });
 }
 
 async function pollTiktokStatus() {
@@ -3840,6 +3840,23 @@ function makeEl(tag, props, text) {
   return el;
 }
 
+// action select ร่วม 2 render — coin ตัด 'choice' (คนดู gift เลือกเวลาไม่ได้)
+function buildRuleActionSelect(idx) {
+  const rule = timerRules[idx];
+  const isCoin = (rule.currency || 'thb') === 'coin';
+  if (isCoin && rule.action === 'choice') rule.action = 'add'; // coin + choice → บังคับ add
+  const sel = makeEl('select', { style: 'width:130px;' });
+  const opts = [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา']];
+  if (!isCoin) opts.push(['choice', '±ผู้โดเนทเลือก']);
+  opts.forEach(([val, label]) => {
+    const opt = makeEl('option', { value: val }, label);
+    if (rule.action === val) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = (e) => { timerRules[idx].action = e.target.value; };
+  return sel;
+}
+
 function renderTimerRules(mode) {
   const container = document.getElementById('timerRulesContainer');
   const btnAdd = document.getElementById('btnAddTimerRule');
@@ -3873,17 +3890,12 @@ function renderTimerRules(mode) {
         return;
       }
       timerRules[idx].currency = e.target.value;
+      renderTimerRules(mode);
     };
 
     const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '→');
 
-    const actionSel = makeEl('select', { style: 'width:130px;' });
-    [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
-      const opt = makeEl('option', { value: val }, label);
-      if (rule.action === val) opt.selected = true;
-      actionSel.appendChild(opt);
-    });
-    actionSel.onchange = (e) => { timerRules[idx].action = e.target.value; };
+    const actionSel = buildRuleActionSelect(idx);
 
     const rawSecs = rule.time_seconds || 0;
     const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
@@ -3945,17 +3957,12 @@ function renderMultiplierRules() {
         return;
       }
       timerRules[idx].currency = e.target.value;
+      renderMultiplierRules();
     };
 
     const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '→');
 
-    const actionSel = makeEl('select', { style: 'width:130px;' });
-    [['add', '+เพิ่มเวลา'], ['sub', '−ลดเวลา'], ['choice', '±ผู้โดเนทเลือก']].forEach(([val, label]) => {
-      const opt = makeEl('option', { value: val }, label);
-      if (rule.action === val) opt.selected = true;
-      actionSel.appendChild(opt);
-    });
-    actionSel.onchange = (e) => { timerRules[idx].action = e.target.value; };
+    const actionSel = buildRuleActionSelect(idx);
 
     const rawSecs = rule.time_seconds || 0;
     const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 1, placeholder: '60', style: 'width:70px;' });
@@ -4107,6 +4114,9 @@ async function loadTimerSettings() {
     const tmplEl = document.getElementById('inputTimerRulesTemplate');
     if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
 
+    const tmplCoinEl = document.getElementById('inputTimerRulesTemplateCoin');
+    if (tmplCoinEl) tmplCoinEl.value = t.rules_template_coin || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}';
+
     const capTypeEl = document.getElementById('timerCapTypeSelect');
     if (capTypeEl) {
       capTypeEl.value = t.cap_type || '';
@@ -4230,7 +4240,8 @@ async function saveTimerSettings() {
     rules = timerRules.map(r => ({
       base_amount: r.base_amount || r.amount || 10,
       time_seconds: r.time_seconds || 60,
-      action: r.action || 'add'
+      action: r.action || 'add',
+      currency: r.currency || 'thb'
     }));
   } else {
     rules = timerRules;
@@ -4249,6 +4260,7 @@ async function saveTimerSettings() {
     show_rules: document.getElementById('chkTimerShowRules')?.checked ? 1 : 0,
     statusBtnEnabled: document.getElementById('chkTimerStatusBtn')?.checked ? 1 : 0,
     rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
+    rules_template_coin: document.getElementById('inputTimerRulesTemplateCoin')?.value || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}',
     cap_type: capType || null,
     cap_value: capType === 'time' && capUnitForSave === 'minutes' ? rawCapVal * 60 : rawCapVal,
     color_main: document.getElementById('inputTimerColorMain')?.value || '#fbbf24',

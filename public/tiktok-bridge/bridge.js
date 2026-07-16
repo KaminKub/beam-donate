@@ -166,7 +166,24 @@ async function sendHeartbeat() {
 }
 
 // ── Init ─────────────────────────────────────────────────────────
-fetchCsrf().then(connect);
-updateCounter();
-sendHeartbeat();
-setInterval(sendHeartbeat, 10000);
+const FIRST_RUN_KEY = 'tipkub_bridge_firstrun_ack';
+
+function startBridge() {
+  fetchCsrf().then(connect);
+  updateCounter();
+  sendHeartbeat();
+  setInterval(sendHeartbeat, 10000);
+}
+
+if (localStorage.getItem(FIRST_RUN_KEY) === '1') {
+  startBridge();
+} else {
+  const overlay = document.getElementById('firstRunOverlay');
+  const okBtn = document.getElementById('btnFirstRunOk');
+  if (overlay) overlay.classList.add('show');
+  if (okBtn) okBtn.addEventListener('click', () => {
+    localStorage.setItem(FIRST_RUN_KEY, '1');
+    if (overlay) overlay.classList.remove('show');
+    startBridge();
+  }, { once: true });
+}

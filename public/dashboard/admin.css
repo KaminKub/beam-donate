@@ -4069,3 +4069,25 @@ label {
 @media (prefers-reduced-motion: reduce) {
   .tk-collapse { transition: none; }
 }
+
+/* Timer bridge row: ปุ่ม + badge เรียงแนวนอน */
+.timer-bridge-row {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+}
+.btn-timer-bridge {
+  flex: 0 1 auto;            /* ย่อจาก width:100% เดิม — พอดีเนื้อหา */
+  padding: 8px 14px; font-size: 0.9rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.btn-timer-bridge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(105,201,208,0.25);
+}
+.btn-timer-bridge:active {
+  transform: translateY(0) scale(0.97);   /* interact feedback ตอนกด */
+  box-shadow: 0 1px 4px rgba(105,201,208,0.2);
+}
+.timer-bridge-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; color: #64748b; white-space: nowrap;
+}
