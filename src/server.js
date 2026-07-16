@@ -643,12 +643,12 @@ if (helmet) {
       // SSE + API calls to self, Google Fonts/TTS, Twitch/Streamlabs OAuth redirects.
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://static.cloudflareinsights.com'],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", 'https://www.myinstants.com', 'https://*.r2.cloudflarestorage.com', 'https://cdn.jsdelivr.net', 'ws://127.0.0.1:21213', 'ws://localhost:21213'],
+        connectSrc: ["'self'", 'https://www.myinstants.com', 'https://*.r2.cloudflarestorage.com', 'https://cdn.jsdelivr.net', 'https://cloudflareinsights.com', 'ws://127.0.0.1:21213', 'ws://localhost:21213'],
         workerSrc: ["'self'", 'blob:'],
         mediaSrc: ["'self'", 'https://translate.google.com', 'https://www.myinstants.com', 'data:', process.env.R2_PUBLIC_URL || 'https://pub-db8500a3bce347deb31e3ac1eb556de8.r2.dev'],
         frameAncestors: ["'self'"],
