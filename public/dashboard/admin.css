@@ -3589,6 +3589,7 @@ label {
 
 /* ── Timer Settings ── */
 .timer-time-inputs { display: flex; gap: 8px; align-items: center; }
+.timer-time-inputs input.form-control { padding: 8px 6px; }
 .timer-rule-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .timer-rule-row input { flex: 1; min-width: 90px; }
 .timer-control-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
