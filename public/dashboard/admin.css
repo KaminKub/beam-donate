@@ -1085,7 +1085,7 @@ small.text-muted {
   color: var(--text-main);
   border-radius: 12px;
   padding: 11px 14px;
-  font-size: 15px;
+  font-size: 13px;
   outline: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: dark;
@@ -1277,7 +1277,7 @@ small.text-muted {
 
 label {
   display: block;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   margin-bottom: 8px;
@@ -1783,7 +1783,7 @@ label {
 }
 
 .modal-header h3 {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -1868,28 +1868,23 @@ label {
 }
 #editAccountModal .modal-footer { flex: 0 0 auto; }
 
-/* Desktop only: enlarge modal + text, vw/vh sizing (mobile keeps px-based base above) */
+/* Desktop only: enlarge modal, vw/vh sizing (mobile keeps px-based base above).
+   font-size reverted to pre-3aa2108 base values — desktop inherits base sizes. */
 @media (min-width: 769px) {
   #editAccountModal .modal-content {
     max-width: 45vw !important;
     width: 45vw;
     height: 55vh;
   }
-  #editAccountModal .modal-header h3 { font-size: 22px; }
   #editAccountModal .modal-body {
     padding: 40px;
-    font-size: 18px;
   }
-  #editAccountModal .modal-body label { font-size: 18px; }
   #editAccountModal .modal-body input.form-control {
-    font-size: 20px;
     padding: 14px 16px;
     height: auto;
   }
-  #editAccountModal #editUsernameHint { font-size: 15px !important; }
-  #editAccountModal .account-rename-warning { font-size: 16px !important; }
   #editAccountModal .modal-footer { padding: 20px 24px; }
-  #editAccountModal .modal-footer .btn { font-size: 17px; padding: 12px 24px; }
+  #editAccountModal .modal-footer .btn { padding: 12px 24px; }
 }
 
 @keyframes modalFadeOut {

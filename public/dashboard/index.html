@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_7">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_8">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -480,10 +480,10 @@
                   </div>
                   <!-- L22: ลิงก์หน้าโดเนท — ย้ายมาไว้ใต้ Page Preview (นอก form เพื่อกด copy/open ไม่ trigger form save) -->
                   <div class="copy-url-group copy-url-group--flat" style="margin-top: 16px; align-items: center; justify-content: center;">
-                    <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL" ; style="font-size: 18px; font-weight: 600; color: var(--text-primary);" size="23">
-                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" style="font-size: 20px;" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
+                    <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL" ; style="font-size: 20px; font-weight: 600; color: var(--text-primary);" size="23">
+                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" style="font-size: 25px;" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
                   </div>
-                  <small class="text-muted" style="display:block;margin-top:6px;text-align:center;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
+                  <small class="text-muted" style="font-size: 13px;display:block;margin-top:6px;text-align:center;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
                 </div>
               </div>
             </div>
@@ -2232,13 +2232,13 @@
   <div class="modal" id="editAccountModal">
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-pen-to-square" style="color: var(--primary)"></i> แก้ไขข้อมูลบัญชี</h3>
+        <h3 style="font-size: 23px;"><i class="fa-solid fa-pen-to-square" style="color: var(--primary)"></i> แก้ไขข้อมูลบัญชี</h3>
         <button class="btn-close" id="btnCloseEditAccount">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label for="editUsernameInput">ชื่อผู้ใช้งาน (Username)</label>
-          <input type="text" id="editUsernameInput" class="form-control" maxlength="30" autocomplete="off" spellcheck="false" placeholder="a-z, 0-9, underscore (3-30 ตัว)">
+          <label for="editUsernameInput" style="font-size: 18px;">ชื่อผู้ใช้งาน (Username)</label>
+          <input type="text" id="editUsernameInput" class="form-control"  style="font-size: 20px; maxlength="30" autocomplete="off" spellcheck="false" placeholder="a-z, 0-9, underscore (3-30 ตัว)">
           <span id="editUsernameHint" class="field-hint" style="font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block;"></span>
         </div>
         <div class="account-rename-warning" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--text-main);">
