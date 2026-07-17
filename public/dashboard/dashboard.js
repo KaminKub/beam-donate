@@ -146,21 +146,41 @@ function showNotification(message, type = 'success') {
 }
 
 // ========== Copy-to-clipboard + open-in-new-tab helpers (L22/L23) ==========
-// ponytail: shared by 3 copy-url-group instances (OBS overlay preview, account, page-customization)
+// ponytail: shared by all copy-url-group instances (OBS overlay, account, page-customization)
 function copyToClipboard(inputId, btnEl) {
   return () => {
     const input = document.getElementById(inputId);
     if (!input || !input.value) return;
     const text = input.value;
-    const orig = btnEl.textContent;
+    // ponytail: detect icon-only button vs text button — ใช้ icon toggle สำหรับ compact/flat, text toggle สำหรับ legacy
+    const isIconBtn = btnEl.classList.contains('copy-url-group__icon-btn');
     const origBg = btnEl.style.background;
     navigator.clipboard.writeText(text)
       .then(() => {
-        btnEl.textContent = 'คัดลอกแล้ว!';
-        btnEl.style.background = 'var(--success)';
+        if (isIconBtn) {
+          const icon = btnEl.querySelector('i');
+          if (icon) {
+            // ponytail: เก็บ class เดิมไว้ใน dataset ก่อน toggle — ปลอดภัยกว่า innerHTML
+            if (!btnEl.dataset.origIconClass) btnEl.dataset.origIconClass = icon.className;
+            icon.className = 'fa-solid fa-check';
+            btnEl.classList.add('is-copied');
+          }
+        } else {
+          btnEl.dataset.origText = btnEl.dataset.origText || btnEl.textContent;
+          btnEl.textContent = 'คัดลอกแล้ว!';
+          btnEl.style.background = 'var(--success)';
+        }
         setTimeout(() => {
-          btnEl.textContent = orig;
-          btnEl.style.background = origBg;
+          if (isIconBtn) {
+            const icon = btnEl.querySelector('i');
+            if (icon && btnEl.dataset.origIconClass) {
+              icon.className = btnEl.dataset.origIconClass;
+              btnEl.classList.remove('is-copied');
+            }
+          } else {
+            btnEl.textContent = btnEl.dataset.origText || 'คัดลอก';
+            btnEl.style.background = origBg;
+          }
         }, 1500);
       })
       .catch(err => console.error('Failed to copy text: ', err));
@@ -169,7 +189,12 @@ function copyToClipboard(inputId, btnEl) {
 
 function openUrlInNewTab(inputId) {
   const input = document.getElementById(inputId);
-  if (input && input.value) window.open(input.value, '_blank');
+  if (!input || !input.value) return;
+  // ponytail: input value ตัด protocol ออกตาม L22 → ต้องเติม https:// กลับก่อน window.open (มิงั้น browser เปิด tab "untitled")
+  const raw = input.value.trim();
+  const hasProtocol = /^https?:\/\//i.test(raw);
+  const url = hasProtocol ? raw : `https://${raw}`;
+  window.open(url, '_blank', 'noopener');
 }
 
 // ========== Edit Account Modal (L20/L21) ==========
@@ -820,21 +845,13 @@ async function initializeDashboard() {
       btnOpenObsUrlPreview.onclick = () => openUrlInNewTab('obsOverlayUrlPreview');
     }
 
-    // L23: copy-url-group ในหน้า Account (no-border variant)
+    // L23: copy-url-group ในหน้า Account (no-border variant — icon-only button)
     const btnCopyAccountDonateUrl = document.getElementById('btnCopyAccountDonateUrl');
-    const btnOpenAccountDonateUrl = document.getElementById('btnOpenAccountDonateUrl');
     if (btnCopyAccountDonateUrl) btnCopyAccountDonateUrl.onclick = copyToClipboard('accountDonateUrlPreview', btnCopyAccountDonateUrl);
-    if (btnOpenAccountDonateUrl) {
-      btnOpenAccountDonateUrl.onclick = () => openUrlInNewTab('accountDonateUrlPreview');
-    }
 
-    // L22: copy-url-group ในหน้า Page Customization
+    // L22: copy-url-group ในหน้า Page Customization (compact variant — ย้ายมาใต้ Page Preview นอก form)
     const btnCopyPageCustomizationDonateUrl = document.getElementById('btnCopyPageCustomizationDonateUrl');
-    const btnOpenPageCustomizationDonateUrl = document.getElementById('btnOpenPageCustomizationDonateUrl');
     if (btnCopyPageCustomizationDonateUrl) btnCopyPageCustomizationDonateUrl.onclick = copyToClipboard('pageCustomizationDonateUrlPreview', btnCopyPageCustomizationDonateUrl);
-    if (btnOpenPageCustomizationDonateUrl) {
-      btnOpenPageCustomizationDonateUrl.onclick = () => openUrlInNewTab('pageCustomizationDonateUrlPreview');
-    }
 
     // Edit Account Modal (L20/L21) — bind once at init
     const btnOpenEditAccount = document.getElementById('btnOpenEditAccount');
@@ -1418,9 +1435,16 @@ function loadDemoAccountInfo(data) {
   // L26: avatar + Donate URL preview (demo = kaminkub)
   const avatarEl = document.getElementById('accountAvatarPreview');
   if (avatarEl) avatarEl.src = data.profileImage || '';
+  const avatarWrapEl = avatarEl?.closest('.avatar-wrap');
+  if (avatarWrapEl) avatarWrapEl.style.setProperty('--avatar-glow-color', data.profile_glow_color || '');
+  // badges ไม่อยู่ใน ALLOWED_DEMO_FIELDS (applyDemoMask) — orbit ว่างเปล่าใน demo mode เป็นค่าปกติ ไม่ใช่บั๊ก
+  renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', []);
   const donateUrl = `${location.host}/${username.toLowerCase()}`;
   const accUrlInput = document.getElementById('accountDonateUrlPreview');
-  if (accUrlInput) accUrlInput.value = donateUrl;
+  if (accUrlInput) {
+    accUrlInput.value = donateUrl;
+    accUrlInput.size = Math.max(donateUrl.length, 1);
+  }
   const pageCustInput = document.getElementById('pageCustomizationDonateUrlPreview');
   if (pageCustInput) pageCustInput.value = donateUrl;
   // Twitch = connected (KaminKub uses Twitch login)
@@ -2138,6 +2162,51 @@ function renderMembershipBadges(earned, badgeDisplay) {
   });
 }
 
+// ⚠️ CANONICAL DUPLICATE (adapted) ของ renderAvatarBadges() ใน donate-template/app.js —
+// public page hardcode id 'avatarOrbit'/'avatarTierCrown' ตรงตัว (มี avatar-wrap เดียว), ที่นี่รับ
+// id เป็นพารามิเตอร์เพราะ dashboard อาจมี avatar-wrap หลายจุดในอนาคต. ใช้ getBadgeDefinitions() +
+// showBadgeTooltip()/hideBadgeTooltip() ที่มีอยู่แล้วในไฟล์นี้แทนการก็อป attachBadgeTooltip() ซ้ำอีกชั้น
+function renderAvatarOrbitBadges(orbitId, crownId, displayKeys) {
+  const orbit = document.getElementById(orbitId);
+  const crown = document.getElementById(crownId);
+  if (!orbit || !crown) return;
+  orbit.innerHTML = '';
+  crown.innerHTML = '';
+  crown.style.display = 'none';
+  if (!Array.isArray(displayKeys) || displayKeys.length === 0) return;
+
+  const defs = getBadgeDefinitions();
+  const active = displayKeys
+    .filter(k => defs[k])
+    .sort((a, b) => defs[b].tier - defs[a].tier)
+    .slice(0, 5); // cap 5
+  if (active.length === 0) return;
+
+  // tier สูงสุด → crown
+  const topDef = defs[active[0]];
+  crown.innerHTML = `<i class="${topDef.icon}"></i>`;
+  crown.style.setProperty('--tier-color', topDef.color);
+  crown.style.display = '';
+  crown.addEventListener('mouseenter', () => showBadgeTooltip(crown, topDef.label));
+  crown.addEventListener('mouseleave', () => hideBadgeTooltip());
+
+  // ที่เหลือ (สูงสุด 4) → necklace โค้งล่าง สลับข้างจากจี้ (tier สูงใกล้จี้)
+  const NECKLACE_OFFSETS = [-28, 28, -56, 56];
+  const rest = active.slice(1);
+  rest.forEach((key, i) => {
+    const def = defs[key];
+    const angle = 180 + NECKLACE_OFFSETS[i];
+    const b = document.createElement('span');
+    b.className = 'orbit-badge';
+    b.innerHTML = `<i class="${def.icon}"></i>`;
+    b.style.color = def.color;
+    b.style.setProperty('--a', angle + 'deg');
+    b.addEventListener('mouseenter', () => showBadgeTooltip(b, def.label));
+    b.addEventListener('mouseleave', () => hideBadgeTooltip());
+    orbit.appendChild(b);
+  });
+}
+
 function toggleBadgeDisplay(key) {
   const isMember = MEMBERSHIP_KEYS_UI.includes(key);
   const on = currentBadgeDisplay.includes(key);
@@ -2155,6 +2224,7 @@ function toggleBadgeDisplay(key) {
   document.querySelectorAll('.membership-badge').forEach(el => {
     el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
   });
+  renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', currentBadgeDisplay); // preview อัปเดตทันที ไม่ต้องรอ save/reload
   saveBadgeDisplay();
 }
 
@@ -2177,6 +2247,7 @@ function saveBadgeDisplay() {
       document.querySelectorAll('.membership-badge').forEach(el => {
         el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
       });
+      renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', currentBadgeDisplay); // re-sync เผื่อ server clamp ต่างจาก optimistic update
       showNotification('บันทึกการแสดง badge แล้ว ✅', 'success');
     } catch (e) {
       if (seq !== badgeSaveSeq) return; // stale error — ignore
@@ -2198,12 +2269,18 @@ async function loadAccountInfo() {
       if (avatarEl && data.profileImage) {
         avatarEl.src = data.profileImage;
       }
+      // avatar-wrap glow — เหมือนหน้าโดเนทจริง (--avatar-glow-color scoped ใต้ .avatar-wrap เท่านั้น)
+      const avatarWrapEl = avatarEl?.closest('.avatar-wrap');
+      if (avatarWrapEl) avatarWrapEl.style.setProperty('--avatar-glow-color', data.profileGlowColor || '');
 
       // L23: Donate URL preview (ตัด protocol ออก — แสดงแค่ host/username ตาม L22)
       const usernameLower = (data.username || '').toLowerCase();
       const donateUrl = usernameLower ? `${location.host}/${usernameLower}` : '';
       const donateUrlInput = document.getElementById('accountDonateUrlPreview');
-      if (donateUrlInput) donateUrlInput.value = donateUrl;
+      if (donateUrlInput) {
+        donateUrlInput.value = donateUrl;
+        donateUrlInput.size = Math.max(donateUrl.length, 1); // shrink-to-fit ปุ่ม copy ให้ติดตัวอักษร
+      }
       const pageCustInput = document.getElementById('pageCustomizationDonateUrlPreview');
       if (pageCustInput) pageCustInput.value = donateUrl;
 
@@ -2238,6 +2315,7 @@ async function loadAccountInfo() {
 
       badgesLoaded = true;
       renderMembershipBadges(earnedBadges, data.badgeDisplay || []);
+      renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', currentBadgeDisplay);
 
     } else {
       throw new Error('Failed to load account info');

@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_6">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_20">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -316,17 +316,6 @@
                           </div>
                         </div>
 
-                        <!-- L22: copy-url-group สำหรับลิงก์หน้าโดเนท — ตัด https:// ออก ปุ่มใหญ่เด่น -->
-                        <div class="form-group" style="width: 100%; max-width: 460px;">
-                          <label><i class="fa-solid fa-globe" style="color:#10b981"></i> ลิงก์หน้าโดเนทของคุณ (Donate Page URL)</label>
-                          <div class="copy-url-group" style="margin-top: 6px;">
-                            <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="">
-                            <button class="btn btn-primary btn-large" id="btnCopyPageCustomizationDonateUrl">คัดลอก</button>
-                            <button class="btn btn-secondary" id="btnOpenPageCustomizationDonateUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
-                          </div>
-                          <small class="text-muted" style="display:block;margin-top:4px;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
-                        </div>
-
                   </div>
                   </div><!-- /card-body-panel panelProfile -->
                 </div>
@@ -489,6 +478,12 @@
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadPagePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                   </div>
+                  <!-- L22: ลิงก์หน้าโดเนท — ย้ายมาไว้ใต้ Page Preview (นอก form เพื่อกด copy/open ไม่ trigger form save) -->
+                  <div class="copy-url-group copy-url-group--compact" style="margin-top: 16px;">
+                    <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL">
+                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
+                  </div>
+                  <small class="text-muted" style="display:block;margin-top:6px;text-align:center;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
                 </div>
               </div>
             </div>
@@ -501,71 +496,72 @@
                 <h3><i class="fa-solid fa-user"></i> บัญชีผู้ใช้ (Account Settings)</h3>
               </div>
               <div class="account-profile-block">
-                <div class="avatar-preview-wrapper">
-                  <img id="accountAvatarPreview" class="glowing-avatar" src="" width="96" height="96" style="width: 96px; height: 96px; border-radius: 50%;" alt="Account Avatar">
-                </div>
-                <p id="accUsername" class="acc-username">กำลังโหลด...</p>
-                <div class="copy-url-group copy-url-group--flat">
-                  <input type="text" id="accountDonateUrlPreview" readonly value="">
-                  <button class="btn btn-primary btn-large" id="btnCopyAccountDonateUrl">คัดลอก</button>
-                  <button class="btn btn-secondary" id="btnOpenAccountDonateUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
-                </div>
-                <button class="btn btn-secondary" id="btnOpenEditAccount"><i class="fa-solid fa-pen"></i> แก้ไขข้อมูล</button>
-              </div>
-            </div>
+                <!-- ซ้าย: avatar + username + copy-url + edit + stats -->
+                <div class="account-profile-left">
+                  <!-- avatar-wrap: pattern เดียวกับ donate-template/index.html (avatar glow + badge orbit + tier crown) — admin.css duplicate scoped ใต้ .avatar-wrap เท่านั้น ไม่กระทบ #profilePreview -->
+                  <div class="avatar-wrap">
+                    <img id="accountAvatarPreview" class="glowing-avatar" src="" width="190" height="190" alt="Account Avatar">
+                    <div class="avatar-orbit" id="accountAvatarOrbit"><!-- rendered by JS --></div>
+                    <div class="avatar-tier-crown" id="accountAvatarTierCrown" style="display:none"></div>
+                  </div>
+                  <p id="accUsername" class="acc-username">กำลังโหลด...</p>
+                  <div class="copy-url-group copy-url-group--flat">
+                    <input type="text" id="accountDonateUrlPreview" readonly value="" aria-label="Donate Page URL">
+                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyAccountDonateUrl" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
+                  </div>
+                  <button class="btn btn-secondary" id="btnOpenEditAccount"><i class="fa-solid fa-pen"></i> แก้ไขข้อมูล</button>
 
-            <!-- Card 2: การเชื่อมต่อบัญชี (Account Connections) — แยก card สำหรับ overflow fix + ลำดับใหม่ -->
-            <div class="dashboard-card">
-              <div class="card-header">
-                <h3><i class="fa-solid fa-link" style="color: var(--primary)"></i> การเชื่อมต่อบัญชี (Account Connections)</h3>
-              </div>
-              <div class="info-group">
-                <div class="connection-list">
-                    <div class="connection-row" data-platform="twitch">
-                      <div class="conn-platform">
-                        <i class="fa-brands fa-twitch conn-icon"></i>
-                        <div class="conn-info">
-                          <span class="conn-name">Twitch <span class="conn-primary-badge" id="primaryBadgeTwitch" style="display:none;">บัญชีหลัก</span></span>
-                          <span class="conn-status" id="statusTwitch">ยังไม่ได้เชื่อมต่อ</span>
-                        </div>
-                      </div>
-                      <div class="conn-actions">
-                        <i class="fa-solid fa-link-slash btn-disconnect" id="btnDisconnectTwitch" style="display:none;" title="ยกเลิกการเชื่อมต่อ"></i>
-                        <button class="btn btn-secondary btn-conn" id="btnConnectTwitch">เชื่อมต่อ</button>
-                      </div>
+                  <!-- Membership stats — เรียงเป็น row 3 อัน -->
+                  <div class="membership-stats-row" id="membershipCard">
+                    <div class="membership-stat-box">
+                      <span class="membership-label">เข้าร่วมกับเราเมื่อ</span>
+                      <span class="membership-value" id="memberJoinDate">—</span>
                     </div>
-                    <div class="connection-row" data-platform="streamlabs">
-                      <div class="conn-platform">
-                        <div class="conn-icon">
-                          <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; fill: currentColor;"><title>Streamlabs</title><path d="M8.6878 1.3459a1.365 1.365 0 0 0-.2734.0058c-.528.066-1.0133.1616-1.4843.3086A10.0568 10.0568 0 0 0 .3208 8.2697c-.147.471-.2445.9583-.3105 1.4863-.091.734.431 1.4041 1.166 1.4961.734.091 1.404-.43 1.496-1.164.05-.406.119-.7316.209-1.0196A7.3736 7.3736 0 0 1 7.727 4.221c.288-.09.6145-.157 1.0195-.207.735-.092 1.255-.7631 1.164-1.4981a1.3394 1.3394 0 0 0-1.2226-1.17Zm4.0488 5.2226c-2.629 0-3.9432.0007-4.9472.5117A4.684 4.684 0 0 0 5.7406 9.131c-.512 1.004-.5117 2.3183-.5117 4.9473v4.289c0 1.502-.001 2.2542.291 2.8282.257.505.6679.9149 1.1719 1.1719.574.292 1.326.291 2.828.291h6.9706c2.628 0 3.9442.0012 4.9472-.5098a4.6883 4.6883 0 0 0 2.0507-2.0508c.512-1.004.5117-2.3182.5117-4.9472v-1.0723c0-2.629.0003-3.9433-.5117-4.9473a4.6883 4.6883 0 0 0-2.0507-2.0508c-1.003-.511-2.3193-.5117-4.9472-.5117zm.537 6.7051c.741 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5988 1.3399-1.3398 1.3399-.74 0-1.3418-.5999-1.3418-1.3399v-2.6836c0-.74.6018-1.3398 1.3418-1.3398zm5.3632 0c.74 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5999 1.3399-1.3399 1.3399-.741 0-1.3398-.5999-1.3398-1.3399v-2.6836c0-.74.5989-1.3398 1.3398-1.3398z"/></svg>
-                        </div>
-                        <div class="conn-info">
-                          <span class="conn-name">Streamlabs <span class="conn-primary-badge" id="primaryBadgeStreamlabs" style="display:none;">บัญชีหลัก</span></span>
-                          <span class="conn-status" id="statusStreamlabs">ยังไม่ได้เชื่อมต่อ</span>
-                        </div>
-                      </div>
-                      <div class="conn-actions">
-                        <i class="fa-solid fa-link-slash btn-disconnect" id="btnDisconnectStreamlabs" style="display:none;" title="ยกเลิกการเชื่อมต่อ"></i>
-                        <button class="btn btn-secondary btn-conn" id="btnConnectStreamlabs">เชื่อมต่อ</button>
-                      </div>
+                    <div class="membership-stat-box">
+                      <span class="membership-label">อยู่กับเรามาแล้ว</span>
+                      <span class="membership-value" id="memberDuration">—</span>
                     </div>
+                    <div class="membership-stat-box" title="แตะ badge เพื่อเลือกโชว์บนหน้าโดเนท • แตะซ้ำเพื่อยกเลิก • อายุสมาชิกเลือกได้ทีละ 1">
+                      <span class="membership-label">Badges</span>
+                      <div class="membership-badges" id="membershipBadges"><!-- rendered by JS --></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Membership Card — 3 กล่องสถิติแนวนอน -->
-            <div class="membership-card" id="membershipCard">
-              <div class="membership-stat-box">
-                <span class="membership-label">เข้าร่วมกับเราเมื่อ</span>
-                <span class="membership-value" id="memberJoinDate">—</span>
-              </div>
-              <div class="membership-stat-box">
-                <span class="membership-label">อยู่กับเรามาแล้ว</span>
-                <span class="membership-value" id="memberDuration">—</span>
-              </div>
-              <div class="membership-stat-box" title="แตะ badge เพื่อเลือกโชว์บนหน้าโดเนท • แตะซ้ำเพื่อยกเลิก • อายุสมาชิกเลือกได้ทีละ 1">
-                <span class="membership-label">Badges</span>
-                <div class="membership-badges" id="membershipBadges"><!-- rendered by JS --></div>
+                <!-- ขวา: การเชื่อมต่อบัญชี (Account Connections) — ย้ายมาไว้ใน account-profile-block -->
+                <div class="account-profile-right">
+                  <h4 class="account-profile-right__title"><i class="fa-solid fa-link" style="color: var(--primary)"></i> การเชื่อมต่อบัญชี (Account Connections)</h4>
+                  <div class="connection-list">
+                      <div class="connection-row" data-platform="twitch">
+                        <div class="conn-platform">
+                          <i class="fa-brands fa-twitch conn-icon"></i>
+                          <div class="conn-info">
+                            <span class="conn-name">Twitch <span class="conn-primary-badge" id="primaryBadgeTwitch" style="display:none;">บัญชีหลัก</span></span>
+                            <span class="conn-status" id="statusTwitch">ยังไม่ได้เชื่อมต่อ</span>
+                          </div>
+                        </div>
+                        <div class="conn-actions">
+                          <i class="fa-solid fa-link-slash btn-disconnect" id="btnDisconnectTwitch" style="display:none;" title="ยกเลิกการเชื่อมต่อ"></i>
+                          <button class="btn btn-secondary btn-conn" id="btnConnectTwitch">เชื่อมต่อ</button>
+                        </div>
+                      </div>
+                      <div class="connection-row" data-platform="streamlabs">
+                        <div class="conn-platform">
+                          <div class="conn-icon">
+                            <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; fill: currentColor;"><title>Streamlabs</title><path d="M8.6878 1.3459a1.365 1.365 0 0 0-.2734.0058c-.528.066-1.0133.1616-1.4843.3086A10.0568 10.0568 0 0 0 .3208 8.2697c-.147.471-.2445.9583-.3105 1.4863-.091.734.431 1.4041 1.166 1.4961.734.091 1.404-.43 1.496-1.164.05-.406.119-.7316.209-1.0196A7.3736 7.3736 0 0 1 7.727 4.221c.288-.09.6145-.157 1.0195-.207.735-.092 1.255-.7631 1.164-1.4981a1.3394 1.3394 0 0 0-1.2226-1.17Zm4.0488 5.2226c-2.629 0-3.9432.0007-4.9472.5117A4.684 4.684 0 0 0 5.7406 9.131c-.512 1.004-.5117 2.3183-.5117 4.9473v4.289c0 1.502-.001 2.2542.291 2.8282.257.505.6679.9149 1.1719 1.1719.574.292 1.326.291 2.828.291h6.9706c2.628 0 3.9442.0012 4.9472-.5098a4.6883 4.6883 0 0 0 2.0507-2.0508c.512-1.004.5117-2.3182.5117-4.9472v-1.0723c0-2.629.0003-3.9433-.5117-4.9473a4.6883 4.6883 0 0 0-2.0507-2.0508c-1.003-.511-2.3193-.5117-4.9472-.5117zm.537 6.7051c.741 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5988 1.3399-1.3398 1.3399-.74 0-1.3418-.5999-1.3418-1.3399v-2.6836c0-.74.6018-1.3398 1.3418-1.3398zm5.3632 0c.74 0 1.3399.5998 1.3399 1.3398v2.6836c0 .74-.5999 1.3399-1.3399 1.3399-.741 0-1.3398-.5999-1.3398-1.3399v-2.6836c0-.74.5989-1.3398 1.3398-1.3398z"/></svg>
+                          </div>
+                          <div class="conn-info">
+                            <span class="conn-name">Streamlabs <span class="conn-primary-badge" id="primaryBadgeStreamlabs" style="display:none;">บัญชีหลัก</span></span>
+                            <span class="conn-status" id="statusStreamlabs">ยังไม่ได้เชื่อมต่อ</span>
+                          </div>
+                        </div>
+                        <div class="conn-actions">
+                          <i class="fa-solid fa-link-slash btn-disconnect" id="btnDisconnectStreamlabs" style="display:none;" title="ยกเลิกการเชื่อมต่อ"></i>
+                          <button class="btn btn-secondary btn-conn" id="btnConnectStreamlabs">เชื่อมต่อ</button>
+                        </div>
+                      </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -2234,7 +2230,7 @@
 
   <!-- Edit Account Modal — แก้ไข Username (L20/L21) -->
   <div class="modal" id="editAccountModal">
-    <div class="modal-content" style="max-width: 420px;">
+    <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h3><i class="fa-solid fa-pen-to-square" style="color: var(--primary)"></i> แก้ไขข้อมูลบัญชี</h3>
         <button class="btn-close" id="btnCloseEditAccount">&times;</button>
@@ -2247,7 +2243,7 @@
         </div>
         <div class="account-rename-warning" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--text-main);">
           <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b"></i>
-          การเปลี่ยน Username จะทำให้ลิงก์หน้าโดเนท, ลิงก์ Overlay ที่เพิ่มใน OBS, และลิงก์เก่าที่เคยแชร์ไว้ <strong>ใช้งานไม่ได้ทันที</strong> — ต้องคัดลอกลิงก์ใหม่ไปตั้งใหม่ทุกที่
+          การเปลี่ยน Username จะทำให้ลิงก์หน้าโดเนท, ลิงก์ Overlay ที่เพิ่มในโปรแกรมสตรีมต่างๆ, และลิงก์เก่าที่เคยแชร์ไว้ <strong>ใช้งานไม่ได้ทันที</strong> — ต้องคัดลอกลิงก์ใหม่ไปตั้งใหม่ทุกที่
         </div>
       </div>
       <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05);">
@@ -2451,7 +2447,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260717_6"></script>
+  <script src="/dashboard/dashboard.js?v=20260717_20"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

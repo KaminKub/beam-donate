@@ -2240,11 +2240,11 @@ label {
     border-bottom: 1px solid var(--border-color);
   }
   .connection-row {
-    flex-wrap: wrap;
-    gap: 8px;
+    min-width: 0;                 /* L25: กัน mobile overflow — connection-row เป็น flex item ของ connection-list (column) */
   }
   .conn-platform,
-  .info-group {
+  .info-group,
+  .conn-info {
     min-width: 0;
   }
   .conn-actions {
@@ -2269,14 +2269,32 @@ label {
     grid-template-columns: 1fr;
     padding: 12px;
   }
-  .account-profile-block {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+  .account-profile-right {
+    text-align: left;             /* list ต้อง left-align เสมอ (ไม่ใช่ center) */
+  }
+  .connection-row {
+    flex-direction: column;       /* mobile: stack แนวตั้ง — icon+info บน, ปุ่มล่างเต็มบรรทัด (ไม่ถูกบีบ) */
+    gap: 12px;
+    min-width: 0;
+  }
+  .conn-actions {
+    width: 100%;                  /* mobile: ปุ่ม "เชื่อมต่อ" เต็มความกว้าง row */
+    justify-content: stretch;
+  }
+  /* flex:1 (ไม่ใช่ width:100%) — ตอน connected มี .btn-disconnect icon เป็น sibling ใน .conn-actions
+     width:100% ไม่รู้จัก sibling เลยยืดเกินกรอบ .connection-row.is-connected (บั๊กที่ user เจอ 2026-07-17) */
+  .conn-actions .btn-conn {
+    flex: 1 1 auto;
+    min-width: 0;                 /* กัน flex item ยืดเกิน content ตาม pattern เดิมของไฟล์นี้ */
+    padding: 8px 12px;
+    font-size: 0.85rem;
   }
   .copy-url-group--flat input {
     font-size: 13px;
   }
+  /* ตรงกับ public/assets/style.css mobile downsize เป๊ะ — avatar-wrap ใช้ 190px คงที่ทุก viewport เหมือนหน้าโดเนทจริง */
+  .orbit-badge { width: 28px; height: 28px; margin: -14px 0 0 -14px; font-size: 12px; }
+  .avatar-tier-crown { width: 40px; height: 40px; margin: -20px 0 0 -20px; font-size: 16px; }
 }
 
 /* ========== Account & Connection List ========== */
@@ -2288,31 +2306,196 @@ label {
 }
 
 .acc-username {
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: 1.8rem;        /* ขยาดให้เด่น (เดิม 1.2rem → 1.8rem) */
+  font-weight: 700;
   margin-top: 4px;
+  color: var(--text-main);
+  letter-spacing: 0.3px;
 }
 
 /* ========== Account Profile Block (L26: Avatar → Username → URL → membership) ========== */
 .account-profile-block {
+  display: grid;
+  /* desktop เท่านั้น (มือถือถูก override เป็น 1fr เดียวใน @media ท้ายไฟล์เสมอ — ดู .agents/reports/USER_ACCOUNT_MOBILE_BUG_2026-07-17.md)
+     เดิมมี max-width:1000px + margin:0 auto ทำให้ทั้ง block (ทั้ง 2 คอลัมน์) ลอยกึ่งกลาง .dashboard-card
+     ที่กว้างกว่ามาก (การ์ดไม่มี max-width ของตัวเอง) — column ซ้ายเลยไม่มีทางชิดขอบการ์ดจริงได้ไม่ว่าจะปรับ
+     สัดส่วนคอลัมน์แค่ไหน (2026-07-17 fix). เอา centering ออก ให้ block เต็มความกว้าง card แทน — คอลัมน์ซ้าย
+     ใช้ % (ไม่ใช่ px คงที่) ให้ "เกือบครึ่ง" ของ block เสมอไม่ว่าการ์ดจะกว้างแค่ไหน — คอลัมน์ขวา
+     (account-profile-right) ไม่แตะเลย ยังกิน 1fr เท่าเดิม */
+  grid-template-columns: minmax(0, 45%) minmax(0, 1fr);
+  gap: 32px;
+  padding: 24px;
+  text-align: center;
+  width: 100%;
+}
+
+.account-profile-left {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 20px;
-  text-align: center;
+  min-width: 0;         /* กัน flex/grid item ยืดจาก content */
+}
+
+.account-profile-right {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+  text-align: left;
+}
+
+.account-profile-right__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========== Avatar Wrap — avatar glow + badge orbit + tier crown ==========
+   Byte-for-byte duplicate ของ public/assets/style.css .avatar-wrap (donate page จริง) — 190px avatar,
+   --orbit-r: 95px เท่ากันเป๊ะ ตามคำขอ user 2026-07-17 ("ให้คล้ายกับหน้าโดเนทให้มากที่สุด", เดิม round 6
+   เคยลดสัดส่วนเป็น 128px/64px แล้วดูเล็ก/badge ชิดกันเกินไป — ยกเลิก .avatar-wrap--sm). ตั้งใจ scope
+   .glowing-avatar/keyframe ไว้ใต้ .avatar-wrap เท่านั้น (ไม่ใช้ selector เปล่า .glowing-avatar ตรงๆ)
+   เพราะ #profilePreview ใน tab-page-customization ก็ใช้ class glowing-avatar อยู่แล้วแต่ยังไม่เคยมี glow
+   — ไม่อยากเปลี่ยนพฤติกรรมหน้านั้นโดยไม่ได้ถูกขอ. ที่มา: public/donate-template/app.js renderAvatarBadges()
+   → duplicate เป็น renderAvatarOrbitBadges() ใน dashboard.js (รับ element id เป็นพารามิเตอร์แทนการ hardcode) */
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+  --orbit-r: 95px;
+}
+
+.avatar-wrap .glowing-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 3px solid var(--avatar-glow-color, rgba(0, 255, 55, 0.5));
+  filter: drop-shadow(0 0 12px var(--avatar-glow-color, rgba(0, 255, 55, 0.6)));
+  animation: pulseGlow 5.5s infinite ease-in-out;
+}
+@keyframes pulseGlow {
+  0%, 100% { filter: drop-shadow(0 0 12px var(--avatar-glow-color, rgba(71, 255, 15, 0.5))); }
+  50%      { filter: drop-shadow(0 0 20px var(--avatar-glow-color, rgba(5, 63, 15, 0.418))); }
+}
+
+.orbit-badge,
+.avatar-tier-crown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orbit-badge {
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  background: rgba(18, 18, 32, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 14px;
+  z-index: 2;
+  transform: rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))) rotate(calc(-1 * var(--a)));
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.orbit-badge:hover,
+.orbit-badge:active {
+  transform: rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))) rotate(calc(-1 * var(--a))) scale(1.2);
+  z-index: 4;
+}
+
+.avatar-tier-crown {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  background: linear-gradient(135deg, var(--tier-color, #f59e0b), rgba(0, 0, 0, 0.55));
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  color: #ffffff;
+  font-size: 18px;
+  z-index: 3;
+  transform: rotate(180deg) translateY(calc(-1 * var(--orbit-r))) rotate(-180deg) scale(1);
+  box-shadow: 0 0 14px var(--tier-color, rgba(245, 158, 11, 0.6));
+  animation: tierCrownPulse 2.4s infinite ease-in-out;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, filter 0.3s ease;
+}
+.avatar-tier-crown:hover,
+.avatar-tier-crown:active {
+  transform: rotate(180deg) translateY(calc(-1 * var(--orbit-r))) rotate(-180deg) scale(1.4) rotate(-8deg);
+  box-shadow: 0 0 22px var(--tier-color, rgba(245, 158, 11, 0.9)), 0 0 42px var(--tier-color, rgba(245, 158, 11, 0.5));
+  filter: brightness(1.2);
+  animation: tierCrownPulse 0.9s infinite ease-in-out;
+  z-index: 5;
+}
+@keyframes tierCrownPulse {
+  0%, 100% { box-shadow: 0 0 14px var(--tier-color, rgba(245, 158, 11, 0.6)); }
+  50%      { box-shadow: 0 0 22px var(--tier-color, rgba(245, 158, 11, 0.9)); }
 }
 
 /* ========== Copy URL Group Flat Variant (L28 — no border) ========== */
+/* width:auto (ไม่ใช่ 100%/460px) — ให้กล่องหด/ขยายตามความยาว username จริง ปุ่ม copy จะติดกับตัวอักษรเสมอ
+   input.size ถูก set จาก JS (loadAccountInfo/loadDemoAccountInfo) ตามความยาว donate URL — คู่กับ flex:0 1 auto ด้านล่าง */
 .copy-url-group--flat {
+  background-color: transparent;
+  border: none;
+  width: auto;
+  max-width: 100%;
+}
+.copy-url-group--flat input {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  color: var(--text-main);
+  font-weight: 500;
+  text-align: center;
+  padding-right: 4px;     /* ลด padding ขวาให้ icon ชิด input (จาก default 14px → 4px) */
+}
+
+/* ========== Copy URL Group Compact (minimal: URL + fa-copy icon, no border) ========== */
+.copy-url-group--compact {
   background-color: transparent;
   border: none;
   max-width: 460px;
   width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
-.copy-url-group--flat input {
+.copy-url-group--compact input {
   color: var(--text-main);
   font-weight: 500;
+  text-align: center;
+  padding-right: 4px;     /* ลด padding ขวาให้ icon ชิด input */
+}
+
+/* ========== Icon-only copy button (shared by --flat + --compact) ========== */
+.copy-url-group__icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0 6px;        /* ลด padding ให้ icon ชิด input */
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+.copy-url-group__icon-btn:hover {
+  color: var(--primary);
+  transform: scale(1.08);
+}
+.copy-url-group__icon-btn.is-copied {
+  color: var(--success);
+  transform: scale(1.15);
 }
 
 .account-actions {
@@ -2467,6 +2650,21 @@ label {
   vertical-align: middle;
   margin-left: 6px;
   white-space: nowrap;
+}
+
+/* Mobile override placed AFTER the base .account-profile-block/.connection-row rules above —
+   same selector + same specificity means source order decides the winner, and the base rules
+   used to come later in the file, silently cancelling the earlier @media block on real mobile
+   viewports (see .agents/reports/USER_ACCOUNT_MOBILE_BUG_2026-07-17.md Theory C). */
+@media (max-width: 768px) {
+  .account-profile-block {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 16px;
+  }
+  .connection-row {
+    align-items: stretch;
+  }
 }
 
 /* ========== Sound Browser Modal ========== */
@@ -4151,34 +4349,36 @@ label {
   font-size: 0.8rem; color: #64748b; white-space: nowrap;
 }
 
-/* ========== Membership Card — 3 กล่องสถิติแนวนอน ========== */
-.membership-card {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* ========== Membership Stats Row — 3 stat-box เรียงแนวนอนใน account-profile-block ========== */
+.membership-stats-row {
+  display: flex;
+  flex-direction: row;
   gap: 12px;
-  margin-top: 20px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .membership-stat-box {
+  flex: 1 1 0;           /* 3 กล่องแบ่งพื้นที่เท่าๆ กัน */
+  min-width: 0;          /* กันยืดจาก content (เช่น username/วันที่ยาว) */
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  padding: 18px 16px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 6px;
   text-align: center;
-  min-height: 92px;
 }
 
-.membership-label { font-size: 13px; color: var(--text-muted); }
-.membership-value { font-size: 16px; font-weight: 700; color: var(--text-main); }
+.membership-label { font-size: 12px; color: var(--text-muted); }
+.membership-value { font-size: 15px; font-weight: 700; color: var(--text-main); }
 
 .membership-badges {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -4214,7 +4414,7 @@ label {
 }
 
 @media (max-width: 768px) {
-  .membership-card { grid-template-columns: 1fr; }
+  .membership-stats-row { flex-direction: column; }   /* mobile: 3 กล่องเรียงลง */
   .membership-badge { width: 32px; height: 32px; font-size: 14px; }
 }
 
