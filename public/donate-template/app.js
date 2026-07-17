@@ -233,12 +233,14 @@ function showBadgeTooltip(anchor, text) {
   tip.style.top = rect.top - 8 + 'px';
   tip.style.transform = 'translate(-50%, -100%)';
 
+  anchor.classList.add('badge-active');
   requestAnimationFrame(() => tip.classList.add('visible'));
 }
 
 function hideBadgeTooltip() {
   const existing = document.getElementById('badgeTooltip');
   if (existing) existing.remove();
+  document.querySelectorAll('.badge-active').forEach(el => el.classList.remove('badge-active'));
 }
 
 async function loadPageContent() {
