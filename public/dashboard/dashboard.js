@@ -4245,7 +4245,7 @@ function renderTimerRules(mode) {
     const row = document.createElement('div');
     row.className = 'timer-rule-row';
 
-    const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
+    const lbl = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, `กฏ${idx + 1}`);
 
     const amtInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '10', style: 'width:70px;' });
     amtInput.value = rule.amount || '';
