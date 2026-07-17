@@ -145,6 +145,104 @@ function showNotification(message, type = 'success') {
   }, 5000);
 }
 
+// ========== Copy-to-clipboard + open-in-new-tab helpers (L22/L23) ==========
+// ponytail: shared by 3 copy-url-group instances (OBS overlay preview, account, page-customization)
+function copyToClipboard(inputId, btnEl) {
+  return () => {
+    const input = document.getElementById(inputId);
+    if (!input || !input.value) return;
+    const text = input.value;
+    const orig = btnEl.textContent;
+    const origBg = btnEl.style.background;
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        btnEl.textContent = 'คัดลอกแล้ว!';
+        btnEl.style.background = 'var(--success)';
+        setTimeout(() => {
+          btnEl.textContent = orig;
+          btnEl.style.background = origBg;
+        }, 1500);
+      })
+      .catch(err => console.error('Failed to copy text: ', err));
+  };
+}
+
+function openUrlInNewTab(inputId) {
+  const input = document.getElementById(inputId);
+  if (input && input.value) window.open(input.value, '_blank');
+}
+
+// ========== Edit Account Modal (L20/L21) ==========
+function openEditAccountModal() {
+  const modal = document.getElementById('editAccountModal');
+  const input = document.getElementById('editUsernameInput');
+  if (!modal || !input) return;
+  const current = document.getElementById('accUsername')?.textContent?.trim() || '';
+  input.value = current;
+  input.dataset.original = current;
+  updateEditUsernameHint(input.value);
+  modal.style.display = 'flex';
+  modal.style.animation = 'modalFade 0.25s ease forwards';
+  setTimeout(() => input.focus(), 50);
+}
+
+function closeEditAccountModal() {
+  const modal = document.getElementById('editAccountModal');
+  if (!modal) return;
+  modal.style.animation = 'modalFadeOut 0.2s ease forwards';
+  modal.addEventListener('animationend', function handler() {
+    modal.style.display = 'none';
+    modal.style.animation = '';
+    modal.removeEventListener('animationend', handler);
+  });
+}
+
+function updateEditUsernameHint(value) {
+  const hint = document.getElementById('editUsernameHint');
+  if (!hint) return;
+  const v = (value || '').toLowerCase();
+  if (!v) { hint.textContent = 'กรอก Username ใหม่ (3-30 ตัวอักษร)'; hint.style.color = 'var(--text-muted)'; return; }
+  if (v.length < 3) { hint.textContent = `อีก ${3 - v.length} ตัวอักษร`; hint.style.color = '#ef4444'; return; }
+  if (!/^[a-z0-9_]{3,30}$/.test(v)) { hint.textContent = 'ใช้ได้เฉพาะ a-z, 0-9, underscore'; hint.style.color = '#ef4444'; return; }
+  hint.textContent = `✓ ${v.length} ตัวอักษร — ดูดี`; hint.style.color = '#10b981';
+}
+
+async function submitEditAccount() {
+  const input = document.getElementById('editUsernameInput');
+  const btn = document.getElementById('btnSaveEditAccount');
+  if (!input || !btn) return;
+  const value = input.value.toLowerCase().trim();
+  if (value === (input.dataset.original || '').toLowerCase()) {
+    showNotification('Username เดิม ไม่มีอะไรเปลี่ยน', 'info');
+    return;
+  }
+  btn.disabled = true;
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+  try {
+    const res = await fetchWithCsrf('/api/account/username', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: value })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showNotification(data.error || 'เปลี่ยน Username ไม่สำเร็จ', 'error');
+      return;
+    }
+    showNotification('เปลี่ยน Username สำเร็จ กำลังพาไปหน้าใหม่...', 'success');
+    closeEditAccountModal();
+    // Full page reload: URL path เปลี่ยน — SPA route ใช้ path-based ไม่ได้
+    setTimeout(() => { window.location.href = data.redirectTo; }, 1200);
+  } catch (err) {
+    console.error('submitEditAccount error:', err);
+    showNotification('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+}
+
 // ========== Demo Goal State (module-level so loadDemoGoalSettingsFromData can seed it) ==========
 const demoGoalState = {
   current: 0,
@@ -717,31 +815,54 @@ async function initializeDashboard() {
     const btnCopyObsUrlPreview = document.getElementById('btnCopyObsUrlPreview');
     const btnOpenObsUrlPreview = document.getElementById('btnOpenObsUrlPreview');
 
-    if (btnCopyObsUrlPreview) {
-      btnCopyObsUrlPreview.onclick = () => {
-        const copyText = document.getElementById('obsOverlayUrlPreview');
-        if (!copyText) return;
-        navigator.clipboard.writeText(copyText.value)
-          .then(() => {
-            const orig = btnCopyObsUrlPreview.textContent;
-            btnCopyObsUrlPreview.textContent = 'คัดลอกแล้ว!';
-            btnCopyObsUrlPreview.style.background = 'var(--success)';
-            setTimeout(() => {
-              btnCopyObsUrlPreview.textContent = orig;
-              btnCopyObsUrlPreview.style.background = '';
-            }, 1500);
-          })
-          .catch(err => { console.error('Failed to copy text: ', err); });
-      };
+    if (btnCopyObsUrlPreview) btnCopyObsUrlPreview.onclick = copyToClipboard('obsOverlayUrlPreview', btnCopyObsUrlPreview);
+    if (btnOpenObsUrlPreview) {
+      btnOpenObsUrlPreview.onclick = () => openUrlInNewTab('obsOverlayUrlPreview');
     }
 
-    if (btnOpenObsUrlPreview) {
-      btnOpenObsUrlPreview.onclick = () => {
-        const urlInput = document.getElementById('obsOverlayUrlPreview');
-        if (urlInput && urlInput.value) {
-          window.open(urlInput.value, '_blank');
-        }
-      };
+    // L23: copy-url-group ในหน้า Account (no-border variant)
+    const btnCopyAccountDonateUrl = document.getElementById('btnCopyAccountDonateUrl');
+    const btnOpenAccountDonateUrl = document.getElementById('btnOpenAccountDonateUrl');
+    if (btnCopyAccountDonateUrl) btnCopyAccountDonateUrl.onclick = copyToClipboard('accountDonateUrlPreview', btnCopyAccountDonateUrl);
+    if (btnOpenAccountDonateUrl) {
+      btnOpenAccountDonateUrl.onclick = () => openUrlInNewTab('accountDonateUrlPreview');
+    }
+
+    // L22: copy-url-group ในหน้า Page Customization
+    const btnCopyPageCustomizationDonateUrl = document.getElementById('btnCopyPageCustomizationDonateUrl');
+    const btnOpenPageCustomizationDonateUrl = document.getElementById('btnOpenPageCustomizationDonateUrl');
+    if (btnCopyPageCustomizationDonateUrl) btnCopyPageCustomizationDonateUrl.onclick = copyToClipboard('pageCustomizationDonateUrlPreview', btnCopyPageCustomizationDonateUrl);
+    if (btnOpenPageCustomizationDonateUrl) {
+      btnOpenPageCustomizationDonateUrl.onclick = () => openUrlInNewTab('pageCustomizationDonateUrlPreview');
+    }
+
+    // Edit Account Modal (L20/L21) — bind once at init
+    const btnOpenEditAccount = document.getElementById('btnOpenEditAccount');
+    if (btnOpenEditAccount) btnOpenEditAccount.onclick = openEditAccountModal;
+    const btnCloseEditAccount = document.getElementById('btnCloseEditAccount');
+    if (btnCloseEditAccount) btnCloseEditAccount.onclick = closeEditAccountModal;
+    const btnCancelEditAccount = document.getElementById('btnCancelEditAccount');
+    if (btnCancelEditAccount) btnCancelEditAccount.onclick = closeEditAccountModal;
+    const btnSaveEditAccount = document.getElementById('btnSaveEditAccount');
+    if (btnSaveEditAccount) btnSaveEditAccount.onclick = submitEditAccount;
+    const editUsernameInput = document.getElementById('editUsernameInput');
+    if (editUsernameInput) {
+      editUsernameInput.addEventListener('input', (e) => {
+        // auto-lowercase + strip invalid chars client-side (server validates again)
+        let v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        if (v !== e.target.value) e.target.value = v;
+        updateEditUsernameHint(v);
+      });
+      editUsernameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submitEditAccount(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeEditAccountModal(); }
+      });
+    }
+    const editAccountModal = document.getElementById('editAccountModal');
+    if (editAccountModal) {
+      editAccountModal.addEventListener('click', (e) => {
+        if (e.target === editAccountModal) closeEditAccountModal();
+      });
     }
 
     async function updateObsUrl() {
@@ -1292,7 +1413,16 @@ function loadDemoGoalSettingsFromData(data) {
 
 function loadDemoAccountInfo(data) {
   const el = document.getElementById('accUsername');
-  if (el) el.textContent = data.username || 'KaminKub';
+  const username = data.username || 'KaminKub';
+  if (el) el.textContent = username;
+  // L26: avatar + Donate URL preview (demo = kaminkub)
+  const avatarEl = document.getElementById('accountAvatarPreview');
+  if (avatarEl) avatarEl.src = data.profileImage || '';
+  const donateUrl = `${location.host}/${username.toLowerCase()}`;
+  const accUrlInput = document.getElementById('accountDonateUrlPreview');
+  if (accUrlInput) accUrlInput.value = donateUrl;
+  const pageCustInput = document.getElementById('pageCustomizationDonateUrlPreview');
+  if (pageCustInput) pageCustInput.value = donateUrl;
   // Twitch = connected (KaminKub uses Twitch login)
   if (typeof updateConnectionBtn === 'function') {
     updateConnectionBtn('btnConnectTwitch', true, '/auth/twitch', 'statusTwitch');
@@ -2062,6 +2192,20 @@ async function loadAccountInfo() {
     if (response.ok) {
       const data = await response.json();
       document.getElementById('accUsername').textContent = data.username;
+
+      // L26: avatar preview (96×96) — resolve via existing resolveProfileImage (returns URL or default)
+      const avatarEl = document.getElementById('accountAvatarPreview');
+      if (avatarEl && data.profileImage) {
+        avatarEl.src = data.profileImage;
+      }
+
+      // L23: Donate URL preview (ตัด protocol ออก — แสดงแค่ host/username ตาม L22)
+      const usernameLower = (data.username || '').toLowerCase();
+      const donateUrl = usernameLower ? `${location.host}/${usernameLower}` : '';
+      const donateUrlInput = document.getElementById('accountDonateUrlPreview');
+      if (donateUrlInput) donateUrlInput.value = donateUrl;
+      const pageCustInput = document.getElementById('pageCustomizationDonateUrlPreview');
+      if (pageCustInput) pageCustInput.value = donateUrl;
 
       // Handle Twitch Connection
       updateConnectionBtn('btnConnectTwitch', data.twitchId, '/auth/twitch', 'statusTwitch', data.authProvider);

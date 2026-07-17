@@ -2243,8 +2243,8 @@ label {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .conn-platform {
-    flex: 1 1 auto;
+  .conn-platform,
+  .info-group {
     min-width: 0;
   }
   .conn-actions {
@@ -2269,6 +2269,14 @@ label {
     grid-template-columns: 1fr;
     padding: 12px;
   }
+  .account-profile-block {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .copy-url-group--flat input {
+    font-size: 13px;
+  }
 }
 
 /* ========== Account & Connection List ========== */
@@ -2283,6 +2291,28 @@ label {
   font-size: 1.2rem;
   font-weight: 600;
   margin-top: 4px;
+}
+
+/* ========== Account Profile Block (L26: Avatar → Username → URL → membership) ========== */
+.account-profile-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* ========== Copy URL Group Flat Variant (L28 — no border) ========== */
+.copy-url-group--flat {
+  background-color: transparent;
+  border: none;
+  max-width: 460px;
+  width: 100%;
+}
+.copy-url-group--flat input {
+  color: var(--text-main);
+  font-weight: 500;
 }
 
 .account-actions {
@@ -4143,8 +4173,8 @@ label {
   min-height: 92px;
 }
 
-.membership-label { font-size: 13px; color: #94a3b8; }
-.membership-value { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+.membership-label { font-size: 13px; color: var(--text-muted); }
+.membership-value { font-size: 16px; font-weight: 700; color: var(--text-main); }
 
 .membership-badges {
   display: flex;

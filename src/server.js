@@ -2781,6 +2781,55 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
   }
 });
 
+// POST /api/account/username — เปลี่ยน username (rename)
+// ⚠️ BREAKING: path-based URLs ทุกเส้นที่ผูก username (/:username, /:username/overlay ฯลฯ) จะเปลี่ยนทันที
+// Frontend redirect ไป /:newUsername/dashboard หลังสำเร็จเพื่อหลีกเลี่ยง ownership check fail
+app.post('/api/account/username', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (typeof username !== 'string') {
+      return res.status(400).json({ error: 'กรุณากรอก Username ใหม่' });
+    }
+
+    const normalizedUsername = username.toLowerCase().trim();
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    // no-op shortcut: เหมือนเดิม lowercase-compare เพื่อกัน query ซ้ำเปล่าๆ
+    if (normalizedUsername === streamer.username.toLowerCase()) {
+      return res.json({ success: true, username: streamer.username, redirectTo: `/${streamer.username}/dashboard`, noop: true });
+    }
+
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ error: 'Username ต้องมีอย่างน้อย 3 ตัวอักษร' });
+    }
+    if (!/^[a-z0-9_]{3,30}$/.test(normalizedUsername)) {
+      return res.status(400).json({ error: 'Username ต้องมี 3-30 ตัวอักษร: a-z, 0-9, underscore เท่านั้น' });
+    }
+    if (RESERVED_WORDS.includes(normalizedUsername)) {
+      return res.status(400).json({ error: 'Username นี้ถูกสงวนไว้ กรุณาเลือกชื่ออื่น' });
+    }
+
+    // collision check (ตัดตัวเองออกด้วย id — กัน false-positive ถ้า username เดิมยังตรงกัน)
+    const existing = await db.getStreamer(normalizedUsername);
+    if (existing && existing.id !== streamer.id) {
+      return res.status(400).json({ error: 'Username นี้มีคนใช้แล้ว กรุณาเลือกชื่ออื่น' });
+    }
+
+    await db.renameStreamerUsername(streamer.id, streamer.username, normalizedUsername);
+    console.log(`✏️ [Username Rename] ${streamer.username} → ${normalizedUsername} (id: ${streamer.id})`);
+
+    res.json({
+      success: true,
+      username: normalizedUsername,
+      redirectTo: `/${normalizedUsername}/dashboard`
+    });
+  } catch (err) {
+    console.error('Username rename error:', err);
+    res.status(500).json({ error: 'ไม่สามารถเปลี่ยน Username ได้ กรุณาลองใหม่' });
+  }
+});
+
 app.post('/api/goal/adjust', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const { delta } = req.body;

@@ -1494,6 +1494,46 @@ function resolveBadgeDisplay(streamer) {
   return selected;
 }
 
+// ponytail: rename split into 2 statements (streamers + transactions FK string)
+// for atomic safety, use libsql batch() if available — otherwise manual rollback
+async function renameStreamerUsername(streamerId, oldUsername, newUsername) {
+  await ensureConnected();
+  if (isFallback || !db) return null;
+
+  if (typeof db.batch === 'function') {
+    // Atomic path — libsql batch() runs both updates in one transaction
+    await db.batch([
+      { sql: 'UPDATE streamers SET username = ? WHERE id = ?', args: [newUsername, streamerId] },
+      { sql: 'UPDATE transactions SET streamer_username = ? WHERE LOWER(streamer_username) = LOWER(?)', args: [newUsername, oldUsername] }
+    ], 'write');
+  } else {
+    // Manual rollback path — if transactions update fails, revert streamers.username
+    try {
+      await db.execute({
+        sql: 'UPDATE streamers SET username = ? WHERE id = ?',
+        args: [newUsername, streamerId]
+      });
+      await db.execute({
+        sql: 'UPDATE transactions SET streamer_username = ? WHERE LOWER(streamer_username) = LOWER(?)',
+        args: [newUsername, oldUsername]
+      });
+    } catch (err) {
+      // rollback: best-effort revert (may also fail — rethrow original)
+      try {
+        await db.execute({
+          sql: 'UPDATE streamers SET username = ? WHERE id = ?',
+          args: [oldUsername, streamerId]
+        });
+      } catch (rollbackErr) {
+        console.error('[renameStreamerUsername] rollback failed:', rollbackErr.message);
+      }
+      throw err;
+    }
+  }
+
+  return { success: true };
+}
+
 async function deleteStreamer(id) {
   await ensureConnected();
   if (isFallback) {
@@ -2152,6 +2192,7 @@ module.exports = {
   disconnectPlatform,
   resetGoalCurrent,
   deleteStreamer,
+  renameStreamerUsername,
   resolveProfileImage,
   parseBadges,
   computeMemberBadges,

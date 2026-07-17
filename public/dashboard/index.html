@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_5">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_6">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -316,6 +316,17 @@
                           </div>
                         </div>
 
+                        <!-- L22: copy-url-group สำหรับลิงก์หน้าโดเนท — ตัด https:// ออก ปุ่มใหญ่เด่น -->
+                        <div class="form-group" style="width: 100%; max-width: 460px;">
+                          <label><i class="fa-solid fa-globe" style="color:#10b981"></i> ลิงก์หน้าโดเนทของคุณ (Donate Page URL)</label>
+                          <div class="copy-url-group" style="margin-top: 6px;">
+                            <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="">
+                            <button class="btn btn-primary btn-large" id="btnCopyPageCustomizationDonateUrl">คัดลอก</button>
+                            <button class="btn btn-secondary" id="btnOpenPageCustomizationDonateUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                          </div>
+                          <small class="text-muted" style="display:block;margin-top:4px;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
+                        </div>
+
                   </div>
                   </div><!-- /card-body-panel panelProfile -->
                 </div>
@@ -489,14 +500,27 @@
               <div class="card-header">
                 <h3><i class="fa-solid fa-user"></i> บัญชีผู้ใช้ (Account Settings)</h3>
               </div>
-              <div class="account-info-grid">
-                <div class="info-group">
-                  <label class="text-muted">ชื่อผู้ใช้งาน (Username)</label>
-                  <p id="accUsername" class="acc-username">กำลังโหลด...</p>
+              <div class="account-profile-block">
+                <div class="avatar-preview-wrapper">
+                  <img id="accountAvatarPreview" class="glowing-avatar" src="" width="96" height="96" style="width: 96px; height: 96px; border-radius: 50%;" alt="Account Avatar">
                 </div>
-                <div class="info-group">
-                  <label class="text-muted">การเชื่อมต่อบัญชี (Account Connections)</label>
-                  <div class="connection-list">
+                <p id="accUsername" class="acc-username">กำลังโหลด...</p>
+                <div class="copy-url-group copy-url-group--flat">
+                  <input type="text" id="accountDonateUrlPreview" readonly value="">
+                  <button class="btn btn-primary btn-large" id="btnCopyAccountDonateUrl">คัดลอก</button>
+                  <button class="btn btn-secondary" id="btnOpenAccountDonateUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                </div>
+                <button class="btn btn-secondary" id="btnOpenEditAccount"><i class="fa-solid fa-pen"></i> แก้ไขข้อมูล</button>
+              </div>
+            </div>
+
+            <!-- Card 2: การเชื่อมต่อบัญชี (Account Connections) — แยก card สำหรับ overflow fix + ลำดับใหม่ -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-link" style="color: var(--primary)"></i> การเชื่อมต่อบัญชี (Account Connections)</h3>
+              </div>
+              <div class="info-group">
+                <div class="connection-list">
                     <div class="connection-row" data-platform="twitch">
                       <div class="conn-platform">
                         <i class="fa-brands fa-twitch conn-icon"></i>
@@ -525,7 +549,6 @@
                         <button class="btn btn-secondary btn-conn" id="btnConnectStreamlabs">เชื่อมต่อ</button>
                       </div>
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2209,6 +2232,31 @@
     </div>
   </div>
 
+  <!-- Edit Account Modal — แก้ไข Username (L20/L21) -->
+  <div class="modal" id="editAccountModal">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-pen-to-square" style="color: var(--primary)"></i> แก้ไขข้อมูลบัญชี</h3>
+        <button class="btn-close" id="btnCloseEditAccount">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="editUsernameInput">ชื่อผู้ใช้งาน (Username)</label>
+          <input type="text" id="editUsernameInput" class="form-control" maxlength="30" autocomplete="off" spellcheck="false" placeholder="a-z, 0-9, underscore (3-30 ตัว)">
+          <span id="editUsernameHint" class="field-hint" style="font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block;"></span>
+        </div>
+        <div class="account-rename-warning" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--text-main);">
+          <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b"></i>
+          การเปลี่ยน Username จะทำให้ลิงก์หน้าโดเนท, ลิงก์ Overlay ที่เพิ่มใน OBS, และลิงก์เก่าที่เคยแชร์ไว้ <strong>ใช้งานไม่ได้ทันที</strong> — ต้องคัดลอกลิงก์ใหม่ไปตั้งใหม่ทุกที่
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+        <button class="btn btn-secondary" id="btnCancelEditAccount">ยกเลิก</button>
+        <button class="btn btn-primary" id="btnSaveEditAccount">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MyInstants Sound Browser Modal -->
   <div id="soundBrowserModal" class="modal">
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
@@ -2403,7 +2451,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260717_5"></script>
+  <script src="/dashboard/dashboard.js?v=20260717_6"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
