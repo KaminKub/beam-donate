@@ -365,28 +365,42 @@ async function initializeDashboard() {
       const demoSubtabAlert = document.getElementById('btnSubtabAlert');
       const demoSubtabGoal  = document.getElementById('btnSubtabGoal');
       const demoSubtabTimer = document.getElementById('btnSubtabTimer');
+      const demoSubtabLeaderboard = document.getElementById('btnSubtabLeaderboard');
+      const demoSubtabRecentdonate = document.getElementById('btnSubtabRecentdonate');
 
       function demoSwitchSubtab(active) {
         const showAlert = active === 'alert';
         const showGoal  = active === 'goal';
         const showTimer = active === 'timer';
+        const showLeaderboard = active === 'leaderboard';
+        const showRecentdonate = active === 'recentdonate';
         document.getElementById('overlaySettingsForm')?.style.setProperty('display', showAlert ? '' : 'none');
         document.getElementById('goalSettingsPanel')?.style.setProperty('display', showGoal ? '' : 'none');
         document.getElementById('timerSettingsPanel')?.style.setProperty('display', showTimer ? '' : 'none');
+        document.getElementById('leaderboardSettingsPanel')?.style.setProperty('display', showLeaderboard ? '' : 'none');
+        document.getElementById('recentdonateSettingsPanel')?.style.setProperty('display', showRecentdonate ? '' : 'none');
         document.getElementById('alertPreviewCard')?.style.setProperty('display', showAlert ? '' : 'none');
         document.getElementById('goalPreviewCard')?.style.setProperty('display', showGoal ? '' : 'none');
         document.getElementById('timerPreviewCard')?.style.setProperty('display', showTimer ? '' : 'none');
+        document.getElementById('leaderboardPreviewCard')?.style.setProperty('display', showLeaderboard ? '' : 'none');
+        document.getElementById('recentdonatePreviewCard')?.style.setProperty('display', showRecentdonate ? '' : 'none');
         if (demoSubtabAlert) demoSubtabAlert.classList.toggle('active', showAlert);
         if (demoSubtabGoal)  demoSubtabGoal.classList.toggle('active', showGoal);
         if (demoSubtabTimer) demoSubtabTimer.classList.toggle('active', showTimer);
-        if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); }
-        if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); }
-        if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); }
+        if (demoSubtabLeaderboard) demoSubtabLeaderboard.classList.toggle('active', showLeaderboard);
+        if (demoSubtabRecentdonate) demoSubtabRecentdonate.classList.toggle('active', showRecentdonate);
+        if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); }
+        if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); }
+        if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); }
+        if (showLeaderboard) { deactivateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); activateLeaderboardPreview(); deactivateRecentdonatePreview(); }
+        if (showRecentdonate) { deactivateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); activateRecentdonatePreview(); }
       }
 
       if (demoSubtabAlert) demoSubtabAlert.addEventListener('click', () => demoSwitchSubtab('alert'));
       if (demoSubtabGoal)  demoSubtabGoal.addEventListener('click', () => demoSwitchSubtab('goal'));
       if (demoSubtabTimer) demoSubtabTimer.addEventListener('click', () => demoSwitchSubtab('timer'));
+      if (demoSubtabLeaderboard) demoSubtabLeaderboard.addEventListener('click', () => demoSwitchSubtab('leaderboard'));
+      if (demoSubtabRecentdonate) demoSubtabRecentdonate.addEventListener('click', () => demoSwitchSubtab('recentdonate'));
 
       // Activate alert subtab by default
       // NOTE: do NOT call activateOverlayPreview() here — iframe must only load
@@ -971,28 +985,77 @@ async function initializeDashboard() {
     const btnSubtabAlert = document.getElementById('btnSubtabAlert');
     const btnSubtabGoal = document.getElementById('btnSubtabGoal');
     const btnSubtabTimer = document.getElementById('btnSubtabTimer');
+    const btnSubtabLeaderboard = document.getElementById('btnSubtabLeaderboard');
+    const btnSubtabRecentdonate = document.getElementById('btnSubtabRecentdonate');
 
     function switchWidgetSubtab(active) {
       const showAlert = active === 'alert';
       const showGoal  = active === 'goal';
       const showTimer = active === 'timer';
+      const showLeaderboard = active === 'leaderboard';
+      const showRecentdonate = active === 'recentdonate';
       document.getElementById('overlaySettingsForm').style.display = showAlert ? '' : 'none';
       document.getElementById('goalSettingsPanel').style.display = showGoal ? '' : 'none';
       document.getElementById('timerSettingsPanel').style.display = showTimer ? '' : 'none';
+      document.getElementById('leaderboardSettingsPanel').style.display = showLeaderboard ? '' : 'none';
+      document.getElementById('recentdonateSettingsPanel').style.display = showRecentdonate ? '' : 'none';
       document.getElementById('alertPreviewCard').style.display = showAlert ? '' : 'none';
       document.getElementById('goalPreviewCard').style.display = showGoal ? '' : 'none';
       document.getElementById('timerPreviewCard').style.display = showTimer ? '' : 'none';
+      document.getElementById('leaderboardPreviewCard').style.display = showLeaderboard ? '' : 'none';
+      document.getElementById('recentdonatePreviewCard').style.display = showRecentdonate ? '' : 'none';
       if (btnSubtabAlert) btnSubtabAlert.classList.toggle('active', showAlert);
       if (btnSubtabGoal)  btnSubtabGoal.classList.toggle('active', showGoal);
       if (btnSubtabTimer) btnSubtabTimer.classList.toggle('active', showTimer);
-      if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); }
-      if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); loadGoalSettings(); }
-      if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); loadTimerSettings(); }
+      if (btnSubtabLeaderboard) btnSubtabLeaderboard.classList.toggle('active', showLeaderboard);
+      if (btnSubtabRecentdonate) btnSubtabRecentdonate.classList.toggle('active', showRecentdonate);
+      if (showAlert) { activateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); }
+      if (showGoal)  { deactivateOverlayPreview(); activateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); loadGoalSettings(); }
+      if (showTimer) { deactivateOverlayPreview(); deactivateGoalBarPreview(); activateTimerPreview(); deactivateLeaderboardPreview(); deactivateRecentdonatePreview(); loadTimerSettings(); }
+      if (showLeaderboard) { deactivateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); activateLeaderboardPreview(); deactivateRecentdonatePreview(); loadLeaderboardSettings(); }
+      if (showRecentdonate) { deactivateOverlayPreview(); deactivateGoalBarPreview(); deactivateTimerPreview(); deactivateLeaderboardPreview(); activateRecentdonatePreview(); loadRecentdonateSettings(); }
     }
 
     if (btnSubtabAlert) btnSubtabAlert.addEventListener('click', () => switchWidgetSubtab('alert'));
     if (btnSubtabGoal)  btnSubtabGoal.addEventListener('click', () => switchWidgetSubtab('goal'));
     if (btnSubtabTimer) btnSubtabTimer.addEventListener('click', () => switchWidgetSubtab('timer'));
+    if (btnSubtabLeaderboard) btnSubtabLeaderboard.addEventListener('click', () => switchWidgetSubtab('leaderboard'));
+    if (btnSubtabRecentdonate) btnSubtabRecentdonate.addEventListener('click', () => switchWidgetSubtab('recentdonate'));
+
+    // ponytail: Widget shortcut intro — ไล่ highlight ทีละปุ่ม วน 3 รอบ, สีตาม semantic ของแต่ละ widget
+    const SHORTCUT_INTRO_COLORS = {
+      alert: '#f59e0b', goal: '#4ade80', timer: '#fbbf24',
+      leaderboard: '#a855f7', recentdonate: '#06b6d4', topdonor: '#6366f1'
+    };
+    function shortcutHexToRgba(hex, a) {
+      const h = hex.replace('#', '');
+      const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+    function playWidgetShortcutIntro() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const dest = document.getElementById('widgetShortcutToggle');
+      if (!dest) return;
+      const btns = Array.from(dest.querySelectorAll('button.subtab-btn[data-widget-subtab]'));
+      if (!btns.length) return;
+      // 1→5 ครั้งเดียว = [0,1,2,3,4] = 5 สเต็ป; STEP 300ms → รวม 1.5s
+      const seq = [];
+      for (let i = 0; i < btns.length; i++) seq.push(i);
+      const STEP = 300;
+      let p = 0;
+      (function step() {
+        if (p >= seq.length) return;
+        const btn = btns[seq[p]];
+        const c = SHORTCUT_INTRO_COLORS[btn.getAttribute('data-widget-subtab')] || '#fbbf24';
+        btn.style.setProperty('--intro-color', c);
+        btn.style.setProperty('--intro-bg', shortcutHexToRgba(c, 0.14));
+        btn.style.setProperty('--intro-glow', shortcutHexToRgba(c, 0.6));
+        btn.classList.add('shortcut-intro');
+        setTimeout(() => btn.classList.remove('shortcut-intro'), STEP - 10);
+        p++;
+        setTimeout(step, STEP);
+      })();
+    }
 
     // ponytail: Widget shortcut card (OBS Setup Card repurposed) — clone ปุ่มจาก #widgetSubtabToggle
     // ไป #widgetShortcutToggle (ก๊อปปี้ ไม่ย้าย) เพื่อหลีก ID ซ้ำ; กดแล้วพาไป tab overlay-config + สลับ subtab.
@@ -1015,6 +1078,37 @@ async function initializeDashboard() {
         });
         destToggle.appendChild(clone);
       });
+
+      // [Requirement #9] ปุ่มที่ 6 — ไม่ได้ clone จาก widget subtab, สร้างเองเพราะพาไปคนละหน้า (tab-transactions ไม่ใช่ tab-overlay-config)
+      // [UI Fix] แยกชั้นเป็นแถวของตัวเอง + label กันสับสนว่าเป็นวิดเจ็ตแบบเดียวกับปุ่มอื่น
+      const topdonorGroup = document.createElement('div');
+      topdonorGroup.className = 'widget-shortcut-topdonor-group';
+
+      const topdonorLabel = document.createElement('span');
+      topdonorLabel.className = 'widget-shortcut-topdonor-label';
+      topdonorLabel.innerHTML = '<i class="fa-solid fa-grip-lines"></i> ประวัติสะสม';
+
+      const topdonorBtn = document.createElement('button');
+      topdonorBtn.type = 'button';
+      topdonorBtn.id = 'widgetShortcut-topdonor';
+      topdonorBtn.className = 'subtab-btn subtab-btn--topdonor';
+      topdonorBtn.setAttribute('data-widget-subtab', 'topdonor');
+      topdonorBtn.setAttribute('title', 'ไปหน้าประวัติผู้โดเนทสูงสุด');
+      topdonorBtn.innerHTML = '<i class="fa-solid fa-ranking-star"></i> ประวัติผู้โดเนทสูงสุด';
+      topdonorBtn.addEventListener('click', () => {
+        switchTab('transactions');
+        const btn = document.getElementById('btnTxSubviewTopdonor');
+        if (btn) btn.click();
+      });
+
+      topdonorGroup.appendChild(topdonorLabel);
+      topdonorGroup.appendChild(topdonorBtn);
+      destToggle.appendChild(topdonorGroup);
+
+      // เล่น intro animation ทุกครั้งที่เข้า dashboard (perf: async + composite-only, ไม่ block load)
+      // debug: window.playWidgetShortcutIntro() เพื่อเล่นซ้ำ
+      window.playWidgetShortcutIntro = playWidgetShortcutIntro;
+      setTimeout(playWidgetShortcutIntro, 400);
     }
 
     // Goal color picker <-> hex text sync
@@ -1128,6 +1222,10 @@ async function initializeDashboard() {
           showNotification('ไม่สามารถบันทึกได้', 'error');
         }
       });
+
+      // [UI Fix] เปิด/ปิดวิดเจ็ต = บันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกแยก
+      const chkGoalEnabledAuto = document.getElementById('chkGoalEnabled');
+      if (chkGoalEnabledAuto) chkGoalEnabledAuto.addEventListener('change', () => btnSaveGoal.click());
     }
 
     // End date toggle → show/hide date section + auto-fill sub2
@@ -1197,6 +1295,8 @@ async function initializeDashboard() {
     }
 
     initTimerSettingsUI();
+    initLeaderboardSettingsUI();
+    initRecentdonateSettingsUI();
     initTiktokCard();
 
     const btnLogout = document.getElementById('btnLogout');
@@ -1378,6 +1478,9 @@ async function loadDemoSettings() {
     loadDemoAccountInfo(data);
     loadDemoPaymentInfo(data);
     loadDemoGoalSettingsFromData(data);
+    loadDemoTimerSettings(data);
+    loadDemoLeaderboardSettings(data);
+    loadDemoRecentdonateSettings(data);
   } catch (e) {
     console.error('Demo settings load failed:', e);
     showNotification('เกิดข้อผิดพลาดในการโหลด Demo', 'error');
@@ -1451,17 +1554,409 @@ function loadDemoGoalSettingsFromData(data) {
   if (obsUrlEl) obsUrlEl.value = `${location.origin}/demo/goal-bar`;
 }
 
+function loadDemoTimerSettings(data) {
+  let t = {};
+  try { t = JSON.parse(data.timer_settings || '{}'); } catch (e) {}
+
+  const chkEnabled = document.getElementById('chkTimerEnabled');
+  if (chkEnabled) chkEnabled.checked = !!t.enabled;
+
+  const initSecs = t.initial_seconds || 600;
+  const hh = Math.floor(initSecs / 3600);
+  const mm = Math.floor((initSecs % 3600) / 60);
+  const ss = initSecs % 60;
+  const hhEl = document.getElementById('timerInitHH');
+  const mmEl = document.getElementById('timerInitMM');
+  const ssEl = document.getElementById('timerInitSS');
+  if (hhEl) hhEl.value = hh;
+  if (mmEl) mmEl.value = mm;
+  if (ssEl) ssEl.value = ss;
+
+  const modeEl = document.getElementById('timerModeSelect');
+  const mode = t.mode || 'multiplier';
+  if (modeEl) {
+    modeEl.value = mode;
+    modeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (typeof syncModeCards === 'function') syncModeCards(mode);
+
+  const timeUnitEl = document.getElementById('timerTimeUnit');
+  if (timeUnitEl) {
+    timeUnitEl.value = t.time_unit || 'minutes';
+    timeUnitEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  timerRules = Array.isArray(t.rules) ? JSON.parse(JSON.stringify(t.rules)) : [];
+  if (typeof timerRulesSetMode === 'function') timerRulesSetMode(mode);
+  if (mode === 'multiplier') {
+    if (timerRules.length === 0) timerRules = [{ base_amount: 10, time_seconds: 60, action: 'add' }];
+    if (typeof renderMultiplierRules === 'function') renderMultiplierRules();
+  } else {
+    if (typeof renderTimerRules === 'function') renderTimerRules(mode);
+  }
+
+  const outlineColorEl = document.getElementById('inputTimerOutlineColor');
+  const outlineTxtEl = document.getElementById('txtTimerOutlineColor');
+  const outlineColor = t.outline_color || '#000000';
+  if (outlineColorEl) outlineColorEl.value = outlineColor;
+  if (outlineTxtEl) outlineTxtEl.value = outlineColor;
+
+  const chkPass = document.getElementById('chkTimerAllowPassthrough');
+  if (chkPass) chkPass.checked = t.allow_passthrough !== 0 && t.allow_passthrough !== false;
+
+  const chkShowRules = document.getElementById('chkTimerShowRules');
+  if (chkShowRules) chkShowRules.checked = t.show_rules !== false && t.show_rules !== 0;
+
+  const chkStatusBtn = document.getElementById('chkTimerStatusBtn');
+  if (chkStatusBtn) chkStatusBtn.checked = t.statusBtnEnabled !== 0 && t.statusBtnEnabled !== false;
+
+  const tmplEl = document.getElementById('inputTimerRulesTemplate');
+  if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
+
+  const tmplCoinEl = document.getElementById('inputTimerRulesTemplateCoin');
+  if (tmplCoinEl) tmplCoinEl.value = t.rules_template_coin || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}';
+
+  const capTypeEl = document.getElementById('timerCapTypeSelect');
+  if (capTypeEl) {
+    capTypeEl.value = t.cap_type || '';
+    capTypeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  const capValEl = document.getElementById('inputTimerCapValue');
+  if (capValEl) {
+    if (t.cap_type === 'time') {
+      const isMin = (t.time_unit || 'minutes') === 'minutes';
+      capValEl.value = isMin ? Math.round((t.cap_value || 0) / 60) : (t.cap_value || '');
+    } else {
+      capValEl.value = t.cap_value || '';
+    }
+  }
+
+  if (typeof renderTimerCapStatus === 'function') renderTimerCapStatus(t, data.timer_cap_current || 0);
+
+  const colorMainEl = document.getElementById('inputTimerColorMain');
+  const txtColorMain = document.getElementById('txtTimerColorMain');
+  const color = t.color_main || '#fbbf24';
+  if (colorMainEl) colorMainEl.value = color;
+  if (txtColorMain) txtColorMain.value = color;
+
+  const fontSizeEl = document.getElementById('sliderTimerFontSize');
+  const fontSizeLbl = document.getElementById('lblTimerFontSize');
+  if (fontSizeEl) { fontSizeEl.value = t.font_size || 64; if (fontSizeLbl) fontSizeLbl.textContent = fontSizeEl.value; }
+
+  const borderRadEl = document.getElementById('sliderTimerBorderRadius');
+  const borderRadLbl = document.getElementById('lblTimerBorderRadius');
+  if (borderRadEl) { borderRadEl.value = t.border_radius ?? 2; if (borderRadLbl) borderRadLbl.textContent = borderRadEl.value; }
+
+  // Animation toggles
+  const chkAnim = document.getElementById('chkTimerAnimEnabled');
+  if (chkAnim) {
+    chkAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
+    const syncAnimTestVis = () => {
+      const soundGroup = document.getElementById('timerAnimSoundGroup');
+      if (soundGroup) soundGroup.style.display = chkAnim.checked ? '' : 'none';
+    };
+    syncAnimTestVis();
+  }
+  const chkAnimSound = document.getElementById('chkTimerAnimSound');
+  if (chkAnimSound) chkAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
+
+  // Timeout effect
+  const effectTypeEl = document.getElementById('timerTimeoutEffectType');
+  if (effectTypeEl) {
+    let effectType = t.timeout_effect_type;
+    if (!effectType) effectType = (t.timeout_effect === false || t.timeout_effect === 0) ? 'none' : 'blink';
+    effectTypeEl.value = effectType;
+    effectTypeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const emojiEl = document.getElementById('inputTimerEffectEmoji');
+  if (emojiEl) emojiEl.value = t.timeout_effect_emoji || '🎉';
+
+  // Sound panel
+  const chkSoundEnabledEl = document.getElementById('chkTimerSoundEnabled');
+  if (chkSoundEnabledEl) {
+    chkSoundEnabledEl.checked = t.sound_enabled !== false && t.sound_enabled !== 0;
+    chkSoundEnabledEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const soundChoiceEl = document.getElementById('timerSoundChoiceSelect');
+  if (soundChoiceEl) {
+    soundChoiceEl.value = t.sound_choice || t.sound_type || 'synthetic';
+    soundChoiceEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const volEl = document.getElementById('sliderTimerSoundVolume');
+  const volLbl = document.getElementById('lblTimerSoundVolume');
+  if (volEl) {
+    const vol = t.sound_volume ?? 0.7;
+    volEl.value = vol;
+    if (volLbl) volLbl.textContent = Math.round(vol * 100);
+  }
+  const timerUrlEl = document.getElementById('timerCustomSoundUrl');
+  if (timerUrlEl) timerUrlEl.value = t.sound_url || '';
+
+  // Shine effect
+  const chkShine = document.getElementById('chkTimerShine');
+  if (chkShine) chkShine.checked = !!t.shine_enabled;
+
+  // TikTok toggle (demo: always show but disabled)
+  const tiktokToggle = document.getElementById('tiktokEnableToggle');
+  if (tiktokToggle) tiktokToggle.checked = !!t.tiktokEnabled;
+  if (typeof syncTiktokCard === 'function') syncTiktokCard();
+
+  // Demo URL (no real token)
+  const urlEl = document.getElementById('obsTimerUrlPreview');
+  if (urlEl) urlEl.value = `${location.origin}/demo/timer`;
+}
+
+function loadDemoLeaderboardSettings(data) {
+  let c = {};
+  try { c = JSON.parse(data.leaderboard_settings || '{}'); } catch (e) {}
+
+  const chkEnabled = document.getElementById('chkLeaderboardEnabled');
+  if (chkEnabled) chkEnabled.checked = !!c.enabled;
+
+  const maxEl = document.getElementById('selectLeaderboardMaxEntries');
+  if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const chkShine = document.getElementById('chkLeaderboardShine');
+  if (chkShine) chkShine.checked = c.shine_enabled !== false && c.shine_enabled !== 0;
+  const chkAnim = document.getElementById('chkLeaderboardAnimation');
+  if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
+  const chkShowMedal = document.getElementById('chkLeaderboardShowMedal');
+  if (chkShowMedal) chkShowMedal.checked = c.show_medal !== false && c.show_medal !== 0;
+
+  const periodMode = c.period_mode || 'all';
+  const periodEl = document.getElementById('selectLeaderboardPeriodMode');
+  if (periodEl) { periodEl.value = periodMode; periodEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const periodDaysEl = document.getElementById('inputLeaderboardPeriodCustomDays');
+  if (periodDaysEl) periodDaysEl.value = c.period_custom_days || 30;
+  toggleGroup('leaderboardPeriodCustomGroup', periodMode === 'custom');
+
+  const widthEl = document.getElementById('inputLeaderboardWidth');
+  const widthTxt = document.getElementById('txtLeaderboardWidth');
+  const autoWidthEl = document.getElementById('chkLeaderboardWidthAuto');
+  const savedWidth = parseInt(c.width, 10);
+  const widthAuto = !Number.isFinite(savedWidth) || savedWidth < 300 || savedWidth > 1920;
+  const width = widthAuto ? 900 : savedWidth;
+  if (autoWidthEl) { autoWidthEl.checked = widthAuto; autoWidthEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (widthEl) {
+    widthEl.value = width;
+    widthEl.disabled = widthAuto;
+    widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (widthTxt) {
+    widthTxt.textContent = widthAuto ? 'Auto' : width + 'px';
+    widthTxt.style.opacity = widthAuto ? '0.6' : '';
+  }
+
+  const bgOn = c.bg_enabled !== false && c.bg_enabled !== 0;
+  const chkBg = document.getElementById('chkLeaderboardBgEnabled');
+  if (chkBg) chkBg.checked = bgOn;
+  const bgColorEl = document.getElementById('inputLeaderboardBgColor');
+  const bgColorTxt = document.getElementById('txtLeaderboardBgColor');
+  if (bgColorEl) bgColorEl.value = c.bg_color || '#000000';
+  if (bgColorTxt) bgColorTxt.value = c.bg_color || '#000000';
+  const bgOpacityEl = document.getElementById('selectLeaderboardBgOpacity');
+  if (bgOpacityEl) { bgOpacityEl.value = c.bg_opacity ?? 60; bgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  toggleGroup('leaderboardBgGroup', bgOn);
+
+  const borderOn = c.border_enabled !== false && c.border_enabled !== 0;
+  const chkBorder = document.getElementById('chkLeaderboardBorderEnabled');
+  if (chkBorder) chkBorder.checked = borderOn;
+  const borderColorEl = document.getElementById('inputLeaderboardBorderColor');
+  const borderColorTxt = document.getElementById('txtLeaderboardBorderColor');
+  if (borderColorEl) borderColorEl.value = c.border_color || '#a855f7';
+  if (borderColorTxt) borderColorTxt.value = c.border_color || '#a855f7';
+  const borderOpacityEl = document.getElementById('selectLeaderboardBorderOpacity');
+  if (borderOpacityEl) { borderOpacityEl.value = c.border_opacity ?? 100; borderOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  toggleGroup('leaderboardBorderGroup', borderOn);
+
+  const titleEl = document.getElementById('inputLeaderboardTitle');
+  if (titleEl) titleEl.value = c.title || '🏆 อันดับผู้โดเนท';
+  const currencyEl = document.getElementById('inputLeaderboardCurrency');
+  if (currencyEl) currencyEl.value = c.currency || 'บาท';
+
+  const fsTitleEl = document.getElementById('selectLeaderboardFontSizeTitle');
+  if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const fsRowEl = document.getElementById('selectLeaderboardFontSizeRow');
+  if (fsRowEl) { fsRowEl.value = c.font_size_row || 18; fsRowEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const fsMedalEl = document.getElementById('selectLeaderboardFontSizeMedal');
+  if (fsMedalEl) { fsMedalEl.value = c.font_size_medal || 20; fsMedalEl.dispatchEvent(new Event('change', { bubbles: true })); }
+
+  const outlineWEl = document.getElementById('selectLeaderboardOutlineWidth');
+  if (outlineWEl) { outlineWEl.value = c.outline_width || 0; outlineWEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const outlineColorEl = document.getElementById('inputLeaderboardOutlineColor');
+  const outlineColorTxt = document.getElementById('txtLeaderboardOutlineColor');
+  if (outlineColorEl) outlineColorEl.value = c.outline_color || '#000000';
+  if (outlineColorTxt) outlineColorTxt.value = c.outline_color || '#000000';
+
+  [
+    ['inputLeaderboardColorText', 'txtLeaderboardColorText', c.color_text, '#ffffff'],
+    ['inputLeaderboardColorRank', 'txtLeaderboardColorRank', c.color_rank, '#ffd700'],
+    ['inputLeaderboardColorDonor', 'txtLeaderboardColorDonor', c.color_donor, '#ffffff'],
+    ['inputLeaderboardColorAmount', 'txtLeaderboardColorAmount', c.color_amount, '#4ade80'],
+    ['inputLeaderboardColorCurrency', 'txtLeaderboardColorCurrency', c.color_currency, '#f59e0b'],
+    ['inputLeaderboardColorCount', 'txtLeaderboardColorCount', c.color_count, '#94a3b8']
+  ].forEach(([pickId, txtId, val, fallback]) => {
+    const p = document.getElementById(pickId);
+    const t = document.getElementById(txtId);
+    if (p) p.value = val || fallback;
+    if (t) t.value = val || fallback;
+  });
+
+  const tplLeftEl = document.getElementById('inputLeaderboardTplLeft');
+  if (tplLeftEl) tplLeftEl.value = c.row_template_left || '#{อันดับ}  {ผู้โดเนท} ';
+  const tplRightEl = document.getElementById('inputLeaderboardTplRight');
+  if (tplRightEl) tplRightEl.value = c.row_template_right || '{จำนวนเงิน} {สกุลเงิน}';
+
+  // Demo URL (no real token)
+  const urlEl = document.getElementById('obsLeaderboardUrlPreview');
+  if (urlEl) urlEl.value = `${location.origin}/demo/leader-board`;
+}
+
+function loadDemoRecentdonateSettings(data) {
+  let c = {};
+  try { c = JSON.parse(data.recentdonate_settings || '{}'); } catch (e) {}
+
+  const chkEnabled = document.getElementById('chkRecentdonateEnabled');
+  if (chkEnabled) chkEnabled.checked = !!c.enabled;
+
+  const maxEl = document.getElementById('selectRecentdonateMaxEntries');
+  if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const chkShowTime = document.getElementById('chkRecentdonateShowTime');
+  if (chkShowTime) chkShowTime.checked = c.show_time !== false && c.show_time !== 0;
+  const chkAnim = document.getElementById('chkRecentdonateAnimation');
+  if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
+
+  const widthEl = document.getElementById('inputRecentdonateWidth');
+  const widthTxt = document.getElementById('txtRecentdonateWidth');
+  const autoWidthEl = document.getElementById('chkRecentdonateWidthAuto');
+  const savedWidth = parseInt(c.width, 10);
+  const widthAuto = !Number.isFinite(savedWidth) || savedWidth < 300 || savedWidth > 1920;
+  const width = widthAuto ? 900 : savedWidth;
+  if (autoWidthEl) { autoWidthEl.checked = widthAuto; autoWidthEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (widthEl) {
+    widthEl.value = width;
+    widthEl.disabled = widthAuto;
+    widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (widthTxt) {
+    widthTxt.textContent = widthAuto ? 'Auto' : width + 'px';
+    widthTxt.style.opacity = widthAuto ? '0.6' : '';
+  }
+
+  const bgOn = c.bg_enabled !== false && c.bg_enabled !== 0;
+  const chkBg = document.getElementById('chkRecentdonateBgEnabled');
+  if (chkBg) chkBg.checked = bgOn;
+  const bgColorEl = document.getElementById('inputRecentdonateBgColor');
+  const bgColorTxt = document.getElementById('txtRecentdonateBgColor');
+  if (bgColorEl) bgColorEl.value = c.bg_color || '#000000';
+  if (bgColorTxt) bgColorTxt.value = c.bg_color || '#000000';
+  const bgOpacityEl = document.getElementById('selectRecentdonateBgOpacity');
+  if (bgOpacityEl) { bgOpacityEl.value = c.bg_opacity ?? 60; bgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  toggleGroup('recentdonateBgGroup', bgOn);
+
+  const borderOn = c.border_enabled !== false && c.border_enabled !== 0;
+  const chkBorder = document.getElementById('chkRecentdonateBorderEnabled');
+  if (chkBorder) chkBorder.checked = borderOn;
+  const borderColorEl = document.getElementById('inputRecentdonateBorderColor');
+  const borderColorTxt = document.getElementById('txtRecentdonateBorderColor');
+  if (borderColorEl) borderColorEl.value = c.border_color || '#06b6d4';
+  if (borderColorTxt) borderColorTxt.value = c.border_color || '#06b6d4';
+  const borderOpacityEl = document.getElementById('selectRecentdonateBorderOpacity');
+  if (borderOpacityEl) { borderOpacityEl.value = c.border_opacity ?? 100; borderOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  toggleGroup('recentdonateBorderGroup', borderOn);
+
+  const titleEl = document.getElementById('inputRecentdonateTitle');
+  if (titleEl) titleEl.value = c.title || '🕐 โดเนทล่าสุด';
+  const currencyEl = document.getElementById('inputRecentdonateCurrency');
+  if (currencyEl) currencyEl.value = c.currency || 'บาท';
+
+  const fsTitleEl = document.getElementById('selectRecentdonateFontSizeTitle');
+  if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const fsRowEl = document.getElementById('selectRecentdonateFontSizeRow');
+  if (fsRowEl) { fsRowEl.value = c.font_size_row || 17; fsRowEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const fsTimeEl = document.getElementById('selectRecentdonateFontSizeTime');
+  if (fsTimeEl) { fsTimeEl.value = c.font_size_time || 13; fsTimeEl.dispatchEvent(new Event('change', { bubbles: true })); }
+
+  const outlineWEl = document.getElementById('selectRecentdonateOutlineWidth');
+  if (outlineWEl) { outlineWEl.value = c.outline_width || 0; outlineWEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const outlineColorEl = document.getElementById('inputRecentdonateOutlineColor');
+  const outlineColorTxt = document.getElementById('txtRecentdonateOutlineColor');
+  if (outlineColorEl) outlineColorEl.value = c.outline_color || '#000000';
+  if (outlineColorTxt) outlineColorTxt.value = c.outline_color || '#000000';
+
+  [
+    ['inputRecentdonateColorText', 'txtRecentdonateColorText', c.color_text, '#ffffff'],
+    ['inputRecentdonateColorDonor', 'txtRecentdonateColorDonor', c.color_donor, '#ffffff'],
+    ['inputRecentdonateColorAmount', 'txtRecentdonateColorAmount', c.color_amount, '#4ade80'],
+    ['inputRecentdonateColorCurrency', 'txtRecentdonateColorCurrency', c.color_currency, '#f59e0b'],
+    ['inputRecentdonateColorMessage', 'txtRecentdonateColorMessage', c.color_message, '#94a3b8']
+  ].forEach(([pickId, txtId, val, fallback]) => {
+    const p = document.getElementById(pickId);
+    const t = document.getElementById(txtId);
+    if (p) p.value = val || fallback;
+    if (t) t.value = val || fallback;
+  });
+
+  const tplLeftEl = document.getElementById('inputRecentdonateTplLeft');
+  if (tplLeftEl) tplLeftEl.value = c.row_template_left || '{ผู้โดเนท}  {จำนวนเงิน} {สกุลเงิน} ';
+  const tplRightEl = document.getElementById('inputRecentdonateTplRight');
+  if (tplRightEl) tplRightEl.value = c.row_template_right || ' {ข้อความ}';
+
+  // Demo URL (no real token)
+  const urlEl = document.getElementById('obsRecentdonateUrlPreview');
+  if (urlEl) urlEl.value = `${location.origin}/demo/recent-donate`;
+}
+
 function loadDemoAccountInfo(data) {
   const el = document.getElementById('accUsername');
   const username = data.username || 'KaminKub';
   if (el) el.textContent = username;
-  // L26: avatar + Donate URL preview (demo = kaminkub)
+
+  // Avatar + glow (use computed profileImage/profileGlowColor from demo API)
   const avatarEl = document.getElementById('accountAvatarPreview');
-  if (avatarEl) avatarEl.src = data.profileImage || '';
+  if (avatarEl) avatarEl.src = data.profileImage || '/avatar.jpg';
   const avatarWrapEl = avatarEl?.closest('.avatar-wrap');
-  if (avatarWrapEl) avatarWrapEl.style.setProperty('--avatar-glow-color', data.profile_glow_color || '');
-  // badges ไม่อยู่ใน ALLOWED_DEMO_FIELDS (applyDemoMask) — orbit ว่างเปล่าใน demo mode เป็นค่าปกติ ไม่ใช่บั๊ก
-  renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', []);
+  if (avatarWrapEl) avatarWrapEl.style.setProperty('--avatar-glow-color', data.profileGlowColor || data.profile_glow_color || '#005704');
+
+  // Badges — parse from demo data (now in ALLOWED_DEMO_FIELDS)
+  let earnedBadges = {};
+  try { earnedBadges = JSON.parse(data.badges || '{}'); } catch (e) {}
+  let badgeDisplay = [];
+  try { badgeDisplay = JSON.parse(data.badge_display || '[]'); } catch (e) {}
+  if (!Array.isArray(badgeDisplay)) badgeDisplay = [];
+  renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', badgeDisplay);
+  // Also seed membership badge selector state for page-customization tab
+  earnedBadgesCache = earnedBadges;
+  currentBadgeDisplay = [...badgeDisplay];
+  badgesLoaded = true;
+
+  // Membership card — real memberSince from KaminKub
+  const memberSince = data.memberSince;
+  if (memberSince) {
+    const joined = new Date(memberSince);
+    const elJoin = document.getElementById('memberJoinDate');
+    if (elJoin) elJoin.textContent = joined.toLocaleDateString('th-TH', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const now = new Date();
+    const totalDays = Math.floor((now - joined) / (1000 * 60 * 60 * 24));
+    const years = Math.floor(totalDays / 365);
+    const months = Math.floor((totalDays % 365) / 30);
+    const days = totalDays % 30;
+    let durationText = '';
+    if (years > 0) durationText += `${years} ปี `;
+    if (months > 0) durationText += `${months} เดือน `;
+    durationText += `${days} วัน`;
+    const elDur = document.getElementById('memberDuration');
+    if (elDur) elDur.textContent = durationText;
+  } else {
+    const elJoin = document.getElementById('memberJoinDate');
+    if (elJoin) elJoin.textContent = 'ผู้ใช้ยุคบุกเบิก 🏛️';
+    const elDur = document.getElementById('memberDuration');
+    if (elDur) elDur.textContent = 'ก่อนระบบบันทึกเวลา';
+  }
+
+  // Donate URL preview
   const donateUrl = `${location.host}/${username.toLowerCase()}`;
   const accUrlInput = document.getElementById('accountDonateUrlPreview');
   if (accUrlInput) {
@@ -1470,13 +1965,14 @@ function loadDemoAccountInfo(data) {
   }
   const pageCustInput = document.getElementById('pageCustomizationDonateUrlPreview');
   if (pageCustInput) pageCustInput.value = donateUrl;
-  // Twitch = connected (KaminKub uses Twitch login)
+
+  // Connection status — real booleans from demo API (not hardcoded)
+  const twitchOk = data.twitchConnected === true;
+  const streamlabsOk = data.streamlabsConnected === true;
+  const authProvider = data.authProvider || 'twitch';
   if (typeof updateConnectionBtn === 'function') {
-    updateConnectionBtn('btnConnectTwitch', true, '/auth/twitch', 'statusTwitch');
-  }
-  // Demo user has no Streamlabs linked
-  if (typeof updateConnectionBtn === 'function') {
-    updateConnectionBtn('btnConnectStreamlabs', false, '/auth/streamlabs', 'statusStreamlabs');
+    updateConnectionBtn('btnConnectTwitch', twitchOk, '/auth/twitch', 'statusTwitch', authProvider);
+    updateConnectionBtn('btnConnectStreamlabs', streamlabsOk, '/auth/streamlabs', 'statusStreamlabs', authProvider);
   }
 }
 
@@ -1982,7 +2478,12 @@ function switchTab(tabId) {
       tabLoaded['page-customization'] = true;
       loadPageSettings();
     }
-    if (!DEMO_MODE) ensureBadgesLoaded(); // badge selector ในหน้านี้ต้องมีข้อมูล แม้เปิด account tab ยังไม่เคยโหลด
+    if (DEMO_MODE) {
+      // Demo already has badges from loadDemoAccountInfo — render directly
+      if (typeof renderMembershipBadges === 'function') renderMembershipBadges(earnedBadgesCache, currentBadgeDisplay);
+    } else {
+      ensureBadgesLoaded(); // badge selector ในหน้านี้ต้องมีข้อมูล แม้เปิด account tab ยังไม่เคยโหลด
+    }
   }
   if (tabId === 'account') {
     if (!DEMO_MODE && !tabLoaded['account']) {
@@ -2057,6 +2558,36 @@ function activateTimerPreview() {
 
 function deactivateTimerPreview() {
   const iframe = document.getElementById('timerPreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
+}
+
+// ========== Leader Board Preview Iframe Control ==========
+function activateLeaderboardPreview() {
+  const iframe = document.getElementById('leaderboardPreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.src = DEMO_MODE ? '/demo/leader-board' : `${location.origin}/leader-board`;
+  }
+}
+
+function deactivateLeaderboardPreview() {
+  const iframe = document.getElementById('leaderboardPreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
+}
+
+// ========== Recent Donate Preview Iframe Control ==========
+function activateRecentdonatePreview() {
+  const iframe = document.getElementById('recentdonatePreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.src = DEMO_MODE ? '/demo/recent-donate' : `${location.origin}/recent-donate`;
+  }
+}
+
+function deactivateRecentdonatePreview() {
+  const iframe = document.getElementById('recentdonatePreviewIframe');
   if (!iframe) return;
   iframe.src = 'about:blank';
 }
@@ -2231,6 +2762,7 @@ function renderAvatarOrbitBadges(orbitId, crownId, displayKeys) {
 }
 
 function toggleBadgeDisplay(key) {
+  if (DEMO_MODE) { showNotification('Demo Mode — ไม่สามารถเปลี่ยน Badge ได้', 'info'); return; }
   const isMember = MEMBERSHIP_KEYS_UI.includes(key);
   const on = currentBadgeDisplay.includes(key);
 
@@ -2782,6 +3314,72 @@ async function fetchTransactions() {
     renderFullTransactions(allTransactions);
   }
 }
+
+// ========== [Requirement #9] Top Donor (leaderboard_alltime) subview ==========
+let leaderboardAlltimeCache = null; // lazy-load, cache ไว้ไม่ fetch ซ้ำทุกครั้งที่สลับ tab
+
+function switchTransactionsSubview(view) {
+  const showHistory = view === 'history';
+  document.getElementById('txSubviewHistory').style.display = showHistory ? '' : 'none';
+  document.getElementById('txSubviewTopdonor').style.display = showHistory ? 'none' : '';
+  document.getElementById('btnTxSubviewHistory').classList.toggle('active', showHistory);
+  document.getElementById('btnTxSubviewTopdonor').classList.toggle('active', !showHistory);
+  if (!showHistory && !leaderboardAlltimeCache) fetchLeaderboardAlltime();
+}
+document.getElementById('btnTxSubviewHistory')?.addEventListener('click', () => switchTransactionsSubview('history'));
+document.getElementById('btnTxSubviewTopdonor')?.addEventListener('click', () => switchTransactionsSubview('topdonor'));
+
+async function fetchLeaderboardAlltime() {
+  const tbody = document.querySelector('#topDonorTable tbody');
+  try {
+    const pathParts = window.location.pathname.split('/');
+    const username = pathParts[1];
+    const res = await fetch(`/api/leaderboard-alltime/${username}`);
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    leaderboardAlltimeCache = await res.json();
+    renderTopDonorTable(leaderboardAlltimeCache);
+  } catch (err) {
+    console.error('Error fetching leaderboard-alltime:', err);
+    leaderboardAlltimeCache = [];
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">โหลดข้อมูลไม่สำเร็จ</td></tr>';
+  }
+}
+
+function renderTopDonorTable(rows) {
+  const tbody = document.querySelector('#topDonorTable tbody');
+  if (!tbody) return;
+  const q = (document.getElementById('inputSearchTopDonor')?.value || '').toLowerCase().trim();
+  const filtered = q ? rows.filter(r => (r.donor || '').toLowerCase().includes(q)) : rows;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">ไม่พบข้อมูล</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => `
+    <tr>
+      <td>#${i + 1}</td>
+      <td>${escapeHtml(r.donor)}</td>
+      <td>฿${Number(r.total_amount).toLocaleString('th-TH')}</td>
+      <td>${r.donation_count}</td>
+      <td>฿${Number(r.avg_amount).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</td>
+      <td>฿${Number(r.top_amount).toLocaleString('th-TH')}</td>
+      <td>${r.last_donation_at ? new Date(r.last_donation_at).toLocaleDateString('th-TH') : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('inputSearchTopDonor')?.addEventListener('input', () => renderTopDonorTable(leaderboardAlltimeCache || []));
+document.getElementById('btnRefreshTopDonor')?.addEventListener('click', fetchLeaderboardAlltime);
+document.getElementById('btnDownloadTopDonor')?.addEventListener('click', () => {
+  const rows = leaderboardAlltimeCache || [];
+  const header = 'อันดับ,ผู้บริจาค,ยอดรวม,จำนวนครั้ง,เฉลี่ยต่อครั้ง,สูงสุดต่อครั้ง,บริจาคล่าสุด\n';
+  const body = rows.map((r, i) => `${i + 1},"${(r.donor || '').replace(/"/g, '""')}",${r.total_amount},${r.donation_count},${r.avg_amount},${r.top_amount},${r.last_donation_at || ''}`).join('\n');
+  const blob = new Blob(['﻿' + header + body], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `top-donors-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
 function calculateStats(transactions) {
   let totalAmount = 0;
@@ -4988,6 +5586,10 @@ function initTimerSettingsUI() {
   const btnSave = document.getElementById('btnSaveTimerSettings');
   if (btnSave) btnSave.addEventListener('click', saveTimerSettings);
 
+  // [UI Fix] เปิด/ปิดวิดเจ็ต = บันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกแยก
+  const chkTimerEnabledAuto = document.getElementById('chkTimerEnabled');
+  if (chkTimerEnabledAuto) chkTimerEnabledAuto.addEventListener('change', saveTimerSettings);
+
   // Copy URL buttons
   function copyUrl(inputId) {
     const el = document.getElementById(inputId);
@@ -5014,6 +5616,637 @@ function initTimerSettingsUI() {
     const iframe = document.getElementById('timerPreviewIframe');
     if (iframe) { const s = iframe.src; iframe.src = 'about:blank'; iframe.src = s; }
     setTimeout(() => btnReloadTimer.classList.remove('spinning'), 1200);
+  });
+}
+
+// ========== Leader Board settings (load/save) ==========
+// Req #4 (animation) — .tk-collapse driven by tk-open class (CSS handles the grid 0fr→1fr transition)
+function toggleGroup(groupId, show) {
+  const el = document.getElementById(groupId);
+  if (el) el.classList.toggle('tk-open', show);
+}
+
+async function loadLeaderboardSettings() {
+  try {
+    const [settingsRes, tokenRes] = await Promise.all([
+      fetch('/api/overlay/settings'),
+      fetch('/api/overlay/token')
+    ]);
+    if (!settingsRes.ok) return;
+    const data = await settingsRes.json();
+    let c = {};
+    try { c = JSON.parse(data.leaderboard_settings || '{}'); } catch (e) {}
+
+    const chkEnabled = document.getElementById('chkLeaderboardEnabled');
+    if (chkEnabled) chkEnabled.checked = !!c.enabled;
+
+    const maxEl = document.getElementById('selectLeaderboardMaxEntries');
+    if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const chkShine = document.getElementById('chkLeaderboardShine');
+    if (chkShine) chkShine.checked = c.shine_enabled !== false && c.shine_enabled !== 0;
+    const chkAnim = document.getElementById('chkLeaderboardAnimation');
+    if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
+    const chkShowMedal = document.getElementById('chkLeaderboardShowMedal');
+    if (chkShowMedal) chkShowMedal.checked = c.show_medal !== false && c.show_medal !== 0;
+
+    const periodMode = c.period_mode || 'all';
+    const periodEl = document.getElementById('selectLeaderboardPeriodMode');
+    if (periodEl) { periodEl.value = periodMode; periodEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const periodDaysEl = document.getElementById('inputLeaderboardPeriodCustomDays');
+    if (periodDaysEl) periodDaysEl.value = c.period_custom_days || 30;
+    toggleGroup('leaderboardPeriodCustomGroup', periodMode === 'custom');
+
+    const widthEl = document.getElementById('inputLeaderboardWidth');
+    const widthTxt = document.getElementById('txtLeaderboardWidth');
+    const autoWidthEl = document.getElementById('chkLeaderboardWidthAuto');
+    const savedWidth = parseInt(c.width, 10);
+    const widthAuto = !Number.isFinite(savedWidth) || savedWidth < 300 || savedWidth > 1920;
+    const width = widthAuto ? 900 : savedWidth;
+    if (autoWidthEl) { autoWidthEl.checked = widthAuto; autoWidthEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (widthEl) {
+      widthEl.value = width;
+      widthEl.disabled = widthAuto;
+      widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (widthTxt) {
+      widthTxt.textContent = widthAuto ? 'Auto' : width + 'px';
+      widthTxt.style.opacity = widthAuto ? '0.6' : '';
+    }
+
+    const bgOn = c.bg_enabled !== false && c.bg_enabled !== 0;
+    const chkBg = document.getElementById('chkLeaderboardBgEnabled');
+    if (chkBg) chkBg.checked = bgOn;
+    const bgColorEl = document.getElementById('inputLeaderboardBgColor');
+    const bgColorTxt = document.getElementById('txtLeaderboardBgColor');
+    if (bgColorEl) bgColorEl.value = c.bg_color || '#000000';
+    if (bgColorTxt) bgColorTxt.value = c.bg_color || '#000000';
+    const bgOpacityEl = document.getElementById('selectLeaderboardBgOpacity');
+    if (bgOpacityEl) { bgOpacityEl.value = c.bg_opacity ?? 60; bgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('leaderboardBgGroup', bgOn);
+
+    const borderOn = c.border_enabled !== false && c.border_enabled !== 0;
+    const chkBorder = document.getElementById('chkLeaderboardBorderEnabled');
+    if (chkBorder) chkBorder.checked = borderOn;
+    const borderColorEl = document.getElementById('inputLeaderboardBorderColor');
+    const borderColorTxt = document.getElementById('txtLeaderboardBorderColor');
+    if (borderColorEl) borderColorEl.value = c.border_color || '#a855f7';
+    if (borderColorTxt) borderColorTxt.value = c.border_color || '#a855f7';
+    const borderOpacityEl = document.getElementById('selectLeaderboardBorderOpacity');
+    if (borderOpacityEl) { borderOpacityEl.value = c.border_opacity ?? 100; borderOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('leaderboardBorderGroup', borderOn);
+
+    // เปิดสีพื้นหลังชื่อ (Leader Board = on/off เท่านั้น)
+    const chkRowBg = document.getElementById('chkLeaderboardRowBgEnabled');
+    if (chkRowBg) chkRowBg.checked = c.row_bg_enabled !== false && c.row_bg_enabled !== 0;
+
+    // เปิดกรอบชื่อ (Leader Board = on/off เท่านั้น แยกจากกรอบ #lbWrapper ด้านบน)
+    const chkRowBorder = document.getElementById('chkLeaderboardRowBorderEnabled');
+    if (chkRowBorder) chkRowBorder.checked = c.row_border_enabled !== false && c.row_border_enabled !== 0;
+
+    const titleEl = document.getElementById('inputLeaderboardTitle');
+    if (titleEl) titleEl.value = c.title || '🏆 อันดับผู้โดเนท';
+    const currencyEl = document.getElementById('inputLeaderboardCurrency');
+    if (currencyEl) currencyEl.value = c.currency || 'บาท';
+
+    const fsTitleEl = document.getElementById('selectLeaderboardFontSizeTitle');
+    if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const fsRowEl = document.getElementById('selectLeaderboardFontSizeRow');
+    if (fsRowEl) { fsRowEl.value = c.font_size_row || 18; fsRowEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const fsMedalEl = document.getElementById('selectLeaderboardFontSizeMedal');
+    if (fsMedalEl) { fsMedalEl.value = c.font_size_medal || 20; fsMedalEl.dispatchEvent(new Event('change', { bubbles: true })); }
+
+    const outlineWEl = document.getElementById('selectLeaderboardOutlineWidth');
+    if (outlineWEl) { outlineWEl.value = c.outline_width || 0; outlineWEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const outlineColorEl = document.getElementById('inputLeaderboardOutlineColor');
+    const outlineColorTxt = document.getElementById('txtLeaderboardOutlineColor');
+    if (outlineColorEl) outlineColorEl.value = c.outline_color || '#000000';
+    if (outlineColorTxt) outlineColorTxt.value = c.outline_color || '#000000';
+
+    const colorFields = [
+      ['inputLeaderboardColorText', 'txtLeaderboardColorText', c.color_text, '#ffffff'],
+      ['inputLeaderboardColorRank', 'txtLeaderboardColorRank', c.color_rank, '#ffd700'],
+      ['inputLeaderboardColorDonor', 'txtLeaderboardColorDonor', c.color_donor, '#ffffff'],
+      ['inputLeaderboardColorAmount', 'txtLeaderboardColorAmount', c.color_amount, '#4ade80'],
+      ['inputLeaderboardColorCurrency', 'txtLeaderboardColorCurrency', c.color_currency, '#f59e0b'],
+      ['inputLeaderboardColorCount', 'txtLeaderboardColorCount', c.color_count, '#94a3b8']
+    ];
+    colorFields.forEach(([pickId, txtId, val, fallback]) => {
+      const p = document.getElementById(pickId);
+      const t = document.getElementById(txtId);
+      if (p) p.value = val || fallback;
+      if (t) t.value = val || fallback;
+    });
+
+    const tplLeftEl = document.getElementById('inputLeaderboardTplLeft');
+    if (tplLeftEl) tplLeftEl.value = c.row_template_left || '#{อันดับ}  {ผู้โดเนท} ';
+    const tplRightEl = document.getElementById('inputLeaderboardTplRight');
+    if (tplRightEl) tplRightEl.value = c.row_template_right || '{จำนวนเงิน} {สกุลเงิน}';
+
+    if (tokenRes.ok) {
+      const { token } = await tokenRes.json();
+      const url = `${location.origin}/leader-board?token=${token}`;
+      const urlEl = document.getElementById('obsLeaderboardUrlPreview');
+      if (urlEl) urlEl.value = url;
+    }
+  } catch (err) {
+    console.error('Failed to load leaderboard settings:', err);
+  }
+}
+
+// parseInt(...) || fallback ผิดเมื่อค่าจริงคือ 0 (0 เป็น falsy → หลุดไป fallback เสมอ) — ความโปร่งใส 0% เคยเด้งกลับ default เพราะบั๊กนี้
+function intOrDefault(val, def) {
+  const n = parseInt(val, 10);
+  return Number.isFinite(n) ? n : def;
+}
+
+async function saveLeaderboardSettings() {
+  const widthAuto = document.getElementById('chkLeaderboardWidthAuto')?.checked;
+  const c = {
+    enabled: document.getElementById('chkLeaderboardEnabled')?.checked ? 1 : 0,
+    max_entries: parseInt(document.getElementById('selectLeaderboardMaxEntries')?.value) || 5,
+    shine_enabled: document.getElementById('chkLeaderboardShine')?.checked ? 1 : 0,
+    animation_enabled: document.getElementById('chkLeaderboardAnimation')?.checked ? 1 : 0,
+    show_medal: document.getElementById('chkLeaderboardShowMedal')?.checked ? 1 : 0,
+    period_mode: document.getElementById('selectLeaderboardPeriodMode')?.value || 'all',
+    period_custom_days: parseInt(document.getElementById('inputLeaderboardPeriodCustomDays')?.value) || 30,
+    bg_enabled: document.getElementById('chkLeaderboardBgEnabled')?.checked ? 1 : 0,
+    bg_color: document.getElementById('inputLeaderboardBgColor')?.value || '#000000',
+    bg_opacity: intOrDefault(document.getElementById('selectLeaderboardBgOpacity')?.value, 60),
+    border_enabled: document.getElementById('chkLeaderboardBorderEnabled')?.checked ? 1 : 0,
+    border_color: document.getElementById('inputLeaderboardBorderColor')?.value || '#a855f7',
+    border_opacity: intOrDefault(document.getElementById('selectLeaderboardBorderOpacity')?.value, 100),
+    row_bg_enabled: document.getElementById('chkLeaderboardRowBgEnabled')?.checked ? 1 : 0,
+    row_border_enabled: document.getElementById('chkLeaderboardRowBorderEnabled')?.checked ? 1 : 0,
+    title: document.getElementById('inputLeaderboardTitle')?.value || '🏆 อันดับผู้โดเนท',
+    currency: document.getElementById('inputLeaderboardCurrency')?.value || 'บาท',
+    font_size_title: parseInt(document.getElementById('selectLeaderboardFontSizeTitle')?.value) || 22,
+    font_size_row: parseInt(document.getElementById('selectLeaderboardFontSizeRow')?.value) || 18,
+    font_size_medal: parseInt(document.getElementById('selectLeaderboardFontSizeMedal')?.value) || 20,
+    outline_width: parseInt(document.getElementById('selectLeaderboardOutlineWidth')?.value) || 0,
+    outline_color: document.getElementById('inputLeaderboardOutlineColor')?.value || '#000000',
+    color_text: document.getElementById('inputLeaderboardColorText')?.value || '#ffffff',
+    color_rank: document.getElementById('inputLeaderboardColorRank')?.value || '#ffd700',
+    color_donor: document.getElementById('inputLeaderboardColorDonor')?.value || '#ffffff',
+    color_amount: document.getElementById('inputLeaderboardColorAmount')?.value || '#4ade80',
+    color_currency: document.getElementById('inputLeaderboardColorCurrency')?.value || '#f59e0b',
+    color_count: document.getElementById('inputLeaderboardColorCount')?.value || '#94a3b8',
+    row_template_left: document.getElementById('inputLeaderboardTplLeft')?.value || '#{อันดับ}  {ผู้โดเนท} ',
+    row_template_right: document.getElementById('inputLeaderboardTplRight')?.value || '{จำนวนเงิน} {สกุลเงิน}'
+  };
+  if (!widthAuto) {
+    c.width = parseInt(document.getElementById('inputLeaderboardWidth')?.value) || 900;
+  }
+  try {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaderboard_settings: JSON.stringify(c) })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification('บันทึกการตั้งค่าอันดับผู้โดเนทแล้ว', 'success');
+      await loadLeaderboardSettings();
+    } else {
+      showNotification(data.error || 'ไม่สามารถบันทึกได้', 'error');
+    }
+  } catch (err) {
+    showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');
+  }
+}
+
+// ========== Leader Board Test Animation (Req #5) ==========
+async function triggerLeaderboardTest() {
+  const names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง',
+    'SuraGaming 🎮', 'นินจานักพัฒนา', 'ผู้สนับสนุนลึกลับ', 'สายฟ้า ไวเปอร์', 'คุณนายตื่นสาย',
+    'กุ๊กไก่ ขายไข่', 'ลุงวิศวะ ซ่อมได้ทุกอย่าง', 'ป้าหนึ่ง ขายดี'];
+  const amounts = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  const donor = names[Math.floor(Math.random() * names.length)];
+  const amount = amounts[Math.floor(Math.random() * amounts.length)];
+  const btn = document.getElementById('btnTestLeaderboard');
+  if (btn) { btn.disabled = true; btn.querySelector('i').className = 'fa-solid fa-spinner fa-spin'; }
+  try {
+    const res = await fetchWithCsrf('/api/widget/leaderboard/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ donor, amount })
+    });
+    if (res.ok) {
+      showNotification('ส่ง Leader Board ทดสอบแล้ว!', 'success');
+    } else if (res.status === 429) {
+      showNotification('ส่งทดสอบบ่อยเกินไป กรุณารอสักครู่', 'error');
+    } else {
+      showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
+    }
+  } catch (err) {
+    showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.querySelector('i').className = 'fa-solid fa-shuffle'; }
+  }
+}
+
+function initLeaderboardSettingsUI() {
+  const colorGroups = [
+    ['inputLeaderboardBgColor', 'txtLeaderboardBgColor'],
+    ['inputLeaderboardBorderColor', 'txtLeaderboardBorderColor'],
+    ['inputLeaderboardOutlineColor', 'txtLeaderboardOutlineColor'],
+    ['inputLeaderboardColorText', 'txtLeaderboardColorText'],
+    ['inputLeaderboardColorRank', 'txtLeaderboardColorRank'],
+    ['inputLeaderboardColorDonor', 'txtLeaderboardColorDonor'],
+    ['inputLeaderboardColorAmount', 'txtLeaderboardColorAmount'],
+    ['inputLeaderboardColorCurrency', 'txtLeaderboardColorCurrency'],
+    ['inputLeaderboardColorCount', 'txtLeaderboardColorCount']
+  ];
+  colorGroups.forEach(([pickId, txtId]) => {
+    const p = document.getElementById(pickId);
+    const t = document.getElementById(txtId);
+    if (p && t) {
+      p.oninput = (e) => { t.value = e.target.value; };
+      t.oninput = (e) => {
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) p.value = e.target.value;
+      };
+    }
+  });
+
+  const rangeEl = document.getElementById('inputLeaderboardWidth');
+  const txtEl = document.getElementById('txtLeaderboardWidth');
+  const autoWidthEl = document.getElementById('chkLeaderboardWidthAuto');
+  if (rangeEl && txtEl && autoWidthEl) {
+    rangeEl.addEventListener('input', () => {
+      if (!autoWidthEl.checked) txtEl.textContent = rangeEl.value + 'px';
+    });
+    autoWidthEl.addEventListener('change', () => {
+      rangeEl.disabled = autoWidthEl.checked;
+      if (autoWidthEl.checked) {
+        txtEl.textContent = 'Auto';
+        txtEl.style.opacity = '0.6';
+      } else {
+        txtEl.textContent = rangeEl.value + 'px';
+        txtEl.style.opacity = '';
+      }
+    });
+  }
+
+  // Template inputs must allow spaces explicitly (esp. TplRight)
+  ['inputLeaderboardTplLeft', 'inputLeaderboardTplRight'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      if (e.key === ' ') e.stopPropagation();
+    });
+    el.addEventListener('input', () => {
+      if (el.value !== el.dataset.lastValue) {
+        el.dataset.lastValue = el.value;
+      }
+    });
+  });
+
+  const chkBg = document.getElementById('chkLeaderboardBgEnabled');
+  if (chkBg) chkBg.addEventListener('change', () => toggleGroup('leaderboardBgGroup', chkBg.checked));
+  const chkBorder = document.getElementById('chkLeaderboardBorderEnabled');
+  if (chkBorder) chkBorder.addEventListener('change', () => toggleGroup('leaderboardBorderGroup', chkBorder.checked));
+
+  const periodEl = document.getElementById('selectLeaderboardPeriodMode');
+  if (periodEl) periodEl.addEventListener('change', () => toggleGroup('leaderboardPeriodCustomGroup', periodEl.value === 'custom'));
+
+  // [UI Fix] เปิด/ปิดวิดเจ็ต = บันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกแยก
+  const chkLbEnabled = document.getElementById('chkLeaderboardEnabled');
+  if (chkLbEnabled) chkLbEnabled.addEventListener('change', saveLeaderboardSettings);
+
+  const btnSave = document.getElementById('btnSaveLeaderboardSettings');
+  if (btnSave) btnSave.addEventListener('click', saveLeaderboardSettings);
+  const btnTest = document.getElementById('btnTestLeaderboard');
+  if (btnTest) btnTest.addEventListener('click', triggerLeaderboardTest);
+
+  function copyUrl(inputId) {
+    const el = document.getElementById(inputId);
+    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+  }
+  const btnCopy = document.getElementById('btnCopyObsLeaderboardUrl');
+  const btnOpen = document.getElementById('btnOpenObsLeaderboardUrl');
+  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsLeaderboardUrlPreview'));
+  if (btnOpen) btnOpen.addEventListener('click', () => {
+    const url = document.getElementById('obsLeaderboardUrlPreview')?.value;
+    if (url) window.open(url, '_blank');
+  });
+
+  const btnReload = document.getElementById('btnReloadLeaderboardPreview');
+  if (btnReload) btnReload.addEventListener('click', () => {
+    btnReload.classList.add('spinning');
+    const iframe = document.getElementById('leaderboardPreviewIframe');
+    if (iframe) { const s = iframe.src; iframe.src = 'about:blank'; iframe.src = s; }
+    setTimeout(() => btnReload.classList.remove('spinning'), 1200);
+  });
+}
+
+// ========== Recent Donate settings (load/save) ==========
+async function loadRecentdonateSettings() {
+  try {
+    const [settingsRes, tokenRes] = await Promise.all([
+      fetch('/api/overlay/settings'),
+      fetch('/api/overlay/token')
+    ]);
+    if (!settingsRes.ok) return;
+    const data = await settingsRes.json();
+    let c = {};
+    try { c = JSON.parse(data.recentdonate_settings || '{}'); } catch (e) {}
+
+    const chkEnabled = document.getElementById('chkRecentdonateEnabled');
+    if (chkEnabled) chkEnabled.checked = !!c.enabled;
+
+    const maxEl = document.getElementById('selectRecentdonateMaxEntries');
+    if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const chkShowTime = document.getElementById('chkRecentdonateShowTime');
+    if (chkShowTime) chkShowTime.checked = c.show_time !== false && c.show_time !== 0;
+    const chkAnim = document.getElementById('chkRecentdonateAnimation');
+    if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
+
+    const widthEl = document.getElementById('inputRecentdonateWidth');
+    const widthTxt = document.getElementById('txtRecentdonateWidth');
+    const autoWidthEl = document.getElementById('chkRecentdonateWidthAuto');
+    const savedWidth = parseInt(c.width, 10);
+    const widthAuto = !Number.isFinite(savedWidth) || savedWidth < 300 || savedWidth > 1920;
+    const width = widthAuto ? 900 : savedWidth;
+    if (autoWidthEl) { autoWidthEl.checked = widthAuto; autoWidthEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (widthEl) {
+      widthEl.value = width;
+      widthEl.disabled = widthAuto;
+      widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (widthTxt) {
+      widthTxt.textContent = widthAuto ? 'Auto' : width + 'px';
+      widthTxt.style.opacity = widthAuto ? '0.6' : '';
+    }
+
+    const bgOn = c.bg_enabled !== false && c.bg_enabled !== 0;
+    const chkBg = document.getElementById('chkRecentdonateBgEnabled');
+    if (chkBg) chkBg.checked = bgOn;
+    const bgColorEl = document.getElementById('inputRecentdonateBgColor');
+    const bgColorTxt = document.getElementById('txtRecentdonateBgColor');
+    if (bgColorEl) bgColorEl.value = c.bg_color || '#000000';
+    if (bgColorTxt) bgColorTxt.value = c.bg_color || '#000000';
+    const bgOpacityEl = document.getElementById('selectRecentdonateBgOpacity');
+    if (bgOpacityEl) { bgOpacityEl.value = c.bg_opacity ?? 60; bgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('recentdonateBgGroup', bgOn);
+
+    const borderOn = c.border_enabled !== false && c.border_enabled !== 0;
+    const chkBorder = document.getElementById('chkRecentdonateBorderEnabled');
+    if (chkBorder) chkBorder.checked = borderOn;
+    const borderColorEl = document.getElementById('inputRecentdonateBorderColor');
+    const borderColorTxt = document.getElementById('txtRecentdonateBorderColor');
+    if (borderColorEl) borderColorEl.value = c.border_color || '#06b6d4';
+    if (borderColorTxt) borderColorTxt.value = c.border_color || '#06b6d4';
+    const borderOpacityEl = document.getElementById('selectRecentdonateBorderOpacity');
+    if (borderOpacityEl) { borderOpacityEl.value = c.border_opacity ?? 100; borderOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('recentdonateBorderGroup', borderOn);
+
+    // เปิดสีพื้นหลังชื่อ (Recent Donate = on/off + สี + ความโปร่งใส)
+    const rowBgOn = c.row_bg_enabled !== false && c.row_bg_enabled !== 0;
+    const chkRowBg = document.getElementById('chkRecentdonateRowBgEnabled');
+    if (chkRowBg) chkRowBg.checked = rowBgOn;
+    const rowBgColorEl = document.getElementById('inputRecentdonateRowBgColor');
+    const rowBgColorTxt = document.getElementById('txtRecentdonateRowBgColor');
+    if (rowBgColorEl) rowBgColorEl.value = c.row_bg_color || '#ffffff';
+    if (rowBgColorTxt) rowBgColorTxt.value = c.row_bg_color || '#ffffff';
+    const rowBgOpacityEl = document.getElementById('selectRecentdonateRowBgOpacity');
+    if (rowBgOpacityEl) { rowBgOpacityEl.value = c.row_bg_opacity ?? 5; rowBgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('recentdonateRowBgGroup', rowBgOn);
+
+    // เปิดกรอบชื่อ (Recent Donate = on/off + สีของตัวเอง แยกจากกรอบ #rdWrapper ด้านบน)
+    const rowBorderOn = c.row_border_enabled !== false && c.row_border_enabled !== 0;
+    const chkRowBorder = document.getElementById('chkRecentdonateRowBorderEnabled');
+    if (chkRowBorder) chkRowBorder.checked = rowBorderOn;
+    const rowBorderColorEl = document.getElementById('inputRecentdonateRowBorderColor');
+    const rowBorderColorTxt = document.getElementById('txtRecentdonateRowBorderColor');
+    if (rowBorderColorEl) rowBorderColorEl.value = c.row_border_color || '#ffffff';
+    if (rowBorderColorTxt) rowBorderColorTxt.value = c.row_border_color || '#ffffff';
+    toggleGroup('recentdonateRowBorderGroup', rowBorderOn);
+
+    const titleEl = document.getElementById('inputRecentdonateTitle');
+    if (titleEl) titleEl.value = c.title || '🕐 โดเนทล่าสุด';
+    const currencyEl = document.getElementById('inputRecentdonateCurrency');
+    if (currencyEl) currencyEl.value = c.currency || 'บาท';
+
+    const fsTitleEl = document.getElementById('selectRecentdonateFontSizeTitle');
+    if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const fsRowEl = document.getElementById('selectRecentdonateFontSizeRow');
+    if (fsRowEl) { fsRowEl.value = c.font_size_row || 17; fsRowEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const fsTimeEl = document.getElementById('selectRecentdonateFontSizeTime');
+    if (fsTimeEl) { fsTimeEl.value = c.font_size_time || 13; fsTimeEl.dispatchEvent(new Event('change', { bubbles: true })); }
+
+    const outlineWEl = document.getElementById('selectRecentdonateOutlineWidth');
+    if (outlineWEl) { outlineWEl.value = c.outline_width || 0; outlineWEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const outlineColorEl = document.getElementById('inputRecentdonateOutlineColor');
+    const outlineColorTxt = document.getElementById('txtRecentdonateOutlineColor');
+    if (outlineColorEl) outlineColorEl.value = c.outline_color || '#000000';
+    if (outlineColorTxt) outlineColorTxt.value = c.outline_color || '#000000';
+
+    const colorFields = [
+      ['inputRecentdonateColorText', 'txtRecentdonateColorText', c.color_text, '#ffffff'],
+      ['inputRecentdonateColorDonor', 'txtRecentdonateColorDonor', c.color_donor, '#ffffff'],
+      ['inputRecentdonateColorAmount', 'txtRecentdonateColorAmount', c.color_amount, '#4ade80'],
+      ['inputRecentdonateColorCurrency', 'txtRecentdonateColorCurrency', c.color_currency, '#f59e0b'],
+      ['inputRecentdonateColorMessage', 'txtRecentdonateColorMessage', c.color_message, '#94a3b8']
+    ];
+    colorFields.forEach(([pickId, txtId, val, fallback]) => {
+      const p = document.getElementById(pickId);
+      const t = document.getElementById(txtId);
+      if (p) p.value = val || fallback;
+      if (t) t.value = val || fallback;
+    });
+
+    const tplLeftEl = document.getElementById('inputRecentdonateTplLeft');
+    if (tplLeftEl) tplLeftEl.value = c.row_template_left || '{ผู้โดเนท}  {จำนวนเงิน} {สกุลเงิน} ';
+    const tplRightEl = document.getElementById('inputRecentdonateTplRight');
+    if (tplRightEl) tplRightEl.value = c.row_template_right || ' {ข้อความ}';
+
+    if (tokenRes.ok) {
+      const { token } = await tokenRes.json();
+      const url = `${location.origin}/recent-donate?token=${token}`;
+      const urlEl = document.getElementById('obsRecentdonateUrlPreview');
+      if (urlEl) urlEl.value = url;
+    }
+  } catch (err) {
+    console.error('Failed to load recentdonate settings:', err);
+  }
+}
+
+async function saveRecentdonateSettings() {
+  const widthAuto = document.getElementById('chkRecentdonateWidthAuto')?.checked;
+  const c = {
+    enabled: document.getElementById('chkRecentdonateEnabled')?.checked ? 1 : 0,
+    max_entries: parseInt(document.getElementById('selectRecentdonateMaxEntries')?.value) || 5,
+    show_time: document.getElementById('chkRecentdonateShowTime')?.checked ? 1 : 0,
+    animation_enabled: document.getElementById('chkRecentdonateAnimation')?.checked ? 1 : 0,
+    bg_enabled: document.getElementById('chkRecentdonateBgEnabled')?.checked ? 1 : 0,
+    bg_color: document.getElementById('inputRecentdonateBgColor')?.value || '#000000',
+    bg_opacity: intOrDefault(document.getElementById('selectRecentdonateBgOpacity')?.value, 60),
+    border_enabled: document.getElementById('chkRecentdonateBorderEnabled')?.checked ? 1 : 0,
+    border_color: document.getElementById('inputRecentdonateBorderColor')?.value || '#06b6d4',
+    border_opacity: intOrDefault(document.getElementById('selectRecentdonateBorderOpacity')?.value, 100),
+    row_bg_enabled: document.getElementById('chkRecentdonateRowBgEnabled')?.checked ? 1 : 0,
+    row_bg_color: document.getElementById('inputRecentdonateRowBgColor')?.value || '#ffffff',
+    row_bg_opacity: intOrDefault(document.getElementById('selectRecentdonateRowBgOpacity')?.value, 5),
+    row_border_enabled: document.getElementById('chkRecentdonateRowBorderEnabled')?.checked ? 1 : 0,
+    row_border_color: document.getElementById('inputRecentdonateRowBorderColor')?.value || '#ffffff',
+    title: document.getElementById('inputRecentdonateTitle')?.value || '🕐 โดเนทล่าสุด',
+    currency: document.getElementById('inputRecentdonateCurrency')?.value || 'บาท',
+    font_size_title: parseInt(document.getElementById('selectRecentdonateFontSizeTitle')?.value) || 22,
+    font_size_row: parseInt(document.getElementById('selectRecentdonateFontSizeRow')?.value) || 17,
+    font_size_time: parseInt(document.getElementById('selectRecentdonateFontSizeTime')?.value) || 13,
+    outline_width: parseInt(document.getElementById('selectRecentdonateOutlineWidth')?.value) || 0,
+    outline_color: document.getElementById('inputRecentdonateOutlineColor')?.value || '#000000',
+    color_text: document.getElementById('inputRecentdonateColorText')?.value || '#ffffff',
+    color_donor: document.getElementById('inputRecentdonateColorDonor')?.value || '#ffffff',
+    color_amount: document.getElementById('inputRecentdonateColorAmount')?.value || '#4ade80',
+    color_currency: document.getElementById('inputRecentdonateColorCurrency')?.value || '#f59e0b',
+    color_message: document.getElementById('inputRecentdonateColorMessage')?.value || '#94a3b8',
+    row_template_left: document.getElementById('inputRecentdonateTplLeft')?.value || '{ผู้โดเนท}  {จำนวนเงิน} {สกุลเงิน} ',
+    row_template_right: document.getElementById('inputRecentdonateTplRight')?.value || ' {ข้อความ}'
+  };
+  if (!widthAuto) {
+    c.width = parseInt(document.getElementById('inputRecentdonateWidth')?.value) || 900;
+  }
+  try {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recentdonate_settings: JSON.stringify(c) })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification('บันทึกการตั้งค่าโดเนทล่าสุดแล้ว', 'success');
+      await loadRecentdonateSettings();
+    } else {
+      showNotification(data.error || 'ไม่สามารถบันทึกได้', 'error');
+    }
+  } catch (err) {
+    showNotification('ไม่สามารถบันทึกการตั้งค่าได้', 'error');
+  }
+}
+
+// ========== Recent Donate Test Animation (Req #5) ==========
+async function triggerRecentdonateTest() {
+  const names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง',
+    'SuraGaming 🎮', 'นินจานักพัฒนา', 'ผู้สนับสนุนลึกลับ', 'สายฟ้า ไวเปอร์', 'คุณนายตื่นสาย',
+    'กุ๊กไก่ ขายไข่', 'ลุงวิศวะ ซ่อมได้ทุกอย่าง', 'ป้าหนึ่ง ขายดี'];
+  const amounts = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  const donor = names[Math.floor(Math.random() * names.length)];
+  const amount = amounts[Math.floor(Math.random() * amounts.length)];
+  const btn = document.getElementById('btnTestRecentdonate');
+  if (btn) { btn.disabled = true; btn.querySelector('i').className = 'fa-solid fa-spinner fa-spin'; }
+  try {
+    const res = await fetchWithCsrf('/api/widget/recentdonate/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ donor, amount })
+    });
+    if (res.ok) {
+      showNotification('ส่งโดเนทล่าสุดทดสอบแล้ว!', 'success');
+    } else if (res.status === 429) {
+      showNotification('ส่งทดสอบบ่อยเกินไป กรุณารอสักครู่', 'error');
+    } else {
+      showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
+    }
+  } catch (err) {
+    showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.querySelector('i').className = 'fa-solid fa-shuffle'; }
+  }
+}
+
+function initRecentdonateSettingsUI() {
+  const colorGroups = [
+    ['inputRecentdonateBgColor', 'txtRecentdonateBgColor'],
+    ['inputRecentdonateBorderColor', 'txtRecentdonateBorderColor'],
+    ['inputRecentdonateRowBgColor', 'txtRecentdonateRowBgColor'],
+    ['inputRecentdonateRowBorderColor', 'txtRecentdonateRowBorderColor'],
+    ['inputRecentdonateOutlineColor', 'txtRecentdonateOutlineColor'],
+    ['inputRecentdonateColorText', 'txtRecentdonateColorText'],
+    ['inputRecentdonateColorDonor', 'txtRecentdonateColorDonor'],
+    ['inputRecentdonateColorAmount', 'txtRecentdonateColorAmount'],
+    ['inputRecentdonateColorCurrency', 'txtRecentdonateColorCurrency'],
+    ['inputRecentdonateColorMessage', 'txtRecentdonateColorMessage']
+  ];
+  colorGroups.forEach(([pickId, txtId]) => {
+    const p = document.getElementById(pickId);
+    const t = document.getElementById(txtId);
+    if (p && t) {
+      p.oninput = (e) => { t.value = e.target.value; };
+      t.oninput = (e) => {
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) p.value = e.target.value;
+      };
+    }
+  });
+
+  const rangeEl = document.getElementById('inputRecentdonateWidth');
+  const txtEl = document.getElementById('txtRecentdonateWidth');
+  const autoWidthEl = document.getElementById('chkRecentdonateWidthAuto');
+  if (rangeEl && txtEl && autoWidthEl) {
+    rangeEl.addEventListener('input', () => {
+      if (!autoWidthEl.checked) txtEl.textContent = rangeEl.value + 'px';
+    });
+    autoWidthEl.addEventListener('change', () => {
+      rangeEl.disabled = autoWidthEl.checked;
+      if (autoWidthEl.checked) {
+        txtEl.textContent = 'Auto';
+        txtEl.style.opacity = '0.6';
+      } else {
+        txtEl.textContent = rangeEl.value + 'px';
+        txtEl.style.opacity = '';
+      }
+    });
+  }
+
+  // Template inputs must allow spaces explicitly (esp. TplRight)
+  ['inputRecentdonateTplLeft', 'inputRecentdonateTplRight'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      if (e.key === ' ') e.stopPropagation();
+    });
+    el.addEventListener('input', () => {
+      if (el.value !== el.dataset.lastValue) {
+        el.dataset.lastValue = el.value;
+      }
+    });
+  });
+
+  const chkBg = document.getElementById('chkRecentdonateBgEnabled');
+  if (chkBg) chkBg.addEventListener('change', () => toggleGroup('recentdonateBgGroup', chkBg.checked));
+  const chkBorder = document.getElementById('chkRecentdonateBorderEnabled');
+  if (chkBorder) chkBorder.addEventListener('change', () => toggleGroup('recentdonateBorderGroup', chkBorder.checked));
+  const chkRowBg = document.getElementById('chkRecentdonateRowBgEnabled');
+  if (chkRowBg) chkRowBg.addEventListener('change', () => toggleGroup('recentdonateRowBgGroup', chkRowBg.checked));
+  const chkRowBorder = document.getElementById('chkRecentdonateRowBorderEnabled');
+  if (chkRowBorder) chkRowBorder.addEventListener('change', () => toggleGroup('recentdonateRowBorderGroup', chkRowBorder.checked));
+
+  // [UI Fix] เปิด/ปิดวิดเจ็ต = บันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกแยก
+  const chkRdEnabled = document.getElementById('chkRecentdonateEnabled');
+  if (chkRdEnabled) chkRdEnabled.addEventListener('change', saveRecentdonateSettings);
+
+  const btnSave = document.getElementById('btnSaveRecentdonateSettings');
+  if (btnSave) btnSave.addEventListener('click', saveRecentdonateSettings);
+  const btnTest = document.getElementById('btnTestRecentdonate');
+  if (btnTest) btnTest.addEventListener('click', triggerRecentdonateTest);
+
+  function copyUrl(inputId) {
+    const el = document.getElementById(inputId);
+    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+  }
+  const btnCopy = document.getElementById('btnCopyObsRecentdonateUrl');
+  const btnOpen = document.getElementById('btnOpenObsRecentdonateUrl');
+  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsRecentdonateUrlPreview'));
+  if (btnOpen) btnOpen.addEventListener('click', () => {
+    const url = document.getElementById('obsRecentdonateUrlPreview')?.value;
+    if (url) window.open(url, '_blank');
+  });
+
+  const btnReload = document.getElementById('btnReloadRecentdonatePreview');
+  if (btnReload) btnReload.addEventListener('click', () => {
+    btnReload.classList.add('spinning');
+    const iframe = document.getElementById('recentdonatePreviewIframe');
+    if (iframe) { const s = iframe.src; iframe.src = 'about:blank'; iframe.src = s; }
+    setTimeout(() => btnReload.classList.remove('spinning'), 1200);
   });
 }
 
@@ -5155,6 +6388,13 @@ async function loadPageSettings() {
     const iframe = document.getElementById('pagePreviewIframe');
     if (iframe) {
         iframe.src = `/${username}`;
+    }
+
+    // L23: Donate URL preview — set here too (not only in loadAccountInfo)
+    // ไม่งั้นเปิด tab page-customization ก่อน account tab → ช่องว่างจนกว่าจะสลับไป account แล้วกลับมา
+    const pageCustUrlInput = document.getElementById('pageCustomizationDonateUrlPreview');
+    if (pageCustUrlInput) {
+      pageCustUrlInput.value = `${location.host}/${username.toLowerCase()}`;
     }
 
     const response = await fetch(`/api/page/${username}/settings`);

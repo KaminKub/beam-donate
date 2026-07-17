@@ -235,7 +235,9 @@ async function migrateDB() {
         truemoney_webhook_methods TEXT DEFAULT 'P2P',
         truemoney_promptpay_id_encrypted TEXT,
         badges TEXT DEFAULT '{}',
-        badge_display TEXT DEFAULT NULL
+        badge_display TEXT DEFAULT NULL,
+        leaderboard_settings TEXT DEFAULT NULL,
+        recentdonate_settings TEXT DEFAULT NULL
       )
     `);
 
@@ -293,6 +295,23 @@ async function migrateDB() {
       )
     `);
     await db.execute('CREATE INDEX IF NOT EXISTS idx_processed_webhooks_streamer ON processed_webhooks(streamer_username, processed_at);');
+
+    // [Requirement #9] All-time leaderboard aggregate — permanent, not subject to the 6-month transaction purge
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS leaderboard_alltime (
+        streamer_username TEXT NOT NULL,
+        donor TEXT NOT NULL,
+        total_amount REAL NOT NULL DEFAULT 0,
+        donation_count INTEGER NOT NULL DEFAULT 0,
+        first_donation_at TEXT,
+        last_donation_at TEXT,
+        top_amount REAL DEFAULT 0,
+        avg_amount REAL DEFAULT 0,
+        updated_at TEXT,
+        PRIMARY KEY (streamer_username, donor)
+      )
+    `);
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_leaderboard_alltime_streamer ON leaderboard_alltime(streamer_username, total_amount DESC);');
 
     // A. Fix transaction column names
 
@@ -427,7 +446,9 @@ async function migrateDB() {
       { name: 'template_line1', type: 'TEXT' },
       { name: 'template_line2', type: 'TEXT' },
       { name: 'badges', type: "TEXT DEFAULT '{}'" },
-      { name: 'badge_display', type: 'TEXT DEFAULT NULL' }
+      { name: 'badge_display', type: 'TEXT DEFAULT NULL' },
+      { name: 'leaderboard_settings', type: 'TEXT DEFAULT NULL' },
+      { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -511,6 +532,14 @@ async function migrateDB() {
       if (r.rowsAffected > 0) console.log(`🔊 ttsRate bumped to 1.3 for ${r.rowsAffected} streamer(s).`);
     } catch (e) {
       console.warn('⚠️ ttsRate migration skipped:', e.message);
+    }
+
+    // [Requirement #9] Backfill leaderboard_alltime once — guarded by row count, no-op on every subsequent deploy
+    try {
+      const cnt = await db.execute('SELECT COUNT(*) as c FROM leaderboard_alltime');
+      if ((cnt.rows[0]?.c || 0) === 0) await backfillLeaderboardAlltime();
+    } catch (e) {
+      console.warn('⚠️ leaderboard_alltime backfill skipped:', e.message);
     }
 
     console.log('✅ Turso Database schema verified and migrated.');
@@ -1105,7 +1134,9 @@ async function saveStreamer(data) {
                truemoney_webhook_methods = COALESCE(?, streamers.truemoney_webhook_methods),
                truemoney_promptpay_id_encrypted = COALESCE(?, streamers.truemoney_promptpay_id_encrypted),
                badges = COALESCE(?, streamers.badges),
-               badge_display = COALESCE(?, streamers.badge_display)
+               badge_display = COALESCE(?, streamers.badge_display),
+               leaderboard_settings = COALESCE(?, streamers.leaderboard_settings),
+               recentdonate_settings = COALESCE(?, streamers.recentdonate_settings)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1223,6 +1254,8 @@ async function saveStreamer(data) {
           finalData.truemoney_promptpay_id_encrypted !== undefined ? finalData.truemoney_promptpay_id_encrypted : null,
           finalData.badges !== undefined ? finalData.badges : null,
           finalData.badge_display !== undefined ? finalData.badge_display : null,
+          finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
+          finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
           existing.id
         ]
       });
@@ -1242,8 +1275,8 @@ async function saveStreamer(data) {
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1360,7 +1393,9 @@ async function saveStreamer(data) {
         finalData.truemoney_webhook_methods || 'P2P',
         finalData.truemoney_promptpay_id_encrypted || null,
         finalData.badges || '{}',
-        finalData.badge_display !== undefined ? finalData.badge_display : null
+        finalData.badge_display !== undefined ? finalData.badge_display : null,
+        finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
+        finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1714,10 +1749,10 @@ async function hardDeleteExpiredTransactions() {
 
 /**
  * Hard delete all transactions older than specified months.
- * This is triggered quarterly (every 3 months).
+ * This is triggered every 6 months.
  * Returns number of deleted records.
  */
-async function hardDeleteOldTransactions(months = 3) {
+async function hardDeleteOldTransactions(months = 6) {
   await ensureConnected();
   if (isFallback) {
     const cutoff = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1824,6 +1859,97 @@ async function updateGoalCurrent(streamerId, additionalAmount) {
     args: [streamerId]
   });
   return row.rows[0] || null;
+}
+
+async function getLeaderboard(username, limit = 5, periodDays = null) {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const periodClause = periodDays ? `AND datetime(paidAt) >= datetime('now', ?)` : '';
+  const args = periodDays ? [username, `-${periodDays} days`, limit] : [username, limit];
+  const result = await db.execute({
+    sql: `SELECT donor, SUM(amount) as total_amount, COUNT(*) as donation_count, MAX(paidAt) as last_donate
+          FROM transactions
+          WHERE LOWER(streamer_username) = LOWER(?)
+            AND status = 'successful'
+            AND donor IS NOT NULL
+            AND donor != 'Anonymous'
+            ${periodClause}
+          GROUP BY LOWER(donor)
+          ORDER BY total_amount DESC
+          LIMIT ?`,
+    args
+  });
+  return result.rows;
+}
+
+// [Requirement #9] All-time leaderboard aggregate — separate table from getLeaderboard() (transactions-based, period-filtered)
+async function upsertLeaderboard(username, donor, amount) {
+  await ensureConnected();
+  if (isFallback || !db) return;
+  const now = new Date().toISOString();
+  await db.execute({
+    sql: `
+      INSERT INTO leaderboard_alltime
+        (streamer_username, donor, total_amount, donation_count, first_donation_at, last_donation_at, top_amount, avg_amount, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
+      ON CONFLICT(streamer_username, donor) DO UPDATE SET
+        total_amount = total_amount + excluded.total_amount,
+        donation_count = donation_count + 1,
+        last_donation_at = excluded.last_donation_at,
+        top_amount = MAX(top_amount, excluded.top_amount),
+        avg_amount = (total_amount + excluded.total_amount) / (donation_count + 1),
+        updated_at = excluded.updated_at
+    `,
+    args: [username, donor, amount, now, now, amount, amount, now]
+  });
+}
+
+async function getLeaderboardAlltime(username, limit = 10) {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const result = await db.execute({
+    sql: `SELECT donor, total_amount, donation_count, first_donation_at, last_donation_at, top_amount, avg_amount
+          FROM leaderboard_alltime
+          WHERE streamer_username = ?
+          ORDER BY total_amount DESC
+          LIMIT ?`,
+    args: [username, limit]
+  });
+  return result.rows;
+}
+
+async function backfillLeaderboardAlltime() {
+  await ensureConnected();
+  if (isFallback || !db) return 0;
+  const result = await db.execute(`
+    INSERT INTO leaderboard_alltime
+      (streamer_username, donor, total_amount, donation_count, first_donation_at, last_donation_at, top_amount, avg_amount, updated_at)
+    SELECT streamer_username, donor, SUM(amount), COUNT(*), MIN(paidAt), MAX(paidAt), MAX(amount), AVG(amount), MAX(paidAt)
+    FROM transactions
+    WHERE status = 'successful' AND donor IS NOT NULL AND donor != 'Anonymous'
+    GROUP BY streamer_username, donor
+    ON CONFLICT(streamer_username, donor) DO UPDATE SET
+      total_amount = excluded.total_amount, donation_count = excluded.donation_count,
+      first_donation_at = excluded.first_donation_at, last_donation_at = excluded.last_donation_at,
+      top_amount = excluded.top_amount, avg_amount = excluded.avg_amount, updated_at = excluded.updated_at
+  `);
+  if (result.rowsAffected > 0) console.log(`📊 Backfilled ${result.rowsAffected} leaderboard_alltime rows`);
+  return result.rowsAffected;
+}
+
+async function getRecentDonations(username, limit = 5) {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const result = await db.execute({
+    sql: `SELECT donor, amount, message, paidAt, payment_method
+          FROM transactions
+          WHERE LOWER(streamer_username) = LOWER(?)
+            AND status = 'successful'
+          ORDER BY paidAt DESC
+          LIMIT ?`,
+    args: [username, limit]
+  });
+  return result.rows;
 }
 
 async function disconnectPlatform(streamerId, platform) {
@@ -2185,6 +2311,11 @@ module.exports = {
   getStreamerByToken,
   getDecryptedStreamer,
   saveStreamer,
+  getLeaderboard,
+  upsertLeaderboard,
+  getLeaderboardAlltime,
+  backfillLeaderboardAlltime,
+  getRecentDonations,
   updateGoalCurrent,
   updateTimerState,
   addTimerCap,

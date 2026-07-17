@@ -110,6 +110,11 @@ const upload = multer({
 });
 db.initDB().catch(err => console.error('❌ Database connection failed:', err));
 
+// อ้างอิงระยะเวลาที่ hardDeleteOldTransactions() เก็บข้อมูลไว้จริง (default 3 เดือน ~90 วัน)
+// cron /api/cron/cleanup-quarterly อาจถูกเรียกด้วย months ต่างจากนี้ในอนาคต (ไม่ใช่ hard guarantee)
+// ถ้านโยบายเก็บข้อมูลเปลี่ยน แก้เลขนี้ที่เดียว — sync กับ max="" ใน index.html ด้วย
+const LEADERBOARD_MAX_LOOKBACK_DAYS = 90;
+
 // ค่าตั้งค่าเริ่มต้นของ Overlay
 const defaultSettings = {
   duration: 8, // seconds
@@ -167,7 +172,41 @@ const defaultSettings = {
   timer_remaining_seconds: 600,
   timer_running: 0,
   timer_last_update: '',
-  timer_cap_current: 0
+  timer_cap_current: 0,
+  // Leader Board / Recent Donate widgets — keys must exist here or SEC-004 filter in getSettings() strips them
+  // Default values: widgets disabled on first setup, user can turn on in dashboard (updated 2026-07-18)
+  leaderboard_settings: JSON.stringify({
+    enabled: 0, max_entries: 5,
+    title: '🏆 อันดับผู้โดเนท', currency: 'บาท',
+    row_template_left: '  {ผู้โดเนท}  |  {จำนวนครั้ง}  ครั้ง ',
+    row_template_right: '{จำนวนเงิน}   {สกุลเงิน}',
+    period_mode: 'all', period_custom_days: 90,
+    shine_enabled: 1, animation_enabled: 1, show_medal: 1,
+    bg_enabled: 0, bg_color: '#000000', bg_opacity: 20,
+    border_enabled: 0, border_color: '#a855f7', border_opacity: 80,
+    row_bg_enabled: 1, row_border_enabled: 1,
+    font_size_title: 28, font_size_row: 26, font_size_medal: 28,
+    outline_width: 2, outline_color: '#000000',
+    color_rank: '#ffbb00', color_donor: '#fbff24', color_amount: '#18cc00',
+    color_currency: '#ff0000', color_count: '#ffffff', color_text: '#ffffff',
+    width: 720
+  }),
+  recentdonate_settings: JSON.stringify({
+    enabled: 0, max_entries: 5,
+    title: '🕐 โดเนทล่าสุด', currency: 'บาท',
+    row_template_left: '{ผู้โดเนท} ',
+    row_template_right: '{จำนวนเงิน} {สกุลเงิน} ',
+    show_time: 1, animation_enabled: 1,
+    bg_enabled: 0, bg_color: '#000000', bg_opacity: 60,
+    border_enabled: 0, border_color: '#06b6d4', border_opacity: 100,
+    row_bg_enabled: 1, row_bg_color: '#050505', row_bg_opacity: 5,
+    row_border_enabled: 1, row_border_color: '#4dffb2',
+    font_size_title: 28, font_size_row: 26, font_size_time: 14,
+    outline_width: 2, outline_color: '#000000',
+    color_donor: '#ffffff', color_amount: '#14ff6a',
+    color_currency: '#ffffff', color_message: '#a6a6a6', color_text: '#ffffff',
+    width: 720
+  })
 };
 
 // ========== SSE Alert System ==========
@@ -273,6 +312,8 @@ function checkAntiBot(req, res) {
 // broadcastDemoGoalBar() → demo-goal-bar only
 // broadcastTimerUpdate()   → real timer clients; also mirrors to demo-timer when username===DEMO_STREAMER_USERNAME
 // broadcastDemoTimerUpdate() → demo-timer only
+// broadcastLeaderboardUpdate()   → real leader-board clients; excludes ALL demo-* sources
+// broadcastRecentDonateUpdate()  → real recent-donate clients; excludes ALL demo-* sources
 // When adding a new SSE source: update ALL functions above.
 // ──────────────────────────────────────────────────────────────────────
 function broadcastAlert(username, alertData) {
@@ -286,7 +327,7 @@ function broadcastAlert(username, alertData) {
 
   sseClients = sseClients.filter(client => {
     // Never send real broadcasts to any demo client (demo-overlay, demo-goal-bar, demo-timer)
-    const isDemo = client.source === 'demo-overlay' || client.source === 'demo-goal-bar' || client.source === 'demo-timer';
+    const isDemo = ALLOWED_DEMO_SOURCES.has(client.source);
     if (client.username === username && !isDemo) {
       try {
         client.res.write(`data: ${data}\n\n`);
@@ -355,7 +396,7 @@ function broadcastGoalUpdate(username, streamer) {
     endDate: streamer.goal_end_date
   });
   sseClients
-    .filter(c => c.username === username && c.source !== 'demo-overlay' && c.source !== 'demo-goal-bar' && c.source !== 'demo-timer')
+    .filter(c => c.username === username && !ALLOWED_DEMO_SOURCES.has(c.source))
     .forEach(c => {
       try {
         c.res.write(`data: ${payload}\n\n`);
@@ -364,6 +405,66 @@ function broadcastGoalUpdate(username, streamer) {
         console.error(`❌ [BroadcastGoal] Failed to write to client ${username}:`, err.message);
       }
     });
+}
+
+// [Requirement #8] period_mode → periodDays for db.getLeaderboard()'s date filter
+function resolveLeaderboardPeriodDays(lbSettings) {
+  const mode = lbSettings?.period_mode || 'all';
+  if (mode === 'weekly') return 7;
+  if (mode === 'monthly') return 30;
+  if (mode === 'custom') {
+    const d = parseInt(lbSettings?.period_custom_days, 10);
+    return Math.min(LEADERBOARD_MAX_LOOKBACK_DAYS, Math.max(1, Number.isFinite(d) ? d : 30));
+  }
+  return null;
+}
+
+// [Requirement #9] 'all' อ่านจาก leaderboard_alltime (aggregate, ถาวร) — weekly/monthly/custom
+// ยังอ่านจาก transactions (raw, มี paidAt ให้ filter ตามวัน — aggregate table ไม่มี per-period breakdown)
+async function resolveLeaderboardEntries(username, limit = 5) {
+  const s = await db.getSettings(username, defaultSettings);
+  let lb = {};
+  try { lb = JSON.parse(s.leaderboard_settings || '{}'); } catch {}
+  const mode = lb.period_mode || 'all';
+  if (mode === 'all') return db.getLeaderboardAlltime(username, limit);
+  const periodDays = resolveLeaderboardPeriodDays(lb);
+  return db.getLeaderboard(username, limit, periodDays);
+}
+
+// broadcastLeaderboardUpdate() → real leader-board clients only (mirrors broadcastGoalUpdate's demo exclusion)
+async function broadcastLeaderboardUpdate(username) {
+  const clients = sseClients.filter(c => c.username === username && c.source === 'leader-board');
+  if (!clients.length) return;
+  const entries = await resolveLeaderboardEntries(username, 5);
+  const payload = JSON.stringify({
+    type: 'leaderboard_update',
+    entries: entries.map((e, i) => ({ rank: i + 1, donor: e.donor, total_amount: e.total_amount, donation_count: e.donation_count }))
+  });
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'leader-board') {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
+}
+
+// broadcastRecentDonateUpdate() → real recent-donate clients only
+async function broadcastRecentDonateUpdate(username) {
+  const clients = sseClients.filter(c => c.username === username && c.source === 'recent-donate');
+  if (!clients.length) return;
+  const entries = await db.getRecentDonations(username, 5);
+  const payload = JSON.stringify({
+    type: 'recentdonate_update',
+    entries: entries.map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method }))
+  });
+  sseClients = sseClients.filter(client => {
+    if (client.username === username && client.source === 'recent-donate') {
+      try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+      catch { return false; }
+    }
+    return true;
+  });
 }
 
 // Timer config lives as a JSON string in streamer.timer_settings — parse once.
@@ -404,7 +505,7 @@ function broadcastTimerUpdate(username, streamer, delta = 0, immediate = false) 
   };
   const payload = JSON.stringify(timerData);
   sseClients = sseClients.filter(client => {
-    const isDemo = client.source === 'demo-timer' || client.source === 'demo-overlay' || client.source === 'demo-goal-bar';
+    const isDemo = ALLOWED_DEMO_SOURCES.has(client.source);
     if (client.username === username && !isDemo) {
       try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
       catch { return false; }
@@ -602,6 +703,12 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
         broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
       }
       if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(tx.timer_action));
+      if (tx.donor && tx.donor !== 'Anonymous') {
+        await db.upsertLeaderboard(tx.streamer_username, tx.donor, finalAmount)
+          .catch(e => console.error('Leaderboard upsert failed:', e.message));
+      }
+      await broadcastLeaderboardUpdate(tx.streamer_username);
+      await broadcastRecentDonateUpdate(tx.streamer_username);
     } catch (e) {
       console.error('Confirm side-effects failed:', e.message);
     }
@@ -655,10 +762,17 @@ if (helmet) {
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
-        formAction: ["'self'", 'https://streamlabs.com', 'https://id.twitch.tv']
+        formAction: ["'self'", 'https://streamlabs.com', 'https://id.twitch.tv'],
+        // ponytail: helmet merges its own defaults (which include upgrade-insecure-requests) on top
+        // of these directives unless explicitly overridden. On a plain-http dev server this forces
+        // every subresource (including same-origin iframe.src) to https, which doesn't exist here —
+        // breaks every widget preview iframe. Only enforce it where https actually exists.
+        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
       }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    // Same reasoning as above — HSTS on dev http would also force-upgrade subresource requests.
+    hsts: process.env.NODE_ENV === 'production'
   }));
   app.use(helmet.frameguard({ action: 'sameorigin' }));
 } else {
@@ -1063,6 +1177,17 @@ function applyDemoMask(row) {
     'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
+    // Timer state + config (no secrets)
+    'timer_settings', 'timer_remaining_seconds', 'timer_running', 'timer_cap_current', 'timer_last_update',
+    // Badges (public earned list, no credentials)
+    'badges', 'badge_display',
+    // Leaderboard + Recent Donate widget configs (no secrets)
+    'leaderboard_settings', 'recentdonate_settings',
+    // TrueMoney Webhook status indicators (no credentials)
+    'truemoney_webhook_enabled', 'truemoney_webhook_methods',
+    'truemoney_webhook_kyc_confirmed', 'truemoney_webhook_expiry',
+    // Account profile (public info, no secrets)
+    'tos_accepted_at',
   ]);
   const masked = {};
   for (const k of ALLOWED_DEMO_FIELDS) {
@@ -1092,6 +1217,16 @@ app.get('/api/demo/settings', demoRateLimiter, async (req, res) => {
     const row = await db.getStreamer(DEMO_STREAMER_USERNAME);
     if (!row) return res.status(503).json({ error: 'Demo data unavailable' });
     const masked = applyDemoMask(row);
+    // Computed fields (mirrors /api/payment/settings)
+    masked.truemoney_webhook_secret_set = !!row.truemoney_webhook_secret_encrypted;
+    masked.truemoney_webhook_tx_month = await db.countMonthlyWebhookTx(DEMO_STREAMER_USERNAME);
+    // Computed account fields (mirrors /api/user/me — no secrets)
+    masked.memberSince = row.tos_accepted_at || null;
+    masked.profileImage = row.profile_image_value || '/avatar.jpg';
+    masked.profileGlowColor = row.profile_glow_color || '#005704';
+    masked.twitchConnected = !!row.twitch_id;
+    masked.streamlabsConnected = !!row.streamlabs_id;
+    masked.authProvider = determinePrimaryAuth(row);
     res.json(masked);
   } catch (e) {
     console.error('💥 Demo settings error:', e.message);
@@ -1111,6 +1246,17 @@ const DEMO_MOCK_TRANSACTIONS = [
 app.get('/api/demo/transactions', demoRateLimiter, (req, res) => {
   res.json(DEMO_MOCK_TRANSACTIONS);
 });
+
+// Derived mock data for demo leader-board / recent-donate widgets — same source, never real donor data
+const DEMO_MOCK_LEADERBOARD = (() => {
+  const successful = DEMO_MOCK_TRANSACTIONS.filter(t => t.status === 'successful' && t.donor !== 'Anonymous');
+  return [...successful]
+    .sort((a, b) => b.amount - a.amount)
+    .map((t, i) => ({ rank: i + 1, donor: t.donor, total_amount: t.amount, donation_count: 1 }));
+})();
+const DEMO_MOCK_RECENTDONATE = DEMO_MOCK_TRANSACTIONS
+  .filter(t => t.status === 'successful')
+  .map(t => ({ donor: t.donor, amount: t.amount, message: t.message, paidAt: t.createdAt, payment_method: t.payment_method }));
 
 app.post('/api/demo/alerts/test', demoRateLimiter, demoAlertLimiter, (req, res) => {
   const { donor, amount, message } = req.body || {};
@@ -1151,7 +1297,7 @@ app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
 const MAX_DEMO_SSE_CLIENTS = 50;
 const MAX_DEMO_SSE_PER_IP = 3;
 
-const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar', 'demo-timer']);
+const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar', 'demo-timer', 'demo-leader-board', 'demo-recent-donate']);
 
 app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
   const clientSource = ALLOWED_DEMO_SOURCES.has(req.query.source) ? req.query.source : 'demo-overlay';
@@ -1172,6 +1318,12 @@ app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
     'X-Accel-Buffering': 'no'
   });
   res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Demo connected' })}\n\n`);
+  if (clientSource === 'demo-leader-board') {
+    res.write(`data: ${JSON.stringify({ type: 'leaderboard_update', entries: DEMO_MOCK_LEADERBOARD })}\n\n`);
+  }
+  if (clientSource === 'demo-recent-donate') {
+    res.write(`data: ${JSON.stringify({ type: 'recentdonate_update', entries: DEMO_MOCK_RECENTDONATE })}\n\n`);
+  }
   const clientObj = { res, validated: false, username: DEMO_STREAMER_USERNAME, authMethod: 'demo', lastActivity: now, source: clientSource, ip: clientIp };
   sseClients.push(clientObj);
   req.on('close', () => {
@@ -1235,6 +1387,22 @@ app.post('/api/demo/timer/test', demoRateLimiter, demoTimerLimiter, (req, res) =
   };
   broadcastDemoTimerUpdate(DEMO_STREAMER_USERNAME, data);
   res.json({ success: true });
+});
+
+app.get('/demo/leader-board', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/leader-board/index.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
+app.get('/demo/recent-donate', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/recent-donate/index.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace('<head>', '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
 });
 
 // -----------------------------------------------------------------
@@ -1801,6 +1969,14 @@ app.get('/timer', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/timer/index.html'));
 });
 
+app.get('/leader-board', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/leader-board/index.html'));
+});
+
+app.get('/recent-donate', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/recent-donate/index.html'));
+});
+
 app.get('/overlay', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/overlay/index.html'));
 });
@@ -2052,7 +2228,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 
 const RESERVED_WORDS = [
   'login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register',
-  'admin', 'demo', 'health', 'goal-bar', 'timer', 'webhook', 'login-failed', 'forbidden',
+  'admin', 'demo', 'health', 'goal-bar', 'timer', 'leader-board', 'recent-donate', 'webhook', 'login-failed', 'forbidden',
   'privacy', 'terms-of-services',
 ];
 
@@ -2150,6 +2326,18 @@ app.get('/api/alerts/stream', async (req, res) => {
   
   const clientObj = { res, validated: isValidToken, username: authenticatedUser, authMethod: authMethod, lastActivity: now, source };
   sseClients.push(clientObj);
+
+  // Push current snapshot immediately — leaderboard/recent-donate aren't stored settings, they're live queries
+  if (authenticatedUser && source === 'leader-board') {
+    resolveLeaderboardEntries(authenticatedUser, 5).then(entries => {
+      try { res.write(`data: ${JSON.stringify({ type: 'leaderboard_update', entries: entries.map((e, i) => ({ rank: i + 1, donor: e.donor, total_amount: e.total_amount, donation_count: e.donation_count })) })}\n\n`); } catch {}
+    }).catch(() => {});
+  }
+  if (authenticatedUser && source === 'recent-donate') {
+    db.getRecentDonations(authenticatedUser, 5).then(entries => {
+      try { res.write(`data: ${JSON.stringify({ type: 'recentdonate_update', entries: entries.map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method })) })}\n\n`); } catch {}
+    }).catch(() => {});
+  }
 
   // Notify donate-monitor clients of widget state change (overlay/timer only — dona-monitor itself excluded)
   if (isValidToken && authenticatedUser && (source === 'overlay' || source === 'timer')) {
@@ -2300,6 +2488,20 @@ app.get('/api/transactions/:username/download', ensureAuthenticated, async (req,
   }
 });
 
+app.get('/api/leaderboard-alltime/:username', ensureAuthenticated, async (req, res) => {
+  const { username } = req.params;
+  const actualUsername = await getActualUsername(req.user);
+  if (actualUsername !== username.toLowerCase()) {
+    return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์เข้าถึงข้อมูลของผู้อื่น' });
+  }
+  try {
+    const rows = await db.getLeaderboardAlltime(actualUsername, 500);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลได้' });
+  }
+});
+
 app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => {
   const { username } = req.params;
   const actualUsername = await getActualUsername(req.user);
@@ -2365,7 +2567,7 @@ app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
 
 app.post('/api/cron/cleanup-quarterly', checkCronAuth, async (req, res) => {
   try {
-    const months = parseInt(req.body?.months, 10) || 3;
+    const months = parseInt(req.body?.months, 10) || 6;
     const count = await db.hardDeleteOldTransactions(months);
     res.json({ success: true, deleted: count, months });
   } catch (err) {
@@ -2651,7 +2853,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
   'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
-  'timer_settings'
+  'timer_settings', 'leaderboard_settings', 'recentdonate_settings'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -2719,6 +2921,94 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
 
     // Alert overlay JSON fields validation
     const colorRegex = /^#([A-Fa-f0-9]{3}){1,2}$|^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*(0?\.\d+|1(\.0)?)\s*\)$/;
+
+    // Leader Board / Recent Donate config: must be a JSON object (mirrors timer_settings pattern)
+    for (const key of ['leaderboard_settings', 'recentdonate_settings']) {
+      if (safeBody[key] !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(safeBody[key]); } catch { parsed = null; }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return res.status(400).json({ error: `${key} ไม่ถูกต้อง` });
+        }
+        // max_entries: 1-5
+        if (parsed.max_entries !== undefined) {
+          const n = parseInt(parsed.max_entries, 10);
+          if (!Number.isInteger(n) || n < 1 || n > 5) {
+            return res.status(400).json({ error: `${key}.max_entries ต้องอยู่ระหว่าง 1-5` });
+          }
+        }
+        // title: max 40 chars
+        if (parsed.title !== undefined && String(parsed.title).length > 40) {
+          return res.status(400).json({ error: `${key}.title ยาวเกินไป (สูงสุด 40 ตัวอักษร)` });
+        }
+        // row_template_left / row_template_right: max 80 chars + ห้าม < > (SEC: template ถูกยัดเข้า innerHTML ฝั่ง widget, block self-XSS)
+        for (const f of ['row_template_left', 'row_template_right']) {
+          if (parsed[f] === undefined) continue;
+          const s = String(parsed[f]);
+          if (s.length > 80) {
+            return res.status(400).json({ error: `${key}.${f} ยาวเกินไป (สูงสุด 80 ตัวอักษร)` });
+          }
+          if (/[<>]/.test(s)) {
+            return res.status(400).json({ error: `${key}.${f} ห้ามมีอักขระ < หรือ >` });
+          }
+        }
+        // width: explicit px 300-1920, or auto (omit/undefined)
+        if (parsed.width !== undefined) {
+          const w = parseInt(parsed.width, 10);
+          if (!Number.isInteger(w) || w < 300 || w > 1920) {
+            return res.status(400).json({ error: `${key}.width ต้องอยู่ระหว่าง 300-1920` });
+          }
+        }
+        // bg_opacity / border_opacity / row_bg_opacity: 0-100
+        for (const f of ['bg_opacity', 'border_opacity', 'row_bg_opacity']) {
+          if (parsed[f] !== undefined) {
+            const v = parseInt(parsed[f], 10);
+            if (!Number.isInteger(v) || v < 0 || v > 100) {
+              return res.status(400).json({ error: `${key}.${f} ต้องอยู่ระหว่าง 0-100` });
+            }
+          }
+        }
+        // outline_width: 0-5
+        if (parsed.outline_width !== undefined) {
+          const v = parseInt(parsed.outline_width, 10);
+          if (!Number.isInteger(v) || v < 0 || v > 5) {
+            return res.status(400).json({ error: `${key}.outline_width ต้องอยู่ระหว่าง 0-5` });
+          }
+        }
+        // font_size_*: 12-72
+        for (const f of ['font_size_title', 'font_size_row', 'font_size_medal', 'font_size_time']) {
+          if (parsed[f] !== undefined) {
+            const v = parseInt(parsed[f], 10);
+            if (!Number.isInteger(v) || v < 12 || v > 72) {
+              return res.status(400).json({ error: `${key}.${f} ต้องอยู่ระหว่าง 12-72` });
+            }
+          }
+        }
+        // color fields: must match color regex
+        const colorFields = ['bg_color', 'border_color', 'outline_color', 'row_bg_color', 'row_border_color',
+          'color_rank', 'color_donor', 'color_amount', 'color_currency', 'color_count',
+          'color_message', 'color_text'];
+        for (const f of colorFields) {
+          if (parsed[f] !== undefined && !colorRegex.test(String(parsed[f]))) {
+            return res.status(400).json({ error: `${key}.${f} รูปแบบสีไม่ถูกต้อง` });
+          }
+        }
+        // [Requirement #8 — Leader Board เท่านั้น] period_mode / period_custom_days
+        if (key === 'leaderboard_settings') {
+          if (parsed.period_mode !== undefined && !['all', 'weekly', 'monthly', 'custom'].includes(parsed.period_mode)) {
+            return res.status(400).json({ error: 'leaderboard_settings.period_mode ไม่ถูกต้อง' });
+          }
+          if (parsed.period_custom_days !== undefined) {
+            const d = parseInt(parsed.period_custom_days, 10);
+            if (!Number.isInteger(d) || d < 1 || d > LEADERBOARD_MAX_LOOKBACK_DAYS) {
+              return res.status(400).json({ error: `leaderboard_settings.period_custom_days ต้องอยู่ระหว่าง 1-${LEADERBOARD_MAX_LOOKBACK_DAYS}` });
+            }
+          }
+        }
+        safeBody[key] = JSON.stringify(parsed);
+      }
+    }
+
     const jsonValidators = {
       theme_colors: (val) => {
         if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
@@ -2844,6 +3134,50 @@ app.post('/api/goal/adjust', ensureAuthenticated, csrfProtection, async (req, re
     console.error('Goal adjust error:', error);
     res.status(500).json({ error: 'ไม่สามารถปรับยอดได้' });
   }
+});
+
+// [UI Fix] Test button ต้องยัดข้อมูลสุ่ม (donor/amount) เข้า SSE จริง — เดิมเรียก broadcast*Update()
+// ซึ่ง query แต่ข้อมูลจริงจาก DB เฉยๆ ไม่แตะ donor/amount ที่ส่งมา → ถ้าไม่มีโดเนทจริง overlay ไม่เห็นอะไรเลย
+app.post('/api/widget/leaderboard/test', ensureAuthenticated, csrfProtection, async (req, res) => {
+  const { donor, amount } = req.body;
+  if (!donor || !amount) return res.status(400).json({ error: 'Missing donor/amount' });
+  const username = await getActualUsername(req.user);
+  const clients = sseClients.filter(c => c.username === username && c.source === 'leader-board');
+  if (clients.length) {
+    const rest = await resolveLeaderboardEntries(username, 4);
+    const entries = [{ donor: String(donor).slice(0, 60), total_amount: Number(amount) || 0, donation_count: 1 }, ...rest]
+      .map((e, i) => ({ rank: i + 1, donor: e.donor, total_amount: e.total_amount, donation_count: e.donation_count }));
+    const payload = JSON.stringify({ type: 'leaderboard_update', entries });
+    sseClients = sseClients.filter(client => {
+      if (client.username === username && client.source === 'leader-board') {
+        try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+        catch { return false; }
+      }
+      return true;
+    });
+  }
+  res.json({ success: true });
+});
+
+app.post('/api/widget/recentdonate/test', ensureAuthenticated, csrfProtection, async (req, res) => {
+  const { donor, amount } = req.body;
+  if (!donor || !amount) return res.status(400).json({ error: 'Missing donor/amount' });
+  const username = await getActualUsername(req.user);
+  const clients = sseClients.filter(c => c.username === username && c.source === 'recent-donate');
+  if (clients.length) {
+    const rest = await db.getRecentDonations(username, 4);
+    const entries = [{ donor: String(donor).slice(0, 60), amount: Number(amount) || 0, message: 'ทดสอบระบบ', paidAt: new Date().toISOString(), payment_method: 'test' }, ...rest]
+      .map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method }));
+    const payload = JSON.stringify({ type: 'recentdonate_update', entries });
+    sseClients = sseClients.filter(client => {
+      if (client.username === username && client.source === 'recent-donate') {
+        try { client.res.write(`data: ${payload}\n\n`); client.lastActivity = Date.now(); return true; }
+        catch { return false; }
+      }
+      return true;
+    });
+  }
+  res.json({ success: true });
 });
 
 // POST /api/badges/display — user เลือก badge ที่จะโชว์บนหน้าโดเนท

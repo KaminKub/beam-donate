@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recent Donate | TipKub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/recent-donate/recent-donate.css?v=20260718_19">
+</head>
+<body>
+  <!-- SVG Filter Outline (UI_UX_LESSONS.md #8) — radius/flood-color set dynamically by recent-donate.js -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="rd-outline" x="-15%" y="-15%" width="130%" height="130%">
+        <feMorphology id="rdOutlineDilate" operator="dilate" radius="2" in="SourceAlpha" result="expanded"/>
+        <feFlood id="rdOutlineFlood" flood-color="#000000" flood-opacity="1" result="color"/>
+        <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+        <feMerge>
+          <feMergeNode in="outline"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+  <div id="rdWrapper" style="display:none">
+    <div id="rdTitle"></div>
+    <div id="rdList"></div>
+  </div>
+  <script src="/recent-donate/recent-donate.js?v=20260718_18"></script>
+</body>
+</html>

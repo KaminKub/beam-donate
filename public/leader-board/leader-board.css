@@ -1,0 +1,147 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: transparent;
+  overflow: hidden;
+}
+
+#lbWrapper {
+  --lb-width: min(92vw, 1600px);
+  width: var(--lb-width);
+  max-width: 100vw;
+  font-family: 'Kanit', sans-serif;
+  color: var(--lb-color-text, #ffffff);
+  padding: clamp(16px, 1.6vw, 28px);
+  border-radius: 16px;
+  background: var(--lb-bg, rgba(0, 0, 0, 0.6));
+  border: 1px solid var(--lb-border, rgba(255, 255, 255, 0.12));
+}
+
+#lbTitle {
+  font-size: var(--lb-font-title, clamp(24px, 2.2vw, 36px));
+  font-weight: 700;
+  margin-bottom: clamp(12px, 1.2vw, 20px);
+  filter: var(--lb-title-filter, drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8)));
+}
+
+#lbList {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 0.9vw, 14px);
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1vw, 16px);
+  padding: clamp(8px, 1vw, 14px) clamp(12px, 1.4vw, 20px);
+  border-radius: 10px;
+  background: var(--lb-row-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* "เปิดกรอบชื่อ" ปิด — ซ่อนกรอบของ lbList (แถว+เหรียญ) เท่านั้น ไม่ยุ่งกับกรอบ #lbWrapper */
+.lb-row-border-off .lb-row,
+.lb-row-border-off .lb-row-gold,
+.lb-row-border-off .lb-row-silver,
+.lb-row-border-off .lb-row-bronze {
+  border-color: transparent;
+}
+
+.lb-medal {
+  font-size: var(--lb-font-medal, clamp(20px, 2vw, 30px));
+  width: clamp(24px, 2.4vw, 36px);
+  text-align: center;
+}
+
+.lb-text-left,
+.lb-text-right {
+  font-size: var(--lb-font-row, clamp(18px, 1.7vw, 26px));
+  font-weight: 600;
+  filter: var(--lb-row-filter, none);
+}
+.lb-text-left {
+  flex: 1;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.lb-text-right {
+  text-align: right;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Per-variable colors — gradient-text shine (เหมือน .highlight-suffix ใน overlay.css) */
+.lb-var-rank,
+.lb-var-donor,
+.lb-var-amount,
+.lb-var-currency,
+.lb-var-count {
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lb-var-rank     { background-image: linear-gradient(90deg, var(--lb-color-rank, #ffd700) 0%, #ffffff 50%, var(--lb-color-rank, #ffd700) 100%); }
+.lb-var-donor    { background-image: linear-gradient(90deg, var(--lb-color-donor, #ffffff) 0%, #ffffff 50%, var(--lb-color-donor, #ffffff) 100%); }
+.lb-var-amount   { background-image: linear-gradient(90deg, var(--lb-color-amount, #4ade80) 0%, #ffffff 50%, var(--lb-color-amount, #4ade80) 100%); }
+.lb-var-currency { background-image: linear-gradient(90deg, var(--lb-color-currency, #f59e0b) 0%, #ffffff 50%, var(--lb-color-currency, #f59e0b) 100%); }
+.lb-var-count    { background-image: linear-gradient(90deg, var(--lb-color-count, #94a3b8) 0%, #ffffff 50%, var(--lb-color-count, #94a3b8) 100%); }
+
+.lb-row-gold {
+  /* สีของแต่ละอันดับคงที่ ไม่ผูกกับสีกรอบ #lbWrapper (แยกการตั้งค่ากันคนละส่วน) */
+  border-color: rgba(255, 215, 0, 0.6);
+  background: var(--lb-row-gold-bg, linear-gradient(90deg, rgba(255, 215, 0, 0.18), rgba(255, 255, 255, 0.04)));
+  position: relative;
+  overflow: hidden;
+}
+
+.lb-row-gold::after {
+  content: '';
+  display: var(--lb-shine-display, block);
+  position: absolute;
+  top: 0; left: -60%;
+  width: 50%; height: 100%;
+  filter: blur(6px);
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.123), transparent);
+  animation: lb-shine 4s ease-in-out infinite;
+  will-change: transform;
+  z-index: 0;
+}
+
+.lb-row-gold .lb-medal,
+.lb-row-gold .lb-text-left,
+.lb-row-gold .lb-text-right {
+  position: relative;
+  z-index: 1;
+}
+
+.lb-row-silver { border-color: rgba(192, 192, 192, 0.6); }
+.lb-row-bronze { border-color: rgba(205, 127, 50, 0.6); }
+
+.lb-row-enter {
+  animation: lb-slide-in 0.5s ease-out, lb-glow-pulse 1.2s ease-out;
+}
+
+.lb-anim-off .lb-row-enter { animation: none; }
+
+@keyframes lb-slide-in {
+  from { transform: translateY(-16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes lb-glow-pulse {
+  0%   { box-shadow: 0 0 0 rgba(168, 85, 247, 0); }
+  40%  { box-shadow: 0 0 18px var(--lb-row-bg, rgba(168, 85, 247, 0.5)) ; }
+  100% { box-shadow: 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+@keyframes lb-shine {
+  0%   { left: -60%; }
+  100% { left: 120%; }
+}

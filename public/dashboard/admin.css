@@ -567,11 +567,11 @@ body {
 }
 
 .btn-icon-monitor {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted);
+  background: rgba(38, 230, 255, 0.06);
+  color: rgba(38, 230, 255, 0.658);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 2px 6px;
-  font-size: 11px;
+  font-size: 18px;
   border-radius: 5px;
   cursor: pointer;
   margin-left: 8px;
@@ -852,7 +852,7 @@ body {
 /* ========== Dashboard Bottom Grid Layout ========== */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1.2fr 2fr;
   gap: 20px;
 }
 
@@ -1419,6 +1419,26 @@ label {
   color: var(--text-main);
 }
 
+/* [UI Fix] เปิด/ปิดวิดเจ็ต (หลอดโดเนท/Timer/กระดานผู้นำ/โดเนทล่าสุด) — ปุ่มเด่นชัดที่สุดในการ์ด */
+.switch-group--enable .switch {
+  width: 56px;
+  height: 30px;
+}
+.switch-group--enable .slider-switch:before {
+  height: 22px;
+  width: 22px;
+}
+.switch-group--enable .switch input:checked + .slider-switch:before {
+  transform: translateX(26px);
+}
+.switch-group--enable .switch-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+.switch-group--enable .switch-label i {
+  font-size: 17px;
+}
+
 /* ========== Section Divider ========== */
 .section-divider {
   font-size: 14px;
@@ -1607,6 +1627,11 @@ label {
   align-items: center;
   margin-top: 16px;
   margin-bottom: 15px;
+}
+
+.preview-test-row {
+  margin-top: 4px;
+  margin-bottom: 12px;
 }
 
 .preview-recommendation {
@@ -3572,11 +3597,13 @@ label {
 /* ========== Widget Sub-Tab Toggle ========== */
 .widget-subtab-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 16px 0 24px;
+  justify-content: center;
 }
 .subtab-btn {
-  flex: 1;
+  flex: 1 1 calc(33.333% - 7px);
   padding: 12px 16px;
   border: 2px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
@@ -3617,6 +3644,117 @@ label {
 .subtab-btn--timer:hover:not(.active) {
   border-color: #fde68a;
   color: #fbbf24;
+}
+.subtab-btn--leaderboard,
+.subtab-btn--recentdonate {
+  flex: 1 1 calc(50% - 5px);
+  max-width: 280px;
+}
+.subtab-btn--leaderboard.active {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+}
+.subtab-btn--leaderboard:hover:not(.active) {
+  border-color: #c084fc;
+  color: #a855f7;
+}
+.subtab-btn--recentdonate.active {
+  border-color: #06b6d4;
+  background: rgba(6, 182, 212, 0.1);
+  color: #06b6d4;
+}
+.subtab-btn--recentdonate:hover:not(.active) {
+  border-color: #67e8f9;
+  color: #06b6d4;
+}
+
+/* [Requirement #9] Transactions subview toggle — ประวัติธุรกรรม / ผู้โดเนทสูงสุด */
+.subtab-btn--txhistory.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+.subtab-btn--txhistory:hover:not(.active) {
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+.subtab-btn--topdonor.active {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+.subtab-btn--topdonor:hover:not(.active) {
+  border-color: #a5b4fc;
+  color: #6366f1;
+}
+
+/* [UI Corrections] Test-animation button spinner state — no other .btn:disabled rule existed */
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ========== Widget Shortcut Intro Animation ========== */
+/* perf: composite-only — transform + opacity เป็น GPU layer, ไม่ repaint
+   glow อยู่ใน ::before แบบ box-shadow คงที่ (rasterize ครั้งเดียว) แล้วไล่ opacity */
+@keyframes widgetShortcutIntro {
+  0%,100% { transform: scale(1); }
+  45%     { transform: scale(1.06); }
+}
+@keyframes widgetShortcutGlow {
+  0%,100% { opacity: 0; }
+  45%     { opacity: 1; }
+}
+/* [UI Fix] ปุ่ม "ประวัติสะสม" (topdonor) แยกชั้นเป็นแถวของตัวเอง — คนละประเภทกับปุ่มลัดตั้งค่าวิดเจ็ต */
+.widget-shortcut-topdonor-group {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.widget-shortcut-topdonor-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.widget-shortcut-topdonor-group .subtab-btn--topdonor {
+  flex: 1;
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+}
+.widget-shortcut-topdonor-group .subtab-btn--topdonor:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.widget-shortcut-toggle .subtab-btn { position: relative; }
+.widget-shortcut-toggle .subtab-btn.shortcut-intro {
+  border-color: var(--intro-color, #fbbf24) !important;
+  color: var(--intro-color, #fbbf24) !important;
+  background: var(--intro-bg, rgba(251,191,36,.14)) !important;
+  animation: widgetShortcutIntro .3s ease;
+  will-change: transform;
+}
+.widget-shortcut-toggle .subtab-btn.shortcut-intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 18px 4px var(--intro-glow, rgba(251,191,36,.6));
+  opacity: 0;
+  z-index: -1;
+  pointer-events: none;
+  animation: widgetShortcutGlow .3s ease;
+  will-change: opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .widget-shortcut-toggle .subtab-btn.shortcut-intro,
+  .widget-shortcut-toggle .subtab-btn.shortcut-intro::before { animation: none; }
 }
 
 /* ========== Goal Quick-Add Buttons ========== */
@@ -4364,7 +4502,7 @@ label {
 }
 .btn-timer-bridge {
   flex: 0 1 auto;            /* ย่อจาก width:100% เดิม — พอดีเนื้อหา */
-  padding: 8px 14px; font-size: 0.9rem;
+  padding: 5px 10px; font-size: 0.9rem;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .btn-timer-bridge:hover {

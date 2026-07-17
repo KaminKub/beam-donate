@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_9">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_18">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -159,6 +159,18 @@
 
           <!-- Bottom Grid (Recent / Help) -->
           <div class="dashboard-grid">
+            <!-- Widget Shortcuts Card (ทางลัดไปหน้าตั้งค่า Widgets) — ปุ่ม clone จาก #widgetSubtabToggle โดย JS, รองรับปุ่มอนาคตอัตโนมัติ -->
+            <div class="dashboard-card card-small">
+               <div class="card-header">
+                 <h3><i class="fa-solid fa-puzzle-piece" style="color:#fbbf24;"></i> ทางลัดตั้งค่า Widgets</h3>
+               </div>
+              <div class="obs-setup-box">
+                <p>เลือก Widget ที่ต้องการตั้งค่า จะพาไปยังหน้าตั้งค่า Widgets โดยอัตโนมัติ:</p>
+                <div class="widget-subtab-toggle widget-shortcut-toggle" id="widgetShortcutToggle" style="margin: 12px 0 0;">
+                  <!-- ปุ่มลัด render โดย JS จาก #widgetSubtabToggle (ก๊อปปี้ ไม่ย้าย ต้นฉบับคงอยู่) -->
+                </div>
+              </div>
+            </div>
             <!-- Recent Transactions Table -->
             <div class="dashboard-card card-large">
               <div class="card-header">
@@ -184,25 +196,21 @@
                 </table>
               </div>
             </div>
-
-            <!-- Widget Shortcuts Card (ทางลัดไปหน้าตั้งค่า Widgets) — ปุ่ม clone จาก #widgetSubtabToggle โดย JS, รองรับปุ่มอนาคตอัตโนมัติ -->
-            <div class="dashboard-card card-small">
-               <div class="card-header">
-                 <h3><i class="fa-solid fa-puzzle-piece" style="color:#fbbf24;"></i> ทางลัดตั้งค่า Widgets</h3>
-               </div>
-              <div class="obs-setup-box">
-                <p>เลือก Widget ที่ต้องการตั้งค่า จะพาไปยังหน้าตั้งค่า Widgets โดยอัตโนมัติ:</p>
-                <div class="widget-subtab-toggle widget-shortcut-toggle" id="widgetShortcutToggle" style="margin: 12px 0 0;">
-                  <!-- ปุ่มลัด render โดย JS จาก #widgetSubtabToggle (ก๊อปปี้ ไม่ย้าย ต้นฉบับคงอยู่) -->
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
         <!-- SECTION: DONATION HISTORY -->
         <section id="tab-transactions" class="tab-content">
-          <div class="dashboard-card">
+          <div class="widget-subtab-toggle transactions-subview-toggle" id="transactionsSubviewToggle">
+            <button type="button" id="btnTxSubviewHistory" class="subtab-btn subtab-btn--txhistory active" data-tx-subview="history">
+              <i class="fa-solid fa-receipt" style="color:#3b82f6"></i> ประวัติธุรกรรม
+            </button>
+            <button type="button" id="btnTxSubviewTopdonor" class="subtab-btn subtab-btn--topdonor" data-tx-subview="topdonor">
+              <i class="fa-solid fa-ranking-star" style="color:#6366f1"></i> ประวัติผู้โดเนทสูงสุด
+            </button>
+          </div>
+
+          <div class="dashboard-card" id="txSubviewHistory">
             <!-- Filter Bar -->
             <div class="filter-bar">
               <div class="search-group">
@@ -225,7 +233,7 @@
             </div>
 
             <p style="font-size: 11px; color: #f59e0b; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-triangle-exclamation" style="font-size:12px;"></i> ระบบจะล้างรายการบริจาคที่มีอายุเกิน 3 เดือนโดยอัตโนมัติ — <a href="#" id="btnDownloadFromNote" style="color: #fbbf24; text-decoration: underline;">ดาวน์โหลดเก็บไว้ที่นี่</a>
+              <i class="fa-solid fa-triangle-exclamation" style="font-size:12px;"></i> ระบบจะล้างรายการบริจาคที่มีอายุเกิน 6 เดือนโดยอัตโนมัติ — <a href="#" id="btnDownloadFromNote" style="color: #fbbf24; text-decoration: underline;">ดาวน์โหลดเก็บไว้ที่นี่</a>
             </p>
 
             <!-- Transactions Table -->
@@ -240,6 +248,44 @@
                     <th>ข้อความ</th>
                     <th>สถานะ</th>
                     <th>การจัดการ / ทดสอบ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colspan="7" class="text-center text-muted">กำลังโหลดข้อมูล...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="dashboard-card" id="txSubviewTopdonor" style="display:none;">
+            <div class="filter-bar">
+              <div class="search-group">
+                <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" id="inputSearchTopDonor" placeholder="ค้นหาชื่อผู้บริจาค...">
+              </div>
+              <div class="filter-groups">
+                <button class="btn btn-icon-round refresh-hover" id="btnRefreshTopDonor" title="รีเฟรชข้อมูล"><i class="fa-solid fa-arrow-rotate-right"></i></button>
+                <button class="btn btn-icon-round" id="btnDownloadTopDonor" title="ดาวน์โหลด CSV"><i class="fa-solid fa-download"></i></button>
+              </div>
+            </div>
+
+            <p style="font-size: 11px; color: #f59e0b; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-triangle-exclamation" style="font-size:12px;"></i> อันดับนี้นับรวมทุกยอดโดเนทตลอดเวลา ไม่ถูกล้างแม้เกิน 6 เดือน
+            </p>
+
+            <div class="table-responsive list-table-wrapper">
+              <table class="table" id="topDonorTable">
+                <thead>
+                  <tr>
+                    <th>อันดับ</th>
+                    <th>ผู้บริจาค</th>
+                    <th>ยอดรวม</th>
+                    <th>จำนวนครั้ง</th>
+                    <th>เฉลี่ย/ครั้ง</th>
+                    <th>สูงสุด/ครั้ง</th>
+                    <th>บริจาคล่าสุด</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -932,6 +978,12 @@
                   <button type="button" id="btnSubtabTimer" class="subtab-btn subtab-btn--timer" data-widget-subtab="timer">
                     <i class="fa-solid fa-hourglass-half"></i> ตัวจับเวลา
                   </button>
+                  <button type="button" id="btnSubtabLeaderboard" class="subtab-btn subtab-btn--leaderboard" data-widget-subtab="leaderboard">
+                    <i class="fa-solid fa-crown"></i> อันดับผู้โดเนท
+                  </button>
+                  <button type="button" id="btnSubtabRecentdonate" class="subtab-btn subtab-btn--recentdonate" data-widget-subtab="recentdonate">
+                    <i class="fa-solid fa-clock-rotate-left"></i> โดเนทล่าสุด
+                  </button>
                 </div>
                 <form id="overlaySettingsForm">
                   
@@ -1361,8 +1413,8 @@
                     </div>
                     <div class="card-body-panel" id="panelGoalGeneral">
                       <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
+                        <div class="form-group full-width">
+                          <div class="switch-group switch-group--enable">
                             <label class="switch">
                               <input type="checkbox" id="chkGoalEnabled">
                               <span class="slider-switch"></span>
@@ -1370,6 +1422,8 @@
                             <span class="switch-label"><i class="fa-solid fa-trophy" style="color:#4ade80"></i> เปิดใช้หลอดโดเนท</span>
                           </div>
                         </div>
+                      </div>
+                      <div class="form-row flex-align-center">
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
@@ -1379,8 +1433,6 @@
                             <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
                           </div>
                         </div>
-                      </div>
-                      <div class="form-row flex-align-center">
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
@@ -1390,6 +1442,8 @@
                             <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation</span>
                           </div>
                         </div>
+                      </div>
+                      <div class="form-row flex-align-center">
                         <div class="form-group">
                           <div class="switch-group">
                             <label class="switch">
@@ -1544,7 +1598,7 @@
                     <div class="card-body-panel" id="panelTimerGeneral">
                       <div class="form-row flex-align-center">
                         <div class="form-group">
-                          <div class="switch-group">
+                          <div class="switch-group switch-group--enable">
                             <label class="switch">
                               <input type="checkbox" id="chkTimerEnabled">
                               <span class="slider-switch"></span>
@@ -1947,6 +2001,653 @@
                     </button>
                   </div>
                 </div>
+
+                <!-- Leader Board Settings Panel (hidden by default) -->
+                <div id="leaderboardSettingsPanel" style="display:none;">
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelLeaderboardGeneral">
+                      <h4><i class="fa-solid fa-crown" style="color:#a855f7"></i> ตั้งค่าทั่วไป</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelLeaderboardGeneral">
+                      <!-- เปิดใช้กระดานผู้นำ (Req #1) — รวมอยู่ในตั้งค่าทั่วไป บนสุด ปุ่มขยายใหญ่สุด -->
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group switch-group--enable">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-crown" style="color:#a855f7"></i> เปิดใช้กระดานผู้นำ</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <label for="selectLeaderboardMaxEntries"><i class="fa-solid fa-list-ol" style="color:#a78bfa"></i> จำนวนอันดับ</label>
+                          <select id="selectLeaderboardMaxEntries" class="form-select">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5" selected>5</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardShine" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-sparkles" style="color:#fbbf24"></i> Shine Effect</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardAnimation" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-film" style="color:#a855f7"></i> เปิด Animation</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardShowMedal" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-medal" style="color:#ffd700"></i> แสดงเหรียญอันดับ</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group full-width">
+                          <label for="selectLeaderboardPeriodMode"><i class="fa-solid fa-calendar-days" style="color:#a855f7"></i> ช่วงเวลานับอันดับ</label>
+                          <select id="selectLeaderboardPeriodMode" class="form-select">
+                            <option value="all" selected>ทั้งหมด (ตลอดกาล)</option>
+                            <option value="weekly">รายสัปดาห์ (7 วันล่าสุด)</option>
+                            <option value="monthly">รายเดือน (30 วันล่าสุด)</option>
+                            <option value="custom">กำหนดเอง</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div id="leaderboardPeriodCustomGroup" class="tk-collapse">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label for="inputLeaderboardPeriodCustomDays"><i class="fa-solid fa-hourglass-half" style="color:#a855f7"></i> นับย้อนหลัง (วัน)</label>
+                              <input type="number" id="inputLeaderboardPeriodCustomDays" class="form-control" min="1" max="90" value="90">
+                              <small class="form-hint">สูงสุด 90 วัน (ตามระยะเวลาที่ระบบเก็บข้อมูลธุรกรรม อาจเปลี่ยนแปลงได้ในอนาคต)</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row goal-width-row">
+                        <div class="form-group">
+                          <label for="inputLeaderboardWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i> ความกว้าง (px)</label>
+                          <div class="width-input-wrapper">
+                            <input type="range" id="inputLeaderboardWidth" min="300" max="1080" step="10" value="720">
+                            <span class="width-value" id="txtLeaderboardWidth">720px</span>
+                          </div>
+                          <div class="switch-group" style="margin-top:8px;">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardWidthAuto">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-expand" style="color:#22c55e;"></i> ขยายตามหน้าจออัตโนมัติ</span>
+                          </div>
+                          <small class="form-hint">เปิด Auto จะใช้ 92% ของความกว้างหน้าจอ (สูงสุด 1600px)</small>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardBgEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-fill-drip" style="color:#a855f7"></i> เปิดสีพื้นหลัง</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="leaderboardBgGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-fill-drip" style="color:#a855f7;"></i> สีพื้นหลัง</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputLeaderboardBgColor" value="#000000">
+                                <input type="text" id="txtLeaderboardBgColor" class="hex-text" value="#000000">
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="selectLeaderboardBgOpacity"><i class="fa-solid fa-droplet" style="color:#94a3b8;"></i> ความโปร่งใส</label>
+                              <select id="selectLeaderboardBgOpacity" class="form-select">
+                                <option value="0">0%</option><option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="35">35%</option><option value="40">40%</option><option value="45">45%</option><option value="50">50%</option><option value="55">55%</option><option value="60" selected>60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option><option value="100">100%</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardBorderEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-border-all" style="color:#a855f7"></i> เปิดสีกรอบ</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="leaderboardBorderGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-border-all" style="color:#a855f7;"></i> สีกรอบ</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputLeaderboardBorderColor" value="#a855f7">
+                                <input type="text" id="txtLeaderboardBorderColor" class="hex-text" value="#a855f7">
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="selectLeaderboardBorderOpacity"><i class="fa-solid fa-droplet" style="color:#94a3b8;"></i> ความโปร่งใส</label>
+                              <select id="selectLeaderboardBorderOpacity" class="form-select">
+                                <option value="0">0%</option><option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="35">35%</option><option value="40">40%</option><option value="45">45%</option><option value="50">50%</option><option value="55">55%</option><option value="60">60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option><option value="100" selected>100%</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardRowBgEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-highlighter" style="color:#a855f7"></i> เปิดสีพื้นหลังชื่อ</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkLeaderboardRowBorderEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-square" style="color:#a855f7"></i> เปิดกรอบชื่อ</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelLeaderboardText">
+                      <h4><i class="fa-solid fa-comment" style="color:#a855f7"></i> ปรับแต่งข้อความและรูปแบบตัวอักษร</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelLeaderboardText">
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="inputLeaderboardTitle"><i class="fa-solid fa-heading" style="color:#a855f7;"></i> หัวข้อ</label>
+                          <input type="text" id="inputLeaderboardTitle" class="form-control" maxlength="40" placeholder="🏆 อันดับผู้โดเนท">
+                          <div class="template-vars-hint">
+                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                            <code class="template-var-tag">{ระยะเวลา}</code>
+                            <span class="template-vars-note">แสดงช่วงเวลาที่นับ เช่น รายสัปดาห์ / รายเดือน / ล่าสุด 14 วัน</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="inputLeaderboardCurrency"><i class="fa-solid fa-coins" style="color:#22c55e;"></i> สกุลเงิน</label>
+                          <input type="text" id="inputLeaderboardCurrency" class="form-control" maxlength="10" placeholder="บาท">
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="inputLeaderboardTplLeft"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความชิดซ้าย</label>
+                          <input type="text" id="inputLeaderboardTplLeft" class="form-control" maxlength="80" placeholder="#{อันดับ}  {ผู้โดเนท} ">
+                        </div>
+                        <div class="form-group">
+                          <label for="inputLeaderboardTplRight"><i class="fa-solid fa-align-right" style="color:#3b82f6;"></i> ข้อความชิดขวา</label>
+                          <input type="text" id="inputLeaderboardTplRight" class="form-control" maxlength="80" placeholder="{จำนวนเงิน} {สกุลเงิน}">
+                        </div>
+                      </div>
+                      <div class="template-vars-hint">
+                        <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                        <code class="template-var-tag">{อันดับ}</code>
+                        <code class="template-var-tag">{ผู้โดเนท}</code>
+                        <code class="template-var-tag">{จำนวนเงิน}</code>
+                        <code class="template-var-tag">{สกุลเงิน}</code>
+                        <code class="template-var-tag">{จำนวนครั้ง}</code>
+                      </div>
+
+                      <h5 class="section-divider">ขนาดตัวอักษร (Font Sizes)</h5>
+                      <div class="font-size-grid" id="lbFontSizeGrid">
+                        <div class="form-group">
+                          <label for="selectLeaderboardFontSizeTitle"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> หัวข้อ</label>
+                          <select id="selectLeaderboardFontSizeTitle" class="form-select">
+                            <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22" selected>22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label for="selectLeaderboardFontSizeRow"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> แถวข้อความ</label>
+                          <select id="selectLeaderboardFontSizeRow" class="form-select">
+                            <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18" selected>18 px</option><option value="20">20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label for="selectLeaderboardFontSizeMedal"><i class="fa-solid fa-medal" style="color:#ffd700;"></i> เหรียญอันดับ</label>
+                          <select id="selectLeaderboardFontSizeMedal" class="form-select">
+                            <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20" selected>20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <h5 class="section-divider">ขอบตัวอักษร (Outline)</h5>
+                      <div class="outline-grid" id="lbOutlineGrid">
+                        <div class="form-group">
+                          <label for="selectLeaderboardOutlineWidth"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ความหนา</label>
+                          <select id="selectLeaderboardOutlineWidth" class="form-select">
+                            <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label><i class="fa-solid fa-fill-drip" style="color:#9ca3af;"></i> สีขอบ</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardOutlineColor" value="#000000">
+                            <input type="text" id="txtLeaderboardOutlineColor" class="hex-text" value="#000000">
+                          </div>
+                        </div>
+                      </div>
+
+                      <h5 class="section-divider">สีตัวแปร (Variable Colors)</h5>
+                      <div class="color-picker-grid" id="lbColorGrid">
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-text-height" style="color:#e5e7eb;"></i> ข้อความทั่วไป</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorText" value="#ffffff">
+                            <input type="text" id="txtLeaderboardColorText" class="hex-text" value="#ffffff">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-trophy" style="color:#ffd700;"></i> อันดับ</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorRank" value="#ffd700">
+                            <input type="text" id="txtLeaderboardColorRank" class="hex-text" value="#ffd700">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-circle-user" style="color:#f59e0b;"></i> ผู้โดเนท</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorDonor" value="#ffffff">
+                            <input type="text" id="txtLeaderboardColorDonor" class="hex-text" value="#ffffff">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-coins" style="color:#22c55e;"></i> จำนวนเงิน</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorAmount" value="#4ade80">
+                            <input type="text" id="txtLeaderboardColorAmount" class="hex-text" value="#4ade80">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-tag" style="color:#ec4899;"></i> สกุลเงิน</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorCurrency" value="#f59e0b">
+                            <input type="text" id="txtLeaderboardColorCurrency" class="hex-text" value="#f59e0b">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-hashtag" style="color:#94a3b8;"></i> จำนวนครั้ง</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputLeaderboardColorCount" value="#94a3b8">
+                            <input type="text" id="txtLeaderboardColorCount" class="hex-text" value="#94a3b8">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-actions">
+                    <button type="button" id="btnSaveLeaderboardSettings" class="btn btn-primary btn-large w-100">
+                      <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าอันดับผู้โดเนท
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Recent Donate Settings Panel (hidden by default) -->
+                <div id="recentdonateSettingsPanel" style="display:none;">
+                  <div class="dashboard-card settings-card panel-open">
+                    <div class="settings-card-header" data-target="panelRecentdonateGeneral">
+                      <h4><i class="fa-solid fa-clock-rotate-left" style="color:#06b6d4"></i> ตั้งค่าทั่วไป</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelRecentdonateGeneral">
+                      <!-- เปิดใช้โดเนทล่าสุด (Req #1) — รวมอยู่ในตั้งค่าทั่วไป บนสุด ปุ่มขยายใหญ่สุด -->
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group switch-group--enable">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-clock-rotate-left" style="color:#06b6d4"></i> เปิดใช้โดเนทล่าสุด</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <label for="selectRecentdonateMaxEntries"><i class="fa-solid fa-list-ol" style="color:#a78bfa"></i> จำนวนรายการ</label>
+                          <select id="selectRecentdonateMaxEntries" class="form-select">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5" selected>5</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateShowTime" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-clock" style="color:#94a3b8"></i> แสดงเวลา</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateAnimation" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-film" style="color:#06b6d4"></i> เปิด Animation</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row goal-width-row">
+                        <div class="form-group">
+                          <label for="inputRecentdonateWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i> ความกว้าง (px)</label>
+                          <div class="width-input-wrapper">
+                            <input type="range" id="inputRecentdonateWidth" min="300" max="1080" step="10" value="720">
+                            <span class="width-value" id="txtRecentdonateWidth">720px</span>
+                          </div>
+                          <div class="switch-group" style="margin-top:8px;">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateWidthAuto">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-expand" style="color:#22c55e;"></i> ขยายตามหน้าจออัตโนมัติ</span>
+                          </div>
+                          <small class="form-hint">เปิด Auto จะใช้ 92% ของความกว้างหน้าจอ (สูงสุด 1600px)</small>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateBgEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-fill-drip" style="color:#06b6d4"></i> เปิดสีพื้นหลัง</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="recentdonateBgGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-fill-drip" style="color:#06b6d4;"></i> สีพื้นหลัง</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputRecentdonateBgColor" value="#000000">
+                                <input type="text" id="txtRecentdonateBgColor" class="hex-text" value="#000000">
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="selectRecentdonateBgOpacity"><i class="fa-solid fa-droplet" style="color:#94a3b8;"></i> ความโปร่งใส</label>
+                              <select id="selectRecentdonateBgOpacity" class="form-select">
+                                <option value="0">0%</option><option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="35">35%</option><option value="40">40%</option><option value="45">45%</option><option value="50">50%</option><option value="55">55%</option><option value="60" selected>60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option><option value="100">100%</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateBorderEnabled">
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-border-all" style="color:#06b6d4"></i> เปิดสีกรอบ</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="recentdonateBorderGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-border-all" style="color:#06b6d4;"></i> สีกรอบ</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputRecentdonateBorderColor" value="#06b6d4">
+                                <input type="text" id="txtRecentdonateBorderColor" class="hex-text" value="#06b6d4">
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="selectRecentdonateBorderOpacity"><i class="fa-solid fa-droplet" style="color:#94a3b8;"></i> ความโปร่งใส</label>
+                              <select id="selectRecentdonateBorderOpacity" class="form-select">
+                                <option value="0">0%</option><option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="35">35%</option><option value="40">40%</option><option value="45">45%</option><option value="50">50%</option><option value="55">55%</option><option value="60">60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option><option value="100" selected>100%</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateRowBgEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-highlighter" style="color:#06b6d4"></i> เปิดสีพื้นหลังชื่อ</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="recentdonateRowBgGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-fill-drip" style="color:#06b6d4;"></i> สีพื้นหลังชื่อ</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputRecentdonateRowBgColor" value="#ffffff">
+                                <input type="text" id="txtRecentdonateRowBgColor" class="hex-text" value="#ffffff">
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="selectRecentdonateRowBgOpacity"><i class="fa-solid fa-droplet" style="color:#94a3b8;"></i> ความโปร่งใส</label>
+                              <select id="selectRecentdonateRowBgOpacity" class="form-select">
+                                <option value="0">0%</option><option value="5" selected>5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="35">35%</option><option value="40">40%</option><option value="45">45%</option><option value="50">50%</option><option value="55">55%</option><option value="60">60%</option><option value="65">65%</option><option value="70">70%</option><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option><option value="90">90%</option><option value="95">95%</option><option value="100">100%</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkRecentdonateRowBorderEnabled" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label"><i class="fa-solid fa-square" style="color:#06b6d4"></i> เปิดกรอบชื่อ</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="recentdonateRowBorderGroup" class="tk-collapse tk-open">
+                        <div class="tk-collapse-inner">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label><i class="fa-solid fa-fill-drip" style="color:#06b6d4;"></i> สีกรอบชื่อ</label>
+                              <div class="color-input-wrapper">
+                                <input type="color" id="inputRecentdonateRowBorderColor" value="#ffffff">
+                                <input type="text" id="txtRecentdonateRowBorderColor" class="hex-text" value="#ffffff">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelRecentdonateText">
+                      <h4><i class="fa-solid fa-comment" style="color:#06b6d4"></i> ปรับแต่งข้อความและรูปแบบตัวอักษร</h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelRecentdonateText">
+                      <div class="form-row">
+                        <div class="form-group full-width">
+                          <label for="inputRecentdonateTitle"><i class="fa-solid fa-heading" style="color:#06b6d4;"></i> หัวข้อ</label>
+                          <input type="text" id="inputRecentdonateTitle" class="form-control" maxlength="40" placeholder="🕐 โดเนทล่าสุด">
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="inputRecentdonateCurrency"><i class="fa-solid fa-coins" style="color:#22c55e;"></i> สกุลเงิน</label>
+                          <input type="text" id="inputRecentdonateCurrency" class="form-control" maxlength="10" placeholder="บาท">
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label for="inputRecentdonateTplLeft"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความชิดซ้าย</label>
+                          <input type="text" id="inputRecentdonateTplLeft" class="form-control" maxlength="80" placeholder="{ผู้โดเนท}  {จำนวนเงิน} {สกุลเงิน} ">
+                        </div>
+                        <div class="form-group">
+                          <label for="inputRecentdonateTplRight"><i class="fa-solid fa-align-right" style="color:#3b82f6;"></i> ข้อความชิดขวา</label>
+                          <input type="text" id="inputRecentdonateTplRight" class="form-control" maxlength="80" placeholder=" {ข้อความ}">
+                        </div>
+                      </div>
+                      <div class="template-vars-hint">
+                        <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                        <code class="template-var-tag">{ผู้โดเนท}</code>
+                        <code class="template-var-tag">{จำนวนเงิน}</code>
+                        <code class="template-var-tag">{สกุลเงิน}</code>
+                        <code class="template-var-tag">{ข้อความ}</code>
+                      </div>
+
+                      <h5 class="section-divider">ขนาดตัวอักษร (Font Sizes)</h5>
+                      <div class="font-size-grid" id="rdFontSizeGrid">
+                        <div class="form-group">
+                          <label for="selectRecentdonateFontSizeTitle"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> หัวข้อ</label>
+                          <select id="selectRecentdonateFontSizeTitle" class="form-select">
+                            <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22" selected>22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label for="selectRecentdonateFontSizeRow"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> แถวข้อความ</label>
+                          <select id="selectRecentdonateFontSizeRow" class="form-select">
+                            <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="17" selected>17 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label for="selectRecentdonateFontSizeTime"><i class="fa-solid fa-clock" style="color:#94a3b8;"></i> เวลา</label>
+                          <select id="selectRecentdonateFontSizeTime" class="form-select">
+                            <option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <h5 class="section-divider">ขอบตัวอักษร (Outline)</h5>
+                      <div class="outline-grid" id="rdOutlineGrid">
+                        <div class="form-group">
+                          <label for="selectRecentdonateOutlineWidth"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ความหนา</label>
+                          <select id="selectRecentdonateOutlineWidth" class="form-select">
+                            <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label><i class="fa-solid fa-fill-drip" style="color:#9ca3af;"></i> สีขอบ</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateOutlineColor" value="#000000">
+                            <input type="text" id="txtRecentdonateOutlineColor" class="hex-text" value="#000000">
+                          </div>
+                        </div>
+                      </div>
+
+                      <h5 class="section-divider">สีตัวแปร (Variable Colors)</h5>
+                      <div class="color-picker-grid" id="rdColorGrid">
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-text-height" style="color:#e5e7eb;"></i> ข้อความทั่วไป</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateColorText" value="#ffffff">
+                            <input type="text" id="txtRecentdonateColorText" class="hex-text" value="#ffffff">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-circle-user" style="color:#f59e0b;"></i> ผู้โดเนท</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateColorDonor" value="#ffffff">
+                            <input type="text" id="txtRecentdonateColorDonor" class="hex-text" value="#ffffff">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-coins" style="color:#22c55e;"></i> จำนวนเงิน</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateColorAmount" value="#4ade80">
+                            <input type="text" id="txtRecentdonateColorAmount" class="hex-text" value="#4ade80">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-tag" style="color:#ec4899;"></i> สกุลเงิน</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateColorCurrency" value="#f59e0b">
+                            <input type="text" id="txtRecentdonateColorCurrency" class="hex-text" value="#f59e0b">
+                          </div>
+                        </div>
+                        <div class="color-picker-group">
+                          <label><i class="fa-solid fa-comment" style="color:#a78bfa;"></i> ข้อความ</label>
+                          <div class="color-input-wrapper compact">
+                            <input type="color" id="inputRecentdonateColorMessage" value="#94a3b8">
+                            <input type="text" id="txtRecentdonateColorMessage" class="hex-text" value="#94a3b8">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-actions">
+                    <button type="button" id="btnSaveRecentdonateSettings" class="btn btn-primary btn-large w-100">
+                      <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าโดเนทล่าสุด
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Right Live Preview panel -->
@@ -2020,13 +2721,13 @@
                       <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer
                     </p>
                     <div class="timer-control-buttons">
-                      <button type="button" id="btnTimerStart" class="btn btn-outline-success">
+                      <button type="button" id="btnTimerStart" class="btn btn-outline-success" style="height: 0.97rem">
                         <i class="fa-solid fa-play" style="color:#10b981"></i> เริ่ม
                       </button>
-                      <button type="button" id="btnTimerStop" class="btn btn-outline-warning">
+                      <button type="button" id="btnTimerStop" class="btn btn-outline-warning" style="height: 0.97rem">
                         <i class="fa-solid fa-pause" style="color:#f59e0b"></i> หยุด
                       </button>
-                      <button type="button" id="btnTimerReset" class="btn btn-outline-info">
+                      <button type="button" id="btnTimerReset" class="btn btn-outline-info" style="height: 0.97rem">
                         <i class="fa-solid fa-rotate-left" style="color:#3b82f6"></i> รีเซท
                       </button>
                     </div>
@@ -2079,6 +2780,52 @@
                         สำหรับดูตัวอย่างในหน้านี้เท่านั้น
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <!-- Leader Board Preview Card (shown when SubtabLeaderboard active) -->
+                <div id="leaderboardPreviewCard" class="dashboard-card preview-card" style="display:none;">
+                  <div class="preview-header">
+                    <h3><i class="fa-solid fa-crown" style="color:#a855f7"></i> พรีวิว Leader Board</h3>
+                  </div>
+                  <p class="preview-hint">ตัวอย่างที่โปรแกรมสตรีมมิ่งจะแสดง — Background โปร่งใสในระบบจริง</p>
+                  <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
+                    <iframe id="leaderboardPreviewIframe" src="about:blank" style="width:100%;height:350px;border:none;" title="Leader Board Preview"></iframe>
+                  </div>
+                  <div class="copy-url-group">
+                    <input type="text" id="obsLeaderboardUrlPreview" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
+                    <button class="btn btn-primary" id="btnCopyObsLeaderboardUrl">คัดลอก</button>
+                    <button class="btn btn-secondary" id="btnOpenObsLeaderboardUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn-reload-preview" id="btnReloadLeaderboardPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                    <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 600×350px, background transparent</span>
+                  </div>
+                  <div class="preview-test-row">
+                    <button type="button" id="btnTestLeaderboard" class="btn btn-secondary w-100"><i class="fa-solid fa-shuffle"></i> ทดสอบ Animation</button>
+                  </div>
+                </div>
+
+                <!-- Recent Donate Preview Card (shown when SubtabRecentdonate active) -->
+                <div id="recentdonatePreviewCard" class="dashboard-card preview-card" style="display:none;">
+                  <div class="preview-header">
+                    <h3><i class="fa-solid fa-clock-rotate-left" style="color:#06b6d4"></i> พรีวิว Recent Donate</h3>
+                  </div>
+                  <p class="preview-hint">ตัวอย่างที่โปรแกรมสตรีมมิ่งจะแสดง — Background โปร่งใสในระบบจริง</p>
+                  <div style="background:#1a1a2e;border-radius:10px;padding:16px 12px;margin-bottom:12px;">
+                    <iframe id="recentdonatePreviewIframe" src="about:blank" style="width:100%;height:350px;border:none;" title="Recent Donate Preview"></iframe>
+                  </div>
+                  <div class="copy-url-group">
+                    <input type="text" id="obsRecentdonateUrlPreview" readonly placeholder="บันทึกก่อนเพื่อรับ URL">
+                    <button class="btn btn-primary" id="btnCopyObsRecentdonateUrl">คัดลอก</button>
+                    <button class="btn btn-secondary" id="btnOpenObsRecentdonateUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </div>
+                  <div class="preview-controls">
+                    <button class="btn-reload-preview" id="btnReloadRecentdonatePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                    <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 600×350px, background transparent</span>
+                  </div>
+                  <div class="preview-test-row">
+                    <button type="button" id="btnTestRecentdonate" class="btn btn-secondary w-100"><i class="fa-solid fa-shuffle"></i> ทดสอบ Animation</button>
                   </div>
                 </div>
 
@@ -2286,7 +3033,7 @@
           </div>
         </div>
         <p id="downloadNote" style="color: #f87171; font-size: 11px; margin-top: 12px; display: none;">
-          <i class="fa-solid fa-triangle-exclamation"></i> ข้อมูลจะถูกรีเซททุก 3 เดือน — แนะนำให้ดาวน์โหลดเก็บไว้
+          <i class="fa-solid fa-triangle-exclamation"></i> ข้อมูลจะถูกรีเซททุก 6 เดือน — แนะนำให้ดาวน์โหลดเก็บไว้
         </p>
         <div style="display: flex; gap: 12px; margin-top: 20px;">
           <button class="btn btn-secondary" id="btnCancelDownload" style="flex: 1;">ยกเลิก</button>
@@ -2432,7 +3179,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260717_8"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_18"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
