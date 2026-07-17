@@ -3510,6 +3510,15 @@ label {
   overflow: visible;
 }
 
+/* Widget enable toggle body: hide all related settings when widget is disabled */
+.widget-settings-body {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.widget-settings-body.widget-body-hidden {
+  display: none !important;
+}
+
 .card-body-panel.panel-opening {
   animation: panelSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -3994,6 +4003,8 @@ label {
 .cap-progress { height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.15); overflow: hidden; margin-top: 6px; }
 .cap-progress-fill { height: 100%; width: 0%; border-radius: 3px; background-color: #10b981; transition: width 0.4s ease, background-color 0.4s ease; }
 .timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.timer-controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.timer-controls-col { min-width: 0; }
 .timer-test-zone { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.18); border-radius: 10px; padding: 12px; }
 .timer-test-zone__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .timer-test-zone__divider { height: 1px; background: rgba(139,92,246,0.2); margin: 10px 0; }
@@ -4089,6 +4100,7 @@ label {
   .timer-rule-row { flex-wrap: wrap; }
   .timer-control-buttons { flex-direction: column; }
   .timer-mode-cards { grid-template-columns: 1fr; }
+  .timer-controls-row { grid-template-columns: 1fr; }
 }
 
 /* ===== TrueMoney Webhook ===== */
@@ -4502,7 +4514,7 @@ label {
 }
 .btn-timer-bridge {
   flex: 0 1 auto;            /* ย่อจาก width:100% เดิม — พอดีเนื้อหา */
-  padding: 5px 10px; font-size: 0.9rem;
+  padding: 10px 20px; font-size: 0.9rem;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .btn-timer-bridge:hover {

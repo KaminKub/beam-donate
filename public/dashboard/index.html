@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_18">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_20">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1423,166 +1423,170 @@
                           </div>
                         </div>
                       </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkGoalShowOnDonate">
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkGoalAnimEnabled" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkGoalAnimSound" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <label for="selectGoalBarPosition"><i class="fa-solid fa-arrows-up-down" style="color:#a78bfa"></i> ตำแหน่งหลอดโดเนท</label>
-                          <select id="selectGoalBarPosition" class="form-select">
-                            <option value="top">บนสุด</option>
-                            <option value="bottom">ล่างสุด</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group">
-                          <label for="inputGoalLabel"><i class="fa-solid fa-bullseye" style="color:#ef4444;"></i> ชื่อเป้าหมาย</label>
-                          <input type="text" id="inputGoalLabel" class="form-control" maxlength="40" placeholder="เป้าหมายโดเนท">
-                        </div>
-                        <div class="form-group">
-                          <label for="inputGoalAmount"><i class="fa-solid fa-coins" style="color:#22c55e;"></i> จำนวนเป้าหมาย (บาท)</label>
-                          <input type="number" id="inputGoalAmount" class="form-control" min="1" placeholder="5000">
-                        </div>
-                      </div>
-                      <div class="form-row goal-width-row">
-                        <div class="form-group">
-                          <label><i class="fa-solid fa-fill-drip" style="color:#22c55e;"></i> สีแถบ Progress</label>
-                          <div class="color-input-wrapper">
-                            <input type="color" id="inputGoalBarColor" value="#4ade80">
-                            <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i> ความยาวหลอดสูงสุด (px)</label>
-                          <div class="width-input-wrapper">
-                            <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
-                            <span class="width-value" id="txtGoalBarWidth">600px</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group full-width">
-                          <label for="inputGoalBarText"><i class="fa-solid fa-font" style="color:#a855f7;"></i> ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)"></span></label>
-                          <input type="text" id="inputGoalBarText" class="form-control" maxlength="60" placeholder="{เปอร์เซนต์}">
-                          <div class="template-vars-hint">
-                            <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
-                            <code class="template-var-tag">{เปอร์เซนต์}</code>
-                            <code class="template-var-tag">{ยอดปัจจุบัน}</code>
-                            <code class="template-var-tag">{ยอดเป้าหมาย}</code>
-                            <code class="template-var-tag">{ยอดคงเหลือ}</code>
-                            <code class="template-var-tag">{วันคงเหลือ}</code>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group">
-                          <label for="inputGoalSubtitle1"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความใต้หลอด 1 (กลาง / ซ้าย)</label>
-                          <input type="text" id="inputGoalSubtitle1" class="form-control" maxlength="80" placeholder="{ยอดปัจจุบัน}  /  {ยอดเป้าหมาย}฿">
-                        </div>
-                        <div class="form-group">
-                          <label for="inputGoalSubtitle2"><i class="fa-solid fa-align-right" style="color:#3b82f6;"></i> ข้อความใต้หลอด 2 (ขวา)</label>
-                          <input type="text" id="inputGoalSubtitle2" class="form-control" maxlength="80" placeholder="ปิดหลอดใน  {วันคงเหลือ}  วัน">
-                        </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group full-width">
-                          <div class="switch-group" style="margin-bottom:10px;">
-                            <label class="switch">
-                              <input type="checkbox" id="chkGoalEndDate">
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-calendar-days" style="color:#f59e0b"></i> กำหนดวันสิ้นสุด (Countdown)</span>
-                          </div>
-                          <div id="goalEndDateSection" style="display:none;">
-                            <input type="datetime-local" id="inputGoalEndDate" class="form-control">
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Card 2: Current Progress & Adjust -->
-                  <div class="dashboard-card settings-card panel-open">
-                    <div class="settings-card-header" data-target="panelGoalProgress">
-                      <h4><i class="fa-solid fa-chart-simple" style="color:#4ade80"></i> ยอดปัจจุบัน & ปรับยอด</h4>
-                      <i class="fa-solid fa-chevron-down card-chevron"></i>
-                    </div>
-                    <div class="card-body-panel" id="panelGoalProgress">
-                      <div class="form-row">
-                        <div class="form-group full-width">
-                          <!-- ยอดปัจจุบัน -->
-                          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:16px;">
-                            <span id="spanGoalCurrent" style="font-size:1.6em;font-weight:800;color:#4ade80">0</span>
-                            <span style="color:var(--text-muted);font-size:1em">/</span>
-                            <span id="spanGoalAmount" style="color:var(--text-muted);font-size:1em">0</span>
-                            <span style="color:var(--text-muted);font-size:0.85em">บาท</span>
-                          </div>
-                          <!-- ปุ่ม Quick Add -->
-                          <div style="display:flex;gap:8px;margin-bottom:12px;">
-                            <button type="button" class="btn-goal-quick" data-val="10">+10</button>
-                            <button type="button" class="btn-goal-quick" data-val="50">+50</button>
-                            <button type="button" class="btn-goal-quick" data-val="100">+100</button>
-                            <button type="button" class="btn-goal-quick" data-val="-10">−10</button>
-                          </div>
-                          <!-- กรอกเองแบบ custom -->
-                          <div style="display:flex;gap:8px;align-items:center;">
-                            <div style="flex:1;position:relative;">
-                              <input type="number" id="inputGoalDelta" class="form-control" placeholder="ระบุจำนวน">
-                              <span style="position:absolute;right:40px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--text-muted);pointer-events:none;">บาท</span>
+                      <div class="widget-settings-body" id="goalSettingsBody">
+                        <div class="form-row flex-align-center">
+                          <div class="form-group">
+                            <div class="switch-group">
+                              <label class="switch">
+                                <input type="checkbox" id="chkGoalShowOnDonate">
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-eye" style="color:#ffffff"></i> แสดงบนหน้าโดเนท</span>
                             </div>
-                            <button type="button" id="btnGoalAdjust" class="btn btn-primary" style="white-space:nowrap;padding:10px 20px;">
-                              <i class="fa-solid fa-plus-minus"></i> ปรับยอด
-                            </button>
                           </div>
-                          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
-                            <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
-                            ตัวอย่าง: พิมพ์ <strong>200</strong> เพื่อ บวก 200 บาท &nbsp;|&nbsp; พิมพ์ <strong>-100</strong> เพื่อ ลบ 100 บาท
+                          <div class="form-group">
+                            <div class="switch-group">
+                              <label class="switch">
+                                <input type="checkbox" id="chkGoalAnimEnabled" checked>
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation</span>
+                            </div>
                           </div>
-                          <!-- รีเซ็ต -->
-                          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e2e8f0);">
-                            <button type="button" id="btnGoalReset" class="btn btn-outline-danger" style="width:100%;">
-                              <i class="fa-solid fa-rotate-left"></i> รีเซ็ตยอดกลับเป็น 0
-                            </button>
+                        </div>
+                        <div class="form-row flex-align-center">
+                          <div class="form-group">
+                            <div class="switch-group">
+                              <label class="switch">
+                                <input type="checkbox" id="chkGoalAnimSound" checked>
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row flex-align-center">
+                          <div class="form-group">
+                            <label for="selectGoalBarPosition"><i class="fa-solid fa-arrows-up-down" style="color:#a78bfa"></i> ตำแหน่งหลอดโดเนท</label>
+                            <select id="selectGoalBarPosition" class="form-select">
+                              <option value="top">บนสุด</option>
+                              <option value="bottom">ล่างสุด</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="inputGoalLabel"><i class="fa-solid fa-bullseye" style="color:#ef4444;"></i> ชื่อเป้าหมาย</label>
+                            <input type="text" id="inputGoalLabel" class="form-control" maxlength="40" placeholder="เป้าหมายโดเนท">
+                          </div>
+                          <div class="form-group">
+                            <label for="inputGoalAmount"><i class="fa-solid fa-coins" style="color:#22c55e;"></i> จำนวนเป้าหมาย (บาท)</label>
+                            <input type="number" id="inputGoalAmount" class="form-control" min="1" placeholder="5000">
+                          </div>
+                        </div>
+                        <div class="form-row goal-width-row">
+                          <div class="form-group">
+                            <label><i class="fa-solid fa-fill-drip" style="color:#22c55e;"></i> สีแถบ Progress</label>
+                            <div class="color-input-wrapper">
+                              <input type="color" id="inputGoalBarColor" value="#4ade80">
+                              <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i> ความยาวหลอดสูงสุด (px)</label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
+                              <span class="width-value" id="txtGoalBarWidth">600px</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label for="inputGoalBarText"><i class="fa-solid fa-font" style="color:#a855f7;"></i> ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)"></span></label>
+                            <input type="text" id="inputGoalBarText" class="form-control" maxlength="60" placeholder="{เปอร์เซนต์}">
+                            <div class="template-vars-hint">
+                              <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                              <code class="template-var-tag">{เปอร์เซนต์}</code>
+                              <code class="template-var-tag">{ยอดปัจจุบัน}</code>
+                              <code class="template-var-tag">{ยอดเป้าหมาย}</code>
+                              <code class="template-var-tag">{ยอดคงเหลือ}</code>
+                              <code class="template-var-tag">{วันคงเหลือ}</code>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="inputGoalSubtitle1"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความใต้หลอด 1 (กลาง / ซ้าย)</label>
+                            <input type="text" id="inputGoalSubtitle1" class="form-control" maxlength="80" placeholder="{ยอดปัจจุบัน}  /  {ยอดเป้าหมาย}฿">
+                          </div>
+                          <div class="form-group">
+                            <label for="inputGoalSubtitle2"><i class="fa-solid fa-align-right" style="color:#3b82f6;"></i> ข้อความใต้หลอด 2 (ขวา)</label>
+                            <input type="text" id="inputGoalSubtitle2" class="form-control" maxlength="80" placeholder="ปิดหลอดใน  {วันคงเหลือ}  วัน">
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <div class="switch-group" style="margin-bottom:10px;">
+                              <label class="switch">
+                                <input type="checkbox" id="chkGoalEndDate">
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-calendar-days" style="color:#f59e0b"></i> กำหนดวันสิ้นสุด (Countdown)</span>
+                            </div>
+                            <div id="goalEndDateSection" style="display:none;">
+                              <input type="datetime-local" id="inputGoalEndDate" class="form-control">
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Save Button -->
-                  <div class="settings-actions">
-                    <button type="button" id="btnSaveGoalSettings" class="btn btn-primary btn-large w-100">
-                      <i class="fa-solid fa-floppy-disk"></i> บันทึกและซิงค์การตั้งค่า
-                    </button>
+                  <div class="widget-settings-body" data-body-for="goal">
+                    <!-- Card 2: Current Progress & Adjust -->
+                    <div class="dashboard-card settings-card panel-open">
+                      <div class="settings-card-header" data-target="panelGoalProgress">
+                        <h4><i class="fa-solid fa-chart-simple" style="color:#4ade80"></i> ยอดปัจจุบัน & ปรับยอด</h4>
+                        <i class="fa-solid fa-chevron-down card-chevron"></i>
+                      </div>
+                      <div class="card-body-panel" id="panelGoalProgress">
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <!-- ยอดปัจจุบัน -->
+                            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:16px;">
+                              <span id="spanGoalCurrent" style="font-size:1.6em;font-weight:800;color:#4ade80">0</span>
+                              <span style="color:var(--text-muted);font-size:1em">/</span>
+                              <span id="spanGoalAmount" style="color:var(--text-muted);font-size:1em">0</span>
+                              <span style="color:var(--text-muted);font-size:0.85em">บาท</span>
+                            </div>
+                            <!-- ปุ่ม Quick Add -->
+                            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                              <button type="button" class="btn-goal-quick" data-val="10">+10</button>
+                              <button type="button" class="btn-goal-quick" data-val="50">+50</button>
+                              <button type="button" class="btn-goal-quick" data-val="100">+100</button>
+                              <button type="button" class="btn-goal-quick" data-val="-10">−10</button>
+                            </div>
+                            <!-- กรอกเองแบบ custom -->
+                            <div style="display:flex;gap:8px;align-items:center;">
+                              <div style="flex:1;position:relative;">
+                                <input type="number" id="inputGoalDelta" class="form-control" placeholder="ระบุจำนวน">
+                                <span style="position:absolute;right:40px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--text-muted);pointer-events:none;">บาท</span>
+                              </div>
+                              <button type="button" id="btnGoalAdjust" class="btn btn-primary" style="white-space:nowrap;padding:10px 20px;">
+                                <i class="fa-solid fa-plus-minus"></i> ปรับยอด
+                              </button>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+                              <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
+                              ตัวอย่าง: พิมพ์ <strong>200</strong> เพื่อ บวก 200 บาท &nbsp;|&nbsp; พิมพ์ <strong>-100</strong> เพื่อ ลบ 100 บาท
+                            </div>
+                            <!-- รีเซ็ต -->
+                            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e2e8f0);">
+                              <button type="button" id="btnGoalReset" class="btn btn-outline-danger" style="width:100%;">
+                                <i class="fa-solid fa-rotate-left"></i> รีเซ็ตยอดกลับเป็น 0
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="settings-actions">
+                      <button type="button" id="btnSaveGoalSettings" class="btn btn-primary btn-large w-100">
+                        <i class="fa-solid fa-floppy-disk"></i> บันทึกและซิงค์การตั้งค่า
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1607,68 +1611,72 @@
                           </div>
                         </div>
                       </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkTimerAnimEnabled" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation ตัวเลข ±เวลา</span>
+                      <div class="widget-settings-body" id="timerSettingsBody">
+                        <div class="form-row flex-align-center">
+                          <div class="form-group">
+                            <div class="switch-group">
+                              <label class="switch">
+                                <input type="checkbox" id="chkTimerAnimEnabled" checked>
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> Effect Animation ตัวเลข ±เวลา</span>
+                            </div>
+                          </div>
+                          <div class="form-group" id="timerAnimSoundGroup">
+                            <div class="switch-group">
+                              <label class="switch">
+                                <input type="checkbox" id="chkTimerAnimSound" checked>
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
+                            </div>
                           </div>
                         </div>
-                        <div class="form-group" id="timerAnimSoundGroup">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkTimerAnimSound" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label><i class="fa-solid fa-clock" style="color:#60a5fa"></i> เวลาเริ่มต้น</label>
+                            <div class="timer-time-inputs">
+                              <input type="number" id="timerInitHH" class="form-control" min="0" max="23" placeholder="00" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
+                              <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
+                              <input type="number" id="timerInitMM" class="form-control" min="0" max="59" placeholder="10" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
+                              <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
+                              <input type="number" id="timerInitSS" class="form-control" min="0" max="59" placeholder="00" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group">
-                          <label><i class="fa-solid fa-clock" style="color:#60a5fa"></i> เวลาเริ่มต้น</label>
-                          <div class="timer-time-inputs">
-                            <input type="number" id="timerInitHH" class="form-control" min="0" max="23" placeholder="00" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
-                            <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
-                            <input type="number" id="timerInitMM" class="form-control" min="0" max="59" placeholder="10" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
-                            <span style="font-size:1.2em;font-weight:700;color:var(--text-muted)">:</span>
-                            <input type="number" id="timerInitSS" class="form-control" min="0" max="59" placeholder="00" style="font-size: 22px;width:64px;flex:0 1 64px;min-width:0;text-align:center;">
-                          </div>
-                        </div>
-                      </div>
-                      <div class="form-group full-width" style="margin-bottom:0;">
-                        <label><i class="fa-solid fa-sliders" style="color:#a78bfa"></i> รูปแบบการนับเวลา</label>
-                        <select id="timerModeSelect" style="display:none;">
-                          <option value="multiplier">multiplier</option>
-                          <option value="threshold">threshold</option>
-                          <option value="fixed">fixed</option>
-                        </select>
-                        <div class="timer-mode-cards" role="group" aria-label="รูปแบบการนับเวลา">
-                          <div class="timer-mode-card" data-mode="multiplier">
-                            <div class="timer-mode-card-icon"><i class="fa-solid fa-calculator"></i></div>
-                            <div class="timer-mode-card-title">คูณยอดโดเนท</div>
-                            <div class="timer-mode-card-sub">Multiplier</div>
-                            <div class="timer-mode-card-desc">ทุกๆ X฿ ปรับเวลา ±Y วิ สะสมคูณตามยอด — เช่น โดเนท 30฿ (base 10฿) = ×3</div>
-                          </div>
-                          <div class="timer-mode-card" data-mode="threshold">
-                            <div class="timer-mode-card-icon"><i class="fa-solid fa-stairs"></i></div>
-                            <div class="timer-mode-card-title">ยอดขั้นต่ำ</div>
-                            <div class="timer-mode-card-sub">Threshold</div>
-                            <div class="timer-mode-card-desc">โดเนท ≥ X฿ ได้รับเวลา ±Y วิ ไม่ว่าจะโดเนทมากกว่าแค่ไหน — ตั้งหลายกฏได้</div>
-                          </div>
-                          <div class="timer-mode-card" data-mode="fixed">
-                            <div class="timer-mode-card-icon"><i class="fa-solid fa-equals"></i></div>
-                            <div class="timer-mode-card-title">ยอดคงที่</div>
-                            <div class="timer-mode-card-sub">Fixed Amount</div>
-                            <div class="timer-mode-card-desc">ต้องโดเนทตรงยอด X฿ เท่านั้น ถึงจะปรับเวลาได้ — ตั้งหลายกฏได้</div>
+                        <div class="form-group full-width" style="margin-bottom:0;">
+                          <label><i class="fa-solid fa-sliders" style="color:#a78bfa"></i> รูปแบบการนับเวลา</label>
+                          <select id="timerModeSelect" style="display:none;">
+                            <option value="multiplier">multiplier</option>
+                            <option value="threshold">threshold</option>
+                            <option value="fixed">fixed</option>
+                          </select>
+                          <div class="timer-mode-cards" role="group" aria-label="รูปแบบการนับเวลา">
+                            <div class="timer-mode-card" data-mode="multiplier">
+                              <div class="timer-mode-card-icon"><i class="fa-solid fa-calculator"></i></div>
+                              <div class="timer-mode-card-title">คูณยอดโดเนท</div>
+                              <div class="timer-mode-card-sub">Multiplier</div>
+                              <div class="timer-mode-card-desc">ทุกๆ X฿ ปรับเวลา ±Y วิ สะสมคูณตามยอด — เช่น โดเนท 30฿ (base 10฿) = ×3</div>
+                            </div>
+                            <div class="timer-mode-card" data-mode="threshold">
+                              <div class="timer-mode-card-icon"><i class="fa-solid fa-stairs"></i></div>
+                              <div class="timer-mode-card-title">ยอดขั้นต่ำ</div>
+                              <div class="timer-mode-card-sub">Threshold</div>
+                              <div class="timer-mode-card-desc">โดเนท ≥ X฿ ได้รับเวลา ±Y วิ ไม่ว่าจะโดเนทมากกว่าแค่ไหน — ตั้งหลายกฏได้</div>
+                            </div>
+                            <div class="timer-mode-card" data-mode="fixed">
+                              <div class="timer-mode-card-icon"><i class="fa-solid fa-equals"></i></div>
+                              <div class="timer-mode-card-title">ยอดคงที่</div>
+                              <div class="timer-mode-card-sub">Fixed Amount</div>
+                              <div class="timer-mode-card-desc">ต้องโดเนทตรงยอด X฿ เท่านั้น ถึงจะปรับเวลาได้ — ตั้งหลายกฏได้</div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  <div class="widget-settings-body" data-body-for="timer">
 
                   <!-- Card 2: Rules -->
                   <div class="dashboard-card settings-card">
@@ -2000,6 +2008,7 @@
                       <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า Timer
                     </button>
                   </div>
+                  </div>
                 </div>
 
                 <!-- Leader Board Settings Panel (hidden by default) -->
@@ -2015,13 +2024,14 @@
                         <div class="form-group">
                           <div class="switch-group switch-group--enable">
                             <label class="switch">
-                              <input type="checkbox" id="chkLeaderboardEnabled" checked>
+                              <input type="checkbox" id="chkLeaderboardEnabled">
                               <span class="slider-switch"></span>
                             </label>
-                            <span class="switch-label"><i class="fa-solid fa-crown" style="color:#a855f7"></i> เปิดใช้กระดานผู้นำ</span>
+                            <span class="switch-label"><i class="fa-solid fa-crown" style="color:#a855f7"></i> เปิดใช้อันดับโดเนท</span>
                           </div>
                         </div>
                       </div>
+                      <div class="widget-settings-body" id="leaderboardSettingsBody">
                       <div class="form-row flex-align-center">
                         <div class="form-group">
                           <label for="selectLeaderboardMaxEntries"><i class="fa-solid fa-list-ol" style="color:#a78bfa"></i> จำนวนอันดับ</label>
@@ -2192,9 +2202,11 @@
                           </div>
                         </div>
                       </div>
+                      </div>
                     </div>
                   </div>
 
+                  <div class="widget-settings-body" data-body-for="leaderboard">
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header" data-target="panelLeaderboardText">
                       <h4><i class="fa-solid fa-comment" style="color:#a855f7"></i> ปรับแต่งข้อความและรูปแบบตัวอักษร</h4>
@@ -2330,6 +2342,7 @@
                       <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าอันดับผู้โดเนท
                     </button>
                   </div>
+                  </div>
                 </div>
 
                 <!-- Recent Donate Settings Panel (hidden by default) -->
@@ -2345,13 +2358,14 @@
                         <div class="form-group">
                           <div class="switch-group switch-group--enable">
                             <label class="switch">
-                              <input type="checkbox" id="chkRecentdonateEnabled" checked>
+                              <input type="checkbox" id="chkRecentdonateEnabled">
                               <span class="slider-switch"></span>
                             </label>
                             <span class="switch-label"><i class="fa-solid fa-clock-rotate-left" style="color:#06b6d4"></i> เปิดใช้โดเนทล่าสุด</span>
                           </div>
                         </div>
                       </div>
+                      <div class="widget-settings-body" id="recentdonateSettingsBody">
                       <div class="form-row flex-align-center">
                         <div class="form-group">
                           <label for="selectRecentdonateMaxEntries"><i class="fa-solid fa-list-ol" style="color:#a78bfa"></i> จำนวนรายการ</label>
@@ -2522,9 +2536,11 @@
                           </div>
                         </div>
                       </div>
+                      </div>
                     </div>
                   </div>
 
+                  <div class="widget-settings-body" data-body-for="recentdonate">
                   <div class="dashboard-card settings-card">
                     <div class="settings-card-header" data-target="panelRecentdonateText">
                       <h4><i class="fa-solid fa-comment" style="color:#06b6d4"></i> ปรับแต่งข้อความและรูปแบบตัวอักษร</h4>
@@ -2647,6 +2663,7 @@
                       <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าโดเนทล่าสุด
                     </button>
                   </div>
+                  </div>
                 </div>
               </div>
 
@@ -2717,68 +2734,70 @@
                     <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 500×260px, background transparent</span>
                   </div>
                   <div class="timer-live-control">
-                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
-                      <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer
-                    </p>
-                    <div class="timer-control-buttons">
-                      <button type="button" id="btnTimerStart" class="btn btn-outline-success" style="height: 0.97rem">
-                        <i class="fa-solid fa-play" style="color:#10b981"></i> เริ่ม
-                      </button>
-                      <button type="button" id="btnTimerStop" class="btn btn-outline-warning" style="height: 0.97rem">
-                        <i class="fa-solid fa-pause" style="color:#f59e0b"></i> หยุด
-                      </button>
-                      <button type="button" id="btnTimerReset" class="btn btn-outline-info" style="height: 0.97rem">
-                        <i class="fa-solid fa-rotate-left" style="color:#3b82f6"></i> รีเซท
-                      </button>
-                    </div>
-                    <div id="btnTimerTiktokBridgeWrap" class="tk-collapse">
-                     <div class="tk-collapse-inner">
-                      <div class="timer-bridge-row">
-                        <button type="button" id="btnTimerTiktokBridge" class="btn btn-outline-primary btn-timer-bridge"
-                                onclick="window.open('/tiktok-bridge/','_blank')">
-                          <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live
-                        </button>
-                        <span class="js-tiktok-badge timer-bridge-badge">
-                          <span class="status-dot"></span>
-                          <span class="js-tiktok-badge-text">ปิดอยู่</span>
-                        </span>
-                      </div>
-                     </div>
-                    </div>
-                  </div>
-
-                  <!-- Timer Anim Test Zone -->
-                  <div class="timer-live-control">
-                    <div id="timerAnimTestPanel" class="timer-test-zone">
-                      <div class="timer-test-zone__header">
-                        <div class="switch-group" style="margin:0;">
-                          <span class="switch-label" id="lblTimerModeTest" style="font-size:13px;font-weight:700;color:#3b82f6;">Test</span>
-                          <label class="switch" style="margin:0 6px;">
-                            <input type="checkbox" id="chkTimerLiveMode">
-                            <span class="slider-switch"></span>
-                          </label>
-                          <span class="switch-label" id="lblTimerModeLive" style="font-size:13px;color:var(--text-muted);">Live</span>
+                    <div class="timer-controls-row">
+                      <div class="timer-controls-col">
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+                          <i class="fa-solid fa-gamepad" style="color:#10b981"></i> ควบคุม Timer
+                        </p>
+                        <div class="timer-control-buttons">
+                          <button type="button" id="btnTimerStart" class="btn btn-outline-success">
+                            <i class="fa-solid fa-play" style="color:#10b981"></i> เริ่ม
+                          </button>
+                          <button type="button" id="btnTimerStop" class="btn btn-outline-warning">
+                            <i class="fa-solid fa-pause" style="color:#f59e0b"></i> หยุด
+                          </button>
+                          <button type="button" id="btnTimerReset" class="btn btn-outline-info">
+                            <i class="fa-solid fa-rotate-left" style="color:#3b82f6"></i> รีเซท
+                          </button>
                         </div>
-                        <span id="timerModeBadge" class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:11px;padding:3px 10px;border-radius:12px;">ตัวอย่างในหน้านี้เท่านั้น</span>
+                        <div id="btnTimerTiktokBridgeWrap" class="tk-collapse">
+                         <div class="tk-collapse-inner">
+                          <div class="timer-bridge-row">
+                            <button type="button" id="btnTimerTiktokBridge" class="btn btn-outline-primary btn-timer-bridge"
+                                    onclick="window.open('/tiktok-bridge/','_blank')">
+                              <i class="fa-brands fa-tiktok" style="color:#69c9d0"></i> เชื่อม TikTok Live
+                            </button>
+                            <span class="js-tiktok-badge timer-bridge-badge">
+                              <span class="status-dot"></span>
+                              <span class="js-tiktok-badge-text">ปิดอยู่</span>
+                            </span>
+                          </div>
+                         </div>
+                        </div>
                       </div>
-                      <div class="timer-test-zone__divider"></div>
-                      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
-                        <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> ปรับเวลา ±
-                      </p>
-                      <div class="timer-control-buttons timer-anim-test-buttons">
-                        <button type="button" id="btnTestTimerAnimSub" class="btn btn-sm btn-test-sub" title="ลบเวลา">
-                          <i class="fa-solid fa-minus"></i>
-                        </button>
-                        <input type="number" id="inputTestTimerDelta" class="form-control" value="30" min="1" style="width:72px;text-align:center;font-size:14px;padding:4px 6px;">
-                        <span id="timerTestDeltaUnit" style="font-size:13px;color:var(--text-muted);">วินาที</span>
-                        <button type="button" id="btnTestTimerAnimAdd" class="btn btn-sm btn-test-add" title="บวกเวลา">
-                          <i class="fa-solid fa-plus"></i>
-                        </button>
+                      <div class="timer-controls-col">
+                        <div id="timerAnimTestPanel" class="timer-test-zone">
+                          <div class="timer-test-zone__header">
+                            <div class="switch-group" style="margin:0;">
+                              <span class="switch-label" id="lblTimerModeTest" style="font-size:13px;font-weight:700;color:#3b82f6;">Test</span>
+                              <label class="switch" style="margin:0 6px;">
+                                <input type="checkbox" id="chkTimerLiveMode">
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label" id="lblTimerModeLive" style="font-size:13px;color:var(--text-muted);">Live</span>
+                            </div>
+                            <span id="timerModeBadge" class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:11px;padding:3px 10px;border-radius:12px;">ตัวอย่างในหน้านี้เท่านั้น</span>
+                          </div>
+                          <div class="timer-test-zone__divider"></div>
+                          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+                            <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6"></i> ปรับเวลา ±
+                          </p>
+                          <div class="timer-control-buttons timer-anim-test-buttons">
+                            <button type="button" id="btnTestTimerAnimSub" class="btn btn-sm btn-test-sub" title="ลบเวลา">
+                              <i class="fa-solid fa-minus"></i>
+                            </button>
+                            <input type="number" id="inputTestTimerDelta" class="form-control" value="30" min="1" style="width:72px;text-align:center;font-size:14px;padding:4px 6px;">
+                            <span id="timerTestDeltaUnit" style="font-size:13px;color:var(--text-muted);">วินาที</span>
+                            <button type="button" id="btnTestTimerAnimAdd" class="btn btn-sm btn-test-add" title="บวกเวลา">
+                              <i class="fa-solid fa-plus"></i>
+                            </button>
+                          </div>
+                          <p id="timerModeHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;margin-bottom:0;line-height:1.4;">
+                            <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
+                            สำหรับดูตัวอย่างในหน้านี้เท่านั้น
+                          </p>
+                        </div>
                       </div>
-                      <p id="timerModeHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;margin-bottom:0;line-height:1.4;">
-                        <i class="fa-solid fa-circle-info" style="color:#60a5fa"></i>
-                        สำหรับดูตัวอย่างในหน้านี้เท่านั้น
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -3179,7 +3198,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_18"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_21"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

@@ -1432,6 +1432,12 @@ async function initializeDashboard() {
 
     initCardPanels();
 
+    // Widget enable-collapse: register toggles so only the on/off switch shows when disabled
+    registerWidgetVisibility('chkGoalEnabled', '#goalSettingsBody, [data-body-for="goal"]');
+    registerWidgetVisibility('chkTimerEnabled', '#timerSettingsBody, [data-body-for="timer"]');
+    registerWidgetVisibility('chkLeaderboardEnabled', '#leaderboardSettingsBody, [data-body-for="leaderboard"]');
+    registerWidgetVisibility('chkRecentdonateEnabled', '#recentdonateSettingsBody, [data-body-for="recentdonate"]');
+
     if (window._slLinkedOnLoad) {
       window._slLinkedOnLoad = false;
       switchTab('account');
@@ -1493,9 +1499,29 @@ function normalizeGoalBarWidth(raw) {
   return (val >= 300 && val <= 1080) ? String(val) : '600';
 }
 
+// Widget enable-collapse: hide all related settings when toggle is off
+const widgetVisibilityUpdaters = {};
+
+function registerWidgetVisibility(toggleId, bodySelector) {
+  const toggle = document.getElementById(toggleId);
+  const bodies = document.querySelectorAll(bodySelector);
+  if (!toggle || !bodies.length) return;
+  const update = () => {
+    bodies.forEach(b => b.classList.toggle('widget-body-hidden', !toggle.checked));
+  };
+  toggle.addEventListener('change', update);
+  widgetVisibilityUpdaters[toggleId] = update;
+  update();
+}
+
+function updateWidgetBodyVisibility(toggleId) {
+  widgetVisibilityUpdaters[toggleId]?.();
+}
+
 function loadDemoGoalSettingsFromData(data) {
   const chkEnabled = document.getElementById('chkGoalEnabled');
   if (chkEnabled) chkEnabled.checked = !!data.goal_enabled;
+  updateWidgetBodyVisibility('chkGoalEnabled');
   const chkSound = document.getElementById('chkGoalAnimSound');
   if (chkSound) chkSound.checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
   const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
@@ -1560,6 +1586,7 @@ function loadDemoTimerSettings(data) {
 
   const chkEnabled = document.getElementById('chkTimerEnabled');
   if (chkEnabled) chkEnabled.checked = !!t.enabled;
+  updateWidgetBodyVisibility('chkTimerEnabled');
 
   const initSecs = t.initial_seconds || 600;
   const hh = Math.floor(initSecs / 3600);
@@ -1713,6 +1740,7 @@ function loadDemoLeaderboardSettings(data) {
 
   const chkEnabled = document.getElementById('chkLeaderboardEnabled');
   if (chkEnabled) chkEnabled.checked = !!c.enabled;
+  updateWidgetBodyVisibility('chkLeaderboardEnabled');
 
   const maxEl = document.getElementById('selectLeaderboardMaxEntries');
   if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -1818,6 +1846,7 @@ function loadDemoRecentdonateSettings(data) {
 
   const chkEnabled = document.getElementById('chkRecentdonateEnabled');
   if (chkEnabled) chkEnabled.checked = !!c.enabled;
+  updateWidgetBodyVisibility('chkRecentdonateEnabled');
 
   const maxEl = document.getElementById('selectRecentdonateMaxEntries');
   if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -3332,6 +3361,38 @@ document.getElementById('btnTxSubviewTopdonor')?.addEventListener('click', () =>
 async function fetchLeaderboardAlltime() {
   const tbody = document.querySelector('#topDonorTable tbody');
   try {
+    if (DEMO_MODE) {
+      // Demo: aggregate from loaded demo transactions (no auth endpoint available)
+      const map = new Map();
+      (allTransactions || []).forEach(t => {
+        if ((t.status || '').toLowerCase() !== 'confirmed') return;
+        const donor = t.donor_name || t.donor || 'ไม่ระบุชื่อ';
+        const amount = Number(t.amount) || 0;
+        const existing = map.get(donor);
+        if (existing) {
+          existing.total_amount += amount;
+          existing.donation_count += 1;
+          if (amount > existing.top_amount) existing.top_amount = amount;
+          const tDate = new Date(t.createdAt || t.created_at || 0);
+          const lastDate = new Date(existing.last_donation_at || 0);
+          if (tDate > lastDate) existing.last_donation_at = tDate.toISOString();
+        } else {
+          map.set(donor, {
+            donor,
+            total_amount: amount,
+            donation_count: 1,
+            avg_amount: amount,
+            top_amount: amount,
+            last_donation_at: t.createdAt || t.created_at || null
+          });
+        }
+      });
+      leaderboardAlltimeCache = Array.from(map.values())
+        .map(r => ({ ...r, avg_amount: r.total_amount / r.donation_count }))
+        .sort((a, b) => b.total_amount - a.total_amount);
+      renderTopDonorTable(leaderboardAlltimeCache);
+      return;
+    }
     const pathParts = window.location.pathname.split('/');
     const username = pathParts[1];
     const res = await fetch(`/api/leaderboard-alltime/${username}`);
@@ -4590,6 +4651,7 @@ async function loadGoalSettings() {
     const color = data.goal_bar_color || '#4ade80';
 
     document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
+    updateWidgetBodyVisibility('chkGoalEnabled');
     document.getElementById('chkGoalAnimSound').checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
     const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
     chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
@@ -5069,6 +5131,7 @@ async function loadTimerSettings() {
 
     const chkEnabled = document.getElementById('chkTimerEnabled');
     if (chkEnabled) chkEnabled.checked = !!t.enabled;
+    updateWidgetBodyVisibility('chkTimerEnabled');
 
     const initSecs = t.initial_seconds || 600;
     const hh = Math.floor(initSecs / 3600);
@@ -5646,6 +5709,7 @@ async function loadLeaderboardSettings() {
 
     const chkEnabled = document.getElementById('chkLeaderboardEnabled');
     if (chkEnabled) chkEnabled.checked = !!c.enabled;
+    updateWidgetBodyVisibility('chkLeaderboardEnabled');
 
     const maxEl = document.getElementById('selectLeaderboardMaxEntries');
     if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -5959,6 +6023,7 @@ async function loadRecentdonateSettings() {
 
     const chkEnabled = document.getElementById('chkRecentdonateEnabled');
     if (chkEnabled) chkEnabled.checked = !!c.enabled;
+    updateWidgetBodyVisibility('chkRecentdonateEnabled');
 
     const maxEl = document.getElementById('selectRecentdonateMaxEntries');
     if (maxEl) { maxEl.value = c.max_entries || 5; maxEl.dispatchEvent(new Event('change', { bubbles: true })); }
