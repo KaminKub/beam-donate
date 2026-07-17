@@ -2434,6 +2434,14 @@ app.get('/api/widget/status/stream', widgetStatusLimiter, async (req, res) => {
   });
 });
 
+// CSV formula-injection guard — donor/message are donor-controlled free text; Excel/Sheets
+// treats a leading =+-@ (or tab/CR) as a formula. Prefix with ' to force text interpretation.
+function csvSafeField(value) {
+  const s = String(value ?? '');
+  const guarded = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return guarded.replace(/"/g, '""');
+}
+
 app.get('/api/transactions/:username/download', ensureAuthenticated, async (req, res) => {
   try {
     const { username } = req.params;
@@ -2464,9 +2472,9 @@ app.get('/api/transactions/:username/download', ensureAuthenticated, async (req,
     const rows = txs.map(t => [
       t.createdAt ? new Date(t.createdAt).toLocaleString('th-TH') : '-',
       t.id || '-',
-      (t.donor || 'Anonymous').replace(/"/g, '""'),
+      csvSafeField(t.donor || 'Anonymous'),
       Number(t.amount) || 0,
-      (t.message || '').replace(/"/g, '""'),
+      csvSafeField(t.message || ''),
       t.status || '-',
       t.payment_method || '-'
     ]);

@@ -3371,8 +3371,15 @@ document.getElementById('inputSearchTopDonor')?.addEventListener('input', () => 
 document.getElementById('btnRefreshTopDonor')?.addEventListener('click', fetchLeaderboardAlltime);
 document.getElementById('btnDownloadTopDonor')?.addEventListener('click', () => {
   const rows = leaderboardAlltimeCache || [];
+  // CSV formula-injection guard — donor is donor-controlled free text; Excel/Sheets treats a
+  // leading =+-@ (or tab/CR) as a formula. Prefix with ' to force text interpretation.
+  const csvSafeField = (value) => {
+    const s = String(value ?? '');
+    const guarded = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return guarded.replace(/"/g, '""');
+  };
   const header = 'อันดับ,ผู้บริจาค,ยอดรวม,จำนวนครั้ง,เฉลี่ยต่อครั้ง,สูงสุดต่อครั้ง,บริจาคล่าสุด\n';
-  const body = rows.map((r, i) => `${i + 1},"${(r.donor || '').replace(/"/g, '""')}",${r.total_amount},${r.donation_count},${r.avg_amount},${r.top_amount},${r.last_donation_at || ''}`).join('\n');
+  const body = rows.map((r, i) => `${i + 1},"${csvSafeField(r.donor)}",${r.total_amount},${r.donation_count},${r.avg_amount},${r.top_amount},${r.last_donation_at || ''}`).join('\n');
   const blob = new Blob(['﻿' + header + body], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
