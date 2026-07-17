@@ -46,16 +46,20 @@ input, textarea, [contenteditable="true"] {
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* body-scroller: viewport (html) never scrolls → position:fixed bg layers นิ่งสนิท ไม่ jank บน iOS momentum scroll */
+html {
+  height: 100%;
+}
 body {
   background-color: var(--bg-dark);
   color: var(--text-main);
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   display: flex;
-  justify-content: center;
-  align-items: center;
   padding: 20px;
   position: relative;
-  overflow-x: hidden;
 }
 
 /* ========== Animated Background Orbs ========== */
@@ -130,6 +134,7 @@ body {
   width: 100%;
   max-width: 440px;
   z-index: 2;
+  margin: auto; /* auto margin บน flex item = center 2 แกน + ไม่ตัดยอดตอน content สูงกว่า viewport */
 }
 
 .step {
