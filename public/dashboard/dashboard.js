@@ -994,6 +994,29 @@ async function initializeDashboard() {
     if (btnSubtabGoal)  btnSubtabGoal.addEventListener('click', () => switchWidgetSubtab('goal'));
     if (btnSubtabTimer) btnSubtabTimer.addEventListener('click', () => switchWidgetSubtab('timer'));
 
+    // ponytail: Widget shortcut card (OBS Setup Card repurposed) — clone ปุ่มจาก #widgetSubtabToggle
+    // ไป #widgetShortcutToggle (ก๊อปปี้ ไม่ย้าย) เพื่อหลีก ID ซ้ำ; กดแล้วพาไป tab overlay-config + สลับ subtab.
+    // รองรับปุ่มอนาคต: อ่านจาก data-widget-subtab ของปุ่มต้นฉบับ ใครมี attr นี้ถูก clone หมด
+    const srcToggle = document.getElementById('widgetSubtabToggle');
+    const destToggle = document.getElementById('widgetShortcutToggle');
+    if (srcToggle && destToggle) {
+      srcToggle.querySelectorAll('button.subtab-btn[data-widget-subtab]').forEach((srcBtn) => {
+        const key = srcBtn.getAttribute('data-widget-subtab');
+        if (!key) return;
+        const clone = srcBtn.cloneNode(true);
+        clone.id = `widgetShortcut-${key}`;
+        clone.classList.remove('active'); // ปุ่มลัด = navigate-only, ไม่โชว์ active state
+        clone.setAttribute('title', `ไปตั้งค่า${srcBtn.textContent.trim()}`);
+        clone.addEventListener('click', () => {
+          switchTab('overlay-config');
+          // คลิกปุ่มต้นฉบับเพื่อ reuse switchWidgetSubtab (active + preview + load) ทั้งหมด
+          const target = srcToggle.querySelector(`button.subtab-btn[data-widget-subtab="${key}"]`);
+          if (target) target.click();
+        });
+        destToggle.appendChild(clone);
+      });
+    }
+
     // Goal color picker <-> hex text sync
     const goalColorPicker = document.getElementById('inputGoalBarColor');
     const goalColorTxt = document.getElementById('txtGoalBarColor');

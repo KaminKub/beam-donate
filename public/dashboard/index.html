@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_8">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_9">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -185,30 +185,15 @@
               </div>
             </div>
 
-            <!-- OBS Setup Card -->
+            <!-- Widget Shortcuts Card (ทางลัดไปหน้าตั้งค่า Widgets) — ปุ่ม clone จาก #widgetSubtabToggle โดย JS, รองรับปุ่มอนาคตอัตโนมัติ -->
             <div class="dashboard-card card-small">
                <div class="card-header">
-                 <h3><i class="fa-solid fa-film"></i> เชื่อมต่อกับโปรแกรมสตรีม</h3>
+                 <h3><i class="fa-solid fa-puzzle-piece" style="color:#fbbf24;"></i> ทางลัดตั้งค่า Widgets</h3>
                </div>
               <div class="obs-setup-box">
-                <p>คัดลอก URL ด้านล่างไปใส่ใน **Browser Source** ของโปรแกรมสตรีมมิ่งเพื่อเปิดใช้ระบบ Alert บริจาคเด้งขึ้นไลฟ์สด:</p>
-                <div class="copy-url-group">
-                  <input type="text" id="obsOverlayUrl" readonly value="">
-                  <button class="btn btn-primary" id="btnCopyObsUrl">คัดลอก</button>
-                  <button class="btn btn-secondary" id="btnOpenObsUrl" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
-                </div>
-                <div class="instructions-steps">
-                  <div class="step-num">1</div>
-                  <p>เปิดโปรแกรมสตรีมมิ่ง -> กด **เครื่องหมาย +** ในช่อง Sources</p>
-
-                  <div class="step-num">2</div>
-                  <p>เลือก **Browser** ตั้งชื่อว่า "TipKub Alert"</p>
-
-                  <div class="step-num">3</div>
-                  <p>วาง URL ด้านบนในช่อง URL</p>
-
-                  <div class="step-num">4</div>
-                  <p>ตั้งค่า Width: **800** และ Height: **600** (หรือตามต้องการ)</p>
+                <p>เลือก Widget ที่ต้องการตั้งค่า จะพาไปยังหน้าตั้งค่า Widgets โดยอัตโนมัติ:</p>
+                <div class="widget-subtab-toggle widget-shortcut-toggle" id="widgetShortcutToggle" style="margin: 12px 0 0;">
+                  <!-- ปุ่มลัด render โดย JS จาก #widgetSubtabToggle (ก๊อปปี้ ไม่ย้าย ต้นฉบับคงอยู่) -->
                 </div>
               </div>
             </div>
@@ -475,15 +460,15 @@
                   <div class="preview-iframe-wrapper">
                     <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
                   </div>
-                  <div class="preview-controls">
-                    <button class="btn-reload-preview" id="btnReloadPagePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                  </div>
                   <!-- L22: ลิงก์หน้าโดเนท — ย้ายมาไว้ใต้ Page Preview (นอก form เพื่อกด copy/open ไม่ trigger form save) -->
                   <div class="copy-url-group copy-url-group--flat" style="margin-top: 16px; align-items: center; justify-content: center;">
                     <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL" ; style="font-size: 20px; font-weight: 600; color: var(--text-primary);" size="23">
                     <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" style="font-size: 25px;" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
                   </div>
                   <small class="text-muted" style="font-size: 13px;display:block;margin-top:6px;text-align:center;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
+                  <div class="preview-controls" style="justify-content: center;">
+                    <button class="btn-reload-preview" id="btnReloadPagePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -937,14 +922,14 @@
               
               <!-- Left Form Panels -->
               <div class="settings-panel-scroll">
-                <div class="widget-subtab-toggle">
-                  <button type="button" id="btnSubtabAlert" class="subtab-btn active">
+                <div class="widget-subtab-toggle" id="widgetSubtabToggle">
+                  <button type="button" id="btnSubtabAlert" class="subtab-btn subtab-btn--alert active" data-widget-subtab="alert">
                     <i class="fa-solid fa-bell"></i> แจ้งเตือนโดเนท
                   </button>
-                  <button type="button" id="btnSubtabGoal" class="subtab-btn">
+                  <button type="button" id="btnSubtabGoal" class="subtab-btn subtab-btn--goal" data-widget-subtab="goal">
                     <i class="fa-solid fa-trophy"></i> หลอดโดเนท
                   </button>
-                  <button type="button" id="btnSubtabTimer" class="subtab-btn">
+                  <button type="button" id="btnSubtabTimer" class="subtab-btn subtab-btn--timer" data-widget-subtab="timer">
                     <i class="fa-solid fa-hourglass-half"></i> ตัวจับเวลา
                   </button>
                 </div>
@@ -2238,7 +2223,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="editUsernameInput" style="font-size: 18px;">ชื่อผู้ใช้งาน (Username)</label>
-          <input type="text" id="editUsernameInput" class="form-control"  style="font-size: 20px; maxlength="30" autocomplete="off" spellcheck="false" placeholder="a-z, 0-9, underscore (3-30 ตัว)">
+          <input type="text" id="editUsernameInput" class="form-control" style="font-size: 20px;" maxlength="30" autocomplete="off" spellcheck="false" placeholder="a-z, 0-9, underscore (3-30 ตัว)">
           <span id="editUsernameHint" class="field-hint" style="font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block;"></span>
         </div>
         <div class="account-rename-warning" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--text-main);">
@@ -2447,7 +2432,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260717_7"></script>
+  <script src="/dashboard/dashboard.js?v=20260717_8"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

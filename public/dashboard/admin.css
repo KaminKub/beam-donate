@@ -3591,30 +3591,30 @@ label {
   justify-content: center;
   gap: 8px;
 }
-#btnSubtabAlert.active {
+.subtab-btn--alert.active {
   border-color: #f59e0b;
   background: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
 }
-#btnSubtabAlert:hover:not(.active) {
+.subtab-btn--alert:hover:not(.active) {
   border-color: #fbbf24;
   color: #f59e0b;
 }
-#btnSubtabGoal.active {
+.subtab-btn--goal.active {
   border-color: #4ade80;
   background: rgba(74, 222, 128, 0.1);
   color: #4ade80;
 }
-#btnSubtabGoal:hover:not(.active) {
+.subtab-btn--goal:hover:not(.active) {
   border-color: #86efac;
   color: #4ade80;
 }
-#btnSubtabTimer.active {
+.subtab-btn--timer.active {
   border-color: #fbbf24;
   background: rgba(251, 191, 36, 0.1);
   color: #fbbf24;
 }
-#btnSubtabTimer:hover:not(.active) {
+.subtab-btn--timer:hover:not(.active) {
   border-color: #fde68a;
   color: #fbbf24;
 }
