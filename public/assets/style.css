@@ -127,6 +127,11 @@ body {
   will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
+  /* Android: URL bar ยุบ/โผล่ตอน scroll → viewport height เปลี่ยนทุกเฟรม → layer height:100% (inline จาก JS)
+     re-layout + cover recalc ทุกเฟรม = ภาพขยับตาม/ภาพตัด. ล็อกด้วย large-viewport unit ที่ไม่ขยับตาม URL bar.
+     !important เพื่อชนะ inline style height:'100%' จาก app.js/thank-you.html */
+  height: 100vh !important;  /* fallback (บน mobile, vh = large viewport อยู่แล้ว) */
+  height: 100lvh !important;
 }
 
 /* ========== Core Container ========== */
