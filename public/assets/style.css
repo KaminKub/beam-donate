@@ -117,6 +117,14 @@ body {
   100% { transform: translate(-30px, 30px) scale(0.9); }
 }
 
+/* ========== Custom Page Background Layer (GPU layer — scroll jank fix) ========== */
+#page-bg-layer,
+#page-bg-video {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 /* ========== Core Container ========== */
 .container {
   width: 100%;

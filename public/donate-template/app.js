@@ -407,9 +407,14 @@ async function loadPageContent() {
                }
                Object.assign(bgDiv.style, {
                  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-                 zIndex: '-1', backgroundImage: `url("${safeUrl}")`, backgroundSize: 'cover',
+                 zIndex: '-1', backgroundSize: 'cover',
                  backgroundPosition: 'center', backgroundRepeat: 'no-repeat', opacity: '0.1', pointerEvents: 'none',
                  display: ''
+               });
+               const preload = new Image();
+               preload.src = safeUrl;
+               (preload.decode ? preload.decode() : Promise.resolve()).catch(() => {}).finally(() => {
+                 bgDiv.style.backgroundImage = `url("${safeUrl}")`;
                });
              }
            }
