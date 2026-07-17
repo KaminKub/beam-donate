@@ -6,7 +6,7 @@
   <title>Dashboard | TipKub</title>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_20">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260717_24">
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -479,9 +479,9 @@
                     <button class="btn-reload-preview" id="btnReloadPagePreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
                   </div>
                   <!-- L22: ลิงก์หน้าโดเนท — ย้ายมาไว้ใต้ Page Preview (นอก form เพื่อกด copy/open ไม่ trigger form save) -->
-                  <div class="copy-url-group copy-url-group--compact" style="margin-top: 16px;">
-                    <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL">
-                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
+                  <div class="copy-url-group copy-url-group--flat" style="margin-top: 16px; align-items: center; justify-content: center;">
+                    <input type="text" id="pageCustomizationDonateUrlPreview" readonly value="" aria-label="Donate Page URL" ; style="font-size: 18px; font-weight: 600; color: var(--text-primary);" size="23">
+                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyPageCustomizationDonateUrl" style="font-size: 20px;" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
                   </div>
                   <small class="text-muted" style="display:block;margin-top:6px;text-align:center;">คัดลอกลิงก์นี้ไปแชร์ให้ผู้สนับสนุนของคุณ</small>
                 </div>
@@ -506,23 +506,23 @@
                   </div>
                   <p id="accUsername" class="acc-username">กำลังโหลด...</p>
                   <div class="copy-url-group copy-url-group--flat">
-                    <input type="text" id="accountDonateUrlPreview" readonly value="" aria-label="Donate Page URL">
-                    <button type="button" class="copy-url-group__icon-btn" id="btnCopyAccountDonateUrl" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
+                    <input type="text" id="accountDonateUrlPreview" readonly value="" aria-label="Donate Page URL" style="font-size: 18px; font-weight: 600; color: #9ca3af;">
+                    <button type="button" class="copy-url-group__icon-btn" style="font-size: 20px;" id="btnCopyAccountDonateUrl" title="คัดลอกลิงก์"><i class="fa-solid fa-copy"></i></button>
                   </div>
                   <button class="btn btn-secondary" id="btnOpenEditAccount"><i class="fa-solid fa-pen"></i> แก้ไขข้อมูล</button>
 
                   <!-- Membership stats — เรียงเป็น row 3 อัน -->
                   <div class="membership-stats-row" id="membershipCard">
                     <div class="membership-stat-box">
-                      <span class="membership-label">เข้าร่วมกับเราเมื่อ</span>
+                      <span class="membership-label">สร้างหน้าโดเนท TipKub เมื่อ</span>
                       <span class="membership-value" id="memberJoinDate">—</span>
                     </div>
                     <div class="membership-stat-box">
-                      <span class="membership-label">อยู่กับเรามาแล้ว</span>
+                      <span class="membership-label">ใช้ Tipkub มาแล้ว</span>
                       <span class="membership-value" id="memberDuration">—</span>
                     </div>
                     <div class="membership-stat-box" title="แตะ badge เพื่อเลือกโชว์บนหน้าโดเนท • แตะซ้ำเพื่อยกเลิก • อายุสมาชิกเลือกได้ทีละ 1">
-                      <span class="membership-label">Badges</span>
+                      <span class="membership-label">เหรียญประดับ</span>
                       <div class="membership-badges" id="membershipBadges"><!-- rendered by JS --></div>
                     </div>
                   </div>

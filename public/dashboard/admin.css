@@ -1085,7 +1085,7 @@ small.text-muted {
   color: var(--text-main);
   border-radius: 12px;
   padding: 11px 14px;
-  font-size: 13px;
+  font-size: 20px;
   outline: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: dark;
@@ -1277,7 +1277,7 @@ small.text-muted {
 
 label {
   display: block;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-muted);
   margin-bottom: 8px;
@@ -1783,7 +1783,7 @@ label {
 }
 
 .modal-header h3 {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -1854,6 +1854,42 @@ label {
   #webhookGuideModal .webhook-eligibility-note { font-size: 15px; line-height: 1.6; }
   /* Guide screenshot: fill column so 480×360 native scales up to modal width (4:3 kept by height:auto) */
   #webhookGuideModal .webhook-step img { width: 100%; }
+}
+
+/* Shared base: standard mobile modal sizing (base .modal-content: width 100%, max-width 600px) */
+#editAccountModal .modal-content {
+  display: flex;
+  flex-direction: column;
+}
+#editAccountModal .modal-header { flex: 0 0 auto; }
+#editAccountModal .modal-body {
+  flex: 1 1 auto;
+  max-height: none;
+}
+#editAccountModal .modal-footer { flex: 0 0 auto; }
+
+/* Desktop only: enlarge modal + text, vw/vh sizing (mobile keeps px-based base above) */
+@media (min-width: 769px) {
+  #editAccountModal .modal-content {
+    max-width: 45vw !important;
+    width: 45vw;
+    height: 55vh;
+  }
+  #editAccountModal .modal-header h3 { font-size: 22px; }
+  #editAccountModal .modal-body {
+    padding: 40px;
+    font-size: 18px;
+  }
+  #editAccountModal .modal-body label { font-size: 18px; }
+  #editAccountModal .modal-body input.form-control {
+    font-size: 20px;
+    padding: 14px 16px;
+    height: auto;
+  }
+  #editAccountModal #editUsernameHint { font-size: 15px !important; }
+  #editAccountModal .account-rename-warning { font-size: 16px !important; }
+  #editAccountModal .modal-footer { padding: 20px 24px; }
+  #editAccountModal .modal-footer .btn { font-size: 17px; padding: 12px 24px; }
 }
 
 @keyframes modalFadeOut {
