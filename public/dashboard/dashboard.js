@@ -1934,7 +1934,7 @@ btnConfirmOk.onclick = async () => {
 function getBadgeDefinitions() {
   return {
     dev:          { icon: 'fa-solid fa-code',   color: '#8b5cf6', label: 'TipKub Dev — ผู้พัฒนา TipKub',                    tier: 99 },
-    beta_tester:  { icon: 'fa-solid fa-flask',  color: '#22c55e', label: 'TestKub — Beta Tester ผู้ทดสอบระบบยุคแรกเริ่ม',      tier: 0 },
+    beta_tester:  { icon: 'fa-solid fa-flask',  color: '#22c55e', label: 'TestKub — ผู้ทดสอบระบบยุคแรกเริ่ม',      tier: 98 },
     member_1m:    { icon: 'fa-solid fa-medal',  color: '#cd7f32', label: 'สมาชิก 1 เดือน',                                  tier: 1 },
     member_3m:    { icon: 'fa-solid fa-medal',  color: '#c0c0c0', label: 'สมาชิก 3 เดือน',                                  tier: 2 },
     member_6m:    { icon: 'fa-solid fa-medal',  color: '#ffd700', label: 'สมาชิก 6 เดือน',                                  tier: 3 },
