@@ -9,7 +9,7 @@
   let barColor = '#4ade80';
   let goalAmount = 0;
   let goalCurrent = 0;
-  let goalLabel = '';
+  let goalLabel = 'ค่ากาแฟ';
   let goalBarText = '{เปอร์เซนต์}';
   let goalSubtitle1 = '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
   let goalSubtitle2 = '';
