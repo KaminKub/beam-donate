@@ -319,7 +319,7 @@
       updateBar(
         data.goal_current || 0,
         data.goal_amount || 5000,
-        data.goal_label
+        data.goal_label !== undefined ? data.goal_label : 'ค่ากาแฟ',
         color,
         data.goal_bar_text,
         data.goal_subtitle1,
