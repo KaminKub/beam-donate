@@ -232,6 +232,15 @@ body.position-bottom #animStage {
   min-width: 220px;
   max-width: 360px;
   padding: 8px;
+  /* cap ความสูงรวมตาม viewport เหมือนแนวนอน cap ความกว้าง — แล้วให้หลอดหดเอง
+     ส่วนหัว (label + % text) ที่อาจ wrap หลายบรรทัดจะได้ไม่ล้นขอบ windows */
+  max-height: 100vh;
+}
+
+#goalBarWrapper.layout-vertical #goalLabel,
+#goalBarWrapper.layout-vertical #goalBarText,
+#goalBarWrapper.layout-vertical #goalFooter {
+  flex-shrink: 0; /* คงขนาด label/%/footer หลอดเป็นฝ่ายหดแทน */
 }
 
 #goalBarWrapper.layout-vertical #goalBarOuter {
@@ -239,6 +248,8 @@ body.position-bottom #animStage {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0; /* อนุญาตให้หดต่ำกว่า content ได้ */
 }
 
 /* % text ย้ายจาก overlay กลางหลอด → อยู่เหนือหลอด (หลอดแคบเกินจะวางซ้อนได้) */
@@ -255,6 +266,8 @@ body.position-bottom #animStage {
 #goalBarWrapper.layout-vertical #goalTrack {
   width: var(--bar-thickness, 45px);
   height: var(--bar-max-width, 600px);
+  flex: 1 1 var(--bar-max-width, 600px); /* หดตามพื้นที่ที่เหลือหลัง label/footer */
+  min-height: 0;
   display: flex;
   flex-direction: column-reverse;
 }
