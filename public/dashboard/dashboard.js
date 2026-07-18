@@ -1133,6 +1133,10 @@ async function initializeDashboard() {
       });
     }
 
+    // Goal bar layout -> width label sync
+    const goalLayoutSelectEl = document.getElementById('selectGoalBarLayout');
+    if (goalLayoutSelectEl) { goalLayoutSelectEl.addEventListener('change', syncGoalWidthLabel); }
+
     // Goal adjust button
     async function applyGoalDelta(delta) {
       if (isNaN(delta) || delta === 0) return;
@@ -1202,6 +1206,7 @@ async function initializeDashboard() {
           goal_anim_enabled: document.getElementById('chkGoalAnimEnabled').checked ? 1 : 0,
           goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
           goal_bar_position: document.getElementById('selectGoalBarPosition').value || 'top',
+          goal_bar_layout: document.getElementById('selectGoalBarLayout').value || 'horizontal',
           goal_label: document.getElementById('inputGoalLabel').value.trim(),
           goal_amount: parseFloat(document.getElementById('inputGoalAmount').value) || 5000,
           goal_bar_color: document.getElementById('inputGoalBarColor').value,
@@ -1500,6 +1505,12 @@ function normalizeGoalBarWidth(raw) {
   return (val >= 300 && val <= 1080) ? String(val) : '600';
 }
 
+function syncGoalWidthLabel() {
+  const lbl = document.getElementById('lblGoalBarWidth');
+  const layout = document.getElementById('selectGoalBarLayout');
+  if (lbl && layout) lbl.textContent = layout.value === 'vertical' ? 'ความสูงหลอด (px)' : 'ความยาวหลอดสูงสุด (px)';
+}
+
 // Widget enable-collapse: hide all related settings when toggle is off
 const widgetVisibilityUpdaters = {};
 
@@ -1543,6 +1554,12 @@ function loadDemoGoalSettingsFromData(data) {
     posEl.value = data.goal_bar_position || 'top';
     posEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  const layoutEl = document.getElementById('selectGoalBarLayout');
+  if (layoutEl) {
+    layoutEl.value = data.goal_bar_layout || 'horizontal';
+    layoutEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  syncGoalWidthLabel();
   const labelEl = document.getElementById('inputGoalLabel');
   if (labelEl) labelEl.value = data.goal_label || 'ค่ากาแฟ';
   const amountEl = document.getElementById('inputGoalAmount');
@@ -4680,6 +4697,12 @@ async function loadGoalSettings() {
       posEl.value = data.goal_bar_position || 'top';
       posEl.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    const layoutEl = document.getElementById('selectGoalBarLayout');
+    if (layoutEl) {
+      layoutEl.value = data.goal_bar_layout || 'horizontal';
+      layoutEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    syncGoalWidthLabel();
     document.getElementById('inputGoalLabel').value = data.goal_label || 'ค่ากาแฟ';
     document.getElementById('inputGoalAmount').value = data.goal_amount || 5000;
     document.getElementById('inputGoalBarColor').value = color;

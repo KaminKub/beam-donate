@@ -1461,7 +1461,26 @@
                               <option value="bottom">ล่างสุด</option>
                             </select>
                           </div>
+                          <div class="form-group">
+                            <label for="selectGoalBarLayout"><i class="fa-solid fa-water" style="color:#06b6d4"></i> รูปแบบหลอด</label>
+                            <select id="selectGoalBarLayout" class="form-select">
+                              <option value="horizontal">แนวนอน</option>
+                              <option value="vertical">แนวตั้ง (ทดลอง)</option>
+                            </select>
+                          </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="widget-settings-body" data-body-for="goal">
+                    <!-- Card 1.5: Goal Content Settings -->
+                    <div class="dashboard-card settings-card panel-open">
+                      <div class="settings-card-header" data-target="panelGoalContent">
+                        <h4><i class="fa-solid fa-bullseye" style="color:#ef4444"></i> ตั้งค่าเป้าหมาย</h4>
+                        <i class="fa-solid fa-chevron-down card-chevron"></i>
+                      </div>
+                      <div class="card-body-panel" id="panelGoalContent">
                         <div class="form-row">
                           <div class="form-group">
                             <label for="inputGoalLabel"><i class="fa-solid fa-bullseye" style="color:#ef4444;"></i> ชื่อเป้าหมาย</label>
@@ -1481,7 +1500,9 @@
                             </div>
                           </div>
                           <div class="form-group">
-                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i> ความยาวหลอดสูงสุด (px)</label>
+                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i>
+                              <span id="lblGoalBarWidth">ความยาวหลอดสูงสุด (px)</span>
+                            </label>
                             <div class="width-input-wrapper">
                               <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
                               <span class="width-value" id="txtGoalBarWidth">600px</span>
@@ -1528,9 +1549,7 @@
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div class="widget-settings-body" data-body-for="goal">
                     <!-- Card 2: Current Progress & Adjust -->
                     <div class="dashboard-card settings-card panel-open">
                       <div class="settings-card-header" data-target="panelGoalProgress">
@@ -3242,7 +3261,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_25"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_26"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

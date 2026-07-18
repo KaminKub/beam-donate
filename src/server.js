@@ -167,6 +167,7 @@ const defaultSettings = {
   goal_anim_enabled: true,
   goal_bar_position: 'top',
   goal_bar_width: '600',
+  goal_bar_layout: 'horizontal',
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,
@@ -1176,7 +1177,7 @@ function applyDemoMask(row) {
     // Goal bar
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
-    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
+    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
     // Timer state + config (no secrets)
@@ -2875,7 +2876,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
-  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width',
+  'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings'
 ];
 

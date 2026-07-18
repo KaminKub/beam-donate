@@ -29,6 +29,7 @@
   let animEnabled = true;
   let isWaitingForOverlay = false;
   let overlayWaitTimer = null;
+  let goalBarLayout = 'horizontal';
 
   const wrapper = document.getElementById('goalBarWrapper');
   const labelEl = document.getElementById('goalLabel');
@@ -60,7 +61,24 @@
 
   function renderFillWidth(val) {
     const fillPct = Math.min(100, goalAmount > 0 ? (val / goalAmount) * 100 : 0);
-    fillEl.style.width = fillPct + '%';
+    if (goalBarLayout === 'vertical') {
+      fillEl.style.height = fillPct + '%';
+      fillEl.style.width = '';
+    } else {
+      fillEl.style.width = fillPct + '%';
+      fillEl.style.height = '';
+    }
+  }
+
+  function applyBarLayout(layout) {
+    const next = layout === 'vertical' ? 'vertical' : 'horizontal';
+    const changed = next !== goalBarLayout;
+    goalBarLayout = next;
+    wrapper.classList.toggle('layout-vertical', goalBarLayout === 'vertical');
+    // สลับ layout แบบ live (settings_update): inline style ของแกนเก่า (width/height)
+    // ยัง override CSS ของ layout ใหม่อยู่ — ต้อง re-render ทันที
+    // ไม่งั้น fill หาย/ผิดขนาดจนกว่าจะมี goal_update ถัดไป
+    if (changed && !isFirstUpdate) renderFillWidth(goalCurrent);
   }
 
   function renderTexts(val) {
@@ -159,6 +177,7 @@
       alertDurationMs = (Number(data.duration) || 8) * 1000;
 
       applyBarPosition(urlPosition || data.goal_bar_position || 'top');
+      applyBarLayout(data.goal_bar_layout || 'horizontal');
       animEnabled = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
       if (typeof window.setGoalAnimSound === 'function') {
         window.setGoalAnimSound(data.goal_anim_sound !== 0 && data.goal_anim_sound !== false);
@@ -217,6 +236,7 @@
             document.documentElement.style.setProperty('--font-family', `'${s.fontFamily}', 'Noto Sans Thai', sans-serif`);
           }
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
+          applyBarLayout(s.goal_bar_layout || 'horizontal');
           animEnabled = s.goal_anim_enabled !== 0 && s.goal_anim_enabled !== false;
           if (typeof window.setGoalAnimSound === 'function') {
             window.setGoalAnimSound(s.goal_anim_sound !== 0 && s.goal_anim_sound !== false);
