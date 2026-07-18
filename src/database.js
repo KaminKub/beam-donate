@@ -239,7 +239,8 @@ async function migrateDB() {
         badges TEXT DEFAULT '{}',
         badge_display TEXT DEFAULT NULL,
         leaderboard_settings TEXT DEFAULT NULL,
-        recentdonate_settings TEXT DEFAULT NULL
+        recentdonate_settings TEXT DEFAULT NULL,
+        goal_text_settings TEXT DEFAULT NULL
       )
     `);
 
@@ -452,7 +453,8 @@ async function migrateDB() {
       { name: 'badges', type: "TEXT DEFAULT '{}'" },
       { name: 'badge_display', type: 'TEXT DEFAULT NULL' },
       { name: 'leaderboard_settings', type: 'TEXT DEFAULT NULL' },
-      { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' }
+      { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' },
+      { name: 'goal_text_settings', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -1142,7 +1144,8 @@ async function saveStreamer(data) {
                badges = COALESCE(?, streamers.badges),
                badge_display = COALESCE(?, streamers.badge_display),
                leaderboard_settings = COALESCE(?, streamers.leaderboard_settings),
-               recentdonate_settings = COALESCE(?, streamers.recentdonate_settings)
+               recentdonate_settings = COALESCE(?, streamers.recentdonate_settings),
+               goal_text_settings = COALESCE(?, streamers.goal_text_settings)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1264,6 +1267,7 @@ async function saveStreamer(data) {
           finalData.badge_display !== undefined ? finalData.badge_display : null,
           finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
           finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
+          finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
           existing.id
         ]
       });
@@ -1283,8 +1287,8 @@ async function saveStreamer(data) {
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        args: [
          finalData.twitch_id || null,
          finalData.streamlabs_id || null,
@@ -1405,7 +1409,8 @@ async function saveStreamer(data) {
         finalData.badges || '{}',
         finalData.badge_display !== undefined ? finalData.badge_display : null,
         finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
-        finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null
+        finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
+        finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;

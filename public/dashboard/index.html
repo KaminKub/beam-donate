@@ -1559,6 +1559,112 @@
                       </div>
                     </div>
 
+                    <!-- Card 2.5: Text & Style Customization -->
+                    <div class="dashboard-card settings-card">
+                      <div class="settings-card-header" data-target="panelGoalTextCustom">
+                        <h4><i class="fa-solid fa-font" style="color:#a855f7"></i> ปรับแต่งตัวอักษร (Text & Style)</h4>
+                        <i class="fa-solid fa-chevron-down card-chevron"></i>
+                      </div>
+                      <div class="card-body-panel" id="panelGoalTextCustom">
+
+                        <h5 class="section-divider">สีตัวอักษร (Text Colors)</h5>
+                        <div class="color-picker-grid" id="goalTextColorGrid">
+                          <div class="color-picker-group">
+                            <label><i class="fa-solid fa-bullseye" style="color:#ef4444;"></i> ชื่อเป้าหมาย</label>
+                            <div class="color-input-wrapper compact">
+                              <input type="color" id="inputGoalTextColorLabel" value="#ffffff">
+                              <input type="text" id="txtGoalTextColorLabel" class="hex-text" value="#ffffff">
+                            </div>
+                          </div>
+                          <div class="color-picker-group">
+                            <label><i class="fa-solid fa-percent" style="color:#a855f7;"></i> ข้อความในหลอด</label>
+                            <div class="color-input-wrapper compact">
+                              <input type="color" id="inputGoalTextColorBar" value="#ffffff">
+                              <input type="text" id="txtGoalTextColorBar" class="hex-text" value="#ffffff">
+                            </div>
+                          </div>
+                          <div class="color-picker-group">
+                            <label><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความใต้หลอด 1</label>
+                            <div class="color-input-wrapper compact">
+                              <input type="color" id="inputGoalTextColorSub1" value="#ffffff">
+                              <input type="text" id="txtGoalTextColorSub1" class="hex-text" value="#ffffff">
+                            </div>
+                          </div>
+                          <div class="color-picker-group">
+                            <label><i class="fa-solid fa-align-right" style="color:#3b82f6;"></i> ข้อความใต้หลอด 2</label>
+                            <div class="color-input-wrapper compact">
+                              <input type="color" id="inputGoalTextColorSub2" value="#ffffff">
+                              <input type="text" id="txtGoalTextColorSub2" class="hex-text" value="#ffffff">
+                            </div>
+                          </div>
+                        </div>
+
+                        <h5 class="section-divider">ขนาดตัวอักษร (Font Sizes)</h5>
+                        <div class="font-size-grid" id="goalFontSizeGrid">
+                          <div class="form-group">
+                            <label for="selectGoalFontSizeLabel"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> ชื่อเป้าหมาย</label>
+                            <select id="selectGoalFontSizeLabel" class="form-select">
+                              <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30" selected>30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalFontSizeBar"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> ข้อความในหลอด</label>
+                            <select id="selectGoalFontSizeBar" class="form-select">
+                              <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="25" selected>25 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalFontSizeSub1"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> ใต้หลอด 1</label>
+                            <select id="selectGoalFontSizeSub1" class="form-select">
+                              <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20" selected>20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalFontSizeSub2"><i class="fa-solid fa-text-height" style="color:#3b82f6;"></i> ใต้หลอด 2</label>
+                            <select id="selectGoalFontSizeSub2" class="form-select">
+                              <option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20" selected>20 px</option><option value="22">22 px</option><option value="24">24 px</option><option value="26">26 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="32">32 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="44">44 px</option><option value="48">48 px</option><option value="52">52 px</option><option value="56">56 px</option><option value="60">60 px</option><option value="64">64 px</option><option value="68">68 px</option><option value="72">72 px</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <h5 class="section-divider">ขอบตัวอักษร (Outline)</h5>
+                        <div class="outline-grid" id="goalOutlineGrid">
+                          <div class="form-group">
+                            <label for="selectGoalOutlineWidthLabel"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ชื่อเป้าหมาย</label>
+                            <select id="selectGoalOutlineWidthLabel" class="form-select">
+                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalOutlineWidthBar"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ข้อความในหลอด</label>
+                            <select id="selectGoalOutlineWidthBar" class="form-select">
+                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalOutlineWidthSub1"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ใต้หลอด 1</label>
+                            <select id="selectGoalOutlineWidthSub1" class="form-select">
+                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="selectGoalOutlineWidthSub2"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ใต้หลอด 2</label>
+                            <select id="selectGoalOutlineWidthSub2" class="form-select">
+                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label><i class="fa-solid fa-fill-drip" style="color:#9ca3af;"></i> สีขอบ (รวมทุกตำแหน่ง)</label>
+                            <div class="color-input-wrapper compact">
+                              <input type="color" id="inputGoalOutlineColor" value="#000000">
+                              <input type="text" id="txtGoalOutlineColor" class="hex-text" value="#000000">
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
                     <!-- Card 2: Current Progress & Adjust -->
                     <div class="dashboard-card settings-card">
                       <div class="settings-card-header" data-target="panelGoalProgress">
@@ -3270,7 +3376,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_27"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_28"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

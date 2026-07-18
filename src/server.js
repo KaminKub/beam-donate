@@ -210,6 +210,15 @@ const defaultSettings = {
     color_donor: '#ffffff', color_amount: '#14ff6a',
     color_currency: '#ffffff', color_message: '#a6a6a6', color_text: '#ffffff',
     width: 720
+  }),
+  goal_text_settings: JSON.stringify({
+    color_label: '#ffffff', color_bar: '#ffffff',
+    color_sub1: '#ffffff', color_sub2: '#ffffff',
+    font_size_label: 30, font_size_bar: 25,
+    font_size_sub1: 20, font_size_sub2: 20,
+    outline_width_label: 2, outline_width_bar: 2,
+    outline_width_sub1: 2, outline_width_sub2: 2,
+    outline_color: '#000000'
   })
 };
 
@@ -1186,7 +1195,7 @@ function applyDemoMask(row) {
     // Badges (public earned list, no credentials)
     'badges', 'badge_display',
     // Leaderboard + Recent Donate widget configs (no secrets)
-    'leaderboard_settings', 'recentdonate_settings',
+    'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
     // TrueMoney Webhook status indicators (no credentials)
     'truemoney_webhook_enabled', 'truemoney_webhook_methods',
     'truemoney_webhook_kyc_confirmed', 'truemoney_webhook_expiry',
@@ -2878,7 +2887,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
   'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
-  'timer_settings', 'leaderboard_settings', 'recentdonate_settings'
+  'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings'
 ];
 
 const PAGE_ALLOWED_FIELDS = [

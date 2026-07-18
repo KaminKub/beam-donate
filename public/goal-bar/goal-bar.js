@@ -152,6 +152,34 @@
     document.body.classList.toggle('position-bottom', isBottom);
   }
 
+  function applyTextSettings(c) {
+    const root = document.documentElement.style;
+    root.setProperty('--goal-color-label', c.color_label || '#ffffff');
+    root.setProperty('--goal-color-bar', c.color_bar || '#ffffff');
+    root.setProperty('--goal-color-sub1', c.color_sub1 || '#ffffff');
+    root.setProperty('--goal-color-sub2', c.color_sub2 || '#ffffff');
+    root.setProperty('--goal-font-label', c.font_size_label || 30);
+    root.setProperty('--goal-font-bar', c.font_size_bar || 25);
+    root.setProperty('--goal-font-sub1', c.font_size_sub1 || 20);
+    root.setProperty('--goal-font-sub2', c.font_size_sub2 || 20);
+
+    const oc = c.outline_color || '#000000';
+    const MAP = { Label: 'label', Bar: 'bar', Sub1: 'sub1', Sub2: 'sub2' };
+    Object.keys(MAP).forEach(p => {
+      const key = MAP[p];
+      const w = parseInt(c['outline_width_' + key], 10);
+      const wFinal = Number.isFinite(w) ? Math.min(5, Math.max(0, w)) : 2;
+      const dilate = document.getElementById('goalOutlineDilate' + p);
+      const flood = document.getElementById('goalOutlineFlood' + p);
+      if (dilate) dilate.setAttribute('radius', wFinal);
+      if (flood) flood.setAttribute('flood-color', oc);
+      const fn = wFinal > 0
+        ? `url(#goal-outline-${key}) drop-shadow(0 2px 5px rgba(0,0,0,0.75))`
+        : 'drop-shadow(0 2px 5px rgba(0,0,0,0.75))';
+      root.setProperty('--goal-filter-' + key, fn);
+    });
+  }
+
   async function init() {
     try {
       const isDemo = window.DEMO_MODE === true;
@@ -181,6 +209,11 @@
 
       applyBarPosition(urlPosition || data.goal_bar_position || 'top');
       applyBarLayout(data.goal_bar_layout || 'horizontal');
+      if (data.goal_text_settings) {
+        let gtc = {};
+        try { gtc = JSON.parse(data.goal_text_settings); } catch (e) {}
+        applyTextSettings(gtc);
+      }
       animEnabled = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
       if (typeof window.setGoalAnimSound === 'function') {
         window.setGoalAnimSound(data.goal_anim_sound !== 0 && data.goal_anim_sound !== false);
@@ -240,6 +273,11 @@
           }
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
           applyBarLayout(s.goal_bar_layout || 'horizontal');
+          if (s.goal_text_settings) {
+            let gtc = {};
+            try { gtc = JSON.parse(s.goal_text_settings); } catch (e) {}
+            applyTextSettings(gtc);
+          }
           animEnabled = s.goal_anim_enabled !== 0 && s.goal_anim_enabled !== false;
           if (typeof window.setGoalAnimSound === 'function') {
             window.setGoalAnimSound(s.goal_anim_sound !== 0 && s.goal_anim_sound !== false);

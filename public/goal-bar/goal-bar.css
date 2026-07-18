@@ -27,13 +27,10 @@ body {
   overflow: hidden;
 }
 
-#goalLabel,
-#goalBarText,
-#goalSub1,
-#goalSub2 {
-  filter: url(#outline-3) drop-shadow(0 2px 5px rgba(0,0,0,0.75));
-  letter-spacing: 0.08em;
-}
+#goalLabel  { color: var(--goal-color-label, #ffffff); font-size: calc(var(--goal-font-label, 30) * 1px); filter: var(--goal-filter-label, url(#goal-outline-label) drop-shadow(0 2px 5px rgba(0,0,0,0.75))); letter-spacing: 0.08em; }
+#goalBarText{ color: var(--goal-color-bar, #ffffff);   font-size: calc(var(--goal-font-bar, 25) * 1px);   filter: var(--goal-filter-bar, url(#goal-outline-bar) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));   letter-spacing: 0.08em; }
+#goalSub1   { color: var(--goal-color-sub1, #ffffff);  font-size: calc(var(--goal-font-sub1, 20) * 1px);  filter: var(--goal-filter-sub1, url(#goal-outline-sub1) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
+#goalSub2   { color: var(--goal-color-sub2, #ffffff);  font-size: calc(var(--goal-font-sub2, 20) * 1px);  filter: var(--goal-filter-sub2, url(#goal-outline-sub2) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
 
 /* ── Position bottom — wrapper anchored to bottom of viewport ── */
 #goalBarWrapper.position-bottom {
@@ -51,7 +48,6 @@ body.position-bottom #animStage {
 
 #goalLabel {
   font-weight: 600;
-  font-size: 30px;
   margin-bottom: 6px;
   text-align: center;
   line-height: 1.2;
@@ -113,8 +109,6 @@ body.position-bottom #animStage {
   transform: translate(-50%, -50%);
   white-space: nowrap;
   font-weight: 550;
-  font-size: 25px;
-  color: #fff;
   pointer-events: none;
   z-index: 2;
 }
@@ -129,7 +123,6 @@ body.position-bottom #animStage {
 
 #goalSub1,
 #goalSub2 {
-  font-size: 20px;
   font-weight: normal;
   opacity: 0.9;
   line-height: 1.3;
@@ -241,10 +234,6 @@ body.position-bottom #animStage {
   padding: 8px;
 }
 
-#goalBarWrapper.layout-vertical #goalLabel {
-  font-size: 24px;
-}
-
 #goalBarWrapper.layout-vertical #goalBarOuter {
   display: flex;
   flex-direction: column;
@@ -257,7 +246,6 @@ body.position-bottom #animStage {
   position: static;
   transform: none;
   order: -1;
-  font-size: 34px;
   width: 100%;
   overflow-wrap: break-word;
   text-align: center;

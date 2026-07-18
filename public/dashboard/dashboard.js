@@ -1124,6 +1124,26 @@ async function initializeDashboard() {
       };
     }
 
+    // Goal text customization color pickers <-> hex text sync
+    [
+      ['inputGoalTextColorLabel', 'txtGoalTextColorLabel'],
+      ['inputGoalTextColorBar', 'txtGoalTextColorBar'],
+      ['inputGoalTextColorSub1', 'txtGoalTextColorSub1'],
+      ['inputGoalTextColorSub2', 'txtGoalTextColorSub2'],
+      ['inputGoalOutlineColor', 'txtGoalOutlineColor']
+    ].forEach(([pickId, txtId]) => {
+      const p = document.getElementById(pickId);
+      const t = document.getElementById(txtId);
+      if (p && t) {
+        p.oninput = (e) => { t.value = e.target.value; };
+        t.oninput = (e) => {
+          if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(e.target.value)) {
+            p.value = e.target.value;
+          }
+        };
+      }
+    });
+
     // Goal bar width range slider sync
     const rangeEl = document.getElementById('inputGoalBarWidth');
     const txtEl = document.getElementById('txtGoalBarWidth');
@@ -1225,6 +1245,21 @@ async function initializeDashboard() {
           goal_end_date: endDateVal,
           goal_bar_width: document.getElementById('inputGoalBarWidth').value || '600',
           goal_bar_thickness: document.getElementById('inputGoalBarThickness').value || '45',
+          goal_text_settings: JSON.stringify({
+            color_label: document.getElementById('inputGoalTextColorLabel')?.value || '#ffffff',
+            color_bar:   document.getElementById('inputGoalTextColorBar')?.value   || '#ffffff',
+            color_sub1:  document.getElementById('inputGoalTextColorSub1')?.value  || '#ffffff',
+            color_sub2:  document.getElementById('inputGoalTextColorSub2')?.value  || '#ffffff',
+            font_size_label: parseInt(document.getElementById('selectGoalFontSizeLabel')?.value) || 30,
+            font_size_bar:   parseInt(document.getElementById('selectGoalFontSizeBar')?.value)   || 25,
+            font_size_sub1:  parseInt(document.getElementById('selectGoalFontSizeSub1')?.value)  || 20,
+            font_size_sub2:  parseInt(document.getElementById('selectGoalFontSizeSub2')?.value)  || 20,
+            outline_width_label: parseInt(document.getElementById('selectGoalOutlineWidthLabel')?.value) || 2,
+            outline_width_bar:   parseInt(document.getElementById('selectGoalOutlineWidthBar')?.value)   || 2,
+            outline_width_sub1:  parseInt(document.getElementById('selectGoalOutlineWidthSub1')?.value)  || 2,
+            outline_width_sub2:  parseInt(document.getElementById('selectGoalOutlineWidthSub2')?.value)  || 2,
+            outline_color: document.getElementById('inputGoalOutlineColor')?.value || '#000000'
+          }),
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
           method: 'POST',
@@ -1631,6 +1666,32 @@ function loadDemoGoalSettingsFromData(data) {
   if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
   const sub2El = document.getElementById('inputGoalSubtitle2');
   if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : '';
+
+  // Goal text customization blob
+  let gtc = {};
+  try { gtc = JSON.parse(data.goal_text_settings || '{}'); } catch (e) {}
+  setSelectValue('selectGoalFontSizeLabel', gtc.font_size_label || 30);
+  setSelectValue('selectGoalFontSizeBar',   gtc.font_size_bar   || 25);
+  setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
+  setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
+  setSelectValue('selectGoalOutlineWidthLabel', gtc.outline_width_label ?? 2);
+  setSelectValue('selectGoalOutlineWidthBar',   gtc.outline_width_bar   ?? 2);
+  setSelectValue('selectGoalOutlineWidthSub1',  gtc.outline_width_sub1  ?? 2);
+  setSelectValue('selectGoalOutlineWidthSub2',  gtc.outline_width_sub2  ?? 2);
+  ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
+   'selectGoalOutlineWidthLabel','selectGoalOutlineWidthBar','selectGoalOutlineWidthSub1','selectGoalOutlineWidthSub2']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
+  [
+    ['inputGoalTextColorLabel','txtGoalTextColorLabel', gtc.color_label, '#ffffff'],
+    ['inputGoalTextColorBar','txtGoalTextColorBar',     gtc.color_bar,   '#ffffff'],
+    ['inputGoalTextColorSub1','txtGoalTextColorSub1',   gtc.color_sub1,  '#ffffff'],
+    ['inputGoalTextColorSub2','txtGoalTextColorSub2',   gtc.color_sub2,  '#ffffff'],
+    ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000']
+  ].forEach(([p, t, v, f]) => {
+    const pe = document.getElementById(p), te = document.getElementById(t);
+    if (pe) pe.value = v || f;
+    if (te) te.value = v || f;
+  });
 
   const current = data.goal_current || 0;
   const amount  = data.goal_amount  || 5000;
@@ -4778,6 +4839,32 @@ async function loadGoalSettings() {
     if (sub1El) sub1El.value = data.goal_subtitle1 !== undefined ? data.goal_subtitle1 : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
     const sub2El = document.getElementById('inputGoalSubtitle2');
     if (sub2El) sub2El.value = data.goal_subtitle2 !== undefined ? data.goal_subtitle2 : '';
+
+    // Goal text customization blob
+    let gtc = {};
+    try { gtc = JSON.parse(data.goal_text_settings || '{}'); } catch (e) {}
+    setSelectValue('selectGoalFontSizeLabel', gtc.font_size_label || 30);
+    setSelectValue('selectGoalFontSizeBar',   gtc.font_size_bar   || 25);
+    setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
+    setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
+    setSelectValue('selectGoalOutlineWidthLabel', gtc.outline_width_label ?? 2);
+    setSelectValue('selectGoalOutlineWidthBar',   gtc.outline_width_bar   ?? 2);
+    setSelectValue('selectGoalOutlineWidthSub1',  gtc.outline_width_sub1  ?? 2);
+    setSelectValue('selectGoalOutlineWidthSub2',  gtc.outline_width_sub2  ?? 2);
+    ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
+     'selectGoalOutlineWidthLabel','selectGoalOutlineWidthBar','selectGoalOutlineWidthSub1','selectGoalOutlineWidthSub2']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
+    [
+      ['inputGoalTextColorLabel','txtGoalTextColorLabel', gtc.color_label, '#ffffff'],
+      ['inputGoalTextColorBar','txtGoalTextColorBar',     gtc.color_bar,   '#ffffff'],
+      ['inputGoalTextColorSub1','txtGoalTextColorSub1',   gtc.color_sub1,  '#ffffff'],
+      ['inputGoalTextColorSub2','txtGoalTextColorSub2',   gtc.color_sub2,  '#ffffff'],
+      ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000']
+    ].forEach(([p, t, v, f]) => {
+      const pe = document.getElementById(p), te = document.getElementById(t);
+      if (pe) pe.value = v || f;
+      if (te) te.value = v || f;
+    });
 
     const hasEndDate = !!(data.goal_end_date);
     const chkEndDate = document.getElementById('chkGoalEndDate');
