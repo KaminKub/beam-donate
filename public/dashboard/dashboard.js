@@ -7957,7 +7957,7 @@ function updateAccountVerifyBadges() {
     const method = note.getAttribute('data-method');
     note.setAttribute('data-verify-state', isMethodAccountVerified(method) ? 'verified' : 'unverified');
     const text = note.querySelector('.verify-text');
-    if (text) text.textContent = isMethodAccountVerified(method) ? 'ยืนยันบัญชีแล้ว ✅' : 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
+    if (text) text.textContent = isMethodAccountVerified(method) ? '' : 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
   });
 }
 
