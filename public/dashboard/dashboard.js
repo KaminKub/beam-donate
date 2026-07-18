@@ -5674,16 +5674,26 @@ function initTimerSettingsUI() {
   if (chkTimerEnabledAuto) chkTimerEnabledAuto.addEventListener('change', saveTimerSettings);
 
   // Copy URL buttons
-  function copyUrl(inputId) {
+  function copyUrl(inputId, btn) {
     const el = document.getElementById(inputId);
-    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).then(() => {
+      if (!btn) return;
+      const orig = btn.textContent;
+      btn.textContent = 'คัดลอกแล้ว!';
+      btn.style.background = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    }).catch(() => {});
   }
   const btnCopyLeft = document.getElementById('btnCopyObsTimerUrl');
   const btnCopyRight = document.getElementById('btnCopyObsTimerUrlRight');
   const btnOpenLeft = document.getElementById('btnOpenObsTimerUrl');
   const btnOpenRight = document.getElementById('btnOpenObsTimerUrlRight');
-  if (btnCopyLeft) btnCopyLeft.addEventListener('click', () => copyUrl('obsTimerUrlPreview'));
-  if (btnCopyRight) btnCopyRight.addEventListener('click', () => copyUrl('obsTimerUrlPreviewRight'));
+  if (btnCopyLeft) btnCopyLeft.addEventListener('click', () => copyUrl('obsTimerUrlPreview', btnCopyLeft));
+  if (btnCopyRight) btnCopyRight.addEventListener('click', () => copyUrl('obsTimerUrlPreviewRight', btnCopyRight));
   if (btnOpenLeft) btnOpenLeft.addEventListener('click', () => {
     const url = document.getElementById('obsTimerUrlPreview')?.value;
     if (url) window.open(url, '_blank');
@@ -6024,13 +6034,23 @@ function initLeaderboardSettingsUI() {
   const btnTest = document.getElementById('btnTestLeaderboard');
   if (btnTest) btnTest.addEventListener('click', triggerLeaderboardTest);
 
-  function copyUrl(inputId) {
+  function copyUrl(inputId, btn) {
     const el = document.getElementById(inputId);
-    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).then(() => {
+      if (!btn) return;
+      const orig = btn.textContent;
+      btn.textContent = 'คัดลอกแล้ว!';
+      btn.style.background = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    }).catch(() => {});
   }
   const btnCopy = document.getElementById('btnCopyObsLeaderboardUrl');
   const btnOpen = document.getElementById('btnOpenObsLeaderboardUrl');
-  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsLeaderboardUrlPreview'));
+  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsLeaderboardUrlPreview', btnCopy));
   if (btnOpen) btnOpen.addEventListener('click', () => {
     const url = document.getElementById('obsLeaderboardUrlPreview')?.value;
     if (url) window.open(url, '_blank');
@@ -6337,13 +6357,23 @@ function initRecentdonateSettingsUI() {
   const btnTest = document.getElementById('btnTestRecentdonate');
   if (btnTest) btnTest.addEventListener('click', triggerRecentdonateTest);
 
-  function copyUrl(inputId) {
+  function copyUrl(inputId, btn) {
     const el = document.getElementById(inputId);
-    if (el && el.value) navigator.clipboard.writeText(el.value).catch(() => {});
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).then(() => {
+      if (!btn) return;
+      const orig = btn.textContent;
+      btn.textContent = 'คัดลอกแล้ว!';
+      btn.style.background = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    }).catch(() => {});
   }
   const btnCopy = document.getElementById('btnCopyObsRecentdonateUrl');
   const btnOpen = document.getElementById('btnOpenObsRecentdonateUrl');
-  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsRecentdonateUrlPreview'));
+  if (btnCopy) btnCopy.addEventListener('click', () => copyUrl('obsRecentdonateUrlPreview', btnCopy));
   if (btnOpen) btnOpen.addEventListener('click', () => {
     const url = document.getElementById('obsRecentdonateUrlPreview')?.value;
     if (url) window.open(url, '_blank');
