@@ -233,6 +233,18 @@ const TOKEN_CACHE_TTL = 10 * 60 * 1000; // 10 min
 const disconnectTimers = new Map(); // username → setTimeout (5s grace before logging disconnect)
 const slipHashCache = new Map(); // username → Set of base64 hashes (5 min TTL against slip re-submit)
 
+// Bugfix Part 2: mark a slip hash "used" only on terminal SlipOK outcomes — never on
+// temporary failures (network error, SLIP_DELAY) — so donors can retry the same image.
+function markSlipHashUsed(username, hash) {
+  if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
+  slipHashCache.get(username).add(hash);
+  setTimeout(() => {
+    const set = slipHashCache.get(username);
+    if (set) set.delete(hash);
+  }, 60 * 1000);
+}
+const TERMINAL_SLIP_CODES = new Set(['SLIP_DUPLICATE', 'AMOUNT_MISMATCH', 'WRONG_RECEIVER', 'SLIP_INVALID']);
+
 setInterval(() => {
   const now = Date.now();
   const before = sseClients.length;
@@ -4088,7 +4100,11 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       bank_enabled: decrypted.bank_enabled || 0,
       bank_name: decrypted.bank_name || '',
       bank_account_number: censor(decrypted.bank_account_number || '', 3, 2),
-      bank_account_name: censor(decrypted.bank_account_name || '', 1, 1)
+      bank_account_name: censor(decrypted.bank_account_name || '', 1, 1),
+      // Boolean gate flags (Part 3) — not secrets, safe to send uncensored
+      promptpay_account_verified: streamer.promptpay_account_verified || 0,
+      bank_account_verified: streamer.bank_account_verified || 0,
+      truemoney_account_verified: streamer.truemoney_account_verified || 0
     });
   } catch (err) {
     console.error('Get payment settings error:', err);
@@ -4103,6 +4119,39 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
 app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
+    const streamer = await db.getStreamer(actualUsername);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    // Reset-on-account-change: a previous slip-verified receiver stops proving anything once
+    // the account value itself changes. Compare against the decrypted value, and skip censored
+    // placeholders ('*') — those mean "unchanged", not "new value". Computed BEFORE the guard
+    // block below so the guard sees the post-reset state, not the stale pre-reset DB value
+    // (a same-request account-change + re-enable must still be blocked).
+    const decrypted = decryptPaymentFields(streamer);
+    const changedTo = (field, incoming) => !!incoming && !String(incoming).includes('*') && incoming !== (decrypted[field] || '');
+
+    const resetFlags = {};
+    if (changedTo('promptpay_value', req.body.promptpay_value)) resetFlags.promptpay_account_verified = 0;
+    if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
+    if (changedTo('truemoney_phone', req.body.truemoney_phone)) resetFlags.truemoney_account_verified = 0;
+
+    // Part 3 guard: block only the closed→open transition when the destination account
+    // hasn't been verified with a real slip yet. This endpoint receives X_enabled on every
+    // save (frontend echoes whatever it last loaded) — checking req.body alone would 400
+    // every save for already-enabled users, not just the moment they flip the toggle on.
+    const wantsEnable = (field) => !!req.body[field];
+    const isNewlyEnabling = (field) => wantsEnable(field) && streamer[field] !== 1;
+    const effectiveVerified = (field) => resetFlags[field] !== undefined ? false : streamer[field];
+
+    if (isNewlyEnabling('promptpay_enabled') && !effectiveVerified('promptpay_account_verified')) {
+      return res.status(400).json({ error: 'กรุณายืนยันบัญชีพร้อมเพย์ด้วยสลิปจริงก่อนเปิดใช้งาน' });
+    }
+    if (isNewlyEnabling('bank_enabled') && !effectiveVerified('bank_account_verified')) {
+      return res.status(400).json({ error: 'กรุณายืนยันบัญชีธนาคารด้วยสลิปจริงก่อนเปิดใช้งาน' });
+    }
+    if (isNewlyEnabling('truemoney_enabled') && !effectiveVerified('truemoney_account_verified') && streamer.truemoney_webhook_enabled !== 1) {
+      return res.status(400).json({ error: 'กรุณายืนยันบัญชี TrueMoney ด้วยสลิปจริงก่อนเปิดใช้งาน (หรือเปิดใช้ TrueMoney Webhook แทน)' });
+    }
 
     const updatedStreamer = await db.saveStreamer({
       twitch_id: req.user.twitch_id || null,
@@ -4123,7 +4172,8 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
       bank_enabled: req.body.bank_enabled ? 1 : 0,
       bank_name: req.body.bank_name || '',
       bank_account_number: req.body.bank_account_number || '',
-      bank_account_name: req.body.bank_account_name || ''
+      bank_account_name: req.body.bank_account_name || '',
+      ...resetFlags
     });
 
     res.json({ success: true });
@@ -4144,6 +4194,106 @@ function validateSlipOkUrl(url) {
     throw new Error(`SlipOK API hostname not allowed: ${parsed.hostname}`);
   }
 }
+
+// Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow) and
+// /api/payment/verify-slipok-account (account-verification flow). Normalizes both the
+// success and failure shapes so callers don't duplicate SlipOK's error-code mapping.
+async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
+  try {
+    const response = await axios.post(branchUrl, {
+      files: base64Image,
+      amount,
+      log: true
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-authorization': apiKey
+      },
+      timeout: 30000
+    });
+
+    const slipData = response.data;
+    const d = slipData?.data;
+    if (slipData && slipData.success && d) {
+      return { success: true, data: d, amount: d.amount || 0 };
+    }
+
+    const slipCode = slipData?.code;
+    const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+                       slipCode === 1012 ? 'SLIP_DUPLICATE' :
+                       slipCode === 1013 ? 'AMOUNT_MISMATCH' :
+                       slipCode === 1014 ? 'WRONG_RECEIVER' :
+                       'SLIP_INVALID';
+    return { success: false, errorCode: mappedCode, error: slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง', delayMinutes: slipData?.delay || null };
+  } catch (slipErr) {
+    console.error('SlipOK verification error:', slipErr.message);
+    if (slipErr.response) {
+      const body = slipErr.response.data;
+      const slipCode = body?.code;
+      const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+                         slipCode === 1012 ? 'SLIP_DUPLICATE' :
+                         slipCode === 1013 ? 'AMOUNT_MISMATCH' :
+                         slipCode === 1014 ? 'WRONG_RECEIVER' :
+                         'SLIPOK_ERROR';
+      return { success: false, errorCode: mappedCode, error: body?.message || body?.error || 'SlipOK API error', delayMinutes: body?.delay || null };
+    }
+    return { success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' };
+  }
+}
+
+const VERIFY_ACCOUNT_METHODS = ['promptpay', 'bank', 'truemoney'];
+
+// POST /api/payment/verify-slipok-account — Part 3: prove SlipOK actually knows this receiver
+// (SlipOK has no API to list bound accounts) by sending one real slip and checking it isn't
+// rejected as a wrong-receiver. Not a donation: no transaction row, no slipHashCache touch.
+app.post('/api/payment/verify-slipok-account', ensureAuthenticated, csrfProtection, upload.single('slip'), async (req, res) => {
+  try {
+    const { method } = req.body;
+    if (!VERIFY_ACCOUNT_METHODS.includes(method)) return res.status(400).json({ error: 'method ไม่ถูกต้อง' });
+    if (!req.file) return res.status(400).json({ success: false, errorCode: 'NO_FILE', error: 'กรุณาอัพโหลดไฟล์สลิป' });
+
+    const actualUsername = await getActualUsername(req.user);
+    const streamer = await db.getStreamer(actualUsername);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    const decrypted = decryptPaymentFields(streamer);
+    const isTruemoney = method === 'truemoney';
+    // Fallback chain mirrors /api/verify-slip — user เก่าที่มีแค่ slot เดียวใช้ได้ทั้ง 2 ทาง
+    const api = isTruemoney ? (decrypted.truemoney_slipok_api || decrypted.slipok_api) : (decrypted.slipok_api || decrypted.truemoney_slipok_api);
+    const apiKey = isTruemoney ? (decrypted.truemoney_slipok_api_key || decrypted.slipok_api_key) : (decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key);
+    if (!api || !apiKey) return res.status(400).json({ error: 'กรุณาทดสอบการเชื่อมต่อ SlipOK ก่อน' });
+
+    try { validateSlipOkUrl(api); } catch (e) { return res.status(400).json({ error: e.message }); }
+
+    // amount=0: SlipOK treats amount as optional — this call only checks receiver-match, so
+    // forcing an amount would fail a correct slip on a typo'd digit and burn a quota hit for nothing.
+    const result = await callSlipOkVerify(api.replace(/\/quota$/, ''), apiKey, req.file.buffer.toString('base64'), 0);
+
+    if (result.success) {
+      const now = new Date().toISOString();
+      const flagMap = {
+        promptpay: { promptpay_account_verified: 1, promptpay_account_verified_at: now },
+        bank: { bank_account_verified: 1, bank_account_verified_at: now },
+        truemoney: { truemoney_account_verified: 1, truemoney_account_verified_at: now }
+      };
+      await db.saveStreamer({
+        twitch_id: req.user.twitch_id || null,
+        streamlabs_id: req.user.streamlabs_id || null,
+        username: actualUsername,
+        ...flagMap[method]
+      });
+      return res.json({ success: true, message: 'ยืนยันบัญชีสำเร็จ! เปิดใช้งานวิธีรับเงินนี้ได้แล้ว' });
+    }
+
+    if (result.errorCode === 'WRONG_RECEIVER') {
+      return res.json({ success: false, errorCode: 'WRONG_RECEIVER', error: 'สลิปถูกต้อง แต่บัญชีปลายทางยังไม่ตรงกับที่ผูกไว้ใน SlipOK — กรุณาเพิ่มบัญชีนี้ในเว็บ SlipOK ก่อน แล้วลองใหม่ (ใช้สลิปใบใหม่)' });
+    }
+    return res.json({ success: false, errorCode: result.errorCode, error: result.error });
+  } catch (err) {
+    console.error('Verify SlipOK account error:', err);
+    res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการยืนยันบัญชี' });
+  }
+});
 
 // POST /api/payment/test-tfp - Test TFP API connection
 app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async (req, res) => {
@@ -4926,18 +5076,34 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
       }
     }
 
-    // Guard 2: Deduplicate slip by image hash (1 min TTL per streamer)
+    // Guard 2: Deduplicate slip by image hash (1 min TTL per streamer) — mark only on
+    // terminal SlipOK outcome below (markSlipHashUsed), not here, so temporary failures
+    // (network error, SLIP_DELAY) don't false-positive a retry of the same image.
     const slipHash = crypto.createHash('sha256').update(slipFile.buffer).digest('hex');
     if (!slipHashCache.has(username)) slipHashCache.set(username, new Set());
     if (slipHashCache.get(username).has(slipHash)) {
       return res.json({ success: false, errorCode: 'SLIP_DUPLICATE', error: 'ตรวจพบสลิปซ้ำ — สลิปนี้เคยถูกใช้ไปแล้ว' });
     }
-    slipHashCache.get(username).add(slipHash);
-    // Auto-expire hash after 1 min
-    setTimeout(() => {
-      const set = slipHashCache.get(username);
-      if (set) set.delete(slipHash);
-    }, 60 * 1000);
+
+    // Bugfix Part 1: create the pending tx for truemoney/bank direct-upload BEFORE calling
+    // SlipOK, so a SlipOK rejection (e.g. 1014 wrong receiver) still leaves a visible pending
+    // row in the streamer's history instead of vanishing silently.
+    let effectiveReferenceId = referenceId;
+    if (!effectiveReferenceId && (isTruemoney || method === 'bank')) {
+      effectiveReferenceId = `${method}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      await db.saveTransaction({
+        id: effectiveReferenceId,
+        amount: parseFloat(amount) || 0,
+        donor: donorName || 'Anonymous',
+        message: donorMessage || '',
+        status: 'pending',
+        streamer_username: username,
+        payment_method: method,
+        createdAt: new Date().toISOString(),
+        timer_action: donorTimerAction
+      });
+      pendingTx = await db.getTransactionById(effectiveReferenceId);
+    }
 
     const base64Image = slipFile.buffer.toString('base64');
     const branchUrl = slipOkApi.replace(/\/quota$/, '');
@@ -4946,123 +5112,55 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
     // amount=0 used to bypass the check when referenceId is present
     const authoritativeAmount = pendingTx ? parseFloat(pendingTx.amount) : parseFloat(amount) || 0;
 
-    try {
-      const slipOkResponse = await axios.post(branchUrl, {
-        files: base64Image,
-        amount: authoritativeAmount,
-        log: true
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-authorization': slipOkApiKey
-        },
-        timeout: 30000
-      });
+    const result = await callSlipOkVerify(branchUrl, slipOkApiKey, base64Image, authoritativeAmount);
 
-      const slipData = slipOkResponse.data;
-      const d = slipData?.data;
-      const slipAmount = d?.amount || 0;
+    if (result.success) {
+      const d = result.data;
+      const slipAmount = result.amount;
 
-      if (slipData && slipData.success && d) {
-        if (authoritativeAmount > 0 && Math.abs(slipAmount - authoritativeAmount) > 0.01) {
-          return res.json({ success: false, errorCode: 'AMOUNT_MISMATCH', error: `ยอดเงินในสลิป (${slipAmount}฿) ไม่ตรงกับยอดที่ต้องชำระ (${authoritativeAmount}฿)` });
-        }
+      if (authoritativeAmount > 0 && Math.abs(slipAmount - authoritativeAmount) > 0.01) {
+        // Terminal: slip is genuine and already logged into SlipOK (slipData.success=true) —
+        // re-uploading the same image will never pass, so mark it used.
+        markSlipHashUsed(username, slipHash);
+        return res.json({ success: false, errorCode: 'AMOUNT_MISMATCH', error: `ยอดเงินในสลิป (${slipAmount}฿) ไม่ตรงกับยอดที่ต้องชำระ (${authoritativeAmount}฿)`, referenceId: effectiveReferenceId });
+      }
 
-        if (referenceId) {
-          const tx = pendingTx;
-          if (tx) {
-            await confirmDonationSideEffects(referenceId, {
-              amount: tx.amount,
-              extraTx: {
-                streamer_username: tx.streamer_username,
-                promptpay_verified: 1,
-                promptpay_verified_at: new Date().toISOString(),
-                promptpay_slip_id: d.transRef || null
-              }
-            });
+      if (effectiveReferenceId) {
+        const tx = pendingTx;
+        if (tx) {
+          await confirmDonationSideEffects(effectiveReferenceId, {
+            amount: tx.amount,
+            extraTx: {
+              streamer_username: tx.streamer_username,
+              promptpay_verified: 1,
+              promptpay_verified_at: new Date().toISOString(),
+              promptpay_slip_id: d.transRef || null
+            }
+          });
+          if (isTruemoney || method === 'bank') {
+            db.logIpEvent('donate_submit', req.ip, username, { amount: tx.amount, method, ref: effectiveReferenceId }).catch(() => {});
           }
-        } else if (isTruemoney) {
-          const referenceIdNew = `truemoney-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-          const txAmount = parseFloat(amount) || 0;
-          await db.saveTransaction({
-            id: referenceIdNew,
-            amount: txAmount,
-            donor: donorName || 'Anonymous',
-            message: donorMessage || '',
-            status: 'pending',
-            streamer_username: username,
-            payment_method: 'truemoney',
-            createdAt: new Date().toISOString(),
-            timer_action: donorTimerAction
-          });
-          await confirmDonationSideEffects(referenceIdNew, {
-            amount: txAmount,
-            extraTx: {
-              promptpay_verified: 1,
-              promptpay_verified_at: new Date().toISOString(),
-              promptpay_slip_id: d.transRef || null
-            }
-          });
-          db.logIpEvent('donate_submit', req.ip, username, { amount: txAmount, method: 'truemoney', ref: referenceIdNew }).catch(() => {});
-        } else if (method === 'bank') {
-          const referenceIdNew = `bank-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-          const txAmount = parseFloat(amount) || 0;
-          await db.saveTransaction({
-            id: referenceIdNew,
-            amount: txAmount,
-            donor: donorName || 'Anonymous',
-            message: donorMessage || '',
-            status: 'pending',
-            streamer_username: username,
-            payment_method: 'bank',
-            createdAt: new Date().toISOString(),
-            timer_action: donorTimerAction
-          });
-          await confirmDonationSideEffects(referenceIdNew, {
-            amount: txAmount,
-            extraTx: {
-              promptpay_verified: 1,
-              promptpay_verified_at: new Date().toISOString(),
-              promptpay_slip_id: d.transRef || null
-            }
-          });
-          db.logIpEvent('donate_submit', req.ip, username, { amount: txAmount, method: 'bank', ref: referenceIdNew }).catch(() => {});
         }
+      }
 
-        return res.json({
-          success: true,
-          amount: slipAmount,
-          transRef: d.transRef,
-          sender: d.sender?.displayName,
-          receiver: d.receiver?.displayName
-        });
-      } else {
-        const slipCode = slipData?.code;
-        const errorMsg = slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง';
-        const delayMinutes = slipData?.delay || null;
-        const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
-                           slipCode === 1012 ? 'SLIP_DUPLICATE' :
-                           slipCode === 1013 ? 'AMOUNT_MISMATCH' :
-                           slipCode === 1014 ? 'WRONG_RECEIVER' :
-                           'SLIP_INVALID';
-        return res.json({ success: false, errorCode: mappedCode, error: errorMsg, delayMinutes });
-      }
-    } catch (slipErr) {
-      console.error('SlipOK verification error:', slipErr.message);
-      if (slipErr.response) {
-        const body = slipErr.response.data;
-        const slipCode = body?.code;
-        const errMsg = body?.message || body?.error || 'SlipOK API error';
-        const delayMinutes = body?.delay || null;
-        const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
-                           slipCode === 1012 ? 'SLIP_DUPLICATE' :
-                           slipCode === 1013 ? 'AMOUNT_MISMATCH' :
-                           slipCode === 1014 ? 'WRONG_RECEIVER' :
-                           'SLIPOK_ERROR';
-        return res.json({ success: false, errorCode: mappedCode, error: errMsg, delayMinutes });
-      }
-      return res.status(502).json({ success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' });
+      markSlipHashUsed(username, slipHash);
+
+      return res.json({
+        success: true,
+        amount: slipAmount,
+        transRef: d.transRef,
+        sender: d.sender?.displayName,
+        receiver: d.receiver?.displayName,
+        referenceId: effectiveReferenceId
+      });
     }
+
+    // Failure (terminal or temporary) — errorCode/error/delayMinutes come straight from the
+    // shared helper. Terminal codes (dup/amount/wrong-receiver/invalid): mark used. SLIP_DELAY
+    // (bank sync lag) and CONNECTION_FAILED/SLIPOK_ERROR stay temporary — donor can retry.
+    if (TERMINAL_SLIP_CODES.has(result.errorCode)) markSlipHashUsed(username, slipHash);
+    const status = result.errorCode === 'CONNECTION_FAILED' ? 502 : 200;
+    return res.status(status).json({ success: false, errorCode: result.errorCode, error: result.error, delayMinutes: result.delayMinutes, referenceId: effectiveReferenceId });
   } catch (err) {
     console.error('Verify slip error:', err);
     res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการตรวจสอบสลิป' });

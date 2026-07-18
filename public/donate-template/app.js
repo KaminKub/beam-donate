@@ -1431,6 +1431,7 @@ async function doVerifyTrueMoney() {
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
     formData.append('timerAction', getTimerActionForSubmit() || '');
+    if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     const response = await fetch('/api/verify-slip', {
       method: 'POST',
@@ -1438,6 +1439,7 @@ async function doVerifyTrueMoney() {
     });
 
     const data = await response.json();
+    if (data.referenceId) currentChargeId = data.referenceId;
 
     if (data.success) {
       clearPendingQR();
@@ -1638,12 +1640,14 @@ async function doVerifyBank() {
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
     formData.append('timerAction', getTimerActionForSubmit() || '');
+    if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     bankPaymentStatus.style.display = 'flex';
     bankPaymentStatus.className = 'status checking';
 
     const response = await fetch('/api/verify-slip', { method: 'POST', body: formData });
     const data = await response.json();
+    if (data.referenceId) currentChargeId = data.referenceId;
 
     if (data.success) {
       clearPendingQR();

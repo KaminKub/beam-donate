@@ -1373,11 +1373,30 @@ async function initializeDashboard() {
       card.addEventListener('click', (e) => {
         // ไม่ toggle ถ้า click ที่ปุ่มตั้งค่า
         if (e.target.closest('.btn-settings')) return;
-        
+
         const method = card.getAttribute('data-method');
-        
+
         // FFP disabled - ไม่ทำอะไร
         if (method === 'ffp') return;
+
+        // Part 3 gate: block only the closed→open transition when this method's account
+        // hasn't been verified with a real slip yet — open its settings panel instead so
+        // the user can reach the "ยืนยันบัญชี" button (bypasses the active-card requirement
+        // on .btn-settings, since the account isn't enabled yet).
+        if (!card.classList.contains('active') && !isMethodAccountVerified(method)) {
+          showNotification('กรุณายืนยันบัญชีด้วยสลิปจริงก่อน — เลื่อนลงกดปุ่ม "ยืนยันบัญชีด้วยสลิปจริง" ในแผงตั้งค่า', 'error');
+          const settingsBtn = card.querySelector('.btn-settings');
+          const targetPanelId = settingsBtn?.getAttribute('data-target');
+          if (targetPanelId) {
+            openSettingsPanel(targetPanelId);
+            card.classList.add('panel-open');
+            settingsBtn.classList.add('panel-open');
+            setTimeout(() => {
+              document.getElementById(targetPanelId)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+          }
+          return;
+        }
 
         // Toggle active state (checkbox behavior)
         card.classList.toggle('active');
@@ -1443,6 +1462,14 @@ async function initializeDashboard() {
             card.classList.remove('panel-open');
           }
         }
+      });
+    });
+
+    // Part 3 — verify-account button handlers
+    document.querySelectorAll('.btn-verify-slipok-account').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        verifySlipOkAccount(btn.getAttribute('data-method'));
       });
     });
 
@@ -1644,7 +1671,7 @@ function loadDemoGoalSettingsFromData(data) {
   syncGoalPointerControls(data);
   syncGoalWidthLabel();
   const labelEl = document.getElementById('inputGoalLabel');
-  if (labelEl) labelEl.value = data.goal_label || 'ค่ากาแฟ';
+  if (labelEl) labelEl.value = data.goal_label !== undefined ? data.goal_label : 'ค่ากาแฟ';
   const amountEl = document.getElementById('inputGoalAmount');
   if (amountEl) amountEl.value = data.goal_amount || 5000;
   const colorEl = document.getElementById('inputGoalBarColor');
@@ -4840,7 +4867,7 @@ async function loadGoalSettings() {
     }
     syncGoalPointerControls(data);
     syncGoalWidthLabel();
-    document.getElementById('inputGoalLabel').value = data.goal_label || 'ค่ากาแฟ';
+    document.getElementById('inputGoalLabel').value = data.goal_label !== undefined ? data.goal_label : 'ค่ากาแฟ';
     document.getElementById('inputGoalAmount').value = data.goal_amount || 5000;
     document.getElementById('inputGoalBarColor').value = color;
     const txtColor = document.getElementById('txtGoalBarColor');
@@ -7904,6 +7931,7 @@ async function loadPaymentSettings() {
     if (data.bank_enabled && bankCard) bankCard.classList.add('active');
 
     renderTrueMoneyWebhookState(data);
+    updateAccountVerifyBadges();
 
     if (data.slipok_connected) fetchQuotaMini('promptpay');
   } catch (err) {
@@ -7913,6 +7941,60 @@ async function loadPaymentSettings() {
   } finally {
     hideTabLoading('payment-setup');
   }
+}
+
+// Part 3 — account verification gate helpers
+function isMethodAccountVerified(method) {
+  const d = window._lastPaymentSettings || {};
+  if (method === 'truemoney') return !!(d.truemoney_account_verified || d.truemoney_webhook_enabled);
+  if (method === 'bank') return !!d.bank_account_verified;
+  if (method === 'promptpay') return !!d.promptpay_account_verified;
+  return true;
+}
+
+function updateAccountVerifyBadges() {
+  document.querySelectorAll('.slipok-linked-note[data-method]').forEach(note => {
+    const method = note.getAttribute('data-method');
+    note.setAttribute('data-verify-state', isMethodAccountVerified(method) ? 'verified' : 'unverified');
+    const text = note.querySelector('.verify-text');
+    if (text) text.textContent = isMethodAccountVerified(method) ? 'ยืนยันบัญชีแล้ว ✅' : 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
+  });
+}
+
+async function verifySlipOkAccount(method) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const btn = document.querySelector(`.btn-verify-slipok-account[data-method="${method}"]`);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังตรวจสอบ...'; }
+
+    try {
+      const formData = new FormData();
+      formData.append('slip', file);
+      formData.append('method', method);
+
+      const response = await fetchWithCsrf('/api/payment/verify-slipok-account', { method: 'POST', body: formData });
+      const data = await response.json();
+
+      if (data.success) {
+        showNotification(data.message || 'ยืนยันบัญชีสำเร็จ!');
+        window._lastPaymentSettings = window._lastPaymentSettings || {};
+        window._lastPaymentSettings[`${method}_account_verified`] = 1;
+        updateAccountVerifyBadges();
+      } else {
+        showNotification(data.error || 'ยืนยันบัญชีไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      showNotification('เกิดข้อผิดพลาดในการยืนยันบัญชี', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-receipt"></i> ยืนยันบัญชีด้วยสลิปจริง'; }
+    }
+  };
+  input.click();
 }
 
 function updateSlipOkStatus(connected, lastCheck) {
@@ -8065,6 +8147,9 @@ async function savePaymentSettings() {
 
     if (response.ok) {
       showNotification('บันทึกการตั้งค่าการรับเงินสำเร็จ');
+      // Reload — server may have reset an account_verified flag (account value changed)
+      // or rejected an enable transition (guard); either way, badges/toggles must reflect it.
+      await loadPaymentSettings();
     } else {
       const err = await response.json();
       throw new Error(err.error || 'บันทึกไม่สำเร็จ');

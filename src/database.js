@@ -1,4 +1,4 @@
-const path = require('path');
+﻿const path = require('path');
 const fs = require('fs');
 const { encrypt, decrypt } = require('./encryption');
 
@@ -189,6 +189,8 @@ async function migrateDB() {
         slipok_api_key_encrypted TEXT,
         slipok_connected INTEGER DEFAULT 0,
         slipok_last_check TEXT,
+        promptpay_account_verified INTEGER DEFAULT 0,
+        promptpay_account_verified_at TEXT,
         -- TrueMoney Wallet
         truemoney_enabled INTEGER DEFAULT 0,
         truemoney_phone_encrypted TEXT,
@@ -196,12 +198,16 @@ async function migrateDB() {
         truemoney_slipok_api_key_encrypted TEXT,
         truemoney_slipok_connected INTEGER DEFAULT 0,
         truemoney_slipok_last_check TEXT,
+        truemoney_account_verified INTEGER DEFAULT 0,
+        truemoney_account_verified_at TEXT,
         slipok_quota_total INTEGER,
         truemoney_slipok_quota_total INTEGER,
         bank_enabled INTEGER DEFAULT 0,
         bank_name TEXT,
         bank_account_number_encrypted TEXT,
         bank_account_name TEXT,
+        bank_account_verified INTEGER DEFAULT 0,
+        bank_account_verified_at TEXT,
         header_bg_url TEXT,
         page_bg_url TEXT,
         header_bg_y INTEGER DEFAULT 50,
@@ -360,7 +366,12 @@ async function migrateDB() {
     // C. Ensure new overlay settings columns exist
     const streamerColumnsRes = await db.execute('PRAGMA table_info(streamers)');
     const streamerCols = streamerColumnsRes.rows.map(r => r.name);
-    
+    // One-time signal for the account-verified backfill below — must be read BEFORE the ALTER
+    // loop adds the column, and must not be re-derived from enabled/verified state afterwards
+    // (reset-on-account-change legitimately zeroes verified flags later; re-running this backfill
+    // on a later deploy would silently re-flip those flags back to 1 without real re-verification).
+    const needsAccountVerifiedBackfill = !streamerCols.includes('promptpay_account_verified');
+
     const requiredCols = [
       { name: 'twitch_id', type: 'TEXT' },
       { name: 'streamlabs_id', type: 'TEXT' },
@@ -403,18 +414,24 @@ async function migrateDB() {
       { name: 'slipok_api_key_encrypted', type: 'TEXT' },
       { name: 'slipok_connected', type: 'INTEGER DEFAULT 0' },
       { name: 'slipok_last_check', type: 'TEXT' },
+      { name: 'promptpay_account_verified', type: 'INTEGER DEFAULT 0' },
+      { name: 'promptpay_account_verified_at', type: 'TEXT' },
       { name: 'truemoney_enabled', type: 'INTEGER DEFAULT 0' },
       { name: 'truemoney_phone_encrypted', type: 'TEXT' },
       { name: 'truemoney_slipok_api_encrypted', type: 'TEXT' },
       { name: 'truemoney_slipok_api_key_encrypted', type: 'TEXT' },
       { name: 'truemoney_slipok_connected', type: 'INTEGER DEFAULT 0' },
       { name: 'truemoney_slipok_last_check', type: 'TEXT' },
+      { name: 'truemoney_account_verified', type: 'INTEGER DEFAULT 0' },
+      { name: 'truemoney_account_verified_at', type: 'TEXT' },
       { name: 'slipok_quota_total', type: 'INTEGER' },
       { name: 'truemoney_slipok_quota_total', type: 'INTEGER' },
       { name: 'bank_enabled', type: 'INTEGER DEFAULT 0' },
       { name: 'bank_name', type: 'TEXT' },
       { name: 'bank_account_number_encrypted', type: 'TEXT' },
       { name: 'bank_account_name', type: 'TEXT' },
+      { name: 'bank_account_verified', type: 'INTEGER DEFAULT 0' },
+      { name: 'bank_account_verified_at', type: 'TEXT' },
       { name: 'header_bg_url', type: 'TEXT' },
       { name: 'page_bg_url', type: 'TEXT' },
       { name: 'header_bg_y', type: 'INTEGER DEFAULT 50' },
@@ -474,6 +491,16 @@ async function migrateDB() {
 
     // Backfill NULL is_active → 1 (Number(null) === 0 would false-ban legacy rows)
     await db.execute("UPDATE streamers SET is_active = 1 WHERE is_active IS NULL");
+
+    // Grandfather streamers already enabled before the account-verification gate existed —
+    // they've received real donations already, so treat them as verified. One-time only
+    // (see needsAccountVerifiedBackfill comment above) — never re-run on later deploys.
+    if (needsAccountVerifiedBackfill) {
+      await db.execute("UPDATE streamers SET promptpay_account_verified = 1, promptpay_account_verified_at = datetime('now') WHERE promptpay_enabled = 1 AND promptpay_account_verified = 0");
+      await db.execute("UPDATE streamers SET bank_account_verified = 1, bank_account_verified_at = datetime('now') WHERE bank_enabled = 1 AND bank_account_verified = 0");
+      await db.execute("UPDATE streamers SET truemoney_account_verified = 1, truemoney_account_verified_at = datetime('now') WHERE truemoney_enabled = 1 AND truemoney_account_verified = 0");
+      console.log('✅ Backfilled account_verified flags for pre-existing enabled payment methods.');
+    }
 
     // B. Migrate legacy global settings
     try {
@@ -1106,18 +1133,24 @@ async function saveStreamer(data) {
                slipok_api_key_encrypted = COALESCE(?, streamers.slipok_api_key_encrypted),
                slipok_connected = COALESCE(?, streamers.slipok_connected),
                slipok_last_check = COALESCE(?, streamers.slipok_last_check),
+               promptpay_account_verified = COALESCE(?, streamers.promptpay_account_verified),
+               promptpay_account_verified_at = COALESCE(?, streamers.promptpay_account_verified_at),
                truemoney_enabled = COALESCE(?, streamers.truemoney_enabled),
                truemoney_phone_encrypted = COALESCE(?, streamers.truemoney_phone_encrypted),
                truemoney_slipok_api_encrypted = COALESCE(?, streamers.truemoney_slipok_api_encrypted),
                truemoney_slipok_api_key_encrypted = COALESCE(?, streamers.truemoney_slipok_api_key_encrypted),
                truemoney_slipok_connected = COALESCE(?, streamers.truemoney_slipok_connected),
                truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check),
+               truemoney_account_verified = COALESCE(?, streamers.truemoney_account_verified),
+               truemoney_account_verified_at = COALESCE(?, streamers.truemoney_account_verified_at),
                slipok_quota_total = COALESCE(?, streamers.slipok_quota_total),
                truemoney_slipok_quota_total = COALESCE(?, streamers.truemoney_slipok_quota_total),
                bank_enabled = COALESCE(?, streamers.bank_enabled),
                bank_name = COALESCE(?, streamers.bank_name),
                bank_account_number_encrypted = COALESCE(?, streamers.bank_account_number_encrypted),
                bank_account_name = COALESCE(?, streamers.bank_account_name),
+               bank_account_verified = COALESCE(?, streamers.bank_account_verified),
+               bank_account_verified_at = COALESCE(?, streamers.bank_account_verified_at),
                header_bg_url = COALESCE(?, streamers.header_bg_url),
                page_bg_url = COALESCE(?, streamers.page_bg_url),
                header_bg_y = COALESCE(?, streamers.header_bg_y),
@@ -1231,18 +1264,24 @@ async function saveStreamer(data) {
           finalData.slipok_api_key_encrypted !== undefined ? finalData.slipok_api_key_encrypted : null,
           finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : null,
           finalData.slipok_last_check !== undefined ? finalData.slipok_last_check : null,
+          finalData.promptpay_account_verified !== undefined ? (finalData.promptpay_account_verified ? 1 : 0) : null,
+          finalData.promptpay_account_verified_at !== undefined ? finalData.promptpay_account_verified_at : null,
           finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : null,
           finalData.truemoney_phone_encrypted !== undefined ? finalData.truemoney_phone_encrypted : null,
           finalData.truemoney_slipok_api_encrypted !== undefined ? finalData.truemoney_slipok_api_encrypted : null,
           finalData.truemoney_slipok_api_key_encrypted !== undefined ? finalData.truemoney_slipok_api_key_encrypted : null,
           finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : null,
           finalData.truemoney_slipok_last_check !== undefined ? finalData.truemoney_slipok_last_check : null,
+          finalData.truemoney_account_verified !== undefined ? (finalData.truemoney_account_verified ? 1 : 0) : null,
+          finalData.truemoney_account_verified_at !== undefined ? finalData.truemoney_account_verified_at : null,
           finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
           finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null,
           finalData.bank_enabled !== undefined ? (finalData.bank_enabled ? 1 : 0) : null,
           finalData.bank_name || null,
           finalData.bank_account_number_encrypted || null,
           finalData.bank_account_name || null,
+          finalData.bank_account_verified !== undefined ? (finalData.bank_account_verified ? 1 : 0) : null,
+          finalData.bank_account_verified_at !== undefined ? finalData.bank_account_verified_at : null,
           finalData.header_bg_url !== undefined ? finalData.header_bg_url : null,
           finalData.page_bg_url !== undefined ? finalData.page_bg_url : null,
           finalData.header_bg_y !== undefined ? finalData.header_bg_y : null,
@@ -1296,11 +1335,13 @@ async function saveStreamer(data) {
                profile_image_source, profile_image_value, profile_glow_color,
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
               promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
-              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, slipok_quota_total, truemoney_slipok_quota_total,
-              bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name,
+              promptpay_account_verified, promptpay_account_verified_at,
+              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check,
+              truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
+              bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, primary_auth_provider, timer_settings,
               truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1378,18 +1419,24 @@ async function saveStreamer(data) {
         finalData.slipok_api_key_encrypted || null,
         finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : 0,
         finalData.slipok_last_check || null,
+        finalData.promptpay_account_verified !== undefined ? (finalData.promptpay_account_verified ? 1 : 0) : 0,
+        finalData.promptpay_account_verified_at || null,
         finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : 0,
         finalData.truemoney_phone_encrypted || null,
         finalData.truemoney_slipok_api_encrypted || null,
         finalData.truemoney_slipok_api_key_encrypted || null,
         finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : 0,
         finalData.truemoney_slipok_last_check || null,
+        finalData.truemoney_account_verified !== undefined ? (finalData.truemoney_account_verified ? 1 : 0) : 0,
+        finalData.truemoney_account_verified_at || null,
         finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
         finalData.truemoney_slipok_quota_total !== undefined ? finalData.truemoney_slipok_quota_total : null,
         finalData.bank_enabled !== undefined ? (finalData.bank_enabled ? 1 : 0) : 0,
         finalData.bank_name || null,
         finalData.bank_account_number_encrypted || null,
         finalData.bank_account_name || null,
+        finalData.bank_account_verified !== undefined ? (finalData.bank_account_verified ? 1 : 0) : 0,
+        finalData.bank_account_verified_at || null,
         finalData.header_bg_url || null,
         finalData.page_bg_url || null,
         finalData.header_bg_y !== undefined ? finalData.header_bg_y : 50,
@@ -1397,7 +1444,7 @@ async function saveStreamer(data) {
         finalData.goal_enabled !== undefined ? (finalData.goal_enabled ? 1 : 0) : 0,
         finalData.goal_amount !== undefined ? finalData.goal_amount : 5000,
         finalData.goal_current !== undefined ? finalData.goal_current : 0,
-        finalData.goal_label || 'ค่ากาแฟ',
+        finalData.goal_label !== undefined ? finalData.goal_label : 'ค่ากาแฟ',
         finalData.goal_bar_color || '#4ade80',
         finalData.goal_show_on_donate !== undefined ? (finalData.goal_show_on_donate ? 1 : 0) : 1,
         finalData.goal_end_date !== undefined ? finalData.goal_end_date : null,
@@ -1667,7 +1714,7 @@ async function getSettings(username, defaultSettings) {
   // SEC-004: Only expose keys that exist in defaultSettings — prevents payment fields,
   // auth tokens, and DB IDs from leaking via the public overlay-token endpoint.
   const merged = { ...defaultSettings };
-  const allowEmpty = new Set(['template_line1', 'template_line2']);
+  const allowEmpty = new Set(['template_line1', 'template_line2', 'goal_label', 'goal_bar_text']);
   for (const [key, value] of Object.entries(streamer)) {
     if (Object.prototype.hasOwnProperty.call(defaultSettings, key) && value !== null && (value !== '' || allowEmpty.has(key))) {
       merged[key] = value;
