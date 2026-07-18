@@ -335,7 +335,7 @@ function broadcastAlert(username, alertData) {
     payload = { ...alertData, overlayOnline };
   }
   const data = JSON.stringify(payload);
-  console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
+  if (process.env.NODE_ENV !== 'production') console.log(`📢 [Broadcast] Sending to ${username}:`, alertData.type);
 
   sseClients = sseClients.filter(client => {
     // Never send real broadcasts to any demo client (demo-overlay, demo-goal-bar, demo-timer)
@@ -630,7 +630,7 @@ async function applyTimerOnDonation(streamer, amount, timerAction, currency = 't
     // donor ที่เลือก "ไม่ปรับเวลา" ส่ง 'none' มาชัดเจน → ยังเป็น 0 เหมือนเดิม
     if (timerAction == null) timerAction = 'add';
     let delta = calculateTimeDelta(amount, streamer, timerAction, currency);
-    if (delta === 0 && amount > 0) {
+    if (delta === 0 && amount > 0 && process.env.NODE_ENV !== 'production') {
       console.log(`⏱️ Timer no-op: amount=${amount} currency=${currency} action=${timerAction} mode=${t.mode} (no matching rule or choice=none)`);
     }
     // Money cap: track total donation amount (บาท) — cap_value <= 0 = ไม่จำกัด (F1)
