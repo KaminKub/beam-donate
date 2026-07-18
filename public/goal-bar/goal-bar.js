@@ -37,6 +37,10 @@
   const barTextEl = document.getElementById('goalBarText');
   const sub1El = document.getElementById('goalSub1');
   const sub2El = document.getElementById('goalSub2');
+  const labelTextEl = labelEl.querySelector('.goal-grad-label');
+  const barTextTextEl = barTextEl.querySelector('.goal-grad-bar');
+  const sub1TextEl = sub1El.querySelector('.goal-grad-sub1');
+  const sub2TextEl = sub2El.querySelector('.goal-grad-sub2');
 
   [labelEl, barTextEl, sub1El, sub2El].forEach(el => { if (el) el.style.whiteSpace = 'pre-wrap'; });
 
@@ -83,9 +87,9 @@
 
   function renderTexts(val) {
     const actualPct = goalAmount > 0 ? (val / goalAmount) * 100 : 0;
-    barTextEl.textContent = interpolate(goalBarText, actualPct, val, goalAmount);
-    sub1El.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
-    sub2El.textContent = goalSubtitle2 ? interpolate(goalSubtitle2, actualPct, val, goalAmount) : '';
+    barTextTextEl.textContent = interpolate(goalBarText, actualPct, val, goalAmount);
+    sub1TextEl.textContent = interpolate(goalSubtitle1, actualPct, val, goalAmount);
+    sub2TextEl.textContent = goalSubtitle2 ? interpolate(goalSubtitle2, actualPct, val, goalAmount) : '';
   }
 
   let lastTextTs = 0;
@@ -125,7 +129,7 @@
 
     goalCurrent = current;
 
-    labelEl.textContent = goalLabel;
+    labelTextEl.textContent = goalLabel;
     sub1El.className = goalSubtitle2 ? '' : 'centered';
 
     if (isFirstUpdate) {

@@ -27,10 +27,25 @@ body {
   overflow: hidden;
 }
 
-#goalLabel  { color: var(--goal-color-label, #ffffff); font-size: calc(var(--goal-font-label, 30) * 1px); filter: var(--goal-filter-label, url(#goal-outline-label) drop-shadow(0 2px 5px rgba(0,0,0,0.75))); letter-spacing: 0.08em; }
-#goalBarText{ color: var(--goal-color-bar, #ffffff);   font-size: calc(var(--goal-font-bar, 25) * 1px);   filter: var(--goal-filter-bar, url(#goal-outline-bar) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));   letter-spacing: 0.08em; }
-#goalSub1   { color: var(--goal-color-sub1, #ffffff);  font-size: calc(var(--goal-font-sub1, 20) * 1px);  filter: var(--goal-filter-sub1, url(#goal-outline-sub1) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
-#goalSub2   { color: var(--goal-color-sub2, #ffffff);  font-size: calc(var(--goal-font-sub2, 20) * 1px);  filter: var(--goal-filter-sub2, url(#goal-outline-sub2) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
+#goalLabel  { font-size: calc(var(--goal-font-label, 30) * 1px); filter: var(--goal-filter-label, url(#goal-outline-label) drop-shadow(0 2px 5px rgba(0,0,0,0.75))); letter-spacing: 0.08em; }
+#goalBarText{ font-size: calc(var(--goal-font-bar, 25) * 1px);   filter: var(--goal-filter-bar, url(#goal-outline-bar) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));   letter-spacing: 0.08em; }
+#goalSub1   { font-size: calc(var(--goal-font-sub1, 20) * 1px);  filter: var(--goal-filter-sub1, url(#goal-outline-sub1) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
+#goalSub2   { font-size: calc(var(--goal-font-sub2, 20) * 1px);  filter: var(--goal-filter-sub2, url(#goal-outline-sub2) drop-shadow(0 2px 5px rgba(0,0,0,0.75)));  letter-spacing: 0.08em; }
+
+/* สี text — gradient-text shine (เหมือน .highlight-suffix/.lb-var-* — filter อยู่ที่ container ข้างบน กัน SVG outline ชน background-clip ตาม Lesson #8) */
+.goal-grad-label,
+.goal-grad-bar,
+.goal-grad-sub1,
+.goal-grad-sub2 {
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.goal-grad-label { background-image: linear-gradient(90deg, var(--goal-color-label, #ffffff) 0%, #ffffff 50%, var(--goal-color-label, #ffffff) 100%); }
+.goal-grad-bar   { background-image: linear-gradient(90deg, var(--goal-color-bar, #ffffff) 0%, #ffffff 50%, var(--goal-color-bar, #ffffff) 100%); }
+.goal-grad-sub1  { background-image: linear-gradient(90deg, var(--goal-color-sub1, #ffffff) 0%, #ffffff 50%, var(--goal-color-sub1, #ffffff) 100%); }
+.goal-grad-sub2  { background-image: linear-gradient(90deg, var(--goal-color-sub2, #ffffff) 0%, #ffffff 50%, var(--goal-color-sub2, #ffffff) 100%); }
 
 /* ── Position bottom — wrapper anchored to bottom of viewport ── */
 #goalBarWrapper.position-bottom {
