@@ -185,6 +185,8 @@ const defaultSettings = {
     bg_enabled: 0, bg_color: '#000000', bg_opacity: 20,
     border_enabled: 0, border_color: '#a855f7', border_opacity: 80,
     row_bg_enabled: 1, row_border_enabled: 1,
+    row_bg_color: '#ffffff', row_bg_opacity: 6,
+    row_border_color: '#ffffff',
     font_size_title: 28, font_size_row: 26, font_size_medal: 28,
     outline_width: 2, outline_color: '#000000',
     color_rank: '#ffbb00', color_donor: '#fbff24', color_amount: '#18cc00',

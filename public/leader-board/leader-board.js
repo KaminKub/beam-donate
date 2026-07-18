@@ -92,14 +92,16 @@
     root.setProperty('--lb-title-filter', [outlineFn, 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))'].filter(Boolean).join(' '));
     root.setProperty('--lb-row-filter', outlineFn || 'none');
 
-    // Row background ("เปิดสีพื้นหลังชื่อ") — LB: on/off เท่านั้น สีคงที่เดิม
+    // Row background ("เปิดสีพื้นหลังชื่อ") — สี/ความโปร่งใสผูก user config; ไฮไลต์ทองอันดับ 1 คงที่ แยกจาก toggle นี้
     const rowBgOn = cfg.row_bg_enabled !== false && cfg.row_bg_enabled !== 0;
-    root.setProperty('--lb-row-bg', rowBgOn ? 'rgba(255, 255, 255, 0.06)' : 'transparent');
+    const rowBgAlpha = rowBgOn ? (typeof cfg.row_bg_opacity === 'number' ? cfg.row_bg_opacity : 6) / 100 : 0;
+    root.setProperty('--lb-row-bg', rowBgOn ? hexToRgba(cfg.row_bg_color || '#ffffff', rowBgAlpha) : 'transparent');
     root.setProperty('--lb-row-gold-bg', rowBgOn ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.18), rgba(255, 255, 255, 0.04))' : 'transparent');
 
-    // Row border ("เปิดกรอบชื่อ") — on/off เท่านั้น แยกจากกรอบ #lbWrapper (border_enabled ด้านบน) โดยสิ้นเชิง
+    // Row border ("เปิดกรอบชื่อ") — แยกจากกรอบ #lbWrapper (border_enabled ด้านบน) โดยสิ้นเชิง
     const rowBorderOn = cfg.row_border_enabled !== false && cfg.row_border_enabled !== 0;
     wrapper.classList.toggle('lb-row-border-off', !rowBorderOn);
+    root.setProperty('--lb-row-border-color', cfg.row_border_color || '#ffffff');
 
     // Colors per variable
     root.setProperty('--lb-color-rank', cfg.color_rank || '#ffd700');

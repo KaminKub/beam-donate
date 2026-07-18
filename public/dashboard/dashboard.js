@@ -293,6 +293,96 @@ async function sendDemoGoalUpdate() {
 async function initializeDashboard() {
   console.log('🚀 Starting initializeDashboard...');
   try {
+    // ponytail: Widget shortcut intro — ไล่ highlight ทีละปุ่ม วน 3 รอบ, สีตาม semantic ของแต่ละ widget
+    // ย้ายมาก่อน DEMO_MODE branch เพื่อให้รันทั้ง demo + real mode (เดิมอยู่หลัง `if (DEMO_MODE) return;` เลยไม่เคยรันใน demo)
+    const SHORTCUT_INTRO_COLORS = {
+      alert: '#f59e0b', goal: '#4ade80', timer: '#fbbf24',
+      leaderboard: '#a855f7', recentdonate: '#06b6d4', topdonor: '#6366f1'
+    };
+    function shortcutHexToRgba(hex, a) {
+      const h = hex.replace('#', '');
+      const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+    function playWidgetShortcutIntro() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const dest = document.getElementById('widgetShortcutToggle');
+      if (!dest) return;
+      const btns = Array.from(dest.querySelectorAll('button.subtab-btn[data-widget-subtab]'));
+      if (!btns.length) return;
+      // 1→5 ครั้งเดียว = [0,1,2,3,4] = 5 สเต็ป; STEP 300ms → รวม 1.5s
+      const seq = [];
+      for (let i = 0; i < btns.length; i++) seq.push(i);
+      const STEP = 300;
+      let p = 0;
+      (function step() {
+        if (p >= seq.length) return;
+        const btn = btns[seq[p]];
+        const c = SHORTCUT_INTRO_COLORS[btn.getAttribute('data-widget-subtab')] || '#fbbf24';
+        btn.style.setProperty('--intro-color', c);
+        btn.style.setProperty('--intro-bg', shortcutHexToRgba(c, 0.14));
+        btn.style.setProperty('--intro-glow', shortcutHexToRgba(c, 0.6));
+        btn.classList.add('shortcut-intro');
+        setTimeout(() => btn.classList.remove('shortcut-intro'), STEP - 10);
+        p++;
+        setTimeout(step, STEP);
+      })();
+    }
+
+    // ponytail: Widget shortcut card (OBS Setup Card repurposed) — clone ปุ่มจาก #widgetSubtabToggle
+    // ไป #widgetShortcutToggle (ก๊อปปี้ ไม่ย้าย) เพื่อหลีก ID ซ้ำ; กดแล้วพาไป tab overlay-config + สลับ subtab.
+    // รองรับปุ่มอนาคต: อ่านจาก data-widget-subtab ของปุ่มต้นฉบับ ใครมี attr นี้ถูก clone หมด
+    const srcToggle = document.getElementById('widgetSubtabToggle');
+    const destToggle = document.getElementById('widgetShortcutToggle');
+    if (srcToggle && destToggle) {
+      srcToggle.querySelectorAll('button.subtab-btn[data-widget-subtab]').forEach((srcBtn) => {
+        const key = srcBtn.getAttribute('data-widget-subtab');
+        if (!key) return;
+        const clone = srcBtn.cloneNode(true);
+        clone.id = `widgetShortcut-${key}`;
+        clone.classList.remove('active'); // ปุ่มลัด = navigate-only, ไม่โชว์ active state
+        clone.setAttribute('title', `ไปตั้งค่า${srcBtn.textContent.trim()}`);
+        clone.addEventListener('click', () => {
+          switchTab('overlay-config');
+          // คลิกปุ่มต้นฉบับเพื่อ reuse switchWidgetSubtab/demoSwitchSubtab (active + preview + load) ทั้งหมด
+          const target = srcToggle.querySelector(`button.subtab-btn[data-widget-subtab="${key}"]`);
+          if (target) target.click();
+        });
+        destToggle.appendChild(clone);
+      });
+
+      // [Requirement #9] ปุ่มที่ 6 — ไม่ได้ clone จาก widget subtab, สร้างเองเพราะพาไปคนละหน้า (tab-transactions ไม่ใช่ tab-overlay-config)
+      // [UI Fix] แยกชั้นเป็นแถวของตัวเอง + label กันสับสนว่าเป็นวิดเจ็ตแบบเดียวกับปุ่มอื่น
+      const topdonorGroup = document.createElement('div');
+      topdonorGroup.className = 'widget-shortcut-topdonor-group';
+
+      const topdonorLabel = document.createElement('span');
+      topdonorLabel.className = 'widget-shortcut-topdonor-label';
+      topdonorLabel.innerHTML = '<i class="fa-solid fa-grip-lines"></i> ประวัติสะสม';
+
+      const topdonorBtn = document.createElement('button');
+      topdonorBtn.type = 'button';
+      topdonorBtn.id = 'widgetShortcut-topdonor';
+      topdonorBtn.className = 'subtab-btn subtab-btn--topdonor';
+      topdonorBtn.setAttribute('data-widget-subtab', 'topdonor');
+      topdonorBtn.setAttribute('title', 'ไปหน้าประวัติผู้โดเนทสูงสุด');
+      topdonorBtn.innerHTML = '<i class="fa-solid fa-ranking-star"></i> ประวัติผู้โดเนทสูงสุด';
+      topdonorBtn.addEventListener('click', () => {
+        switchTab('transactions');
+        const btn = document.getElementById('btnTxSubviewTopdonor');
+        if (btn) btn.click();
+      });
+
+      topdonorGroup.appendChild(topdonorLabel);
+      topdonorGroup.appendChild(topdonorBtn);
+      destToggle.appendChild(topdonorGroup);
+
+      // เล่น intro animation ทุกครั้งที่เข้า dashboard (perf: async + composite-only, ไม่ block load)
+      // debug: window.playWidgetShortcutIntro() เพื่อเล่นซ้ำ
+      window.playWidgetShortcutIntro = playWidgetShortcutIntro;
+      setTimeout(playWidgetShortcutIntro, 400);
+    }
+
     if (DEMO_MODE) {
       // Tab switching + mobile menu (normally set up later in normal flow)
       const wrapper = document.querySelector('.admin-wrapper');
@@ -1021,95 +1111,6 @@ async function initializeDashboard() {
     if (btnSubtabTimer) btnSubtabTimer.addEventListener('click', () => switchWidgetSubtab('timer'));
     if (btnSubtabLeaderboard) btnSubtabLeaderboard.addEventListener('click', () => switchWidgetSubtab('leaderboard'));
     if (btnSubtabRecentdonate) btnSubtabRecentdonate.addEventListener('click', () => switchWidgetSubtab('recentdonate'));
-
-    // ponytail: Widget shortcut intro — ไล่ highlight ทีละปุ่ม วน 3 รอบ, สีตาม semantic ของแต่ละ widget
-    const SHORTCUT_INTRO_COLORS = {
-      alert: '#f59e0b', goal: '#4ade80', timer: '#fbbf24',
-      leaderboard: '#a855f7', recentdonate: '#06b6d4', topdonor: '#6366f1'
-    };
-    function shortcutHexToRgba(hex, a) {
-      const h = hex.replace('#', '');
-      const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
-      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-    }
-    function playWidgetShortcutIntro() {
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      const dest = document.getElementById('widgetShortcutToggle');
-      if (!dest) return;
-      const btns = Array.from(dest.querySelectorAll('button.subtab-btn[data-widget-subtab]'));
-      if (!btns.length) return;
-      // 1→5 ครั้งเดียว = [0,1,2,3,4] = 5 สเต็ป; STEP 300ms → รวม 1.5s
-      const seq = [];
-      for (let i = 0; i < btns.length; i++) seq.push(i);
-      const STEP = 300;
-      let p = 0;
-      (function step() {
-        if (p >= seq.length) return;
-        const btn = btns[seq[p]];
-        const c = SHORTCUT_INTRO_COLORS[btn.getAttribute('data-widget-subtab')] || '#fbbf24';
-        btn.style.setProperty('--intro-color', c);
-        btn.style.setProperty('--intro-bg', shortcutHexToRgba(c, 0.14));
-        btn.style.setProperty('--intro-glow', shortcutHexToRgba(c, 0.6));
-        btn.classList.add('shortcut-intro');
-        setTimeout(() => btn.classList.remove('shortcut-intro'), STEP - 10);
-        p++;
-        setTimeout(step, STEP);
-      })();
-    }
-
-    // ponytail: Widget shortcut card (OBS Setup Card repurposed) — clone ปุ่มจาก #widgetSubtabToggle
-    // ไป #widgetShortcutToggle (ก๊อปปี้ ไม่ย้าย) เพื่อหลีก ID ซ้ำ; กดแล้วพาไป tab overlay-config + สลับ subtab.
-    // รองรับปุ่มอนาคต: อ่านจาก data-widget-subtab ของปุ่มต้นฉบับ ใครมี attr นี้ถูก clone หมด
-    const srcToggle = document.getElementById('widgetSubtabToggle');
-    const destToggle = document.getElementById('widgetShortcutToggle');
-    if (srcToggle && destToggle) {
-      srcToggle.querySelectorAll('button.subtab-btn[data-widget-subtab]').forEach((srcBtn) => {
-        const key = srcBtn.getAttribute('data-widget-subtab');
-        if (!key) return;
-        const clone = srcBtn.cloneNode(true);
-        clone.id = `widgetShortcut-${key}`;
-        clone.classList.remove('active'); // ปุ่มลัด = navigate-only, ไม่โชว์ active state
-        clone.setAttribute('title', `ไปตั้งค่า${srcBtn.textContent.trim()}`);
-        clone.addEventListener('click', () => {
-          switchTab('overlay-config');
-          // คลิกปุ่มต้นฉบับเพื่อ reuse switchWidgetSubtab (active + preview + load) ทั้งหมด
-          const target = srcToggle.querySelector(`button.subtab-btn[data-widget-subtab="${key}"]`);
-          if (target) target.click();
-        });
-        destToggle.appendChild(clone);
-      });
-
-      // [Requirement #9] ปุ่มที่ 6 — ไม่ได้ clone จาก widget subtab, สร้างเองเพราะพาไปคนละหน้า (tab-transactions ไม่ใช่ tab-overlay-config)
-      // [UI Fix] แยกชั้นเป็นแถวของตัวเอง + label กันสับสนว่าเป็นวิดเจ็ตแบบเดียวกับปุ่มอื่น
-      const topdonorGroup = document.createElement('div');
-      topdonorGroup.className = 'widget-shortcut-topdonor-group';
-
-      const topdonorLabel = document.createElement('span');
-      topdonorLabel.className = 'widget-shortcut-topdonor-label';
-      topdonorLabel.innerHTML = '<i class="fa-solid fa-grip-lines"></i> ประวัติสะสม';
-
-      const topdonorBtn = document.createElement('button');
-      topdonorBtn.type = 'button';
-      topdonorBtn.id = 'widgetShortcut-topdonor';
-      topdonorBtn.className = 'subtab-btn subtab-btn--topdonor';
-      topdonorBtn.setAttribute('data-widget-subtab', 'topdonor');
-      topdonorBtn.setAttribute('title', 'ไปหน้าประวัติผู้โดเนทสูงสุด');
-      topdonorBtn.innerHTML = '<i class="fa-solid fa-ranking-star"></i> ประวัติผู้โดเนทสูงสุด';
-      topdonorBtn.addEventListener('click', () => {
-        switchTab('transactions');
-        const btn = document.getElementById('btnTxSubviewTopdonor');
-        if (btn) btn.click();
-      });
-
-      topdonorGroup.appendChild(topdonorLabel);
-      topdonorGroup.appendChild(topdonorBtn);
-      destToggle.appendChild(topdonorGroup);
-
-      // เล่น intro animation ทุกครั้งที่เข้า dashboard (perf: async + composite-only, ไม่ block load)
-      // debug: window.playWidgetShortcutIntro() เพื่อเล่นซ้ำ
-      window.playWidgetShortcutIntro = playWidgetShortcutIntro;
-      setTimeout(playWidgetShortcutIntro, 400);
-    }
 
     // Goal color picker <-> hex text sync
     const goalColorPicker = document.getElementById('inputGoalBarColor');
@@ -2253,6 +2254,7 @@ async function loadDemoTransactions() {
       calculateStats(txs);
       renderRecentTransactions(txs);
       renderFullTransactions(txs);
+      syncDemoTopDonor();
       return;
     }
   } catch (e) {
@@ -2263,6 +2265,17 @@ async function loadDemoTransactions() {
   calculateStats(DEMO_TRANSACTIONS);
   renderRecentTransactions(DEMO_TRANSACTIONS);
   renderFullTransactions(DEMO_TRANSACTIONS);
+  syncDemoTopDonor();
+}
+
+// txSubviewTopdonor cache invalidate ทุกครั้งที่ allTransactions รีเฟรช (loadDemoTransactions ถูกเรียกทุกครั้งที่เข้า tab dashboard/transactions)
+// กัน topdonor ค้างข้อมูลเก่าไม่ตรงกับ txSubviewHistory หลังมี transaction ใหม่ (เช่น กด Quick Test Alert)
+function syncDemoTopDonor() {
+  if (!DEMO_MODE) return;
+  leaderboardAlltimeCache = null;
+  if (document.getElementById('txSubviewTopdonor')?.style.display !== 'none') {
+    fetchLeaderboardAlltime();
+  }
 }
 
 function applyDemoRestrictions() {
@@ -5766,13 +5779,27 @@ async function loadLeaderboardSettings() {
     if (borderOpacityEl) { borderOpacityEl.value = c.border_opacity ?? 100; borderOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
     toggleGroup('leaderboardBorderGroup', borderOn);
 
-    // เปิดสีพื้นหลังชื่อ (Leader Board = on/off เท่านั้น)
+    // เปิดสีพื้นหลังชื่อ
+    const rowBgOn = c.row_bg_enabled !== false && c.row_bg_enabled !== 0;
     const chkRowBg = document.getElementById('chkLeaderboardRowBgEnabled');
-    if (chkRowBg) chkRowBg.checked = c.row_bg_enabled !== false && c.row_bg_enabled !== 0;
+    if (chkRowBg) chkRowBg.checked = rowBgOn;
+    const rowBgColorEl = document.getElementById('inputLeaderboardRowBgColor');
+    const rowBgColorTxt = document.getElementById('txtLeaderboardRowBgColor');
+    if (rowBgColorEl) rowBgColorEl.value = c.row_bg_color || '#ffffff';
+    if (rowBgColorTxt) rowBgColorTxt.value = c.row_bg_color || '#ffffff';
+    const rowBgOpacityEl = document.getElementById('selectLeaderboardRowBgOpacity');
+    if (rowBgOpacityEl) { rowBgOpacityEl.value = c.row_bg_opacity ?? 6; rowBgOpacityEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    toggleGroup('leaderboardRowBgGroup', rowBgOn);
 
-    // เปิดกรอบชื่อ (Leader Board = on/off เท่านั้น แยกจากกรอบ #lbWrapper ด้านบน)
+    // เปิดกรอบชื่อ (แยกจากกรอบ #lbWrapper ด้านบน)
+    const rowBorderOn = c.row_border_enabled !== false && c.row_border_enabled !== 0;
     const chkRowBorder = document.getElementById('chkLeaderboardRowBorderEnabled');
-    if (chkRowBorder) chkRowBorder.checked = c.row_border_enabled !== false && c.row_border_enabled !== 0;
+    if (chkRowBorder) chkRowBorder.checked = rowBorderOn;
+    const rowBorderColorEl = document.getElementById('inputLeaderboardRowBorderColor');
+    const rowBorderColorTxt = document.getElementById('txtLeaderboardRowBorderColor');
+    if (rowBorderColorEl) rowBorderColorEl.value = c.row_border_color || '#ffffff';
+    if (rowBorderColorTxt) rowBorderColorTxt.value = c.row_border_color || '#ffffff';
+    toggleGroup('leaderboardRowBorderGroup', rowBorderOn);
 
     const titleEl = document.getElementById('inputLeaderboardTitle');
     if (titleEl) titleEl.value = c.title || '🏆 อันดับผู้โดเนท';
@@ -5847,7 +5874,10 @@ async function saveLeaderboardSettings() {
     border_color: document.getElementById('inputLeaderboardBorderColor')?.value || '#a855f7',
     border_opacity: intOrDefault(document.getElementById('selectLeaderboardBorderOpacity')?.value, 100),
     row_bg_enabled: document.getElementById('chkLeaderboardRowBgEnabled')?.checked ? 1 : 0,
+    row_bg_color: document.getElementById('inputLeaderboardRowBgColor')?.value || '#ffffff',
+    row_bg_opacity: intOrDefault(document.getElementById('selectLeaderboardRowBgOpacity')?.value, 6),
     row_border_enabled: document.getElementById('chkLeaderboardRowBorderEnabled')?.checked ? 1 : 0,
+    row_border_color: document.getElementById('inputLeaderboardRowBorderColor')?.value || '#ffffff',
     title: document.getElementById('inputLeaderboardTitle')?.value || '🏆 อันดับผู้โดเนท',
     currency: document.getElementById('inputLeaderboardCurrency')?.value || 'บาท',
     font_size_title: parseInt(document.getElementById('selectLeaderboardFontSizeTitle')?.value) || 22,
@@ -5919,6 +5949,8 @@ function initLeaderboardSettingsUI() {
   const colorGroups = [
     ['inputLeaderboardBgColor', 'txtLeaderboardBgColor'],
     ['inputLeaderboardBorderColor', 'txtLeaderboardBorderColor'],
+    ['inputLeaderboardRowBgColor', 'txtLeaderboardRowBgColor'],
+    ['inputLeaderboardRowBorderColor', 'txtLeaderboardRowBorderColor'],
     ['inputLeaderboardOutlineColor', 'txtLeaderboardOutlineColor'],
     ['inputLeaderboardColorText', 'txtLeaderboardColorText'],
     ['inputLeaderboardColorRank', 'txtLeaderboardColorRank'],
@@ -5975,6 +6007,10 @@ function initLeaderboardSettingsUI() {
   if (chkBg) chkBg.addEventListener('change', () => toggleGroup('leaderboardBgGroup', chkBg.checked));
   const chkBorder = document.getElementById('chkLeaderboardBorderEnabled');
   if (chkBorder) chkBorder.addEventListener('change', () => toggleGroup('leaderboardBorderGroup', chkBorder.checked));
+  const chkRowBg = document.getElementById('chkLeaderboardRowBgEnabled');
+  if (chkRowBg) chkRowBg.addEventListener('change', () => toggleGroup('leaderboardRowBgGroup', chkRowBg.checked));
+  const chkRowBorder = document.getElementById('chkLeaderboardRowBorderEnabled');
+  if (chkRowBorder) chkRowBorder.addEventListener('change', () => toggleGroup('leaderboardRowBorderGroup', chkRowBorder.checked));
 
   const periodEl = document.getElementById('selectLeaderboardPeriodMode');
   if (periodEl) periodEl.addEventListener('change', () => toggleGroup('leaderboardPeriodCustomGroup', periodEl.value === 'custom'));
