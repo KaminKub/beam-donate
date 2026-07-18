@@ -2131,6 +2131,19 @@ app.post('/api/admin/badges', adminMonitorLimiter, ensureAdmin, csrfProtection, 
   }
 });
 
+// Serve minified dashboard assets when a built .min sibling exists (prod, `npm run build`).
+// Dev has no .min files → falls through to source, so live edits still show up on refresh.
+const MIN_MAP = {};
+for (const p of ['/dashboard/dashboard.js', '/dashboard/admin.css']) {
+  const minPath = p.replace(/\.(js|css)$/, '.min.$1');
+  if (fs.existsSync(path.join(__dirname, '../public', minPath))) MIN_MAP[p] = minPath;
+}
+app.use((req, res, next) => {
+  const min = MIN_MAP[req.path];
+  if (min) req.url = min + req.url.slice(req.path.length); // keep original ?v= query
+  next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API: สร้าง Donation (Payment Link)

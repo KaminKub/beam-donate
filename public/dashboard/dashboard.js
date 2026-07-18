@@ -6505,15 +6505,6 @@ async function saveOverlaySettings() {
 }
 
 
-function updateOverlayPreview(settings) {
-  const iframe = document.getElementById('overlayPreviewIframe');
-  if (!iframe) return;
-
-  // Pass settings via URL fragment to avoid page reload or use postMessage
-  const params = new URLSearchParams(settings).toString();
-  iframe.src = `/overlay?preview=${encodeURIComponent(params)}`;
-}
-
 // ========== Page Customization Logic ==========
 async function loadPageSettings() {
   showTabLoading('page-customization');
@@ -6681,33 +6672,6 @@ function updatePagePreview() {
   if (iframe) {
     iframe.src = iframe.src;
   }
-}
-
-// ========== Helpers ==========
-function hexToRgbA(hex, alpha = 1) {
-  let c;
-  if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-    c = hex.substring(1).split('');
-    if (c.length === 3) {
-      c = [c[0], c[0], c[1], c[1], c[2], c[2]];
-    }
-    c = '0x' + c.join('');
-    return `rgba(${[(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',')},${alpha})`;
-  }
-  return hex;
-}
-
-function parseRgba(rgba) {
-  if (!rgba || !rgba.startsWith('rgba')) return { hex: '#ffffff', alpha: 1 };
-  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-  if (!match) return { hex: '#ffffff', alpha: 1 };
-  
-  const r = parseInt(match[1]).toString(16).padStart(2, '0');
-  const g = parseInt(match[2]).toString(16).padStart(2, '0');
-  const b = parseInt(match[3]).toString(16).padStart(2, '0');
-  const a = match[4] ? parseFloat(match[4]) : 1;
-  
-  return { hex: `#${r}${g}${b}`, alpha: a };
 }
 
 // ========== Helpers ==========
@@ -7243,11 +7207,6 @@ function closeSettingsPanel(panelId) {
     panel.style.display = 'none';
     panel.classList.remove('panel-closing');
   }, 300);
-}
-
-function updateSettingsPanels() {
-  // ฟังก์ชันนี้ไม่ใช้แล้ว เพราะใช้ independent toggle แทน
-  // เก็บไว้เพื่อ backward compatibility
 }
 
 function updateSaveButton() {
