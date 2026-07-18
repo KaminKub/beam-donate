@@ -1090,6 +1090,48 @@
                     </div>
                     <div class="card-body-panel" id="panelTextCustom">
 
+                     <h5 class="section-divider">ข้อความแจ้งเตือน (Alert Text Template)</h5>
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputTemplateLine1"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความบรรทัด 1 (Template Line 1)</label>
+                        <input type="text" id="inputTemplateLine1" name="templateLine1" class="form-control" placeholder="{ผู้โดเนท} ได้บริจาค" value="{ผู้โดเนท} ได้บริจาค">
+                      </div>
+                      <div class="form-group full-width">
+                        <label for="inputTemplateLine2"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความบรรทัด 2 (Template Line 2)</label>
+                        <input type="text" id="inputTemplateLine2" name="templateLine2" class="form-control" placeholder="{จำนวนเงิน} {สกุลเงิน} 🎉" value="{จำนวนเงิน} {สกุลเงิน} 🎉">
+                        <div class="template-vars-hint">
+                          <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
+                          <code class="template-var-tag">{ผู้โดเนท}</code>
+                          <code class="template-var-tag">{จำนวนเงิน}</code>
+                          <code class="template-var-tag">{สกุลเงิน}</code>
+                          <span class="template-vars-note">ใน บรรทัด 1–2 (บรรทัด 2 เว้นว่างได้)</span>
+                        </div>
+                      </div>
+                      <div class="form-group full-width">
+                        <label for="inputAmountSuffix"><i class="fa-solid fa-tag" style="color:#ec4899;"></i> ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
+                        <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
+                      </div>
+                    </div>
+                      <div class="form-row flex-align-center">
+                        <div class="form-group">
+                          <div class="switch-group">
+                            <label class="switch">
+                              <input type="checkbox" id="chkShowDonorMessage" name="showDonorMessage" checked>
+                              <span class="slider-switch"></span>
+                            </label>
+                            <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
+                          </div>
+                        </div>
+                      </div>
+
+                    <div class="form-row">
+                      <div class="form-group full-width">
+                        <label for="inputMinAmount"><i class="fa-solid fa-filter-circle-dollar" style="color:#f59e0b;"></i> จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
+                        <input type="number" id="inputMinAmount" name="minAmount" class="form-control" min="1" value="1">
+                        <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
+                      </div>
+                    </div>
+
                      <!-- Theme-specific color overrides -->
                      <div class="custom-colors-container" id="customColorsContainer" data-theme="glassmorphism">
                        <h5 class="section-divider">ปรับแต่งสีของธีม (Theme Colors)</h5>
@@ -1195,47 +1237,6 @@
                        </div>
                      </div>
 
-                     <h5 class="section-divider">ข้อความแจ้งเตือน (Alert Text Template)</h5>
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="inputTemplateLine1"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความบรรทัด 1 (Template Line 1)</label>
-                        <input type="text" id="inputTemplateLine1" name="templateLine1" class="form-control" placeholder="{ผู้โดเนท} ได้บริจาค" value="{ผู้โดเนท} ได้บริจาค">
-                      </div>
-                      <div class="form-group full-width">
-                        <label for="inputTemplateLine2"><i class="fa-solid fa-align-left" style="color:#3b82f6;"></i> ข้อความบรรทัด 2 (Template Line 2)</label>
-                        <input type="text" id="inputTemplateLine2" name="templateLine2" class="form-control" placeholder="{จำนวนเงิน} {สกุลเงิน} 🎉" value="{จำนวนเงิน} {สกุลเงิน} 🎉">
-                        <div class="template-vars-hint">
-                          <span class="template-vars-label">ตัวแปรที่ใช้ได้:</span>
-                          <code class="template-var-tag">{ผู้โดเนท}</code>
-                          <code class="template-var-tag">{จำนวนเงิน}</code>
-                          <code class="template-var-tag">{สกุลเงิน}</code>
-                          <span class="template-vars-note">ใน บรรทัด 1–2 (บรรทัด 2 เว้นว่างได้)</span>
-                        </div>
-                      </div>
-                      <div class="form-group full-width">
-                        <label for="inputAmountSuffix"><i class="fa-solid fa-tag" style="color:#ec4899;"></i> ระบุสกุลเงิน หรือข้อความต่อท้ายจำนวนเงิน</label>
-                        <input type="text" id="inputAmountSuffix" name="amountSuffix" class="form-control" placeholder="เช่น บาท, USD, Points" value="บาท">
-                      </div>
-                    </div>
-                      <div class="form-row flex-align-center">
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkShowDonorMessage" name="showDonorMessage" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label">แสดงข้อความแนบของผู้บริจาคด้านล่างตัวเลข</span>
-                          </div>
-                        </div>
-                      </div>
-
-                    <div class="form-row">
-                      <div class="form-group full-width">
-                        <label for="inputMinAmount"><i class="fa-solid fa-filter-circle-dollar" style="color:#f59e0b;"></i> จำนวนเงินขั้นต่ำที่จะให้แจ้งเตือนบนจอ (บาท)</label>
-                        <input type="number" id="inputMinAmount" name="minAmount" class="form-control" min="1" value="1">
-                        <small class="form-hint">ยอดบริจาคที่ต่ำกว่านี้จะบันทึกเข้าระบบ แต่จะไม่โชว์กล่องเตือนบนจอไลฟ์สด</small>
-                      </div>
-                    </div>
                     </div><!-- /card-body-panel panelTextCustom -->
                   </div>
 
