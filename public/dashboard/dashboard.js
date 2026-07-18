@@ -1133,6 +1133,15 @@ async function initializeDashboard() {
       });
     }
 
+    // Goal bar thickness range slider sync
+    const thicknessRangeEl = document.getElementById('inputGoalBarThickness');
+    const thicknessTxtEl = document.getElementById('txtGoalBarThickness');
+    if (thicknessRangeEl && thicknessTxtEl) {
+      thicknessRangeEl.addEventListener('input', () => {
+        thicknessTxtEl.textContent = thicknessRangeEl.value + 'px';
+      });
+    }
+
     // Goal bar layout -> width label sync
     const goalLayoutSelectEl = document.getElementById('selectGoalBarLayout');
     if (goalLayoutSelectEl) { goalLayoutSelectEl.addEventListener('change', syncGoalWidthLabel); }
@@ -1215,6 +1224,7 @@ async function initializeDashboard() {
           goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? '',
           goal_end_date: endDateVal,
           goal_bar_width: document.getElementById('inputGoalBarWidth').value || '600',
+          goal_bar_thickness: document.getElementById('inputGoalBarThickness').value || '45',
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
           method: 'POST',
@@ -1505,25 +1515,62 @@ function normalizeGoalBarWidth(raw) {
   return (val >= 300 && val <= 1080) ? String(val) : '600';
 }
 
+// Normalize goal_bar_thickness to the valid px range [20, 140]; fallback 45.
+function normalizeGoalBarThickness(raw) {
+  const val = parseInt(raw, 10);
+  return (val >= 20 && val <= 140) ? String(val) : '45';
+}
+
 function syncGoalWidthLabel() {
   const lbl = document.getElementById('lblGoalBarWidth');
   const layout = document.getElementById('selectGoalBarLayout');
-  if (lbl && layout) lbl.textContent = layout.value === 'vertical' ? 'ความสูงหลอด (px)' : 'ความยาวหลอดสูงสุด (px)';
+  const isVertical = layout && layout.value === 'vertical';
+  if (lbl && layout) lbl.textContent = isVertical ? 'ความสูงหลอด (px)' : 'ความยาวหลอดสูงสุด (px)';
+
+  const rec = document.getElementById('goalPreviewRecommendationText');
+  if (rec) rec.textContent = isVertical
+    ? 'แนะนำ: ขนาด 360×800px, background transparent'
+    : 'แนะนำ: ขนาด 600×350px, background transparent';
 }
 
 // Widget enable-collapse: hide all related settings when toggle is off
 const widgetVisibilityUpdaters = {};
 
+// animate=false ใช้ตอน init/โหลดข้อมูล (ไม่อยากให้กระพริบตอนเปิดหน้า/สลับ demo)
+// animate=true ใช้ตอน user คลิก toggle เองเท่านั้น (change event จริง)
+function applyWidgetVisibility(bodies, show, animate) {
+  bodies.forEach(b => {
+    b.classList.remove('panel-opening', 'panel-closing');
+    if (show) {
+      b.classList.remove('widget-body-hidden');
+      if (animate) {
+        b.classList.add('panel-opening');
+        setTimeout(() => b.classList.remove('panel-opening'), 400);
+      }
+    } else if (animate) {
+      b.classList.add('panel-closing');
+      setTimeout(() => {
+        // guard: ถ้า user เปิดกลับมาก่อน timeout นี้ทำงาน (สลับเร็ว) panel-closing
+        // จะถูกลบไปแล้วโดย call ใหม่ด้านบน — ห้ามซ่อนซ้ำทับสถานะที่เพิ่งเปิด
+        if (b.classList.contains('panel-closing')) {
+          b.classList.remove('panel-closing');
+          b.classList.add('widget-body-hidden');
+        }
+      }, 300);
+    } else {
+      b.classList.add('widget-body-hidden');
+    }
+  });
+}
+
 function registerWidgetVisibility(toggleId, bodySelector) {
   const toggle = document.getElementById(toggleId);
   const bodies = document.querySelectorAll(bodySelector);
   if (!toggle || !bodies.length) return;
-  const update = () => {
-    bodies.forEach(b => b.classList.toggle('widget-body-hidden', !toggle.checked));
-  };
-  toggle.addEventListener('change', update);
+  const update = (animate) => applyWidgetVisibility(bodies, toggle.checked, animate === true);
+  toggle.addEventListener('change', () => update(true));
   widgetVisibilityUpdaters[toggleId] = update;
-  update();
+  update(false);
 }
 
 function updateWidgetBodyVisibility(toggleId) {
@@ -1572,6 +1619,11 @@ function loadDemoGoalSettingsFromData(data) {
   if (widthEl) {
     widthEl.value = normalizeGoalBarWidth(data.goal_bar_width);
     widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  const thicknessEl = document.getElementById('inputGoalBarThickness');
+  if (thicknessEl) {
+    thicknessEl.value = normalizeGoalBarThickness(data.goal_bar_thickness);
+    thicknessEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
   const barTextEl = document.getElementById('inputGoalBarText');
   if (barTextEl) barTextEl.value = data.goal_bar_text !== undefined ? data.goal_bar_text : '{เปอร์เซนต์}';
@@ -4712,6 +4764,12 @@ async function loadGoalSettings() {
     if (widthEl) {
       widthEl.value = normalizeGoalBarWidth(data.goal_bar_width);
       widthEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    const thicknessEl = document.getElementById('inputGoalBarThickness');
+    if (thicknessEl) {
+      thicknessEl.value = normalizeGoalBarThickness(data.goal_bar_thickness);
+      thicknessEl.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     const barTextEl = document.getElementById('inputGoalBarText');

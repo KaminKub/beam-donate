@@ -170,6 +170,9 @@
       const raw = parseInt(data.goal_bar_width, 10);
       const barMaxWidth = (raw >= 300 && raw <= 1080) ? raw : 600;
       wrapper.style.setProperty('--bar-max-width', barMaxWidth + 'px');
+      const rawThickness = parseInt(data.goal_bar_thickness, 10);
+      const barThickness = (rawThickness >= 20 && rawThickness <= 140) ? rawThickness : 45;
+      wrapper.style.setProperty('--bar-thickness', barThickness + 'px');
       if (data.fontFamily) {
         document.documentElement.style.setProperty('--font-family', `'${data.fontFamily}', 'Noto Sans Thai', sans-serif`);
       }

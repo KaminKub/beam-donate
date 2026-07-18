@@ -1475,7 +1475,7 @@
 
                   <div class="widget-settings-body" data-body-for="goal">
                     <!-- Card 1.5: Goal Content Settings -->
-                    <div class="dashboard-card settings-card panel-open">
+                    <div class="dashboard-card settings-card">
                       <div class="settings-card-header" data-target="panelGoalContent">
                         <h4><i class="fa-solid fa-bullseye" style="color:#ef4444"></i> ตั้งค่าเป้าหมาย</h4>
                         <i class="fa-solid fa-chevron-down card-chevron"></i>
@@ -1506,6 +1506,15 @@
                             <div class="width-input-wrapper">
                               <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
                               <span class="width-value" id="txtGoalBarWidth">600px</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label for="inputGoalBarThickness"><i class="fa-solid fa-ruler" style="color:#3b82f6;"></i> ความหนาของหลอด (px)</label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarThickness" min="20" max="140" step="5" value="45">
+                              <span class="width-value" id="txtGoalBarThickness">45px</span>
                             </div>
                           </div>
                         </div>
@@ -1551,7 +1560,7 @@
                     </div>
 
                     <!-- Card 2: Current Progress & Adjust -->
-                    <div class="dashboard-card settings-card panel-open">
+                    <div class="dashboard-card settings-card">
                       <div class="settings-card-header" data-target="panelGoalProgress">
                         <h4><i class="fa-solid fa-chart-simple" style="color:#4ade80"></i> ยอดปัจจุบัน & ปรับยอด</h4>
                         <i class="fa-solid fa-chevron-down card-chevron"></i>
@@ -2774,7 +2783,7 @@
                   </p>
                   <div class="preview-controls">
                     <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                    <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 600×350px, background transparent</span>
+                    <span class="preview-recommendation" id="goalPreviewRecommendation"><i class="fa-solid fa-lightbulb"></i> <span id="goalPreviewRecommendationText">แนะนำ: ขนาด 600×350px, background transparent</span></span>
                   </div>
                 </div>
 
@@ -3261,7 +3270,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_26"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_27"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

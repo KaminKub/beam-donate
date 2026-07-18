@@ -3512,11 +3512,23 @@ label {
 
 /* Widget enable toggle body: hide all related settings when widget is disabled */
 .widget-settings-body {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  overflow: hidden;
+}
+
+.widget-settings-body:not(.widget-body-hidden):not(.panel-opening):not(.panel-closing) {
+  overflow: visible;   /* กัน CustomSelect dropdown/color picker โดนตัดตอน idle-open */
 }
 
 .widget-settings-body.widget-body-hidden {
-  display: none !important;
+  display: none;
+}
+
+.widget-settings-body.panel-opening {
+  animation: panelSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.widget-settings-body.panel-closing {
+  animation: panelSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .card-body-panel.panel-opening {
