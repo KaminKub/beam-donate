@@ -4,6 +4,11 @@
   let isAnimating = false;
   let soundEnabled = true;
   let sharedAc = null;
+  let amountSuffix = '฿';
+
+  function normalizeAmountSuffix(suffix) {
+    return (suffix === 'บาท' || suffix === 'THB') ? '฿' : (suffix || '฿');
+  }
 
   function getAudioCtx() {
     if (!sharedAc) sharedAc = new (window.AudioContext || window.webkitAudioContext)();
@@ -209,7 +214,7 @@
   function projectileToBar(amount) {
     const proj = document.createElement('div');
     proj.className = 'proj-amount';
-    proj.textContent = '+' + amount.toLocaleString('th-TH') + '';
+    proj.textContent = '+' + amount.toLocaleString('th-TH') + ' ' + amountSuffix;
     document.body.appendChild(proj);
 
     const track = document.getElementById('goalTrack');
@@ -251,7 +256,7 @@
   function cardFlip3D(amount) {
     const card = document.getElementById('flipCard');
     const amountEl = document.getElementById('flipAmountText');
-    amountEl.textContent = '+' + amount.toLocaleString('th-TH') + '';
+    amountEl.textContent = '+' + amount.toLocaleString('th-TH') + ' ' + amountSuffix;
 
     const front = card.querySelector('.flip-front');
     const back = card.querySelector('.flip-back');
@@ -347,4 +352,5 @@
 
   window.setGoalAnimSound = function (enabled) { soundEnabled = !!enabled; };
   window.isGoalAnimSoundEnabled = function () { return soundEnabled; };
+  window.setGoalAnimAmountSuffix = function (suffix) { amountSuffix = normalizeAmountSuffix(suffix); };
 })();

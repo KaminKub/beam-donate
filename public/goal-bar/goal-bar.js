@@ -30,6 +30,16 @@
   let isWaitingForOverlay = false;
   let overlayWaitTimer = null;
   let goalBarLayout = 'horizontal';
+  let pointerEnabled = false;
+  let pointerSide = 'right';
+  let pointerContent = 'both';
+  let lastDonor = '';
+  let lastAmount = 0;
+  let amountSuffix = '฿';
+
+  function normalizeAmountSuffix(suffix) {
+    return (suffix === 'บาท' || suffix === 'THB') ? '฿' : (suffix || '฿');
+  }
 
   const wrapper = document.getElementById('goalBarWrapper');
   const labelEl = document.getElementById('goalLabel');
@@ -41,6 +51,10 @@
   const barTextTextEl = barTextEl.querySelector('.goal-grad-bar');
   const sub1TextEl = sub1El.querySelector('.goal-grad-sub1');
   const sub2TextEl = sub2El.querySelector('.goal-grad-sub2');
+  const arrowEl = document.getElementById('goalPointerArrow');
+  const pointerLabelEl = document.getElementById('goalPointerLabel');
+  const ptrNameEl = pointerLabelEl.querySelector('.ptr-name');
+  const ptrAmountEl = pointerLabelEl.querySelector('.ptr-amount');
 
   [labelEl, barTextEl, sub1El, sub2El].forEach(el => { if (el) el.style.whiteSpace = 'pre-wrap'; });
 
@@ -72,6 +86,66 @@
       fillEl.style.width = fillPct + '%';
       fillEl.style.height = '';
     }
+    return fillPct;
+  }
+
+  function updatePointer(enabled, side, content, donor, amount, fillPct) {
+    pointerEnabled = !!enabled;
+    pointerSide = (side === 'left') ? 'left' : 'right';
+    pointerContent = ['name', 'amount', 'both'].includes(content) ? content : 'both';
+    if (donor !== undefined) lastDonor = String(donor || '');
+    if (amount !== undefined) lastAmount = Number(amount) || 0;
+    const pct = fillPct !== undefined
+      ? fillPct
+      : Math.min(100, goalAmount > 0 ? (goalCurrent / goalAmount) * 100 : 0);
+
+    if (!arrowEl || !pointerLabelEl) return;
+
+    const showPointer = pointerEnabled;
+    arrowEl.style.opacity = showPointer ? '1' : '0';
+    pointerLabelEl.style.opacity = showPointer ? '1' : '0';
+    if (!showPointer) {
+      wrapper.classList.remove('pointer-active-h');
+      return;
+    }
+
+    // XSS-safe text rendering
+    ptrNameEl.textContent = lastDonor;
+    ptrAmountEl.textContent = lastAmount > 0
+      ? lastAmount.toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' ' + amountSuffix
+      : '';
+
+    ptrNameEl.style.display = (pointerContent === 'name' || pointerContent === 'both') ? '' : 'none';
+    ptrAmountEl.style.display = (pointerContent === 'amount' || pointerContent === 'both') ? '' : 'none';
+
+    const isVertical = goalBarLayout === 'vertical';
+    // ตำแหน่งตามปลาย fill: แนวนอน = left%, แนวตั้ง = bottom%
+    // transform: แนวนอน set inline (translateX(-50%) จัดกึ่งกลาง);
+    //            แนวตั้ง ปล่อยให้ CSS (.side-left/right) จัดการ translateY(50%) — ล้าง inline
+    arrowEl.style.left = isVertical ? '' : pct + '%';
+    arrowEl.style.bottom = isVertical ? pct + '%' : '';
+    arrowEl.style.right = '';
+    arrowEl.style.top = '';
+    arrowEl.style.transform = isVertical ? '' : 'translateX(-50%)';
+    pointerLabelEl.style.left = isVertical ? '' : pct + '%';
+    pointerLabelEl.style.bottom = isVertical ? pct + '%' : '';
+    pointerLabelEl.style.right = '';
+    pointerLabelEl.style.top = '';
+    pointerLabelEl.style.transform = isVertical ? '' : 'translateX(-50%)';
+    pointerLabelEl.classList.remove('side-left', 'side-right');
+
+    if (isVertical) {
+      arrowEl.classList.add('vertical');
+      pointerLabelEl.classList.add('vertical');
+      pointerLabelEl.classList.add(pointerSide === 'left' ? 'side-left' : 'side-right');
+      arrowEl.classList.toggle('side-left', pointerSide === 'left');
+      arrowEl.classList.toggle('side-right', pointerSide === 'right');
+    } else {
+      arrowEl.classList.remove('vertical', 'side-left', 'side-right');
+      pointerLabelEl.classList.remove('vertical', 'side-left', 'side-right');
+    }
+    // จองพื้นที่กัน overflow:hidden ตัดข้อความ เฉพาะแนวนอน (แนวตั้งอยู่ข้างหลอด ไม่กระทบความสูง)
+    wrapper.classList.toggle('pointer-active-h', !isVertical);
   }
 
   function applyBarLayout(layout) {
@@ -82,7 +156,10 @@
     // สลับ layout แบบ live (settings_update): inline style ของแกนเก่า (width/height)
     // ยัง override CSS ของ layout ใหม่อยู่ — ต้อง re-render ทันที
     // ไม่งั้น fill หาย/ผิดขนาดจนกว่าจะมี goal_update ถัดไป
-    if (changed && !isFirstUpdate) renderFillWidth(goalCurrent);
+    if (changed && !isFirstUpdate) {
+      renderFillWidth(goalCurrent);
+      updatePointer(pointerEnabled, pointerSide, pointerContent);
+    }
   }
 
   function renderTexts(val) {
@@ -132,22 +209,24 @@
     labelTextEl.textContent = goalLabel;
     sub1El.className = goalSubtitle2 ? '' : 'centered';
 
+    let fillPct = 0;
     if (isFirstUpdate) {
       animCurrent = current;
       isFirstUpdate = false;
-      renderFillWidth(current);
+      fillPct = renderFillWidth(current);
       renderTexts(current);
     } else if (current !== animCurrent) {
       if (animFrameId) cancelAnimationFrame(animFrameId);
       animFrom = animCurrent;
       animTarget = current;
       animStartTime = 0;
-      renderFillWidth(current);
+      fillPct = renderFillWidth(current);
       animFrameId = requestAnimationFrame(animateCount);
     } else {
-      renderFillWidth(current);
+      fillPct = renderFillWidth(current);
       renderTexts(current);
     }
+    updatePointer(pointerEnabled, pointerSide, pointerContent, lastDonor, lastAmount, fillPct);
   }
 
   function applyBarPosition(pos) {
@@ -197,6 +276,18 @@
       const data = await res.json();
 
       if (!data.goal_enabled && !isDemo) return;
+
+      pointerEnabled = data.goal_pointer_enabled !== 0 && data.goal_pointer_enabled !== false;
+      pointerSide = data.goal_pointer_side || 'right';
+      pointerContent = ['name', 'amount', 'both'].includes(data.goal_pointer_content)
+        ? data.goal_pointer_content
+        : 'both';
+      lastDonor = String(data.goal_last_donor || '');
+      lastAmount = Number(data.goal_last_amount) || 0;
+      amountSuffix = normalizeAmountSuffix(data.amountSuffix);
+      if (typeof window.setGoalAnimAmountSuffix === 'function') {
+        window.setGoalAnimAmountSuffix(amountSuffix);
+      }
 
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
@@ -279,6 +370,18 @@
           }
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
           applyBarLayout(s.goal_bar_layout || 'horizontal');
+          if (s.goal_pointer_enabled !== undefined) {
+            pointerEnabled = s.goal_pointer_enabled !== 0 && s.goal_pointer_enabled !== false;
+          }
+          if (s.goal_pointer_side) pointerSide = s.goal_pointer_side;
+          if (s.goal_pointer_content) pointerContent = s.goal_pointer_content;
+          if (s.amountSuffix) {
+            amountSuffix = normalizeAmountSuffix(s.amountSuffix);
+            if (typeof window.setGoalAnimAmountSuffix === 'function') {
+              window.setGoalAnimAmountSuffix(amountSuffix);
+            }
+          }
+          updatePointer(pointerEnabled, pointerSide, pointerContent);
           if (s.goal_text_settings) {
             let gtc = {};
             try { gtc = JSON.parse(s.goal_text_settings); } catch (e) {}
@@ -292,6 +395,8 @@
         if (data.type === 'goal_update') {
           const busy = isWaitingForOverlay ||
             (typeof window.isGoalAnimating === 'function' && window.isGoalAnimating());
+          if (data.last_donor !== undefined) lastDonor = String(data.last_donor || '');
+          if (data.last_amount !== undefined) lastAmount = Number(data.last_amount) || 0;
           if (busy) {
             pendingGoalUpdate = data;
           } else {

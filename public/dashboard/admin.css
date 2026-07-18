@@ -1694,6 +1694,29 @@ label {
   min-width: 0;
 }
 
+.pointer-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.pointer-panel.disabled {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.pointer-panel.disabled .pointer-options {
+  pointer-events: none;
+}
+
+.pointer-options {
+  margin-top: 12px;
+  transition: opacity 0.25s ease, max-height 0.3s ease;
+  overflow: hidden;
+}
+
 .width-input-wrapper {
   display: flex;
   align-items: center;

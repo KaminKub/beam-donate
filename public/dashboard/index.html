@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_21">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_31">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1468,6 +1468,38 @@
                               <option value="horizontal">แนวนอน</option>
                               <option value="vertical">แนวตั้ง (หลอดทดลอง)</option>
                             </select>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width pointer-panel" id="goalPointerPanel">
+                            <div class="pointer-header">
+                              <div class="switch-group">
+                                <label class="switch">
+                                  <input type="checkbox" id="chkGoalPointerEnabled">
+                                  <span class="slider-switch"></span>
+                                </label>
+                                <span class="switch-label"><i class="fa-solid fa-arrow-pointer" style="color:#f59e0b"></i> เปิดลูกศรชี้ปลายหลอดโดเนท</span>
+                              </div>
+                            </div>
+                            <div class="pointer-options" id="goalPointerOptions">
+                              <div class="form-row flex-align-center">
+                                <div class="form-group">
+                                  <label for="selectGoalPointerSide"><i class="fa-solid fa-arrows-left-right" style="color:#a78bfa"></i> ตำแหน่งลูกศรแนวตั้ง</label>
+                                  <select id="selectGoalPointerSide" class="form-select">
+                                    <option value="right">ขวา</option>
+                                    <option value="left">ซ้าย</option>
+                                  </select>
+                                </div>
+                                <div class="form-group">
+                                  <label for="selectGoalPointerContent"><i class="fa-solid fa-file-lines" style="color:#22c55e"></i> แสดงเนื้อหา</label>
+                                  <select id="selectGoalPointerContent" class="form-select">
+                                    <option value="both">ชื่อ + ยอด</option>
+                                    <option value="name">แค่ชื่อ</option>
+                                    <option value="amount">แค่ยอด</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -3361,7 +3393,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_29"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_31"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

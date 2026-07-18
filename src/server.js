@@ -169,6 +169,9 @@ const defaultSettings = {
   goal_bar_width: '600',
   goal_bar_layout: 'horizontal',
   goal_bar_thickness: '45',
+  goal_pointer_enabled: 0,
+  goal_pointer_side: 'right',
+  goal_pointer_content: 'both',
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,
@@ -394,8 +397,19 @@ function broadcastDemoGoalBar(username, goalData) {
   });
 }
 
-function broadcastGoalUpdate(username, streamer) {
+async function broadcastGoalUpdate(username, streamer) {
   if (!streamer.goal_enabled) return;
+  let lastDonor = '';
+  let lastAmount = 0;
+  try {
+    const recent = await db.getRecentDonations(username, 1);
+    if (recent && recent[0]) {
+      lastDonor = recent[0].donor || '';
+      lastAmount = recent[0].amount || 0;
+    }
+  } catch (err) {
+    console.error(`[BroadcastGoal] getRecentDonations failed for ${username}:`, err.message);
+  }
   const payload = JSON.stringify({
     type: 'goal_update',
     current: streamer.goal_current,
@@ -405,7 +419,9 @@ function broadcastGoalUpdate(username, streamer) {
     barText: streamer.goal_bar_text,
     subtitle1: streamer.goal_subtitle1,
     subtitle2: streamer.goal_subtitle2,
-    endDate: streamer.goal_end_date
+    endDate: streamer.goal_end_date,
+    last_donor: lastDonor,
+    last_amount: lastAmount
   });
   sseClients
     .filter(c => c.username === username && !ALLOWED_DEMO_SOURCES.has(c.source))
@@ -712,7 +728,7 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
       const streamer = await db.getStreamer(tx.streamer_username);
       if (streamer && streamer.goal_enabled) {
         const updated = await db.updateGoalCurrent(streamer.id, finalAmount);
-        broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
+        await broadcastGoalUpdate(streamer.username, { ...streamer, ...updated });
       }
       if (streamer) await applyTimerOnDonation(streamer, finalAmount, sanitizeTimerAction(tx.timer_action));
       if (tx.donor && tx.donor !== 'Anonymous') {
@@ -1187,6 +1203,7 @@ function applyDemoMask(row) {
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
     'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
+    'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
     // Timer state + config (no secrets)
@@ -1299,7 +1316,11 @@ app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
   try {
     const row = await db.getStreamer(DEMO_STREAMER_USERNAME);
     if (!row) return res.status(503).json({ error: 'Demo data unavailable' });
-    res.json(applyDemoMask(row));
+    const masked = applyDemoMask(row);
+    const recent = DEMO_MOCK_RECENTDONATE[0];
+    masked.goal_last_donor = (recent && recent.donor) || '';
+    masked.goal_last_amount = (recent && recent.amount) || 0;
+    res.json(masked);
   } catch (e) {
     console.error('💥 Demo overlay settings error:', e.message);
     res.status(500).json({ error: 'Server error' });
@@ -1364,6 +1385,7 @@ app.get('/demo/goal-bar', demoRateLimiter, (req, res) => {
 const demoGoalLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => {
   const { current, amount, label, barColor, barText, subtitle1, subtitle2 } = req.body || {};
+  const recent = DEMO_MOCK_RECENTDONATE[0] || {};
   const goalData = {
     type: 'goal_update',
     current: Math.max(0, Math.min(parseFloat(current) || 0, 99999)),
@@ -1373,7 +1395,9 @@ app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => 
     barText:  String(barText  || '{เปอร์เซนต์}').slice(0, 60),
     subtitle1: String(subtitle1 ?? '').slice(0, 80),
     subtitle2: String(subtitle2 || '').slice(0, 80),
-    endDate: null
+    endDate: null,
+    last_donor: recent.donor || '',
+    last_amount: recent.amount || 0
   };
   broadcastDemoGoalBar(DEMO_STREAMER_USERNAME, goalData);
   res.json({ success: true });
@@ -2850,6 +2874,15 @@ app.get('/api/overlay/settings', async (req, res) => {
     }
  
     const settings = await db.getSettings(username, defaultSettings);
+    try {
+      const recent = await db.getRecentDonations(username, 1);
+      settings.goal_last_donor = (recent && recent[0] && recent[0].donor) || '';
+      settings.goal_last_amount = (recent && recent[0] && recent[0].amount) || 0;
+    } catch (e) {
+      console.error('[OverlaySettings] getRecentDonations failed:', e.message);
+      settings.goal_last_donor = '';
+      settings.goal_last_amount = 0;
+    }
     res.json(settings);
   } catch (err) {
     console.error('Get settings error:', err);
@@ -2886,6 +2919,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
   'goal_anim_sound', 'goal_anim_enabled', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
+  'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings'
 ];
 
@@ -3161,7 +3195,7 @@ app.post('/api/goal/adjust', ensureAuthenticated, csrfProtection, async (req, re
     if (!streamer) return res.status(404).json({ error: 'streamer not found' });
     const updated = await db.updateGoalCurrent(streamer.id, delta);
     const actualUsername = await getActualUsername(req.user);
-    broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: updated.goal_current });
+    await broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: updated.goal_current });
     res.json({ success: true, current: updated.goal_current });
   } catch (error) {
     console.error('Goal adjust error:', error);
@@ -3243,7 +3277,7 @@ app.post('/api/goal/reset', ensureAuthenticated, csrfProtection, async (req, res
     if (!streamer) return res.status(404).json({ error: 'streamer not found' });
     const updated = await db.resetGoalCurrent(streamer.id);
     const actualUsername = await getActualUsername(req.user);
-    broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: 0 });
+    await broadcastGoalUpdate(actualUsername, { ...streamer, goal_current: 0 });
     res.json({ success: true });
   } catch (error) {
     console.error('Goal reset error:', error);

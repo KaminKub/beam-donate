@@ -72,12 +72,20 @@ body.position-bottom #animStage {
   position: relative;
 }
 
+/* pointer label (แนวนอน) เป็น absolute ไม่กิน flow height — wrapper overflow:hidden
+   จะตัดข้อความชื่อ/ยอดที่โผล่ใต้หลอด ถ้าไม่จองพื้นที่ไว้ จองอัตโนมัติเฉพาะตอนเปิดใช้ */
+#goalBarWrapper.pointer-active-h {
+  padding-bottom: 25px;
+}
+
 #goalTrack {
+  position: relative;
   width: 100%;
   height: var(--bar-thickness, 45px);
   border-radius: calc(var(--bar-thickness, 45px) / 2);
   background: rgba(255, 255, 255, 0.15);
-  overflow: hidden;
+  /* overflow visible เพื่อให้ pointer/label โผล่นอกหลอดได้ — fill clip ตัวเองด้วย overflow:hidden + mask */
+  overflow: visible;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
   border: 2px solid #000;
 }
@@ -146,6 +154,111 @@ body.position-bottom #animStage {
   overflow: visible;
 }
 
+/* ── Goal Pointer + Recent Donor ─────────────────────────────── */
+/* pointer อยู่ภายใน #goalTrack (position:relative) — % อ้างขนาดหลอดจริง */
+#goalPointerArrow,
+#goalPointerLabel {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+  transition: opacity 0.3s ease, left 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              bottom 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: left, bottom, opacity;
+}
+
+/* Horizontal: ลูกศรชี้ขึ้นหาปลาย fill อยู่ใต้หลอด */
+#goalPointerArrow {
+  top: 100%;
+  left: 0;
+  width: 0;
+  height: 0;
+  margin-top: 4px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 10px solid var(--bar-color, #4ade80);
+  transform: translateX(-50%);
+}
+
+#goalPointerLabel {
+  top: calc(100% + 16px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
+  max-width: 180px;
+  /* outline ขอบหนาเดียวกับ text อื่น (SVG dilate) + drop-shadow */
+  filter: url(#outline-2) drop-shadow(0 2px 5px rgba(0,0,0,0.75));
+}
+
+.ptr-name {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ptr-amount {
+  white-space: nowrap;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* ── Vertical layout — ลูกศรชี้เข้าหาหลอดจากด้านข้าง ──────────── */
+#goalBarWrapper.layout-vertical #goalPointerArrow {
+  top: auto;
+  margin-top: 0;
+  border: none;
+}
+
+/* side-right: ลูกศรอยู่ขวาหลอด ชี้ซ้าย (เข้าหาหลอด) → ใช้ border-right เป็นสี */
+#goalBarWrapper.layout-vertical #goalPointerArrow.side-right {
+  left: 100%;
+  right: auto;
+  margin-left: 4px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 10px solid var(--bar-color, #4ade80);
+  transform: translateY(50%);
+}
+
+/* side-left: ลูกศรอยู่ซ้ายหลอด ชี้ขวา (เข้าหาหลอด) → ใช้ border-left เป็นสี */
+#goalBarWrapper.layout-vertical #goalPointerArrow.side-left {
+  right: 100%;
+  left: auto;
+  margin-right: 4px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 10px solid var(--bar-color, #4ade80);
+  transform: translateY(50%);
+}
+
+#goalBarWrapper.layout-vertical #goalPointerLabel {
+  top: auto;
+  transform: translateY(50%);
+}
+
+#goalBarWrapper.layout-vertical #goalPointerLabel.side-right {
+  left: 100%;
+  right: auto;
+  align-items: flex-start;
+  text-align: left;
+  margin-left: 20px;
+}
+
+#goalBarWrapper.layout-vertical #goalPointerLabel.side-left {
+  right: 100%;
+  left: auto;
+  align-items: flex-end;
+  text-align: right;
+  margin-right: 20px;
+}
+
 #goalSub1.centered {
   flex: 1;
   text-align: center;
@@ -172,8 +285,10 @@ body.position-bottom #animStage {
 
 
 .flip-card {
-  width: 150px;
+  min-width: 150px;
+  width: max-content;
   height: 70px;
+  padding: 0 12px;
   position: relative;
 }
 
@@ -222,6 +337,7 @@ body.position-bottom #animStage {
   font-size: 40px;
   color: #fbbf24;
   filter: url(#outline-4) drop-shadow(0 0 10px rgba(251, 191, 36, 0.7));
+  white-space: nowrap;
 }
 
 .proj-amount {

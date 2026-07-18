@@ -1236,6 +1236,9 @@ async function initializeDashboard() {
           goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
           goal_bar_position: document.getElementById('selectGoalBarPosition').value || 'top',
           goal_bar_layout: document.getElementById('selectGoalBarLayout').value || 'horizontal',
+          goal_pointer_enabled: document.getElementById('chkGoalPointerEnabled').checked ? 1 : 0,
+          goal_pointer_side: document.getElementById('selectGoalPointerSide').value || 'right',
+          goal_pointer_content: document.getElementById('selectGoalPointerContent').value || 'both',
           goal_label: document.getElementById('inputGoalLabel').value.trim(),
           goal_amount: parseFloat(document.getElementById('inputGoalAmount').value) || 5000,
           goal_bar_color: document.getElementById('inputGoalBarColor').value,
@@ -1638,6 +1641,7 @@ function loadDemoGoalSettingsFromData(data) {
     layoutEl.value = data.goal_bar_layout || 'horizontal';
     layoutEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  syncGoalPointerControls(data);
   syncGoalWidthLabel();
   const labelEl = document.getElementById('inputGoalLabel');
   if (labelEl) labelEl.value = data.goal_label || 'ค่ากาแฟ';
@@ -4660,6 +4664,31 @@ function setSelectValue(id, value) {
   }
 }
 
+function syncGoalPointerControls(data) {
+  const chk = document.getElementById('chkGoalPointerEnabled');
+  const sideEl = document.getElementById('selectGoalPointerSide');
+  const contentEl = document.getElementById('selectGoalPointerContent');
+  const panel = document.getElementById('goalPointerPanel');
+  if (chk) chk.checked = !!data.goal_pointer_enabled;
+  if (sideEl) {
+    sideEl.value = data.goal_pointer_side || 'right';
+    sideEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (contentEl) {
+    contentEl.value = data.goal_pointer_content || 'both';
+    contentEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (panel) {
+    panel.classList.toggle('disabled', !(chk && chk.checked));
+    if (!chk._pointerToggleBound) {
+      chk.addEventListener('change', () => {
+        panel.classList.toggle('disabled', !chk.checked);
+      });
+      chk._pointerToggleBound = true;
+    }
+  }
+}
+
 async function loadOverlaySettings() {
   showTabLoading('overlay-config');
   try {
@@ -4809,6 +4838,7 @@ async function loadGoalSettings() {
       layoutEl.value = data.goal_bar_layout || 'horizontal';
       layoutEl.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    syncGoalPointerControls(data);
     syncGoalWidthLabel();
     document.getElementById('inputGoalLabel').value = data.goal_label || 'ค่ากาแฟ';
     document.getElementById('inputGoalAmount').value = data.goal_amount || 5000;
