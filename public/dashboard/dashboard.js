@@ -1725,7 +1725,7 @@ function loadDemoGoalSettingsFromData(data) {
   // Seed module-level state so quick-add buttons start from real current value
   demoGoalState.current   = current;
   demoGoalState.amount    = amount;
-  demoGoalState.label     = data.goal_label     || 'ค่ากาแฟ';
+  demoGoalState.label     = data.goal_label     !== undefined ? data.goal_label : 'ค่ากาแฟ';
   demoGoalState.barColor  = data.goal_bar_color  || '#4ade80';
   demoGoalState.barText   = data.goal_bar_text   !== undefined ? data.goal_bar_text   : '{เปอร์เซนต์}';
   demoGoalState.subtitle1 = data.goal_subtitle1  !== undefined ? data.goal_subtitle1  : '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿';
