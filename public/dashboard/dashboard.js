@@ -1254,10 +1254,7 @@ async function initializeDashboard() {
             font_size_bar:   parseInt(document.getElementById('selectGoalFontSizeBar')?.value)   || 25,
             font_size_sub1:  parseInt(document.getElementById('selectGoalFontSizeSub1')?.value)  || 20,
             font_size_sub2:  parseInt(document.getElementById('selectGoalFontSizeSub2')?.value)  || 20,
-            outline_width_label: parseInt(document.getElementById('selectGoalOutlineWidthLabel')?.value) || 2,
-            outline_width_bar:   parseInt(document.getElementById('selectGoalOutlineWidthBar')?.value)   || 2,
-            outline_width_sub1:  parseInt(document.getElementById('selectGoalOutlineWidthSub1')?.value)  || 2,
-            outline_width_sub2:  parseInt(document.getElementById('selectGoalOutlineWidthSub2')?.value)  || 2,
+            outline_width: parseInt(document.getElementById('selectGoalOutlineWidth')?.value) || 2,
             outline_color: document.getElementById('inputGoalOutlineColor')?.value || '#000000'
           }),
         };
@@ -1674,12 +1671,9 @@ function loadDemoGoalSettingsFromData(data) {
   setSelectValue('selectGoalFontSizeBar',   gtc.font_size_bar   || 25);
   setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
   setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
-  setSelectValue('selectGoalOutlineWidthLabel', gtc.outline_width_label ?? 2);
-  setSelectValue('selectGoalOutlineWidthBar',   gtc.outline_width_bar   ?? 2);
-  setSelectValue('selectGoalOutlineWidthSub1',  gtc.outline_width_sub1  ?? 2);
-  setSelectValue('selectGoalOutlineWidthSub2',  gtc.outline_width_sub2  ?? 2);
+  setSelectValue('selectGoalOutlineWidth', gtc.outline_width ?? gtc.outline_width_label ?? 2);
   ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
-   'selectGoalOutlineWidthLabel','selectGoalOutlineWidthBar','selectGoalOutlineWidthSub1','selectGoalOutlineWidthSub2']
+   'selectGoalOutlineWidth']
     .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
   [
     ['inputGoalTextColorLabel','txtGoalTextColorLabel', gtc.color_label, '#ffffff'],
@@ -4847,12 +4841,9 @@ async function loadGoalSettings() {
     setSelectValue('selectGoalFontSizeBar',   gtc.font_size_bar   || 25);
     setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
     setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
-    setSelectValue('selectGoalOutlineWidthLabel', gtc.outline_width_label ?? 2);
-    setSelectValue('selectGoalOutlineWidthBar',   gtc.outline_width_bar   ?? 2);
-    setSelectValue('selectGoalOutlineWidthSub1',  gtc.outline_width_sub1  ?? 2);
-    setSelectValue('selectGoalOutlineWidthSub2',  gtc.outline_width_sub2  ?? 2);
+    setSelectValue('selectGoalOutlineWidth', gtc.outline_width ?? gtc.outline_width_label ?? 2);
     ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
-     'selectGoalOutlineWidthLabel','selectGoalOutlineWidthBar','selectGoalOutlineWidthSub1','selectGoalOutlineWidthSub2']
+     'selectGoalOutlineWidth']
       .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
     [
       ['inputGoalTextColorLabel','txtGoalTextColorLabel', gtc.color_label, '#ffffff'],

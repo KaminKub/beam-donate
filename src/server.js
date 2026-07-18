@@ -216,8 +216,7 @@ const defaultSettings = {
     color_sub1: '#ffffff', color_sub2: '#ffffff',
     font_size_label: 30, font_size_bar: 25,
     font_size_sub1: 20, font_size_sub2: 20,
-    outline_width_label: 2, outline_width_bar: 2,
-    outline_width_sub1: 2, outline_width_sub2: 2,
+    outline_width: 2,
     outline_color: '#000000'
   })
 };

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_20">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260718_21">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1491,33 +1491,6 @@
                             <input type="number" id="inputGoalAmount" class="form-control" min="1" placeholder="5000">
                           </div>
                         </div>
-                        <div class="form-row goal-width-row">
-                          <div class="form-group">
-                            <label><i class="fa-solid fa-fill-drip" style="color:#22c55e;"></i> สีแถบ Progress</label>
-                            <div class="color-input-wrapper">
-                              <input type="color" id="inputGoalBarColor" value="#4ade80">
-                              <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
-                            </div>
-                          </div>
-                          <div class="form-group">
-                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i>
-                              <span id="lblGoalBarWidth">ความยาวหลอดสูงสุด (px)</span>
-                            </label>
-                            <div class="width-input-wrapper">
-                              <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
-                              <span class="width-value" id="txtGoalBarWidth">600px</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="form-row">
-                          <div class="form-group full-width">
-                            <label for="inputGoalBarThickness"><i class="fa-solid fa-ruler" style="color:#3b82f6;"></i> ความหนาของหลอด (px)</label>
-                            <div class="width-input-wrapper">
-                              <input type="range" id="inputGoalBarThickness" min="20" max="140" step="5" value="45">
-                              <span class="width-value" id="txtGoalBarThickness">45px</span>
-                            </div>
-                          </div>
-                        </div>
                         <div class="form-row">
                           <div class="form-group full-width">
                             <label for="inputGoalBarText"><i class="fa-solid fa-font" style="color:#a855f7;"></i> ข้อความในหลอด <span style="font-size:11px;font-weight:400;color:var(--text-muted)"></span></label>
@@ -1566,6 +1539,35 @@
                         <i class="fa-solid fa-chevron-down card-chevron"></i>
                       </div>
                       <div class="card-body-panel" id="panelGoalTextCustom">
+
+                        <h5 class="section-divider">รูปร่างหลอด (Bar Shape)</h5>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label><i class="fa-solid fa-fill-drip" style="color:#22c55e;"></i> สีแถบ Progress</label>
+                            <div class="color-input-wrapper">
+                              <input type="color" id="inputGoalBarColor" value="#4ade80">
+                              <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row goal-width-row">
+                          <div class="form-group">
+                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i>
+                              <span id="lblGoalBarWidth">ความยาวหลอดสูงสุด (px)</span>
+                            </label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
+                              <span class="width-value" id="txtGoalBarWidth">600px</span>
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="inputGoalBarThickness"><i class="fa-solid fa-ruler" style="color:#3b82f6;"></i> ความหนาของหลอด (px)</label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarThickness" min="20" max="140" step="5" value="45">
+                              <span class="width-value" id="txtGoalBarThickness">45px</span>
+                            </div>
+                          </div>
+                        </div>
 
                         <h5 class="section-divider">สีตัวอักษร (Text Colors)</h5>
                         <div class="color-picker-grid" id="goalTextColorGrid">
@@ -1630,26 +1632,8 @@
                         <h5 class="section-divider">ขอบตัวอักษร (Outline)</h5>
                         <div class="outline-grid" id="goalOutlineGrid">
                           <div class="form-group">
-                            <label for="selectGoalOutlineWidthLabel"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ชื่อเป้าหมาย</label>
-                            <select id="selectGoalOutlineWidthLabel" class="form-select">
-                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
-                            </select>
-                          </div>
-                          <div class="form-group">
-                            <label for="selectGoalOutlineWidthBar"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ข้อความในหลอด</label>
-                            <select id="selectGoalOutlineWidthBar" class="form-select">
-                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
-                            </select>
-                          </div>
-                          <div class="form-group">
-                            <label for="selectGoalOutlineWidthSub1"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ใต้หลอด 1</label>
-                            <select id="selectGoalOutlineWidthSub1" class="form-select">
-                              <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
-                            </select>
-                          </div>
-                          <div class="form-group">
-                            <label for="selectGoalOutlineWidthSub2"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ใต้หลอด 2</label>
-                            <select id="selectGoalOutlineWidthSub2" class="form-select">
+                            <label for="selectGoalOutlineWidth"><i class="fa-solid fa-text-width" style="color:#3b82f6;"></i> ความกว้างขอบ (รวมทุกตำแหน่ง)</label>
+                            <select id="selectGoalOutlineWidth" class="form-select">
                               <option value="0">0 px</option><option value="1">1 px</option><option value="2" selected>2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option>
                             </select>
                           </div>
@@ -3376,7 +3360,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260718_28"></script>
+  <script src="/dashboard/dashboard.js?v=20260718_29"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

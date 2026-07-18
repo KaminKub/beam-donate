@@ -164,11 +164,13 @@
     root.setProperty('--goal-font-sub2', c.font_size_sub2 || 20);
 
     const oc = c.outline_color || '#000000';
+    // ponytail: single outline_width applies to all 4 positions (merged 2026-07-18); fall back to old per-key field then 2
+    const wRaw = parseInt(c.outline_width, 10);
+    const wAny = Number.isFinite(wRaw) ? wRaw : parseInt(c.outline_width_label, 10);
     const MAP = { Label: 'label', Bar: 'bar', Sub1: 'sub1', Sub2: 'sub2' };
     Object.keys(MAP).forEach(p => {
       const key = MAP[p];
-      const w = parseInt(c['outline_width_' + key], 10);
-      const wFinal = Number.isFinite(w) ? Math.min(5, Math.max(0, w)) : 2;
+      const wFinal = Number.isFinite(wAny) ? Math.min(5, Math.max(0, wAny)) : 2;
       const dilate = document.getElementById('goalOutlineDilate' + p);
       const flood = document.getElementById('goalOutlineFlood' + p);
       if (dilate) dilate.setAttribute('radius', wFinal);
