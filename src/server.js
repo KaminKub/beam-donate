@@ -54,7 +54,8 @@ const UPLOAD_ALLOWED_TYPES = {
   header:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   pagebg:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3'],
-  video:   ['video/mp4', 'video/webm']
+  video:   ['video/mp4', 'video/webm'],
+  tierAlert: ['image/jpeg', 'image/png', 'image/webp', 'video/webm']
 };
 const UPLOAD_EXT_MAP = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
@@ -63,7 +64,7 @@ const UPLOAD_EXT_MAP = {
 };
 const UPLOAD_FOLDER_MAP = {
   avatar: 'avatars', profile: 'profiles', header: 'headers', pagebg: 'pagebg',
-  sound: 'sounds', video: 'videos'
+  sound: 'sounds', video: 'videos', tierAlert: 'tier-alert'
 };
 
 async function uploadBufferToR2(buffer, key, contentType) {
@@ -74,6 +75,26 @@ async function uploadBufferToR2(buffer, key, contentType) {
     ContentType: contentType
   }));
   return `${process.env.R2_PUBLIC_URL}/${key}`;
+}
+
+// § 2.6 TIER_DONATE_BLUEPRINT.md — แปลง public R2 URL → key แล้วลบ (donor-temp audio cleanup)
+async function deleteFromR2ByUrl(url) {
+  const r2Base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!r2Base || !url || !url.startsWith(r2Base + '/')) return;
+  const key = url.slice(r2Base.length + 1).split('?')[0];
+  await s3Client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key }));
+}
+
+// § 2.7 TIER_DONATE_BLUEPRINT.md — wrap db cleanup: donor-temp tier audio ต้องลบจาก R2 ก่อนแถวถูก expire/hard-delete
+async function cleanupExpiredTransactionsWithR2() {
+  const urls = await db.getExpiringTierAudioUrls();
+  for (const url of urls) deleteFromR2ByUrl(url).catch(err => console.error('[tier-audio-cleanup]', censor(err.message)));
+  return db.cleanupExpiredTransactions();
+}
+async function hardDeleteExpiredTransactionsWithR2() {
+  const urls = await db.getHardDeletableTierAudioUrls();
+  for (const url of urls) deleteFromR2ByUrl(url).catch(err => console.error('[tier-audio-cleanup]', censor(err.message)));
+  return db.hardDeleteExpiredTransactions();
 }
 
 
@@ -222,7 +243,18 @@ const defaultSettings = {
     font_size_sub1: 20, font_size_sub2: 20,
     outline_width: 2,
     outline_color: '#000000'
-  })
+  }),
+  // Tier Donate — keys must exist here or SEC-004 filter in getSettings() strips them
+  tier_donate_settings: JSON.stringify({
+    enabled: false,
+    tiers: [
+      { level: 1, min_amount: 50, active: true, allow_image_choice: true, allow_sound_choice: false, allow_own_audio: false },
+      { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: false },
+      { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: true }
+    ],
+    alert_images: []
+  }),
+  sound_library: JSON.stringify([])
 };
 
 // ========== SSE Alert System ==========
@@ -740,8 +772,15 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
     amount: finalAmount,
     message: tx.message || '',
     timestamp: new Date().toISOString(),
+    ...(tx.tier_level ? { tierLevel: tx.tier_level } : {}),
+    ...(tx.tier_image_url ? { tierImageUrl: tx.tier_image_url } : {}),
+    ...(tx.tier_sound_url ? { tierSoundUrl: tx.tier_sound_url } : {}),
     ...extraAlert
   });
+  // § 2.6 TIER_DONATE_BLUEPRINT.md — ลบ donor-temp audio หลังใช้ครั้งเดียว (fire-and-forget, ห้าม block alert)
+  if (tx.tier_sound_is_temp === 1 && tx.tier_sound_url) {
+    deleteFromR2ByUrl(tx.tier_sound_url).catch(err => console.error('[tier-audio-cleanup]', censor(err.message)));
+  }
   if (tx.streamer_username && finalAmount > 0) {
     try {
       const streamer = await db.getStreamer(tx.streamer_username);
@@ -830,6 +869,12 @@ if (helmet) {
     next();
   });
 }
+
+// § 6 TIER_DONATE_BLUEPRINT.md — เปิด getUserMedia (mic recording) เฉพาะ same-origin เท่านั้น
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'microphone=(self)');
+  next();
+});
 
 if (!process.env.SESSION_SECRET) {
   console.error('❌ CRITICAL ERROR: SESSION_SECRET is not defined in the environment!');
@@ -1085,6 +1130,24 @@ const goalPublicLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   message: { error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// § 2.3 TIER_DONATE_BLUEPRINT.md
+const tierSettingsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// § 2.4 TIER_DONATE_BLUEPRINT.md — เข้มกว่า slip upload (1MB vs 5MB, 5/min/IP)
+const donorAudioUploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'อัปโหลดบ่อยเกินไป กรุณารอสักครู่' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -2202,13 +2265,15 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API: สร้าง Donation (Payment Link)
 app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
   try {
-    const { amount, name, message, username, timerAction } = req.body;
+    const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
     if (!username) return res.status(400).json({ error: 'ไม่ระบุชื่อผู้รับบริจาค' });
 
     const streamer = await db.getDecryptedStreamer(username);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
     if (Number(streamer.is_active) === 0) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
+
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp });
 
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
@@ -2232,7 +2297,8 @@ app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
       paymentUrl: charge.url,
       raw_response: charge,
       streamer_username: username,
-      timer_action: sanitizeTimerAction(timerAction)
+      timer_action: sanitizeTimerAction(timerAction),
+      ...tierAssignment
     });
     res.json({ success: true, paymentUrl: charge.url });
   } catch (error) {
@@ -2587,7 +2653,7 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
   }
   
   try {
-    await db.cleanupExpiredTransactions();
+    await cleanupExpiredTransactionsWithR2();
     const txs = await db.getTransactions(username);
     res.json(txs);
   } catch (err) {
@@ -2607,8 +2673,8 @@ function checkCronAuth(req, res, next) {
 
 app.post('/api/cron/cleanup-expired', checkCronAuth, async (req, res) => {
   try {
-    const expiredCount = await db.cleanupExpiredTransactions();
-    const deletedCount = await db.hardDeleteExpiredTransactions();
+    const expiredCount = await cleanupExpiredTransactionsWithR2();
+    const deletedCount = await hardDeleteExpiredTransactionsWithR2();
     const ipDeleted = await db.cleanupOldIpEvents(90);
 
     const today = new Date().toISOString().slice(0, 10);
@@ -2939,7 +3005,8 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
   'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
   'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
-  'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings'
+  'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
+  'tier_donate_settings', 'sound_library'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -3131,6 +3198,28 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
           return res.status(400).json({ error: `${key} ไม่ถูกต้อง` });
         }
         safeBody[key] = JSON.stringify(parsed);
+      }
+    }
+
+    // § 2.1 TIER_DONATE_BLUEPRINT.md — tier_donate_settings/sound_library ต้องรู้ streamer.id ก่อน validate ownership ของ URL
+    if (safeBody.tier_donate_settings !== undefined || safeBody.sound_library !== undefined) {
+      const tierStreamer = await getStreamerForUser(req.user);
+      if (!tierStreamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+
+      if (safeBody.tier_donate_settings !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(safeBody.tier_donate_settings); } catch { parsed = null; }
+        const check = validateTierDonateSettings(parsed, tierStreamer.id);
+        if (!check.valid) return res.status(400).json({ error: check.message });
+        safeBody.tier_donate_settings = JSON.stringify(parsed);
+      }
+
+      if (safeBody.sound_library !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(safeBody.sound_library); } catch { parsed = null; }
+        const check = validateSoundLibrary(parsed, tierStreamer.id);
+        if (!check.valid) return res.status(400).json({ error: check.message });
+        safeBody.sound_library = JSON.stringify(parsed);
       }
     }
 
@@ -3489,6 +3578,68 @@ app.get('/api/page/:username/goal', goalPublicLimiter, async (req, res) => {
   }
 });
 
+// § 2.3 TIER_DONATE_BLUEPRINT.md
+app.get('/api/page/:username/tier-settings', tierSettingsLimiter, async (req, res) => {
+  try {
+    const streamer = await db.getStreamer(req.params.username);
+    if (!streamer) return res.json({ enabled: false });
+    let tierSettings = null;
+    try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
+    if (!tierSettings || !tierSettings.enabled) return res.json({ enabled: false });
+    let soundLibrary = [];
+    try { soundLibrary = JSON.parse(streamer.sound_library || '[]'); } catch {}
+    res.json({
+      enabled: true,
+      tiers: tierSettings.tiers || [],
+      alert_images: tierSettings.alert_images || [],
+      sound_library: soundLibrary
+    });
+  } catch (err) {
+    console.error('Tier settings state error:', err.message);
+    res.json({ enabled: false });
+  }
+});
+
+// § 2.4 TIER_DONATE_BLUEPRINT.md — donor own-audio upload (upload หรือ MediaRecorder blob)
+// ⚠️ ห้ามเรียก validateAudioUrl() ที่นี่ — ฟังก์ชันนั้น reject .webm โดยตั้งใจสำหรับ arbitrary streamer-typed URL field คนละ trust boundary (§7 pitfall #1)
+const ALLOWED_TIER_AUDIO_MIMES = { 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/webm': 'webm' };
+const tierAudioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_TIER_AUDIO_MIMES[file.mimetype]) {
+      return cb(new Error('รองรับเฉพาะไฟล์เสียง mp3, ogg, wav, webm'));
+    }
+    cb(null, true);
+  }
+});
+
+app.post('/api/donate/upload-tier-audio', sameOriginCheck, donorAudioUploadLimiter, tierAudioUpload.single('audio'), async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'ไม่พบ username' });
+    if (!req.file) return res.status(400).json({ error: 'ไม่พบไฟล์เสียง' });
+
+    const streamer = await db.getStreamer(username);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+
+    let tierSettings = null;
+    try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
+    if (!tierSettings || !tierSettings.enabled || !Array.isArray(tierSettings.tiers) ||
+        !tierSettings.tiers.some(t => t.active !== false && t.allow_own_audio === true)) {
+      return res.status(403).json({ error: 'ผู้ใช้นี้ไม่เปิดใช้งานอัพโหลด/อัดเสียงเอง' });
+    }
+
+    const ext = ALLOWED_TIER_AUDIO_MIMES[req.file.mimetype];
+    const key = `donor-temp/${streamer.id}-${crypto.randomUUID()}.${ext}`;
+    const url = await uploadBufferToR2(req.file.buffer, key, req.file.mimetype);
+    res.json({ success: true, url });
+  } catch (err) {
+    console.error('Tier audio upload error:', censor(err.message));
+    res.status(500).json({ error: 'อัปโหลดเสียงไม่สำเร็จ' });
+  }
+});
+
 app.get('/api/page/:username/settings', async (req, res) => {
   try {
     const { username } = req.params;
@@ -3596,6 +3747,94 @@ function validateAudioUrl(url) {
   } catch {
     return { valid: false, message: 'รูปแบบลิงก์ URL ไม่ถูกต้อง' };
   }
+}
+
+// ownership check เดียวกับ /api/upload/delete-file — url ต้องขึ้นต้นด้วย R2 public URL + folder/{streamerId}-
+function isOwnedR2Url(url, folder, streamerId) {
+  if (!url || typeof url !== 'string') return false;
+  const r2Base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!r2Base || !url.startsWith(r2Base + '/')) return false;
+  const key = url.slice(r2Base.length + 1).split('?')[0];
+  return !key.includes('..') && !key.includes('//') && key.startsWith(`${folder}/${streamerId}-`);
+}
+
+// § 2.1 TIER_DONATE_BLUEPRINT.md — validate tier_donate_settings JSON blob
+function validateTierDonateSettings(obj, streamerId) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { valid: false, message: 'tier_donate_settings ไม่ถูกต้อง' };
+  if (!Array.isArray(obj.tiers) || obj.tiers.length === 0 || obj.tiers.length > 3) {
+    return { valid: false, message: 'tiers ต้องมี 1-3 รายการ' };
+  }
+  if (!obj.tiers.some(t => t.level === 1)) {
+    return { valid: false, message: 'ต้องมี Tier 1 เสมอ' };
+  }
+  let prevMin = -Infinity;
+  for (const t of obj.tiers.slice().sort((a, b) => a.level - b.level)) {
+    if (![1, 2, 3].includes(t.level)) return { valid: false, message: 'tier level ไม่ถูกต้อง' };
+    const minAmount = Number(t.min_amount);
+    if (!Number.isFinite(minAmount) || minAmount < 1) return { valid: false, message: `Tier ${t.level}: min_amount ต้องมากกว่า 0` };
+    if (t.active !== false) {
+      if (minAmount <= prevMin) return { valid: false, message: 'min_amount ต้องเรียงจากน้อยไปมาก' };
+      prevMin = minAmount;
+    }
+  }
+  if (obj.alert_images !== undefined) {
+    if (!Array.isArray(obj.alert_images) || obj.alert_images.length > 3) {
+      return { valid: false, message: 'alert_images สูงสุด 3 รายการ' };
+    }
+    for (const img of obj.alert_images) {
+      if (!img || !['image', 'video'].includes(img.type)) return { valid: false, message: 'alert_images.type ไม่ถูกต้อง' };
+      if (!isOwnedR2Url(img.url, 'tier-alert', streamerId)) return { valid: false, message: 'alert_images.url ไม่ถูกต้อง' };
+    }
+  }
+  return { valid: true };
+}
+
+// § 2.1 TIER_DONATE_BLUEPRINT.md — validate sound_library JSON array (cap 5, ownership + audio-type check)
+function validateSoundLibrary(arr, streamerId) {
+  if (!Array.isArray(arr) || arr.length > 5) return { valid: false, message: 'sound_library สูงสุด 5 รายการ' };
+  for (const s of arr) {
+    if (!s || typeof s.label !== 'string' || !s.label.trim()) return { valid: false, message: 'sound_library ต้องมี label' };
+    const audioCheck = validateAudioUrl(s.url);
+    if (!audioCheck.valid) return audioCheck;
+    if (!isOwnedR2Url(s.url, 'sounds', streamerId)) return { valid: false, message: 'sound_library.url ไม่ถูกต้อง' };
+  }
+  return { valid: true };
+}
+
+// § 2.5 TIER_DONATE_BLUEPRINT.md — server คำนวณ tier_level เองเสมอ ห้าม trust client (§7 pitfall #2)
+// tierImageUrl/tierSoundUrl ผิด/ปลอม → ละเว้นเงียบๆ (เซ็ต null) ไม่ error ทั้งการโดเนท (§7 pitfall #3)
+function computeTierAssignment(streamer, amount, body) {
+  const result = { tier_level: null, tier_image_url: null, tier_sound_url: null, tier_sound_is_temp: 0 };
+  let tierSettings = null;
+  try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
+  if (!tierSettings || !tierSettings.enabled || !Array.isArray(tierSettings.tiers)) return result;
+
+  const unlocked = tierSettings.tiers
+    .filter(t => t.active !== false && Number(amount) >= Number(t.min_amount))
+    .sort((a, b) => b.level - a.level)[0];
+  if (!unlocked) return result;
+  result.tier_level = unlocked.level;
+
+  const { tierImageUrl, tierSoundUrl, tierSoundIsTemp } = body || {};
+  if (tierImageUrl && unlocked.allow_image_choice) {
+    const images = Array.isArray(tierSettings.alert_images) ? tierSettings.alert_images : [];
+    if (images.some(img => img.url === tierImageUrl)) result.tier_image_url = tierImageUrl;
+  }
+  if (tierSoundUrl) {
+    if (tierSoundIsTemp && unlocked.allow_own_audio) {
+      if (isOwnedR2Url(tierSoundUrl, 'donor-temp', streamer.id)) {
+        result.tier_sound_url = tierSoundUrl;
+        result.tier_sound_is_temp = 1;
+      }
+    } else if (!tierSoundIsTemp && unlocked.allow_sound_choice) {
+      let soundLibrary = [];
+      try { soundLibrary = JSON.parse(streamer.sound_library || '[]'); } catch {}
+      if (soundLibrary.some(s => s.url === tierSoundUrl)) {
+        result.tier_sound_url = tierSoundUrl;
+      }
+    }
+  }
+  return result;
 }
 
 app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
@@ -4692,11 +4931,11 @@ const setupWebhookLimiter = rateLimit({
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { username, amount, name, message, timerAction } = req.body;
+    const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
     if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
 
-    await db.cleanupExpiredTransactions();
+    await cleanupExpiredTransactionsWithR2();
 
     const pendingCount = await db.countPendingTransactions(username);
     if (pendingCount >= 50) {
@@ -4706,6 +4945,8 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     const streamer = await db.getStreamer(username);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
     if (!streamer.promptpay_enabled) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้เปิด PromptPay' });
+
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp });
 
     let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
     if (phone && phone.includes(':')) {
@@ -4741,7 +4982,8 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
       streamer_username: username,
       payment_method: 'promptpay',
       createdAt: new Date().toISOString(),
-      timer_action: sanitizeTimerAction(timerAction)
+      timer_action: sanitizeTimerAction(timerAction),
+      ...tierAssignment
     };
     await db.saveTransaction(txData);
     db.logIpEvent('donate_submit', req.ip, username, { amount, ref: referenceId }).catch(() => {});
@@ -4957,7 +5199,7 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid method' });
     }
 
-    await db.cleanupExpiredTransactions();
+    await cleanupExpiredTransactionsWithR2();
     const pendingCount = await db.countPendingTransactions(username);
     if (pendingCount >= 50) {
       return res.status(429).json({ error: 'Too many pending transactions' });
@@ -5293,7 +5535,8 @@ const UPLOAD_MAX_SIZES = {
   header: 5 * 1024 * 1024,
   pagebg: 5 * 1024 * 1024,
   sound: 1024 * 1024,
-  video: 5 * 1024 * 1024
+  video: 5 * 1024 * 1024,
+  tierAlert: 5 * 1024 * 1024
 };
 
 // POST /api/upload/presign — generate Cloudflare R2 presigned upload URL

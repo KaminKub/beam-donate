@@ -22,6 +22,17 @@ let trueMoneyQrFallbackTimer = null;
 let trueMoneyQrCountdownInterval = null;
 let trueMoneyQrExpiresAt = null;
 
+// Tier Donate (TIER_DONATE_BLUEPRINT.md § 4)
+let tierSettings = null;
+let currentUnlockedTier = null;
+let selectedTierImageUrl = null;
+let selectedTierSoundUrl = null;
+let selectedTierSoundIsTemp = false;
+let tierMediaRecorder = null;
+let tierRecordedChunks = [];
+let tierRecordTimeout = null;
+let tierRecordCountdownInterval = null;
+
 // ========== Anti-Bot: Page Token from Server ==========
 let pageToken = '';
 const metaToken = document.querySelector('meta[name="page-token"]');
@@ -425,6 +436,7 @@ async function loadPageContent() {
 
         // Load donation goal bar
         loadGoal(username);
+        loadTierSettings(username);
         TipKubLoading.hide();
     }
   } catch (error) {
@@ -446,6 +458,239 @@ async function loadGoal(username) {
     document.getElementById('goalBarSection').style.display = '';
   } catch (e) {
     // Silent fail — goal bar is decorative
+  }
+}
+
+// ========== Tier Donate (TIER_DONATE_BLUEPRINT.md § 4) ==========
+async function loadTierSettings(username) {
+  try {
+    const res = await fetch(`/api/page/${username}/tier-settings`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.enabled) return;
+    tierSettings = data;
+    recomputeTierUnlock();
+  } catch (e) {
+    // Silent fail — tier donate is an enhancement, ไม่บล็อกการโดเนทหลัก (§4.6 Mobile Donor Resilience)
+  }
+}
+
+function recomputeTierUnlock() {
+  if (!tierSettings || !Array.isArray(tierSettings.tiers)) return;
+  const amt = selectedAmount;
+  const unlocked = tierSettings.tiers
+    .filter(t => t.active !== false && amt >= t.min_amount)
+    .sort((a, b) => b.level - a.level)[0] || null;
+  if ((unlocked?.level || null) !== (currentUnlockedTier?.level || null)) {
+    currentUnlockedTier = unlocked;
+    renderTierSection(unlocked);
+  }
+}
+
+function resetTierSelections() {
+  selectedTierImageUrl = null;
+  selectedTierSoundUrl = null;
+  selectedTierSoundIsTemp = false;
+  stopTierRecording(true);
+  const fileInput = document.getElementById('tierOwnAudioFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('tierOwnAudioStatus');
+  if (status) status.textContent = '';
+}
+
+function renderTierSection(unlocked) {
+  const section = document.getElementById('tierDonateSection');
+  const banner = document.getElementById('tierBanner');
+  resetTierSelections();
+
+  if (!unlocked) {
+    section.classList.remove('tier-open');
+    return;
+  }
+  section.classList.add('tier-open');
+  banner.className = 'tier-banner tier-level-' + unlocked.level;
+  banner.textContent = `🎉 ปลดล็อก Tier ${unlocked.level}!`;
+
+  // Image choices
+  const imgBlock = document.getElementById('tierImageChoiceBlock');
+  const imgChoicesEl = document.getElementById('tierImageChoices');
+  if (unlocked.allow_image_choice && Array.isArray(tierSettings.alert_images) && tierSettings.alert_images.length > 0) {
+    imgChoicesEl.innerHTML = '';
+    const defaultChoice = document.createElement('div');
+    defaultChoice.className = 'tier-image-choice tier-default-choice selected';
+    defaultChoice.textContent = 'ค่าเริ่มต้น';
+    defaultChoice.onclick = () => selectTierImage(null, defaultChoice);
+    imgChoicesEl.appendChild(defaultChoice);
+    tierSettings.alert_images.forEach(img => {
+      const el = document.createElement('div');
+      el.className = 'tier-image-choice';
+      if (img.type === 'video') {
+        el.innerHTML = `<video src="${escapeAttr(img.url)}" width="56" height="56" muted loop autoplay playsinline></video>`;
+      } else {
+        el.innerHTML = `<img src="${escapeAttr(img.url)}" width="56" height="56" alt="">`;
+      }
+      el.onclick = () => selectTierImage(img.url, el);
+      imgChoicesEl.appendChild(el);
+    });
+    imgBlock.style.display = '';
+  } else {
+    imgBlock.style.display = 'none';
+  }
+
+  // Sound library choices
+  const sndBlock = document.getElementById('tierSoundChoiceBlock');
+  const sndSelect = document.getElementById('tierSoundSelect');
+  if (unlocked.allow_sound_choice && Array.isArray(tierSettings.sound_library) && tierSettings.sound_library.length > 0) {
+    sndSelect.innerHTML = '<option value="">ไม่ใช้เสียงพิเศษ</option>' +
+      tierSettings.sound_library.map(s => `<option value="${escapeAttr(s.url)}">${escapeHtml(s.label)}</option>`).join('');
+    sndSelect.onchange = () => { selectedTierSoundUrl = sndSelect.value || null; selectedTierSoundIsTemp = false; };
+    sndBlock.style.display = '';
+  } else {
+    sndBlock.style.display = 'none';
+  }
+
+  // Own audio (upload / record)
+  const ownBlock = document.getElementById('tierOwnAudioBlock');
+  ownBlock.style.display = unlocked.allow_own_audio ? '' : 'none';
+  if (unlocked.allow_own_audio && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    document.getElementById('tierRecordSubtabBtn').style.display = 'none'; // feature-detect (§4.4)
+  }
+}
+
+function selectTierImage(url, el) {
+  selectedTierImageUrl = url;
+  document.querySelectorAll('.tier-image-choice').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s || '';
+  return div.innerHTML;
+}
+
+// Own-audio subtab toggle (upload / record)
+document.querySelectorAll('.tier-subtab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tier-subtab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sub = btn.dataset.subtab;
+    document.getElementById('tierUploadPane').style.display = sub === 'upload' ? '' : 'none';
+    document.getElementById('tierRecordPane').style.display = sub === 'record' ? '' : 'none';
+  });
+});
+
+// Own-audio: upload flow
+document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('tierOwnAudioStatus');
+  const setStatus = (msg) => { if (status) status.textContent = msg; };
+  if (file.size > 1024 * 1024) {
+    setStatus('ไฟล์ต้องไม่เกิน 1MB');
+    e.target.value = '';
+    return;
+  }
+  setStatus('กำลังอัปโหลด...');
+  try {
+    const username = window.location.pathname.split('/')[1];
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('username', username);
+    const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+    selectedTierSoundUrl = data.url;
+    selectedTierSoundIsTemp = true;
+    setStatus('อัปโหลดสำเร็จ ✓');
+  } catch (err) {
+    setStatus('อัปโหลดไม่สำเร็จ: ' + err.message);
+  }
+});
+
+// Own-audio: mic recording flow (§4.4 — feature ใหม่ทั้งหมด, ไม่มี precedent เดิม)
+document.getElementById('tierRecordBtn')?.addEventListener('click', () => {
+  if (tierMediaRecorder && tierMediaRecorder.state === 'recording') {
+    stopTierRecording(false);
+  } else {
+    startTierRecording();
+  }
+});
+
+async function startTierRecording() {
+  const status = document.getElementById('tierRecordStatus');
+  const btnLabel = document.getElementById('tierRecordBtnLabel');
+  const timerEl = document.getElementById('tierRecordTimer');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tierMediaRecorder = new MediaRecorder(stream);
+    tierRecordedChunks = [];
+    tierMediaRecorder.ondataavailable = e => tierRecordedChunks.push(e.data);
+    tierMediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      uploadTierRecordedAudio(new Blob(tierRecordedChunks, { type: 'audio/webm' }));
+    };
+    tierMediaRecorder.start();
+    if (btnLabel) btnLabel.textContent = 'หยุดอัดเสียง';
+    if (status) status.textContent = '';
+
+    let remaining = 15;
+    if (timerEl) { timerEl.style.display = ''; timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
+    tierRecordCountdownInterval = setInterval(() => {
+      remaining -= 1;
+      if (timerEl) timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`;
+      if (remaining <= 0) clearInterval(tierRecordCountdownInterval);
+    }, 1000);
+    tierRecordTimeout = setTimeout(() => stopTierRecording(false), 15000); // auto-stop 15s (guardrail § 0)
+  } catch (err) {
+    // ผู้ใช้กด deny หรือไม่รองรับ → ซ่อนปุ่ม fallback เหลือ upload/library เท่านั้น (§4.6)
+    document.getElementById('tierRecordSubtabBtn').style.display = 'none';
+    document.getElementById('tierUploadPane').style.display = '';
+    document.getElementById('tierRecordPane').style.display = 'none';
+    document.querySelector('.tier-subtab-btn[data-subtab="upload"]')?.classList.add('active');
+    document.getElementById('tierRecordSubtabBtn')?.classList.remove('active');
+  }
+}
+
+function stopTierRecording(cancel) {
+  clearTimeout(tierRecordTimeout);
+  clearInterval(tierRecordCountdownInterval);
+  const timerEl = document.getElementById('tierRecordTimer');
+  if (timerEl) timerEl.style.display = 'none';
+  const btnLabel = document.getElementById('tierRecordBtnLabel');
+  if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
+  if (cancel && tierMediaRecorder) {
+    tierMediaRecorder.onstop = null;
+    if (tierMediaRecorder.state === 'recording') {
+      tierMediaRecorder.stream?.getTracks().forEach(t => t.stop());
+      tierMediaRecorder.stop();
+    }
+    tierMediaRecorder = null;
+    return;
+  }
+  if (tierMediaRecorder && tierMediaRecorder.state === 'recording') {
+    tierMediaRecorder.stop();
+  }
+}
+
+async function uploadTierRecordedAudio(blob) {
+  const status = document.getElementById('tierRecordStatus');
+  const setStatus = (msg) => { if (status) status.textContent = msg; };
+  setStatus('กำลังอัปโหลด...');
+  try {
+    const username = window.location.pathname.split('/')[1];
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+    formData.append('username', username);
+    const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+    selectedTierSoundUrl = data.url;
+    selectedTierSoundIsTemp = true;
+    setStatus('อัดเสียงสำเร็จ ✓');
+  } catch (err) {
+    setStatus('อัปโหลดไม่สำเร็จ: ' + err.message);
   }
 }
 
@@ -541,6 +786,7 @@ function updateDonateButton() {
     minAmountWarning.style.display = 'none';
   }
   updateTimerChoiceBox();
+  recomputeTierUnlock();
 }
 
 // ── Timer Donor Choice ──
@@ -846,7 +1092,10 @@ btnProceedPayment.addEventListener('click', async () => {
           amount: selectedAmount,
           name: donorNameInput.value,
           message: donorMessageInput.value,
-          timerAction: getTimerActionForSubmit()
+          timerAction: getTimerActionForSubmit(),
+          tierImageUrl: selectedTierImageUrl || null,
+          tierSoundUrl: selectedTierSoundUrl || null,
+          tierSoundIsTemp: selectedTierSoundIsTemp || false
         })
       });
 
@@ -888,7 +1137,10 @@ btnProceedPayment.addEventListener('click', async () => {
           amount: selectedAmount,
           name: donorNameInput.value,
           message: donorMessageInput.value,
-          timerAction: getTimerActionForSubmit()
+          timerAction: getTimerActionForSubmit(),
+          tierImageUrl: selectedTierImageUrl || null,
+          tierSoundUrl: selectedTierSoundUrl || null,
+          tierSoundIsTemp: selectedTierSoundIsTemp || false
         })
       });
 

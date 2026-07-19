@@ -250,7 +250,9 @@ async function migrateDB() {
         badge_display TEXT DEFAULT NULL,
         leaderboard_settings TEXT DEFAULT NULL,
         recentdonate_settings TEXT DEFAULT NULL,
-        goal_text_settings TEXT DEFAULT NULL
+        goal_text_settings TEXT DEFAULT NULL,
+        tier_donate_settings TEXT DEFAULT NULL,
+        sound_library TEXT DEFAULT NULL
       )
     `);
 
@@ -273,7 +275,11 @@ async function migrateDB() {
         promptpay_slip_id TEXT,
         promptpay_verified INTEGER DEFAULT 0,
         promptpay_verified_at TEXT,
-        timer_action TEXT DEFAULT NULL
+        timer_action TEXT DEFAULT NULL,
+        tier_level INTEGER DEFAULT NULL,
+        tier_image_url TEXT DEFAULT NULL,
+        tier_sound_url TEXT DEFAULT NULL,
+        tier_sound_is_temp INTEGER DEFAULT 0
       )
      `);
     await db.execute(`
@@ -353,7 +359,11 @@ async function migrateDB() {
       { name: 'promptpay_slip_id', type: 'TEXT' },
       { name: 'promptpay_verified', type: 'INTEGER DEFAULT 0' },
       { name: 'promptpay_verified_at', type: 'TEXT' },
-      { name: 'timer_action', type: 'TEXT DEFAULT NULL' }
+      { name: 'timer_action', type: 'TEXT DEFAULT NULL' },
+      { name: 'tier_level', type: 'INTEGER DEFAULT NULL' },
+      { name: 'tier_image_url', type: 'TEXT DEFAULT NULL' },
+      { name: 'tier_sound_url', type: 'TEXT DEFAULT NULL' },
+      { name: 'tier_sound_is_temp', type: 'INTEGER DEFAULT 0' }
     ];
 
     for (const col of requiredTxCols) {
@@ -479,7 +489,9 @@ async function migrateDB() {
       { name: 'badge_display', type: 'TEXT DEFAULT NULL' },
       { name: 'leaderboard_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' },
-      { name: 'goal_text_settings', type: 'TEXT DEFAULT NULL' }
+      { name: 'goal_text_settings', type: 'TEXT DEFAULT NULL' },
+      { name: 'tier_donate_settings', type: 'TEXT DEFAULT NULL' },
+      { name: 'sound_library', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -781,8 +793,8 @@ async function saveTransaction(data) {
   const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
 
   await db.execute({
-    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action, tier_level, tier_image_url, tier_sound_url, tier_sound_is_temp)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             amount = COALESCE(excluded.amount, transactions.amount),
             donor = COALESCE(excluded.donor, transactions.donor),
@@ -798,7 +810,11 @@ async function saveTransaction(data) {
             promptpay_slip_id = excluded.promptpay_slip_id,
             promptpay_verified = excluded.promptpay_verified,
             promptpay_verified_at = excluded.promptpay_verified_at,
-            timer_action = COALESCE(excluded.timer_action, transactions.timer_action)`,
+            timer_action = COALESCE(excluded.timer_action, transactions.timer_action),
+            tier_level = COALESCE(excluded.tier_level, transactions.tier_level),
+            tier_image_url = COALESCE(excluded.tier_image_url, transactions.tier_image_url),
+            tier_sound_url = COALESCE(excluded.tier_sound_url, transactions.tier_sound_url),
+            tier_sound_is_temp = COALESCE(excluded.tier_sound_is_temp, transactions.tier_sound_is_temp)`,
     args: [
       data.id,
       data.amount || 0,
@@ -816,7 +832,11 @@ async function saveTransaction(data) {
       data.promptpay_slip_id || null,
       data.promptpay_verified !== undefined ? (data.promptpay_verified ? 1 : 0) : 0,
       data.promptpay_verified_at || null,
-      data.timer_action ?? null
+      data.timer_action ?? null,
+      data.tier_level ?? null,
+      data.tier_image_url ?? null,
+      data.tier_sound_url ?? null,
+      data.tier_sound_is_temp !== undefined ? (data.tier_sound_is_temp ? 1 : 0) : 0
     ]
   });
   
@@ -1190,7 +1210,9 @@ async function saveStreamer(data) {
                badge_display = COALESCE(?, streamers.badge_display),
                leaderboard_settings = COALESCE(?, streamers.leaderboard_settings),
                recentdonate_settings = COALESCE(?, streamers.recentdonate_settings),
-               goal_text_settings = COALESCE(?, streamers.goal_text_settings)
+               goal_text_settings = COALESCE(?, streamers.goal_text_settings),
+               tier_donate_settings = COALESCE(?, streamers.tier_donate_settings),
+               sound_library = COALESCE(?, streamers.sound_library)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1323,6 +1345,8 @@ async function saveStreamer(data) {
           finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
           finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
           finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
+          finalData.tier_donate_settings !== undefined ? finalData.tier_donate_settings : null,
+          finalData.sound_library !== undefined ? finalData.sound_library : null,
           existing.id
         ]
       });
@@ -1344,8 +1368,8 @@ async function saveStreamer(data) {
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1478,7 +1502,9 @@ async function saveStreamer(data) {
         finalData.badge_display !== undefined ? finalData.badge_display : null,
         finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
         finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
-        finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null
+        finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
+        finalData.tier_donate_settings !== undefined ? finalData.tier_donate_settings : null,
+        finalData.sound_library !== undefined ? finalData.sound_library : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -1782,6 +1808,26 @@ async function cleanupExpiredTransactions() {
     console.log(`🧹 Cleaned up ${result.rowsAffected} expired transactions`);
   }
   return result.rowsAffected;
+}
+
+// § 2.7 TIER_DONATE_BLUEPRINT.md — donor-temp R2 audio ต้องลบก่อน transaction ถูก expire/hard-delete
+// เรียกก่อน cleanupExpiredTransactions()/hardDeleteExpiredTransactions() เสมอ (WHERE เดียวกัน)
+async function getExpiringTierAudioUrls() {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const result = await db.execute({
+    sql: `SELECT tier_sound_url FROM transactions WHERE status = 'pending' AND tier_sound_is_temp = 1 AND tier_sound_url IS NOT NULL AND createdAt IS NOT NULL AND datetime(createdAt) < datetime('now', '-30 minutes')`
+  });
+  return result.rows.map(r => r.tier_sound_url);
+}
+
+async function getHardDeletableTierAudioUrls() {
+  await ensureConnected();
+  if (isFallback || !db) return [];
+  const result = await db.execute({
+    sql: `SELECT tier_sound_url FROM transactions WHERE status = 'expired' AND tier_sound_is_temp = 1 AND tier_sound_url IS NOT NULL AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
+  });
+  return result.rows.map(r => r.tier_sound_url);
 }
 
 async function countPendingTransactions(username) {
@@ -2385,6 +2431,8 @@ module.exports = {
   confirmTransactionPaid,
   cleanupExpiredTransactions,
   hardDeleteExpiredTransactions,
+  getExpiringTierAudioUrls,
+  getHardDeletableTierAudioUrls,
   hardDeleteOldTransactions,
   getTransactionsByDateRange,
   countPendingTransactions,

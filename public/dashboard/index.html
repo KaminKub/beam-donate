@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260719_3">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260719_4">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1364,6 +1364,114 @@
                       </div>
                     </div>
                     </div><!-- /card-body-panel panelSoundTts -->
+                  </div>
+
+                  <!-- Card: Tier Donate -->
+                  <div class="dashboard-card settings-card">
+                    <div class="settings-card-header" data-target="panelTierDonate">
+                      <h4><i class="fa-solid fa-crown" style="color:#fbbf24;"></i> ระบบทุนนิยม (Tier Donate)
+                        <span class="new-feature-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> ใหม่!</span>
+                      </h4>
+                      <i class="fa-solid fa-chevron-down card-chevron"></i>
+                    </div>
+                    <div class="card-body-panel" id="panelTierDonate">
+                      <div class="switch-group">
+                        <label class="switch"><input type="checkbox" id="chkTierDonateEnabled" name="tierDonateEnabled"><span class="slider-switch"></span></label>
+                        <span class="switch-label">เปิดระบบทุนนิยม</span>
+                      </div>
+                      <div class="widget-settings-body" data-body-for="tierDonate">
+
+                        <h5 class="section-divider">คลังภาพ/วิดีโอ Alert ประจำ Tier (สูงสุด 3 ไฟล์)</h5>
+                        <div class="form-row" id="tierImageGallery" style="flex-wrap:wrap;gap:16px;">
+                          <div class="form-group" data-tier-image-slot="1">
+                            <label>ภาพ/วิดีโอ ที่ 1 <small style="color:var(--text-muted)">(สูงสุด 5MB)</small></label>
+                            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                              <div style="position:relative;display:inline-block;">
+                                <img id="tierImagePreview1" src="" alt="preview" width="64" height="64" style="border-radius:8px;object-fit:cover;display:none;">
+                                <button type="button" id="btnClearTierImage1" class="btn-clear-upload" style="display:none;position:absolute;top:-8px;right:-8px;" title="ลบภาพ"><i class="fa-solid fa-xmark"></i></button>
+                              </div>
+                              <label for="tierImageFile1" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-upload"></i> เลือกไฟล์
+                              </label>
+                              <input type="file" id="tierImageFile1" accept="image/*,video/webm" style="display:none;">
+                              <span id="tierImageStatus1" style="font-size:12px;color:var(--text-muted);"></span>
+                            </div>
+                          </div>
+                          <div class="form-group" data-tier-image-slot="2">
+                            <label>ภาพ/วิดีโอ ที่ 2 <small style="color:var(--text-muted)">(สูงสุด 5MB)</small></label>
+                            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                              <div style="position:relative;display:inline-block;">
+                                <img id="tierImagePreview2" src="" alt="preview" width="64" height="64" style="border-radius:8px;object-fit:cover;display:none;">
+                                <button type="button" id="btnClearTierImage2" class="btn-clear-upload" style="display:none;position:absolute;top:-8px;right:-8px;" title="ลบภาพ"><i class="fa-solid fa-xmark"></i></button>
+                              </div>
+                              <label for="tierImageFile2" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-upload"></i> เลือกไฟล์
+                              </label>
+                              <input type="file" id="tierImageFile2" accept="image/*,video/webm" style="display:none;">
+                              <span id="tierImageStatus2" style="font-size:12px;color:var(--text-muted);"></span>
+                            </div>
+                          </div>
+                          <div class="form-group" data-tier-image-slot="3">
+                            <label>ภาพ/วิดีโอ ที่ 3 <small style="color:var(--text-muted)">(สูงสุด 5MB)</small></label>
+                            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                              <div style="position:relative;display:inline-block;">
+                                <img id="tierImagePreview3" src="" alt="preview" width="64" height="64" style="border-radius:8px;object-fit:cover;display:none;">
+                                <button type="button" id="btnClearTierImage3" class="btn-clear-upload" style="display:none;position:absolute;top:-8px;right:-8px;" title="ลบภาพ"><i class="fa-solid fa-xmark"></i></button>
+                              </div>
+                              <label for="tierImageFile3" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-upload"></i> เลือกไฟล์
+                              </label>
+                              <input type="file" id="tierImageFile3" accept="image/*,video/webm" style="display:none;">
+                              <span id="tierImageStatus3" style="font-size:12px;color:var(--text-muted);"></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <h5 class="section-divider">คลังเสียงแจ้งเตือน</h5>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <button type="button" id="btnManageSoundLibrary" class="btn btn-secondary"><i class="fa-solid fa-music"></i> จัดการคลังเสียงแจ้งเตือน (<span id="lblSoundLibraryCount">0</span>/5)</button>
+                          </div>
+                        </div>
+
+                        <h5 class="section-divider">ตั้งค่า Tier</h5>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label><i class="fa-solid fa-medal" style="color:#94a3b8;"></i> Tier 1 (เปิดใช้งานเสมอ)</label>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount1" class="form-control" min="1" value="50" style="width:100px;"> บาท</span>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowImage1" checked> ให้เลือกภาพ</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowSound1"> ให้เลือกเสียงจากคลัง</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowOwnAudio1"> ให้อัพโหลด/อัดเสียงเอง</label>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label><i class="fa-solid fa-medal" style="color:#60a5fa;"></i> Tier 2 <label style="font-weight:400;font-size:12px;margin-left:8px;"><input type="checkbox" id="tierActive2"> เปิดใช้ Tier นี้</label></label>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount2" class="form-control" min="1" value="200" style="width:100px;"> บาท</span>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowImage2" checked> ให้เลือกภาพ</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowSound2" checked> ให้เลือกเสียงจากคลัง</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowOwnAudio2"> ให้อัพโหลด/อัดเสียงเอง</label>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label><i class="fa-solid fa-medal" style="color:#fbbf24;"></i> Tier 3 <label style="font-weight:400;font-size:12px;margin-left:8px;"><input type="checkbox" id="tierActive3"> เปิดใช้ Tier นี้</label></label>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount3" class="form-control" min="1" value="500" style="width:100px;"> บาท</span>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowImage3" checked> ให้เลือกภาพ</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowSound3" checked> ให้เลือกเสียงจากคลัง</label>
+                              <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="tierAllowOwnAudio3" checked> ให้อัพโหลด/อัดเสียงเอง</label>
+                            </div>
+                          </div>
+                        </div>
+                        <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">✨ ทุก Tier จะมาพร้อมเอฟเฟกต์เรืองแสงชื่อผู้โดเนทระดับต่างกันอัตโนมัติ ไม่ต้องตั้งค่าเพิ่ม</p>
+                        <p id="tierOrderError" style="display:none;color:#ef4444;font-size:12px;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ยอดขั้นต่ำของแต่ละ Tier ต้องเรียงจากน้อยไปมาก</p>
+                      </div>
+                    </div><!-- /card-body-panel panelTierDonate -->
                   </div>
 
                   <!-- Card: Profanity Filter Settings -->
@@ -3222,6 +3330,28 @@
     </div>
   </div>
 
+  <!-- Tier Donate: Sound Library Modal -->
+  <div id="soundLibraryModal" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-music" style="color:#a855f7;"></i> คลังเสียงแจ้งเตือน</h3>
+        <button class="btn-close" id="btnCloseSoundLibrary">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="soundLibraryList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+        <div id="soundLibraryFullNotice" style="display:none;color:#f59e0b;font-size:12px;margin-bottom:8px;"><i class="fa-solid fa-triangle-exclamation"></i> ครบจำนวนสูงสุด 5 ไฟล์</div>
+        <div id="soundLibraryAddWrap" style="display:flex;flex-direction:column;gap:8px;">
+          <input type="text" id="soundLibraryLabelInput" class="form-control" placeholder="ชื่อเสียง เช่น เสียงหัวเราะ" maxlength="40">
+          <label for="soundLibraryFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;justify-content:center;">
+            <i class="fa-solid fa-upload"></i> เลือกไฟล์เสียง (.mp3, .ogg สูงสุด 1MB)
+          </label>
+          <input type="file" id="soundLibraryFile" accept="audio/mpeg,audio/ogg,.mp3,.ogg" style="display:none;">
+          <span id="soundLibraryStatus" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MyInstants Sound Browser Modal -->
   <div id="soundBrowserModal" class="modal">
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
@@ -3416,7 +3546,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260719_3"></script>
+  <script src="/dashboard/dashboard.js?v=20260719_4"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

@@ -425,16 +425,29 @@ async function showAlert(data) {
     const line2 = renderTemplate(overlaySettings.template_line2 || '');
 
     // Set content
-    alertBox.querySelector('.donor-name').innerHTML = line1;
-    
+    const donorNameEl = alertBox.querySelector('.donor-name');
+    donorNameEl.innerHTML = line1;
+    // TIER_DONATE_BLUEPRINT.md § 5.1 — เอฟเฟกต์เรืองแสงตาม tier (alertBox เป็น clone ใหม่ทุกครั้ง ไม่ reuse → ไม่มี class ค้าง)
+    if (data.tierLevel) donorNameEl.classList.add(`tier-effect-${data.tierLevel}`);
+
     // Handle Custom Icon/Image
     const iconEmojiEl = alertBox.querySelector('.icon-emoji');
     const iconContainer = alertBox.querySelector('.alert-icon');
     const isTextOnly = alertBox.classList.contains('theme-text-only');
 
+    // TIER_DONATE_BLUEPRINT.md § 5.1 — donor's tier image pick overrides the streamer's default alert image/emoji entirely
+    const tierImageUrl = data.tierImageUrl || null;
+
     if (iconEmojiEl && iconContainer) {
       iconEmojiEl.textContent = '';
-      if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
+      if (tierImageUrl) {
+        const el = /\.webm(\?|$)/i.test(tierImageUrl) ? document.createElement('video') : document.createElement('img');
+        if (el.tagName === 'VIDEO') { el.autoplay = true; el.loop = true; el.muted = true; el.playsInline = true; }
+        el.src = tierImageUrl;
+        el.className = 'custom-alert-img';
+        iconEmojiEl.appendChild(el);
+        iconContainer.style.display = 'flex';
+      } else if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
         const img = document.createElement('img');
         img.src = overlaySettings.customImageValue;
         img.className = 'custom-alert-img';
@@ -454,8 +467,8 @@ async function showAlert(data) {
         iconContainer.style.display = 'none';
       }
 
-      // Special case: hide if URL is empty but mode is url/upload
-      if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
+      // Special case: hide if URL is empty but mode is url/upload (only when no tier override is active)
+      if (!tierImageUrl && (overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
         iconContainer.style.display = 'none';
       }
     }
@@ -489,8 +502,21 @@ async function showAlert(data) {
   setTimeout(() => spawnParticles(alertBox, overlaySettings.particleCount), 300);
 
   // Play Alert Audio Notification
+  // TIER_DONATE_BLUEPRINT.md § 5.1 — donor's tier sound pick overrides the streamer's configured alert sound entirely
   if (overlaySettings.soundEnabled) {
-    await playNotificationSound(overlaySettings.soundChoice, overlaySettings.soundVolume);
+    if (data.tierSoundUrl) {
+      await new Promise((resolve) => {
+        const audio = new Audio(data.tierSoundUrl);
+        audio.volume = Number(overlaySettings.soundVolume) || 0.5;
+        audio.onended = resolve;
+        audio.play().catch(err => {
+          console.warn('Tier sound playback failed:', err);
+          resolve();
+        });
+      });
+    } else {
+      await playNotificationSound(overlaySettings.soundChoice, overlaySettings.soundVolume);
+    }
   }
 
     // Play Speech Synthesis (TTS) after a small delay

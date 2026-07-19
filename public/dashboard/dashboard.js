@@ -887,6 +887,27 @@ async function initializeDashboard() {
       });
     }
 
+    // Tier Donate (TIER_DONATE_BLUEPRINT.md § 3)
+    [1, 2, 3].forEach(slot => {
+      const ids = TIER_IMAGE_SLOT_IDS[slot];
+      const fileEl = document.getElementById(ids.file);
+      if (fileEl) fileEl.onchange = (e) => handleTierImageFileSelect(slot, e);
+      const clearEl = document.getElementById(ids.clear);
+      if (clearEl) clearEl.onclick = () => clearTierImage(slot);
+    });
+    const btnManageSoundLibraryEl = document.getElementById('btnManageSoundLibrary');
+    if (btnManageSoundLibraryEl) btnManageSoundLibraryEl.onclick = openSoundLibraryModal;
+    const btnCloseSoundLibraryEl = document.getElementById('btnCloseSoundLibrary');
+    if (btnCloseSoundLibraryEl) btnCloseSoundLibraryEl.onclick = closeSoundLibraryModal;
+    const soundLibraryModalEl = document.getElementById('soundLibraryModal');
+    if (soundLibraryModalEl) {
+      soundLibraryModalEl.addEventListener('click', (e) => {
+        if (e.target === soundLibraryModalEl) closeSoundLibraryModal();
+      });
+    }
+    const soundLibraryFileEl = document.getElementById('soundLibraryFile');
+    if (soundLibraryFileEl) soundLibraryFileEl.onchange = handleSoundLibraryFileSelect;
+
     // Real-time brand glow update
     const glowPicker = document.getElementById('profileGlowColor');
     const glowText = document.getElementById('txtProfileGlowColor');
@@ -1518,6 +1539,7 @@ async function initializeDashboard() {
     registerWidgetVisibility('chkTimerEnabled', '#timerSettingsBody, [data-body-for="timer"]');
     registerWidgetVisibility('chkLeaderboardEnabled', '#leaderboardSettingsBody, [data-body-for="leaderboard"]');
     registerWidgetVisibility('chkRecentdonateEnabled', '#recentdonateSettingsBody, [data-body-for="recentdonate"]');
+    registerWidgetVisibility('chkTierDonateEnabled', '[data-body-for="tierDonate"]');
 
     if (window._slLinkedOnLoad) {
       window._slLinkedOnLoad = false;
@@ -4591,6 +4613,235 @@ function clearUploadSound() {
   if (status) status.textContent = '';
 }
 
+// ========== Tier Donate (TIER_DONATE_BLUEPRINT.md § 3) ==========
+let tierAlertImages = [null, null, null]; // index 0-2 = slot 1-3, saved with main form submit
+let soundLibraryItems = []; // auto-saved on every add/remove (§ 3.3)
+
+const TIER_IMAGE_SLOT_IDS = {
+  1: { preview: 'tierImagePreview1', file: 'tierImageFile1', clear: 'btnClearTierImage1', status: 'tierImageStatus1' },
+  2: { preview: 'tierImagePreview2', file: 'tierImageFile2', clear: 'btnClearTierImage2', status: 'tierImageStatus2' },
+  3: { preview: 'tierImagePreview3', file: 'tierImageFile3', clear: 'btnClearTierImage3', status: 'tierImageStatus3' }
+};
+
+function renderTierImageSlot(slot) {
+  const ids = TIER_IMAGE_SLOT_IDS[slot];
+  const entry = tierAlertImages[slot - 1];
+  const preview = document.getElementById(ids.preview);
+  const clearBtn = document.getElementById(ids.clear);
+  if (entry && entry.url) {
+    if (preview) { setMediaPreview(preview, entry.url); preview.style.display = isWebm(entry.url) ? 'none' : 'block'; }
+    if (clearBtn) clearBtn.style.display = '';
+  } else {
+    if (preview) {
+      preview.src = '';
+      preview.style.display = 'none';
+      const vid = document.getElementById(ids.preview + '_vid');
+      if (vid) vid.style.display = 'none';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+}
+
+async function handleTierImageFileSelect(slot, event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const ids = TIER_IMAGE_SLOT_IDS[slot];
+  const status = document.getElementById(ids.status);
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const oldUrl = tierAlertImages[slot - 1]?.url || null;
+    const fileUrl = await uploadImageToR2(file, 'tierAlert', 5, 1200, setStatus);
+    deleteOldR2File(oldUrl, 'tierAlert');
+    tierAlertImages[slot - 1] = { url: fileUrl, type: isWebm(fileUrl) ? 'video' : 'image' };
+    renderTierImageSlot(slot);
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดภาพสำเร็จ กด "บันทึกการตั้งค่า" เพื่อยืนยัน');
+  } catch (err) {
+    console.error('Tier image upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function clearTierImage(slot) {
+  const entry = tierAlertImages[slot - 1];
+  if (entry && entry.url) deleteOldR2File(entry.url, 'tierAlert');
+  tierAlertImages[slot - 1] = null;
+  const ids = TIER_IMAGE_SLOT_IDS[slot];
+  const fileInput = document.getElementById(ids.file);
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById(ids.status);
+  if (status) status.textContent = '';
+  renderTierImageSlot(slot);
+}
+
+function loadTierDonateSettingsFromData(s) {
+  let t = {};
+  try { t = JSON.parse(s.tier_donate_settings || '{}'); } catch (e) {}
+  const chkEnabled = document.getElementById('chkTierDonateEnabled');
+  if (chkEnabled) chkEnabled.checked = !!t.enabled;
+  updateWidgetBodyVisibility('chkTierDonateEnabled');
+
+  const tiers = Array.isArray(t.tiers) ? t.tiers : [];
+  const defaults = [
+    { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_audio: false },
+    { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: false },
+    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: true }
+  ];
+  const rowIds = {
+    1: { min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', own: 'tierAllowOwnAudio1' },
+    2: { active: 'tierActive2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', own: 'tierAllowOwnAudio2' },
+    3: { active: 'tierActive3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', own: 'tierAllowOwnAudio3' }
+  };
+  [1, 2, 3].forEach(level => {
+    const d = defaults[level - 1];
+    const saved = tiers.find(x => x.level === level) || d;
+    const ids = rowIds[level];
+    if (ids.active) {
+      const activeEl = document.getElementById(ids.active);
+      if (activeEl) activeEl.checked = saved.active !== false && saved.active !== undefined ? !!saved.active : false;
+    }
+    const minEl = document.getElementById(ids.min);
+    if (minEl) minEl.value = saved.min_amount ?? d.min_amount;
+    const imgEl = document.getElementById(ids.img);
+    if (imgEl) imgEl.checked = saved.allow_image_choice !== undefined ? !!saved.allow_image_choice : !!d.allow_image_choice;
+    const sndEl = document.getElementById(ids.snd);
+    if (sndEl) sndEl.checked = saved.allow_sound_choice !== undefined ? !!saved.allow_sound_choice : !!d.allow_sound_choice;
+    const ownEl = document.getElementById(ids.own);
+    if (ownEl) ownEl.checked = saved.allow_own_audio !== undefined ? !!saved.allow_own_audio : !!d.allow_own_audio;
+  });
+
+  tierAlertImages = [null, null, null];
+  const images = Array.isArray(t.alert_images) ? t.alert_images : [];
+  images.slice(0, 3).forEach((img, i) => { tierAlertImages[i] = img; });
+  [1, 2, 3].forEach(slot => renderTierImageSlot(slot));
+
+  let library = [];
+  try { library = JSON.parse(s.sound_library || '[]'); } catch (e) {}
+  soundLibraryItems = Array.isArray(library) ? library : [];
+  renderSoundLibraryList();
+}
+
+function renderSoundLibraryList() {
+  const list = document.getElementById('soundLibraryList');
+  const countLbl = document.getElementById('lblSoundLibraryCount');
+  const fullNotice = document.getElementById('soundLibraryFullNotice');
+  const addWrap = document.getElementById('soundLibraryAddWrap');
+  if (countLbl) countLbl.textContent = soundLibraryItems.length;
+  if (fullNotice) fullNotice.style.display = soundLibraryItems.length >= 5 ? '' : 'none';
+  if (addWrap) addWrap.style.display = soundLibraryItems.length >= 5 ? 'none' : '';
+  if (!list) return;
+  list.innerHTML = '';
+  soundLibraryItems.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;';
+    row.innerHTML = `
+      <span style="flex:1;font-size:13px;">${escapeHtml(item.label)}</span>
+      <button type="button" class="btn btn-secondary btn-sm" data-play-idx="${i}"><i class="fa-solid fa-play"></i></button>
+      <button type="button" class="btn-clear-upload" data-remove-idx="${i}" title="ลบ"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-play-idx]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.dataset.playIdx, 10);
+      new Audio(soundLibraryItems[idx].url).play().catch(() => {});
+    };
+  });
+  list.querySelectorAll('[data-remove-idx]').forEach(btn => {
+    btn.onclick = () => removeSoundLibraryItem(parseInt(btn.dataset.removeIdx, 10));
+  });
+}
+
+async function saveSoundLibrary() {
+  try {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sound_library: JSON.stringify(soundLibraryItems) })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      showNotification(errData.error || 'บันทึกคลังเสียงไม่สำเร็จ', 'error');
+      return false;
+    }
+    return true;
+  } catch (err) {
+    showNotification('ไม่สามารถบันทึกคลังเสียงได้', 'error');
+    return false;
+  }
+}
+
+async function removeSoundLibraryItem(idx) {
+  const item = soundLibraryItems[idx];
+  if (!item) return;
+  soundLibraryItems.splice(idx, 1);
+  renderSoundLibraryList();
+  const saved = await saveSoundLibrary();
+  if (saved) {
+    deleteOldR2File(item.url, 'sound');
+    showNotification('ลบเสียงสำเร็จ');
+  }
+}
+
+async function handleSoundLibraryFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('soundLibraryStatus');
+  const labelInput = document.getElementById('soundLibraryLabelInput');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  const label = (labelInput?.value || '').trim();
+  if (!label) { showNotification('กรุณาใส่ชื่อเสียงก่อนอัปโหลด', 'error'); return; }
+  if (soundLibraryItems.length >= 5) { showNotification('ครบจำนวนสูงสุด 5 ไฟล์แล้ว', 'error'); return; }
+
+  const allowedFormats = ['audio/mpeg', 'audio/mp3', 'audio/ogg'];
+  const normalizedType = file.type === 'audio/mp3' ? 'audio/mpeg' : file.type;
+  if (!allowedFormats.includes(file.type) && !allowedFormats.includes(normalizedType)) {
+    showNotification('รองรับเฉพาะไฟล์ .mp3 และ .ogg เท่านั้น', 'error');
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    showNotification('ไฟล์ต้องไม่เกิน 1MB', 'error');
+    return;
+  }
+
+  setStatus('กำลังขอ URL อัปโหลด...');
+  try {
+    const presignRes = await fetchWithCsrf('/api/upload/presign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileType: normalizedType, category: 'sound', originalName: file.name, fileSize: file.size })
+    });
+    if (!presignRes.ok) throw new Error((await presignRes.json()).error || 'ขอ URL ไม่สำเร็จ');
+    const { uploadUrl, fileUrl } = await presignRes.json();
+
+    setStatus('กำลังอัปโหลดไฟล์เสียง...');
+    const putRes = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': normalizedType } });
+    if (!putRes.ok) throw new Error('PUT ไม่สำเร็จ HTTP ' + putRes.status);
+
+    soundLibraryItems.push({ url: fileUrl, label });
+    renderSoundLibraryList();
+    const saved = await saveSoundLibrary();
+    if (!saved) { soundLibraryItems.pop(); renderSoundLibraryList(); deleteOldR2File(fileUrl, 'sound'); return; }
+
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('เพิ่มเสียงในคลังสำเร็จ');
+    if (labelInput) labelInput.value = '';
+    event.target.value = '';
+  } catch (err) {
+    console.error('Sound library upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function openSoundLibraryModal() {
+  const modal = document.getElementById('soundLibraryModal');
+  if (modal) modal.classList.add('active');
+}
+function closeSoundLibraryModal() {
+  const modal = document.getElementById('soundLibraryModal');
+  if (modal) modal.classList.remove('active');
+}
+
 async function handleTimerAudioFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -4830,6 +5081,9 @@ async function loadOverlaySettings() {
        document.getElementById('chkProfanityFilterEnabled').checked = s.profanityFilterEnabled;
        document.getElementById('profanityReplaceStyleSelect').value = s.profanityReplaceStyle || 'asterisks';
        document.getElementById('inputProfanityWords').value = s.profanityWords || '';
+
+       // Tier Donate (TIER_DONATE_BLUEPRINT.md § 3)
+       loadTierDonateSettingsFromData(s);
 
        // Notify CustomSelect wrappers by dispatching change events
        ['themeSelect', 'fontSelect', 'animSelect', 'soundChoiceSelect',
@@ -6706,7 +6960,51 @@ colorPickers.forEach(group => {
   }
 });
 
+// § 3.4 TIER_DONATE_BLUEPRINT.md — client-side validation ก่อน submit: min_amount ของ tier ที่ active ต้องเรียงน้อยไปมาก
+function collectTierDonateSettings() {
+  const errEl = document.getElementById('tierOrderError');
+  if (errEl) errEl.style.display = 'none';
+
+  const tiers = [
+    { level: 1, active: true, min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', own: 'tierAllowOwnAudio1' },
+    { level: 2, active: document.getElementById('tierActive2')?.checked || false, min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', own: 'tierAllowOwnAudio2' },
+    { level: 3, active: document.getElementById('tierActive3')?.checked || false, min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', own: 'tierAllowOwnAudio3' }
+  ].map(t => ({
+    level: t.level,
+    active: t.active,
+    min_amount: parseInt(document.getElementById(t.min)?.value, 10) || 1,
+    allow_image_choice: document.getElementById(t.img)?.checked || false,
+    allow_sound_choice: document.getElementById(t.snd)?.checked || false,
+    allow_own_audio: document.getElementById(t.own)?.checked || false
+  }));
+
+  let prevMin = -Infinity;
+  for (const t of tiers) {
+    if (!t.active) continue;
+    if (t.min_amount <= prevMin) {
+      if (errEl) errEl.style.display = '';
+      return { valid: false };
+    }
+    prevMin = t.min_amount;
+  }
+
+  return {
+    valid: true,
+    settings: {
+      enabled: document.getElementById('chkTierDonateEnabled')?.checked || false,
+      tiers,
+      alert_images: tierAlertImages.filter(Boolean)
+    }
+  };
+}
+
 async function saveOverlaySettings() {
+  const tierResult = collectTierDonateSettings();
+  if (!tierResult.valid) {
+    showNotification('ยอดขั้นต่ำของแต่ละ Tier ต้องเรียงจากน้อยไปมาก', 'error');
+    return;
+  }
+
   const theme = document.getElementById('themeSelect').value;
   const txtDonor = document.getElementById('txtDonor').value || '#fde047';
   const txtAmount = document.getElementById('txtAmount').value || '#4ade80';
@@ -6779,7 +7077,9 @@ async function saveOverlaySettings() {
 
     profanityFilterEnabled: document.getElementById('chkProfanityFilterEnabled').checked,
     profanityWords: document.getElementById('inputProfanityWords').value,
-    profanityReplaceStyle: document.getElementById('profanityReplaceStyleSelect').value
+    profanityReplaceStyle: document.getElementById('profanityReplaceStyleSelect').value,
+
+    tier_donate_settings: JSON.stringify(tierResult.settings)
   };
  
   try {

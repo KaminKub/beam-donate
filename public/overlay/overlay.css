@@ -359,6 +359,29 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
   white-space: pre-wrap;
 }
 
+/* TIER_DONATE_BLUEPRINT.md § 5.2 — เอฟเฟกต์เรืองแสงชื่อ Tier 1/2/3 */
+.tier-effect-1 { /* no-op — Tier แรก = default look เดิม ตามสเปค */ }
+
+.tier-effect-2 {
+  text-shadow: 0 0 8px var(--theme-donor, #fde047), 0 0 16px var(--theme-donor, #fde047);
+  animation: tierGlowPulse2 1.8s ease-in-out infinite;
+}
+
+.tier-effect-3 {
+  text-shadow: 0 0 6px #fff, 0 0 14px var(--theme-donor, #fde047), 0 0 24px var(--theme-donor, #fde047);
+  animation: tierLightning3 1.2s ease-in-out infinite;
+}
+
+@keyframes tierGlowPulse2 { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+@keyframes tierLightning3 {
+  0%, 100% { text-shadow: 0 0 6px #fff, 0 0 14px var(--theme-donor), 0 0 24px var(--theme-donor); }
+  50% { text-shadow: 0 0 10px #fff, 0 0 22px var(--theme-donor), 0 0 36px var(--theme-donor); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-effect-2, .tier-effect-3 { animation: none; }
+}
+
 .alert-amount {
   font-size: calc(var(--font-amount, 48) * 1px);
   font-weight: 800;

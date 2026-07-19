@@ -98,6 +98,50 @@
       #step-truemoney-qr .qr-method-toggle { gap: 6px; }
       #step-truemoney-qr .qr-method-btn { font-size: 12px; padding: 10px 4px; }
     }
+
+    /* ===== Tier Donate (TIER_DONATE_BLUEPRINT.md § 4) ===== */
+    #tierDonateSection {
+      margin: 12px 0;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.3s ease;
+    }
+    #tierDonateSection.tier-open {
+      max-height: 900px;
+      opacity: 1;
+    }
+    .tier-banner {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-align: center;
+      margin-bottom: 10px;
+      background: rgba(148,163,184,0.12);
+      border: 1px solid rgba(148,163,184,0.25);
+      color: #e2e8f0;
+    }
+    .tier-banner.tier-level-2 { background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.35); color: #bfdbfe; }
+    .tier-banner.tier-level-3 { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.4); color: #fde68a; }
+    .tier-option-block { margin-bottom: 12px; }
+    .tier-option-label { font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+    .tier-image-choices { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tier-image-choice {
+      width: 56px; height: 56px; border-radius: 10px; overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.15); cursor: pointer; position: relative;
+      background: rgba(255,255,255,0.05); transition: border-color .2s;
+    }
+    .tier-image-choice img, .tier-image-choice video { width: 100%; height: 100%; object-fit: cover; }
+    .tier-image-choice.selected { border-color: #fbbf24; }
+    .tier-image-choice.tier-default-choice { display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #94a3b8; text-align: center; }
+    .tier-subtabs { display: flex; gap: 6px; margin-bottom: 8px; }
+    .tier-subtab-btn {
+      flex: 1; padding: 8px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05); color: #cbd5e1; font-size: 0.78rem; cursor: pointer;
+    }
+    .tier-subtab-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); color: #fde68a; }
+    .tier-record-timer { font-size: 0.85rem; color: #f87171; margin-top: 6px; }
   </style>
 </head>
 
@@ -193,6 +237,39 @@
             <input type="number" id="customAmount" placeholder="ระบุจำนวนเงิน..." min="1">
           </div>
           <div id="minAmountWarning" class="min-amount-warning" style="display: none;">กรุณาระบุจำนวนเงินขั้นต่ำ ฿<span id="minAmountWarningValue">1</span></div>
+        </div>
+
+        <div id="tierDonateSection">
+          <div id="tierBanner" class="tier-banner"></div>
+
+          <div id="tierImageChoiceBlock" class="tier-option-block" style="display:none">
+            <div class="tier-option-label"><i class="fa-solid fa-image"></i> เลือกภาพ/วิดีโอ Alert</div>
+            <div id="tierImageChoices" class="tier-image-choices"></div>
+          </div>
+
+          <div id="tierSoundChoiceBlock" class="tier-option-block" style="display:none">
+            <div class="tier-option-label"><i class="fa-solid fa-music"></i> เลือกเสียงแจ้งเตือน</div>
+            <select id="tierSoundSelect" class="form-select"></select>
+          </div>
+
+          <div id="tierOwnAudioBlock" class="tier-option-block" style="display:none">
+            <div class="tier-option-label"><i class="fa-solid fa-microphone"></i> อัพโหลด/อัดเสียงของคุณเอง</div>
+            <div class="tier-subtabs">
+              <button type="button" class="tier-subtab-btn active" data-subtab="upload"><i class="fa-solid fa-upload"></i> อัพโหลดเสียง</button>
+              <button type="button" class="tier-subtab-btn" data-subtab="record" id="tierRecordSubtabBtn"><i class="fa-solid fa-microphone"></i> อัดเสียงจากไมค์</button>
+            </div>
+            <div id="tierUploadPane">
+              <input type="file" id="tierOwnAudioFile" accept="audio/*">
+              <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
+            </div>
+            <div id="tierRecordPane" style="display:none">
+              <button type="button" id="tierRecordBtn" class="btn-secondary" style="padding:8px 16px;border-radius:8px;cursor:pointer;">
+                <i class="fa-solid fa-circle" style="color:#ef4444;"></i> <span id="tierRecordBtnLabel">เริ่มอัดเสียง</span>
+              </button>
+              <div id="tierRecordTimer" class="tier-record-timer" style="display:none"></div>
+              <span id="tierRecordStatus" style="font-size:12px;color:#94a3b8;"></span>
+            </div>
+          </div>
         </div>
 
         <div class="donor-info">
@@ -666,6 +743,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260719_2"></script>
+  <script src="/donate-template/app.js?v=20260719_3"></script>
 </body>
 </html>
