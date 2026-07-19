@@ -92,7 +92,7 @@
   function updatePointer(enabled, side, content, donor, amount, fillPct) {
     pointerEnabled = !!enabled;
     pointerSide = (side === 'left') ? 'left' : 'right';
-    pointerContent = ['name', 'amount', 'both'].includes(content) ? content : 'both';
+    pointerContent = ['name', 'amount', 'both', 'percent', 'current'].includes(content) ? content : 'both';
     if (donor !== undefined) lastDonor = String(donor || '');
     if (amount !== undefined) lastAmount = Number(amount) || 0;
     const pct = fillPct !== undefined
@@ -111,12 +111,18 @@
 
     // XSS-safe text rendering
     ptrNameEl.textContent = lastDonor;
-    ptrAmountEl.textContent = lastAmount > 0
-      ? lastAmount.toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' ' + amountSuffix
-      : '';
+    if (pointerContent === 'percent') {
+      ptrAmountEl.textContent = Math.round(pct) + '%';
+    } else if (pointerContent === 'current') {
+      ptrAmountEl.textContent = goalCurrent.toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' ' + amountSuffix;
+    } else {
+      ptrAmountEl.textContent = lastAmount > 0
+        ? lastAmount.toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' ' + amountSuffix
+        : '';
+    }
 
     ptrNameEl.style.display = (pointerContent === 'name' || pointerContent === 'both') ? '' : 'none';
-    ptrAmountEl.style.display = (pointerContent === 'amount' || pointerContent === 'both') ? '' : 'none';
+    ptrAmountEl.style.display = (pointerContent === 'amount' || pointerContent === 'both' || pointerContent === 'percent' || pointerContent === 'current') ? '' : 'none';
 
     const isVertical = goalBarLayout === 'vertical';
     // ตำแหน่งตามปลาย fill: แนวนอน = left%, แนวตั้ง = bottom%
@@ -279,7 +285,7 @@
 
       pointerEnabled = data.goal_pointer_enabled !== 0 && data.goal_pointer_enabled !== false;
       pointerSide = data.goal_pointer_side || 'right';
-      pointerContent = ['name', 'amount', 'both'].includes(data.goal_pointer_content)
+      pointerContent = ['name', 'amount', 'both', 'percent', 'current'].includes(data.goal_pointer_content)
         ? data.goal_pointer_content
         : 'both';
       lastDonor = String(data.goal_last_donor || '');
@@ -314,6 +320,9 @@
       animEnabled = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
       if (typeof window.setGoalAnimSound === 'function') {
         window.setGoalAnimSound(data.goal_anim_sound !== 0 && data.goal_anim_sound !== false);
+      }
+      if (typeof window.setGoalAnimVolume === 'function') {
+        window.setGoalAnimVolume(data.goal_anim_sound_volume);
       }
 
       updateBar(
@@ -390,6 +399,9 @@
           animEnabled = s.goal_anim_enabled !== 0 && s.goal_anim_enabled !== false;
           if (typeof window.setGoalAnimSound === 'function') {
             window.setGoalAnimSound(s.goal_anim_sound !== 0 && s.goal_anim_sound !== false);
+          }
+          if (s.goal_anim_sound_volume !== undefined && typeof window.setGoalAnimVolume === 'function') {
+            window.setGoalAnimVolume(s.goal_anim_sound_volume);
           }
         }
         if (data.type === 'goal_update') {

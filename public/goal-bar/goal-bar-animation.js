@@ -3,6 +3,7 @@
 
   let isAnimating = false;
   let soundEnabled = true;
+  let soundVolume = 1;
   let sharedAc = null;
   let amountSuffix = '฿';
 
@@ -30,7 +31,7 @@
       osc.frequency.setValueAtTime(280, ac.currentTime);
       osc.frequency.exponentialRampToValueAtTime(560, ac.currentTime + 0.07);
       gain.gain.setValueAtTime(0, ac.currentTime);
-      gain.gain.linearRampToValueAtTime(0.28, ac.currentTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0.28 * soundVolume, ac.currentTime + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
       osc.start();
       osc.stop(ac.currentTime + 0.15);
@@ -49,7 +50,7 @@
       osc.frequency.setValueAtTime(520, ac.currentTime);
       osc.frequency.exponentialRampToValueAtTime(80, ac.currentTime + 0.22);
       gain.gain.setValueAtTime(0, ac.currentTime);
-      gain.gain.linearRampToValueAtTime(0.45, ac.currentTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0.45 * soundVolume, ac.currentTime + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.28);
       osc.start();
       osc.stop(ac.currentTime + 0.3);
@@ -68,7 +69,7 @@
         osc.type = 'triangle';
         osc.frequency.value = freq;
         const t = ac.currentTime + i * 0.06;
-        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.setValueAtTime(0.25 * soundVolume, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
         osc.start(t);
         osc.stop(t + 0.2);
@@ -352,5 +353,6 @@
 
   window.setGoalAnimSound = function (enabled) { soundEnabled = !!enabled; };
   window.isGoalAnimSoundEnabled = function () { return soundEnabled; };
+  window.setGoalAnimVolume = function (v) { soundVolume = Number(v); if (isNaN(soundVolume)) soundVolume = 1; };
   window.setGoalAnimAmountSuffix = function (suffix) { amountSuffix = normalizeAmountSuffix(suffix); };
 })();

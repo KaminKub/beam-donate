@@ -807,6 +807,8 @@ async function initializeDashboard() {
       { id: 'sliderSoundVolume', lbl: 'lblSoundVolume', fn: v => Math.round(v * 100) },
       { id: 'sliderTtsVolume', lbl: 'lblTtsVolume', fn: v => Math.round(v * 100) },
       { id: 'sliderTtsRate', lbl: 'lblTtsRate', fn: v => (Number(v) - 0.3).toFixed(1) },
+      { id: 'sliderGoalAnimVolume', lbl: 'lblGoalAnimVolume', fn: v => Math.round(v * 100) },
+      { id: 'sliderTimerAnimVolume', lbl: 'lblTimerAnimVolume', fn: v => Math.round(v * 100) },
     ];
 
     sliders.forEach(s => {
@@ -1233,6 +1235,7 @@ async function initializeDashboard() {
           goal_enabled: document.getElementById('chkGoalEnabled').checked ? 1 : 0,
           goal_anim_sound: document.getElementById('chkGoalAnimSound').checked ? 1 : 0,
           goal_anim_enabled: document.getElementById('chkGoalAnimEnabled').checked ? 1 : 0,
+          goal_anim_sound_volume: (() => { const v = parseFloat(document.getElementById('sliderGoalAnimVolume')?.value); return isNaN(v) ? 1 : v; })(),
           goal_show_on_donate: document.getElementById('chkGoalShowOnDonate').checked ? 1 : 0,
           goal_bar_position: document.getElementById('selectGoalBarPosition').value || 'top',
           goal_bar_layout: document.getElementById('selectGoalBarLayout').value || 'horizontal',
@@ -1646,13 +1649,21 @@ function loadDemoGoalSettingsFromData(data) {
   const chkSound = document.getElementById('chkGoalAnimSound');
   if (chkSound) chkSound.checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
   const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
+  const volSlider = document.getElementById('sliderGoalAnimVolume');
+  const volLbl = document.getElementById('lblGoalAnimVolume');
+  const goalAnimVol = data.goal_anim_sound_volume !== undefined && data.goal_anim_sound_volume !== null ? data.goal_anim_sound_volume : 1;
+  if (volSlider) volSlider.value = goalAnimVol;
+  if (volLbl) volLbl.textContent = Math.round(goalAnimVol * 100);
   if (chkAnimEnabled) {
     chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
     const syncSoundVis = () => {
       const soundGroup = chkSound && chkSound.closest('.form-group');
+      const volGroup = document.getElementById('goalAnimVolumeGroup');
       if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
+      if (volGroup) volGroup.style.display = (chkAnimEnabled.checked && chkSound && chkSound.checked) ? '' : 'none';
     };
     chkAnimEnabled.onchange = syncSoundVis;
+    if (chkSound) chkSound.onchange = syncSoundVis;
     syncSoundVis();
   }
   const chkShowOnDonate = document.getElementById('chkGoalShowOnDonate');
@@ -1790,8 +1801,6 @@ function loadDemoTimerSettings(data) {
   const chkShowRules = document.getElementById('chkTimerShowRules');
   if (chkShowRules) chkShowRules.checked = t.show_rules !== false && t.show_rules !== 0;
 
-  const chkStatusBtn = document.getElementById('chkTimerStatusBtn');
-  if (chkStatusBtn) chkStatusBtn.checked = t.statusBtnEnabled !== 0 && t.statusBtnEnabled !== false;
 
   const tmplEl = document.getElementById('inputTimerRulesTemplate');
   if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
@@ -1833,16 +1842,25 @@ function loadDemoTimerSettings(data) {
 
   // Animation toggles
   const chkAnim = document.getElementById('chkTimerAnimEnabled');
+  const chkAnimSound = document.getElementById('chkTimerAnimSound');
+  const timerVolSlider = document.getElementById('sliderTimerAnimVolume');
+  const timerVolLbl = document.getElementById('lblTimerAnimVolume');
+  const timerAnimVol = t.timer_anim_sound_volume !== undefined && t.timer_anim_sound_volume !== null ? t.timer_anim_sound_volume : 1;
+  if (timerVolSlider) timerVolSlider.value = timerAnimVol;
+  if (timerVolLbl) timerVolLbl.textContent = Math.round(timerAnimVol * 100);
+  if (chkAnimSound) chkAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
   if (chkAnim) {
     chkAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
     const syncAnimTestVis = () => {
       const soundGroup = document.getElementById('timerAnimSoundGroup');
+      const volGroup = document.getElementById('timerAnimVolumeGroup');
       if (soundGroup) soundGroup.style.display = chkAnim.checked ? '' : 'none';
+      if (volGroup) volGroup.style.display = (chkAnim.checked && chkAnimSound && chkAnimSound.checked) ? '' : 'none';
     };
+    chkAnim.onchange = syncAnimTestVis;
+    if (chkAnimSound) chkAnimSound.onchange = syncAnimTestVis;
     syncAnimTestVis();
   }
-  const chkAnimSound = document.getElementById('chkTimerAnimSound');
-  if (chkAnimSound) chkAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
 
   // Timeout effect
   const effectTypeEl = document.getElementById('timerTimeoutEffectType');
@@ -4847,14 +4865,23 @@ async function loadGoalSettings() {
 
     document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
     updateWidgetBodyVisibility('chkGoalEnabled');
-    document.getElementById('chkGoalAnimSound').checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
+    const chkSound = document.getElementById('chkGoalAnimSound');
+    chkSound.checked = data.goal_anim_sound !== 0 && data.goal_anim_sound !== false;
     const chkAnimEnabled = document.getElementById('chkGoalAnimEnabled');
     chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
+    const volSlider = document.getElementById('sliderGoalAnimVolume');
+    const volLbl = document.getElementById('lblGoalAnimVolume');
+    const goalAnimVol = data.goal_anim_sound_volume !== undefined && data.goal_anim_sound_volume !== null ? data.goal_anim_sound_volume : 1;
+    if (volSlider) volSlider.value = goalAnimVol;
+    if (volLbl) volLbl.textContent = Math.round(goalAnimVol * 100);
     const syncSoundVis = () => {
-      const soundGroup = document.getElementById('chkGoalAnimSound').closest('.form-group');
+      const soundGroup = chkSound.closest('.form-group');
+      const volGroup = document.getElementById('goalAnimVolumeGroup');
       if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
+      if (volGroup) volGroup.style.display = (chkAnimEnabled.checked && chkSound.checked) ? '' : 'none';
     };
     chkAnimEnabled.onchange = syncSoundVis;
+    chkSound.onchange = syncSoundVis;
     syncSoundVis();
     document.getElementById('chkGoalShowOnDonate').checked = !!data.goal_show_on_donate;
     const posEl = document.getElementById('selectGoalBarPosition');
@@ -5447,8 +5474,6 @@ async function loadTimerSettings() {
     const chkShowRules = document.getElementById('chkTimerShowRules');
     if (chkShowRules) chkShowRules.checked = t.show_rules !== false && t.show_rules !== 0;
 
-    const chkStatusBtn = document.getElementById('chkTimerStatusBtn');
-    if (chkStatusBtn) chkStatusBtn.checked = t.statusBtnEnabled !== 0 && t.statusBtnEnabled !== false;
 
     const tmplEl = document.getElementById('inputTimerRulesTemplate');
     if (tmplEl) tmplEl.value = t.rules_template || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}';
@@ -5537,17 +5562,25 @@ async function loadTimerSettings() {
     }
 
     const chkTimerAnim = document.getElementById('chkTimerAnimEnabled');
+    const chkTimerAnimSound = document.getElementById('chkTimerAnimSound');
+    const timerVolSlider2 = document.getElementById('sliderTimerAnimVolume');
+    const timerVolLbl2 = document.getElementById('lblTimerAnimVolume');
+    const timerAnimVol2 = t.timer_anim_sound_volume !== undefined && t.timer_anim_sound_volume !== null ? t.timer_anim_sound_volume : 1;
+    if (timerVolSlider2) timerVolSlider2.value = timerAnimVol2;
+    if (timerVolLbl2) timerVolLbl2.textContent = Math.round(timerAnimVol2 * 100);
+    if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
     if (chkTimerAnim) {
       chkTimerAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
       const syncAnimTestVis = () => {
         const soundGroup = document.getElementById('timerAnimSoundGroup');
+        const volGroup = document.getElementById('timerAnimVolumeGroup');
         if (soundGroup) soundGroup.style.display = chkTimerAnim.checked ? '' : 'none';
+        if (volGroup) volGroup.style.display = (chkTimerAnim.checked && chkTimerAnimSound && chkTimerAnimSound.checked) ? '' : 'none';
       };
       syncAnimTestVis();
       chkTimerAnim.addEventListener('change', syncAnimTestVis);
+      if (chkTimerAnimSound) chkTimerAnimSound.addEventListener('change', syncAnimTestVis);
     }
-    const chkTimerAnimSound = document.getElementById('chkTimerAnimSound');
-    if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
 
     // TikTok card
     const tiktokToggle = document.getElementById('tiktokEnableToggle');
@@ -5598,7 +5631,6 @@ async function saveTimerSettings() {
     time_unit: document.getElementById('timerTimeUnit')?.value || 'seconds',
     allow_passthrough: document.getElementById('chkTimerAllowPassthrough')?.checked ? 1 : 0,
     show_rules: document.getElementById('chkTimerShowRules')?.checked ? 1 : 0,
-    statusBtnEnabled: document.getElementById('chkTimerStatusBtn')?.checked ? 1 : 0,
     rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
     rules_template_coin: document.getElementById('inputTimerRulesTemplateCoin')?.value || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}',
     cap_type: capType || null,
@@ -5616,6 +5648,7 @@ async function saveTimerSettings() {
     sound_volume: (() => { const v = parseFloat(document.getElementById('sliderTimerSoundVolume')?.value); return isNaN(v) ? 0.7 : v; })(),
     timer_anim_enabled: document.getElementById('chkTimerAnimEnabled')?.checked ? 1 : 0,
     timer_anim_sound_enabled: document.getElementById('chkTimerAnimSound')?.checked ? 1 : 0,
+    timer_anim_sound_volume: (() => { const v = parseFloat(document.getElementById('sliderTimerAnimVolume')?.value); return isNaN(v) ? 1 : v; })(),
     tiktokEnabled: document.getElementById('tiktokEnableToggle')?.checked ? 1 : 0,
   };
 

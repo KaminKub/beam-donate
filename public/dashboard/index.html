@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260719_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260719_3">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1468,6 +1468,10 @@
                               <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
                             </div>
                           </div>
+                          <div class="form-group" id="goalAnimVolumeGroup">
+                            <label for="sliderGoalAnimVolume"><i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> ความดังเสียง Effect Animation (<span id="lblGoalAnimVolume">100</span>%)</label>
+                            <input type="range" id="sliderGoalAnimVolume" class="form-range" min="0" max="1" step="0.05" value="1">
+                          </div>
                         </div>
                         <div class="form-row flex-align-center">
                           <div class="form-group">
@@ -1511,6 +1515,8 @@
                                     <option value="both">ชื่อ + ยอด (โดเนทล่าสุด)</option>
                                     <option value="name">แค่ชื่อ (โดเนทล่าสุด)</option>
                                     <option value="amount">แค่ยอด (โดเนทล่าสุด)</option>
+                                    <option value="percent">เปอร์เซนต์เป้าหมาย (%)</option>
+                                    <option value="current">ยอดปัจจุบันของเป้าหมาย</option>
                                   </select>
                                 </div>
                               </div>
@@ -1795,6 +1801,10 @@
                               <span class="switch-label"><i class="fa-solid fa-volume-high" style="color:#60a5fa"></i> เสียง Effect Animation</span>
                             </div>
                           </div>
+                          <div class="form-group" id="timerAnimVolumeGroup">
+                            <label for="sliderTimerAnimVolume"><i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> ความดังเสียง Effect Animation (<span id="lblTimerAnimVolume">100</span>%)</label>
+                            <input type="range" id="sliderTimerAnimVolume" class="form-range" min="0" max="1" step="0.05" value="1">
+                          </div>
                         </div>
                         <div class="form-row">
                           <div class="form-group">
@@ -1859,17 +1869,6 @@
                             </label>
                             <span class="switch-label">
                               <i class="fa-solid fa-eye" style="color:#60a5fa"></i> แสดงกฏใน Widget
-                            </span>
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <div class="switch-group">
-                            <label class="switch">
-                              <input type="checkbox" id="chkTimerStatusBtn" checked>
-                              <span class="slider-switch"></span>
-                            </label>
-                            <span class="switch-label">
-                              <i class="fa-solid fa-signal" style="color:#10b981"></i> แสดงสถานะ Timer หน้าโดเนท
                             </span>
                           </div>
                         </div>
@@ -3417,7 +3416,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260719_2"></script>
+  <script src="/dashboard/dashboard.js?v=20260719_3"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

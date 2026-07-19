@@ -584,9 +584,15 @@
     }
   }
 
+  function animVol() {
+    const v = settings.timer_anim_sound_volume;
+    return (v === undefined || v === null || isNaN(v)) ? 1 : v;
+  }
+
   function playDeltaEntrance(isAdd) {
     try {
       const ctx = getAc();
+      const vol = animVol();
       const freqs = isAdd ? [523, 784, 1047] : [1047, 784, 523];
       freqs.forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -595,7 +601,7 @@
         osc.type = 'sine';
         const t = ctx.currentTime + i * 0.07;
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.setValueAtTime(0.25 * vol, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
         osc.start(t); osc.stop(t + 0.2);
       });
@@ -610,7 +616,7 @@
       osc.connect(gain); gain.connect(ctx.destination);
       osc.type = 'triangle';
       osc.frequency.value = 380 + progress * 260;
-      gain.gain.setValueAtTime(0.12 + progress * 0.08, ctx.currentTime);
+      gain.gain.setValueAtTime((0.12 + progress * 0.08) * animVol(), ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.055);
       osc.start(); osc.stop(ctx.currentTime + 0.07);
     } catch (e) {}
@@ -619,13 +625,14 @@
   function playGlowComplete() {
     try {
       const ctx = getAc();
+      const vol = animVol();
       [523, 659, 784, 1047].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain); gain.connect(ctx.destination);
         osc.type = 'sine';
         const t = ctx.currentTime + i * 0.045;
-        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.setValueAtTime(0.22 * vol, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
         osc.start(t); osc.stop(t + 0.42);
       });
