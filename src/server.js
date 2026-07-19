@@ -447,13 +447,13 @@ async function broadcastGoalUpdate(username, streamer) {
     });
 }
 
-// [Requirement #8] period_mode → periodDays for db.getLeaderboard()'s date filter
-function resolveLeaderboardPeriodDays(lbSettings) {
-  const mode = lbSettings?.period_mode || 'all';
+// [Requirement #8] period_mode → periodDays date filter — shared by Leader Board + Recent Donate
+function resolvePeriodDays(settings) {
+  const mode = settings?.period_mode || 'all';
   if (mode === 'weekly') return 7;
   if (mode === 'monthly') return 30;
   if (mode === 'custom') {
-    const d = parseInt(lbSettings?.period_custom_days, 10);
+    const d = parseInt(settings?.period_custom_days, 10);
     return Math.min(LEADERBOARD_MAX_LOOKBACK_DAYS, Math.max(1, Number.isFinite(d) ? d : 30));
   }
   return null;
@@ -467,8 +467,17 @@ async function resolveLeaderboardEntries(username, limit = 5) {
   try { lb = JSON.parse(s.leaderboard_settings || '{}'); } catch {}
   const mode = lb.period_mode || 'all';
   if (mode === 'all') return db.getLeaderboardAlltime(username, limit);
-  const periodDays = resolveLeaderboardPeriodDays(lb);
+  const periodDays = resolvePeriodDays(lb);
   return db.getLeaderboard(username, limit, periodDays);
+}
+
+// [Requirement #8] Recent Donate mirrors Leader Board's period_mode filter — no all-time aggregate needed, 'all' = no date filter
+async function resolveRecentDonateEntries(username, limit = 5) {
+  const s = await db.getSettings(username, defaultSettings);
+  let rd = {};
+  try { rd = JSON.parse(s.recentdonate_settings || '{}'); } catch {}
+  const periodDays = resolvePeriodDays(rd);
+  return db.getRecentDonations(username, limit, periodDays);
 }
 
 // broadcastLeaderboardUpdate() → real leader-board clients only (mirrors broadcastGoalUpdate's demo exclusion)
@@ -493,7 +502,7 @@ async function broadcastLeaderboardUpdate(username) {
 async function broadcastRecentDonateUpdate(username) {
   const clients = sseClients.filter(c => c.username === username && c.source === 'recent-donate');
   if (!clients.length) return;
-  const entries = await db.getRecentDonations(username, 5);
+  const entries = await resolveRecentDonateEntries(username, 5);
   const payload = JSON.stringify({
     type: 'recentdonate_update',
     entries: entries.map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method }))
@@ -617,17 +626,14 @@ function calculateTimeDelta(amount, streamer, donorAction, currency = 'thb') {
   const mode = t.mode;
 
   if (mode === 'multiplier') {
-    // R10: multi-rule = sum ทุกกฏ (bonus tier semantics)
-    let totalDelta = 0;
-    for (const base of rules) {
-      if (!base.base_amount || base.base_amount <= 0) continue;
-      const sign = base.action === 'choice' ? choiceSign(donorAction) : (base.action === 'sub' ? -1 : 1);
-      if (sign === 0) continue;
-      const mult = Math.floor(amount / base.base_amount);
-      if (mult <= 0) continue;
-      totalDelta += sign * mult * (base.time_seconds || 0);
-    }
-    return totalDelta;
+    // Tier-pick: ใช้กฏเดียวที่ base_amount สูงสุดที่ amount ถึง (ไม่ sum ข้ามกฏ กันกฏฐานต่ำ เช่น 20฿ หักล้างกฏฐานสูง)
+    const qualifying = rules.filter(r => r.base_amount > 0 && amount >= r.base_amount);
+    if (qualifying.length === 0) return 0;
+    const tier = qualifying.reduce((a, b) => b.base_amount > a.base_amount ? b : a);
+    const sign = tier.action === 'choice' ? choiceSign(donorAction) : (tier.action === 'sub' ? -1 : 1);
+    if (sign === 0) return 0;
+    const mult = Math.floor(amount / tier.base_amount);
+    return sign * mult * (tier.time_seconds || 0);
   }
 
   if (mode === 'threshold') {
@@ -2395,7 +2401,7 @@ app.get('/api/alerts/stream', async (req, res) => {
     }).catch(() => {});
   }
   if (authenticatedUser && source === 'recent-donate') {
-    db.getRecentDonations(authenticatedUser, 5).then(entries => {
+    resolveRecentDonateEntries(authenticatedUser, 5).then(entries => {
       try { res.write(`data: ${JSON.stringify({ type: 'recentdonate_update', entries: entries.map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method })) })}\n\n`); } catch {}
     }).catch(() => {});
   }
@@ -3072,16 +3078,14 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
             return res.status(400).json({ error: `${key}.${f} รูปแบบสีไม่ถูกต้อง` });
           }
         }
-        // [Requirement #8 — Leader Board เท่านั้น] period_mode / period_custom_days
-        if (key === 'leaderboard_settings') {
-          if (parsed.period_mode !== undefined && !['all', 'weekly', 'monthly', 'custom'].includes(parsed.period_mode)) {
-            return res.status(400).json({ error: 'leaderboard_settings.period_mode ไม่ถูกต้อง' });
-          }
-          if (parsed.period_custom_days !== undefined) {
-            const d = parseInt(parsed.period_custom_days, 10);
-            if (!Number.isInteger(d) || d < 1 || d > LEADERBOARD_MAX_LOOKBACK_DAYS) {
-              return res.status(400).json({ error: `leaderboard_settings.period_custom_days ต้องอยู่ระหว่าง 1-${LEADERBOARD_MAX_LOOKBACK_DAYS}` });
-            }
+        // [Requirement #8] period_mode / period_custom_days — Leader Board + Recent Donate ใช้ pattern เดียวกัน
+        if (parsed.period_mode !== undefined && !['all', 'weekly', 'monthly', 'custom'].includes(parsed.period_mode)) {
+          return res.status(400).json({ error: `${key}.period_mode ไม่ถูกต้อง` });
+        }
+        if (parsed.period_custom_days !== undefined) {
+          const d = parseInt(parsed.period_custom_days, 10);
+          if (!Number.isInteger(d) || d < 1 || d > LEADERBOARD_MAX_LOOKBACK_DAYS) {
+            return res.status(400).json({ error: `${key}.period_custom_days ต้องอยู่ระหว่าง 1-${LEADERBOARD_MAX_LOOKBACK_DAYS}` });
           }
         }
         safeBody[key] = JSON.stringify(parsed);

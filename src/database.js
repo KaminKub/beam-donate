@@ -2015,17 +2015,20 @@ async function backfillLeaderboardAlltime() {
   return result.rowsAffected;
 }
 
-async function getRecentDonations(username, limit = 5) {
+async function getRecentDonations(username, limit = 5, periodDays = null) {
   await ensureConnected();
   if (isFallback || !db) return [];
+  const periodClause = periodDays ? `AND datetime(paidAt) >= datetime('now', ?)` : '';
+  const args = periodDays ? [username, `-${periodDays} days`, limit] : [username, limit];
   const result = await db.execute({
     sql: `SELECT donor, amount, message, paidAt, payment_method
           FROM transactions
           WHERE LOWER(streamer_username) = LOWER(?)
             AND status = 'successful'
+            ${periodClause}
           ORDER BY paidAt DESC
           LIMIT ?`,
-    args: [username, limit]
+    args
   });
   return result.rows;
 }

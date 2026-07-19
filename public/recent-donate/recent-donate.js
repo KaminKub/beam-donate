@@ -6,6 +6,7 @@
   let reconnectDelay = 2000;
   let cfg = {};
   let lastEntries = [];
+  let amountSuffix = 'บาท'; // global Alert setting (amountSuffix) — recent-donate has no currency field of its own
   let relTimeTimer = null;
 
   const wrapper = document.getElementById('rdWrapper');
@@ -121,7 +122,7 @@
     const rows = (entries || []).slice(0, max);
     const tplLeft = cfg.row_template_left || '{ผู้โดเนท}  {จำนวนเงิน} {สกุลเงิน} ';
     const tplRight = cfg.row_template_right || ' {ข้อความ}';
-    const currency = cfg.currency || 'บาท';
+    const currency = amountSuffix;
     const showTime = cfg.show_time !== false && cfg.show_time !== 0;
 
     const isNewFirst = rows.length && (!lastEntries.length || rows[0].donor !== lastEntries[0].donor || rows[0].paidAt !== lastEntries[0].paidAt);
@@ -169,6 +170,7 @@
   function handleEvent(data) {
     if (data.type === 'recentdonate_update') render(data.entries);
     if (data.type === 'settings_update' && data.settings && data.settings.recentdonate_settings !== undefined) {
+      if (data.settings.amountSuffix) amountSuffix = data.settings.amountSuffix;
       let c = {};
       try { c = JSON.parse(data.settings.recentdonate_settings || '{}'); } catch (_) {}
       if (!c.enabled && !isDemo()) { wrapper.style.display = 'none'; return; }
@@ -197,6 +199,7 @@
       const res = await fetch(settingsUrl());
       if (!res.ok) return;
       const data = await res.json();
+      if (data.amountSuffix) amountSuffix = data.amountSuffix;
       let c = {};
       try { c = JSON.parse(data.recentdonate_settings || '{}'); } catch (_) {}
       if (!c.enabled && !isDemo()) return;

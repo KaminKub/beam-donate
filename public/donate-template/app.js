@@ -557,21 +557,13 @@ function resolveTimerAction(amount) {
   if (!t || !amount) return null;
   const rules = Array.isArray(t.rules) ? t.rules : [];
   if (t.mode === 'multiplier') {
-    let addSecs = 0, subSecs = 0, choiceSecs = 0;
-    for (const r of rules) {
-      if (!r.base_amount || r.base_amount <= 0) continue;
-      const mult = Math.floor(amount / r.base_amount);
-      if (mult <= 0) continue;
-      const s = mult * (r.time_seconds || 0);
-      if (r.action === 'add') addSecs += s;
-      else if (r.action === 'sub') subSecs += s;
-      else if (r.action === 'choice') choiceSecs += s;
-    }
-    if (choiceSecs > 0) return { seconds: choiceSecs, action: 'choice' };
-    if (addSecs > 0 && subSecs === 0) return { seconds: addSecs, action: 'add' };
-    if (subSecs > 0 && addSecs === 0) return { seconds: subSecs, action: 'sub' };
-    if (addSecs > 0 || subSecs > 0) return null; // mixed add+sub — net delta ไม่ตรง preview → ซ่อน
-    return null;
+    // Tier-pick: ใช้กฏเดียวที่ base_amount สูงสุดที่ amount ถึง — ต้องตรงกับ server calculateTimeDelta เป๊ะ
+    const qualifying = rules.filter(r => r.base_amount > 0 && amount >= r.base_amount);
+    if (qualifying.length === 0) return null;
+    const tier = qualifying.reduce((a, b) => b.base_amount > a.base_amount ? b : a);
+    const mult = Math.floor(amount / tier.base_amount);
+    if (mult <= 0 || !tier.time_seconds) return null;
+    return { seconds: mult * tier.time_seconds, action: tier.action || 'add' };
   }
   if (t.mode === 'threshold') {
     const tier = [...rules].sort((a, b) => b.amount - a.amount).find(r => amount >= r.amount);

@@ -1955,9 +1955,6 @@ function loadDemoLeaderboardSettings(data) {
 
   const titleEl = document.getElementById('inputLeaderboardTitle');
   if (titleEl) titleEl.value = c.title || '🏆 อันดับผู้โดเนท';
-  const currencyEl = document.getElementById('inputLeaderboardCurrency');
-  if (currencyEl) currencyEl.value = c.currency || 'บาท';
-
   const fsTitleEl = document.getElementById('selectLeaderboardFontSizeTitle');
   if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
   const fsRowEl = document.getElementById('selectLeaderboardFontSizeRow');
@@ -2011,6 +2008,13 @@ function loadDemoRecentdonateSettings(data) {
   const chkAnim = document.getElementById('chkRecentdonateAnimation');
   if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
 
+  const periodMode = c.period_mode || 'all';
+  const periodEl = document.getElementById('selectRecentdonatePeriodMode');
+  if (periodEl) { periodEl.value = periodMode; periodEl.dispatchEvent(new Event('change', { bubbles: true })); }
+  const periodDaysEl = document.getElementById('inputRecentdonatePeriodCustomDays');
+  if (periodDaysEl) periodDaysEl.value = c.period_custom_days || 30;
+  toggleGroup('recentdonatePeriodCustomGroup', periodMode === 'custom');
+
   const widthEl = document.getElementById('inputRecentdonateWidth');
   const widthTxt = document.getElementById('txtRecentdonateWidth');
   const autoWidthEl = document.getElementById('chkRecentdonateWidthAuto');
@@ -2052,8 +2056,6 @@ function loadDemoRecentdonateSettings(data) {
 
   const titleEl = document.getElementById('inputRecentdonateTitle');
   if (titleEl) titleEl.value = c.title || '🕐 โดเนทล่าสุด';
-  const currencyEl = document.getElementById('inputRecentdonateCurrency');
-  if (currencyEl) currencyEl.value = c.currency || 'บาท';
 
   const fsTitleEl = document.getElementById('selectRecentdonateFontSizeTitle');
   if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -5167,8 +5169,12 @@ function renderTimerRules(mode) {
     const lbl = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, `กฏ${idx + 1}`);
 
     const amtInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '10', style: 'width:70px;' });
-    amtInput.value = rule.amount || '';
-    amtInput.oninput = (e) => { timerRules[idx].amount = parseFloat(e.target.value) || 0; };
+    amtInput.value = rule.amount ?? rule.base_amount ?? '';
+    amtInput.oninput = (e) => {
+      const v = parseFloat(e.target.value) || 0;
+      timerRules[idx].amount = v;
+      timerRules[idx].base_amount = v; // sync มาโหมด multiplier กัน user ต้องกรอกซ้ำ
+    };
 
     const curSel = makeEl('select', { style: 'width:92px;' });
     [['thb', '฿ บาท'], ['coin', '🪙 เหรียญ']].forEach(([val, label]) => {
@@ -5234,8 +5240,13 @@ function renderMultiplierRules() {
     const lbl = makeEl('span', { style: 'color:var(--text-muted);font-size:12px;white-space:nowrap;' }, `กฏ${idx + 1}`);
 
     const baseInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '10', style: 'width:70px;', title: 'ทุกๆ X หน่วย' });
-    baseInput.value = rule.base_amount || rule.amount || '';
-    baseInput.oninput = (e) => { timerRules[idx].base_amount = parseFloat(e.target.value) || 0; };
+    baseInput.value = rule.base_amount ?? rule.amount ?? '';
+    baseInput.oninput = (e) => {
+      const v = parseFloat(e.target.value) || 0;
+      timerRules[idx].base_amount = v;
+      timerRules[idx].amount = v; // sync มาโหมด threshold/fixed กัน user ต้องกรอกซ้ำ
+      updateMultWarn();
+    };
 
     const curSel = makeEl('select', { style: 'width:92px;' });
     [['thb', '฿ บาท'], ['coin', '🪙 เหรียญ']].forEach(([val, label]) => {
@@ -5258,6 +5269,8 @@ function renderMultiplierRules() {
     const arrow = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, '→');
 
     const actionSel = buildRuleActionSelect(idx);
+    const prevActionOnchange = actionSel.onchange;
+    actionSel.onchange = (e) => { prevActionOnchange(e); updateMultWarn(); };
 
     const rawSecs = rule.time_seconds || 0;
     const timeInput = makeEl('input', { type: 'number', className: 'form-control', min: 0, step: 'any', placeholder: '60', style: 'width:70px;' });
@@ -5265,6 +5278,7 @@ function renderMultiplierRules() {
     timeInput.oninput = (e) => {
       const factor = document.getElementById('timerTimeUnit')?.value === 'minutes' ? 60 : 1;
       timerRules[idx].time_seconds = (parseFloat(e.target.value) || 0) * factor;
+      updateMultWarn();
     };
 
     const unitLbl = makeEl('span', { style: 'color:var(--text-muted);white-space:nowrap;' }, unit === 'minutes' ? 'นาที' : 'วิ');
@@ -5279,20 +5293,45 @@ function renderMultiplierRules() {
     CustomDropdown.wrapEl(actionSel);
   });
   if (btnAdd) btnAdd.disabled = timerRules.length >= MAX_TIMER_RULES;
+  updateMultWarn();
+}
+
+// เตือน real-time เมื่อมี ≥2 กฏ currency เดียวกัน (ไม่สนใจ action — server tier-pick ยึดกฏ base_amount
+// สูงสุดที่ถึงเพียงกฏเดียวข้ามทุก action รวม choice ด้วย กฏฐานต่ำกว่าจะ "โดนกลืน" เสมอ) — เรียกตรงจาก
+// oninput ไม่ต้อง re-render ทั้ง section
+function updateMultWarn() {
   const warn = document.getElementById('timerMultWarn');
-  if (warn) {
-    // เตือนเฉพาะเมื่อมี >=2 กฏใช้สกุลเงินเดียวกัน (ผลคูณจะรวมกันจริง) — คนละสกุลไม่ทับกัน
-    const curCounts = {};
-    timerRules.forEach(r => { const c = r.currency || 'thb'; curCounts[c] = (curCounts[c] || 0) + 1; });
-    const hasDupCurrency = Object.values(curCounts).some(n => n > 1);
-    if (hasDupCurrency) {
-      warn.style.display = 'flex';
-      requestAnimationFrame(() => { warn.style.opacity = '1'; warn.style.transform = 'translateY(0)'; });
-    } else {
-      warn.style.opacity = '0';
-      warn.style.transform = 'translateY(-6px)';
-      setTimeout(() => { if (!hasDupCurrency) warn.style.display = 'none'; }, 300);
-    }
+  const msgEl = document.getElementById('timerMultWarnMsg');
+  if (!warn) return;
+
+  const groups = {};
+  timerRules.forEach(r => {
+    if (!r.base_amount || r.base_amount <= 0) return;
+    const key = r.currency || 'thb';
+    (groups[key] = groups[key] || []).push(r);
+  });
+
+  const signPrefix = a => a === 'sub' ? '−' : a === 'choice' ? '±' : '+';
+  let message = null;
+  for (const key in groups) {
+    const list = groups[key];
+    if (list.length < 2) continue;
+    const curLabel = key === 'coin' ? 'เหรียญ' : '฿';
+    const sorted = [...list].sort((a, b) => b.base_amount - a.base_amount);
+    const [top, second] = sorted;
+    const fmtTime = s => s >= 60 ? `${+(s / 60).toFixed(2)} นาที` : `${s} วิ`;
+    message = `ตั้งกฏ "ทุกๆ ${curLabel}" มากกว่า 1 กฏในสกุลเงินเดียวกัน (${sorted.map(r => r.base_amount).join(curLabel + ', ')}${curLabel}) — ระบบยึด "กฏยอดสูงสุดที่โดเนทถึง" เพียงกฏเดียว ไม่รวมกฏอื่นไม่ว่า action จะเป็นแบบไหน เช่น โดเนท ${top.base_amount + Math.round(second.base_amount / 2)}${curLabel} จะยึดกฏ ${top.base_amount}${curLabel} (${signPrefix(top.action)}${fmtTime(top.time_seconds)}) เท่านั้น ไม่นับกฏ ${second.base_amount}${curLabel} (${signPrefix(second.action)}${fmtTime(second.time_seconds)}) เพิ่ม`;
+    break;
+  }
+
+  if (msgEl && message) msgEl.textContent = message;
+  if (message) {
+    warn.style.display = 'flex';
+    requestAnimationFrame(() => { warn.style.opacity = '1'; warn.style.transform = 'translateY(0)'; });
+  } else {
+    warn.style.opacity = '0';
+    warn.style.transform = 'translateY(-6px)';
+    setTimeout(() => { if (warn.style.opacity === '0') warn.style.display = 'none'; }, 300);
   }
 }
 
@@ -5544,7 +5583,8 @@ async function saveTimerSettings() {
       currency: r.currency || 'thb'
     }));
   } else {
-    rules = timerRules;
+    // amount/base_amount ซิงค์กันแค่ตอน oninput — กฏที่ยังไม่เคยแก้เลข (เพิ่งโหลด/เพิ่งสลับโหมด) อาจมีแค่ field เดียว
+    rules = timerRules.map(r => ({ ...r, amount: r.amount ?? r.base_amount ?? 10 }));
   }
 
   const capType = document.getElementById('timerCapTypeSelect')?.value || null;
@@ -6029,8 +6069,6 @@ async function loadLeaderboardSettings() {
 
     const titleEl = document.getElementById('inputLeaderboardTitle');
     if (titleEl) titleEl.value = c.title || '🏆 อันดับผู้โดเนท';
-    const currencyEl = document.getElementById('inputLeaderboardCurrency');
-    if (currencyEl) currencyEl.value = c.currency || 'บาท';
 
     const fsTitleEl = document.getElementById('selectLeaderboardFontSizeTitle');
     if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -6105,7 +6143,6 @@ async function saveLeaderboardSettings() {
     row_border_enabled: document.getElementById('chkLeaderboardRowBorderEnabled')?.checked ? 1 : 0,
     row_border_color: document.getElementById('inputLeaderboardRowBorderColor')?.value || '#ffffff',
     title: document.getElementById('inputLeaderboardTitle')?.value || '🏆 อันดับผู้โดเนท',
-    currency: document.getElementById('inputLeaderboardCurrency')?.value || 'บาท',
     font_size_title: parseInt(document.getElementById('selectLeaderboardFontSizeTitle')?.value) || 22,
     font_size_row: parseInt(document.getElementById('selectLeaderboardFontSizeRow')?.value) || 18,
     font_size_medal: parseInt(document.getElementById('selectLeaderboardFontSizeMedal')?.value) || 20,
@@ -6304,6 +6341,13 @@ async function loadRecentdonateSettings() {
     const chkAnim = document.getElementById('chkRecentdonateAnimation');
     if (chkAnim) chkAnim.checked = c.animation_enabled !== false && c.animation_enabled !== 0;
 
+    const periodMode = c.period_mode || 'all';
+    const periodEl = document.getElementById('selectRecentdonatePeriodMode');
+    if (periodEl) { periodEl.value = periodMode; periodEl.dispatchEvent(new Event('change', { bubbles: true })); }
+    const periodDaysEl = document.getElementById('inputRecentdonatePeriodCustomDays');
+    if (periodDaysEl) periodDaysEl.value = c.period_custom_days || 30;
+    toggleGroup('recentdonatePeriodCustomGroup', periodMode === 'custom');
+
     const widthEl = document.getElementById('inputRecentdonateWidth');
     const widthTxt = document.getElementById('txtRecentdonateWidth');
     const autoWidthEl = document.getElementById('chkRecentdonateWidthAuto');
@@ -6367,8 +6411,6 @@ async function loadRecentdonateSettings() {
 
     const titleEl = document.getElementById('inputRecentdonateTitle');
     if (titleEl) titleEl.value = c.title || '🕐 โดเนทล่าสุด';
-    const currencyEl = document.getElementById('inputRecentdonateCurrency');
-    if (currencyEl) currencyEl.value = c.currency || 'บาท';
 
     const fsTitleEl = document.getElementById('selectRecentdonateFontSizeTitle');
     if (fsTitleEl) { fsTitleEl.value = c.font_size_title || 22; fsTitleEl.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -6421,6 +6463,8 @@ async function saveRecentdonateSettings() {
     max_entries: parseInt(document.getElementById('selectRecentdonateMaxEntries')?.value) || 5,
     show_time: document.getElementById('chkRecentdonateShowTime')?.checked ? 1 : 0,
     animation_enabled: document.getElementById('chkRecentdonateAnimation')?.checked ? 1 : 0,
+    period_mode: document.getElementById('selectRecentdonatePeriodMode')?.value || 'all',
+    period_custom_days: parseInt(document.getElementById('inputRecentdonatePeriodCustomDays')?.value) || 30,
     bg_enabled: document.getElementById('chkRecentdonateBgEnabled')?.checked ? 1 : 0,
     bg_color: document.getElementById('inputRecentdonateBgColor')?.value || '#000000',
     bg_opacity: intOrDefault(document.getElementById('selectRecentdonateBgOpacity')?.value, 60),
@@ -6433,7 +6477,6 @@ async function saveRecentdonateSettings() {
     row_border_enabled: document.getElementById('chkRecentdonateRowBorderEnabled')?.checked ? 1 : 0,
     row_border_color: document.getElementById('inputRecentdonateRowBorderColor')?.value || '#ffffff',
     title: document.getElementById('inputRecentdonateTitle')?.value || '🕐 โดเนทล่าสุด',
-    currency: document.getElementById('inputRecentdonateCurrency')?.value || 'บาท',
     font_size_title: parseInt(document.getElementById('selectRecentdonateFontSizeTitle')?.value) || 22,
     font_size_row: parseInt(document.getElementById('selectRecentdonateFontSizeRow')?.value) || 17,
     font_size_time: parseInt(document.getElementById('selectRecentdonateFontSizeTime')?.value) || 13,
@@ -6563,6 +6606,9 @@ function initRecentdonateSettingsUI() {
   if (chkRowBg) chkRowBg.addEventListener('change', () => toggleGroup('recentdonateRowBgGroup', chkRowBg.checked));
   const chkRowBorder = document.getElementById('chkRecentdonateRowBorderEnabled');
   if (chkRowBorder) chkRowBorder.addEventListener('change', () => toggleGroup('recentdonateRowBorderGroup', chkRowBorder.checked));
+
+  const periodEl = document.getElementById('selectRecentdonatePeriodMode');
+  if (periodEl) periodEl.addEventListener('change', () => toggleGroup('recentdonatePeriodCustomGroup', periodEl.value === 'custom'));
 
   // [UI Fix] เปิด/ปิดวิดเจ็ต = บันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกแยก
   const chkRdEnabled = document.getElementById('chkRecentdonateEnabled');

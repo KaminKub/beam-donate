@@ -6,6 +6,7 @@
   let reconnectDelay = 2000;
   let cfg = {};
   let prevDonors = [];
+  let amountSuffix = 'บาท'; // global Alert setting (amountSuffix) — leaderboard has no currency field of its own
 
   const wrapper = document.getElementById('lbWrapper');
   const titleEl = document.getElementById('lbTitle');
@@ -133,7 +134,7 @@
     const rows = (entries || []).slice(0, max);
     const tplLeft = cfg.row_template_left || '#{อันดับ}  {ผู้โดเนท} ';
     const tplRight = cfg.row_template_right || '{จำนวนเงิน} {สกุลเงิน}';
-    const currency = cfg.currency || 'บาท';
+    const currency = amountSuffix;
     const showMedal = cfg.show_medal !== false && cfg.show_medal !== 0;
 
     listEl.innerHTML = '';
@@ -174,6 +175,7 @@
   function handleEvent(data) {
     if (data.type === 'leaderboard_update') render(data.entries);
     if (data.type === 'settings_update' && data.settings && data.settings.leaderboard_settings !== undefined) {
+      if (data.settings.amountSuffix) amountSuffix = data.settings.amountSuffix;
       let c = {};
       try { c = JSON.parse(data.settings.leaderboard_settings || '{}'); } catch (_) {}
       if (!c.enabled && !isDemo()) { wrapper.style.display = 'none'; return; }
@@ -202,6 +204,7 @@
       const res = await fetch(settingsUrl());
       if (!res.ok) return;
       const data = await res.json();
+      if (data.amountSuffix) amountSuffix = data.amountSuffix;
       let c = {};
       try { c = JSON.parse(data.leaderboard_settings || '{}'); } catch (_) {}
       if (!c.enabled && !isDemo()) return;
