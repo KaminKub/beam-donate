@@ -644,7 +644,7 @@
         html += '<td class="col-status"><span class="' + badgeClass + '">' + statusLabel + '</span></td>';
         html += '<td class="col-actions"><div class="popup-action-btns">';
         html += '<button class="popup-btn-sm popup-btn-refire" onclick="reAlert(\'' + escapedId + '\')" title="ยิง Alert ซ้ำ"><i class="fa-solid fa-bell"></i></button>';
-        if (t.status === 'pending') {
+        if (t.status === 'pending' || t.status === 'failed') {
           html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน"><i class="fa-solid fa-check"></i></button>';
         }
         html += '</div></td>';

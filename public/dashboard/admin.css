@@ -4056,6 +4056,17 @@ label {
   }
 }
 
+/* Round 3 Part 4 — verified state caveat (SlipOK has no "list bound accounts" API, so
+   "verified" only means "proved once with a real slip"; the warning stays visible always) */
+.verify-caveat {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
 .bank-phase2-note {
   display: flex;
   align-items: center;

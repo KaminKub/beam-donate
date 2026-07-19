@@ -4104,7 +4104,11 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       // Boolean gate flags (Part 3) — not secrets, safe to send uncensored
       promptpay_account_verified: streamer.promptpay_account_verified || 0,
       bank_account_verified: streamer.bank_account_verified || 0,
-      truemoney_account_verified: streamer.truemoney_account_verified || 0
+      truemoney_account_verified: streamer.truemoney_account_verified || 0,
+      // Timestamps (Part 4) — not secrets, safe to send uncensored
+      promptpay_account_verified_at: streamer.promptpay_account_verified_at || null,
+      bank_account_verified_at: streamer.bank_account_verified_at || null,
+      truemoney_account_verified_at: streamer.truemoney_account_verified_at || null
     });
   } catch (err) {
     console.error('Get payment settings error:', err);
@@ -4219,7 +4223,8 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
     }
 
     const slipCode = slipData?.code;
-    const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+    const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
+                       slipCode === 1010 ? 'SLIP_DELAY' :
                        slipCode === 1012 ? 'SLIP_DUPLICATE' :
                        slipCode === 1013 ? 'AMOUNT_MISMATCH' :
                        slipCode === 1014 ? 'WRONG_RECEIVER' :
@@ -4230,7 +4235,8 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
     if (slipErr.response) {
       const body = slipErr.response.data;
       const slipCode = body?.code;
-      const mappedCode = slipCode === 1010 ? 'SLIP_DELAY' :
+      const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
+                         slipCode === 1010 ? 'SLIP_DELAY' :
                          slipCode === 1012 ? 'SLIP_DUPLICATE' :
                          slipCode === 1013 ? 'AMOUNT_MISMATCH' :
                          slipCode === 1014 ? 'WRONG_RECEIVER' :
@@ -4286,7 +4292,31 @@ app.post('/api/payment/verify-slipok-account', ensureAuthenticated, csrfProtecti
     }
 
     if (result.errorCode === 'WRONG_RECEIVER') {
+      // Reactive reset: SlipOK no longer recognizes this receiver — proof the account was
+      // unlinked from SlipOK's side. Safe here only (authenticated, streamer uploads their own
+      // slip) — must never run from the public /api/verify-slip path (griefing vector).
+      const verifiedFieldMap = {
+        promptpay: 'promptpay_account_verified',
+        bank: 'bank_account_verified',
+        truemoney: 'truemoney_account_verified'
+      };
+      const verifiedField = verifiedFieldMap[method];
+      if (streamer[verifiedField] === 1) {
+        await db.saveStreamer({
+          twitch_id: req.user.twitch_id || null,
+          streamlabs_id: req.user.streamlabs_id || null,
+          username: actualUsername,
+          [verifiedField]: 0,
+          // saveStreamer's UPDATE path uses COALESCE(?, existing) per column — passing null
+          // here would be swallowed and leave the stale timestamp in place. '' is a real
+          // (non-NULL) value so COALESCE actually overwrites it.
+          [`${verifiedField}_at`]: ''
+        });
+      }
       return res.json({ success: false, errorCode: 'WRONG_RECEIVER', error: 'สลิปถูกต้อง แต่บัญชีปลายทางยังไม่ตรงกับที่ผูกไว้ใน SlipOK — กรุณาเพิ่มบัญชีนี้ในเว็บ SlipOK ก่อน แล้วลองใหม่ (ใช้สลิปใบใหม่)' });
+    }
+    if (result.errorCode === 'BANK_UNAVAILABLE') {
+      return res.json({ success: false, errorCode: 'BANK_UNAVAILABLE', error: 'ระบบธนาคารขัดข้องชั่วคราว — รอประมาณ 15 นาทีแล้วลองใหม่ด้วยสลิปใบเดิมได้ (ไม่เสียโควต้า)' });
     }
     return res.json({ success: false, errorCode: result.errorCode, error: result.error });
   } catch (err) {
@@ -5159,6 +5189,12 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
     // shared helper. Terminal codes (dup/amount/wrong-receiver/invalid): mark used. SLIP_DELAY
     // (bank sync lag) and CONNECTION_FAILED/SLIPOK_ERROR stay temporary — donor can retry.
     if (TERMINAL_SLIP_CODES.has(result.errorCode)) markSlipHashUsed(username, slipHash);
+    if (result.errorCode === 'BANK_UNAVAILABLE' && effectiveReferenceId) {
+      const tx = pendingTx || await db.getTransactionById(effectiveReferenceId);
+      if (tx && tx.status === 'pending') {
+        await db.saveTransaction({ ...tx, id: effectiveReferenceId, status: 'failed' });
+      }
+    }
     const status = result.errorCode === 'CONNECTION_FAILED' ? 502 : 200;
     return res.status(status).json({ success: false, errorCode: result.errorCode, error: result.error, delayMinutes: result.delayMinutes, referenceId: effectiveReferenceId });
   } catch (err) {

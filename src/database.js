@@ -832,7 +832,7 @@ async function confirmTransactionPaid(data) {
   if (isFallback) {
     const idx = memoryTransactions.findIndex(t => t.id === data.id);
     if (idx >= 0) {
-      if (memoryTransactions[idx].status !== 'pending') return { rowsAffected: 0 };
+      if (!['pending', 'failed'].includes(memoryTransactions[idx].status)) return { rowsAffected: 0 };
       memoryTransactions[idx] = { ...memoryTransactions[idx], ...data, status: 'successful', paidAt: data.paidAt || now, updatedAt: now };
     } else {
       memoryTransactions.push({ id: data.id, status: 'successful', paidAt: data.paidAt || now, createdAt: now, updatedAt: now, donor: data.donor || 'Anonymous', amount: data.amount || 0, message: data.message || '', streamer_username: data.streamer_username || null, payment_method: data.payment_method || 'ffp', timer_action: data.timer_action ?? null });
@@ -881,7 +881,7 @@ async function confirmTransactionPaid(data) {
             promptpay_slip_id = COALESCE(excluded.promptpay_slip_id, transactions.promptpay_slip_id),
             promptpay_verified = COALESCE(excluded.promptpay_verified, transactions.promptpay_verified),
             promptpay_verified_at = COALESCE(excluded.promptpay_verified_at, transactions.promptpay_verified_at)
-          WHERE transactions.status = 'pending'`,
+          WHERE transactions.status IN ('pending', 'failed')`,
     args: [
       data.id,
       data.amount != null ? data.amount : null,

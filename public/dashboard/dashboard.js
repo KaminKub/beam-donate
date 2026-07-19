@@ -3915,7 +3915,7 @@ function renderFullTransactions(transactions) {
       ? `<button class="btn btn-secondary btn-sm" onclick="inspectTransaction('${t.id}')"><i class="fa-solid fa-magnifying-glass"></i> ดูรายละเอียด</button>`
       : '<div></div>';
     actionsHtml += `<button class="btn btn-primary btn-sm" onclick="simulateTransactionAlert('${t.id}')"><i class="fa-solid fa-bell"></i> ยิง Alert ซ้ำ</button>`;
-    actionsHtml += t.status === 'pending'
+    actionsHtml += (t.status === 'pending' || t.status === 'failed')
       ? `<button class="btn btn-primary btn-sm" style="background:#059669;box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง"><i class="fa-solid fa-check" style="color:#4ade80;"></i> ยืนยัน</button>`
       : '<div></div>';
     actionsHtml += '</div>';
@@ -7952,12 +7952,33 @@ function isMethodAccountVerified(method) {
   return true;
 }
 
+// Round 3 — SlipOK has no API to list bound accounts, so "verified" can only ever mean
+// "proved once with a real slip on {date}", never a live status. Per-method unverified copy
+// tells the streamer exactly what to match in SlipOK before re-verifying.
+const ACCOUNT_UNVERIFIED_TEXT = {
+  promptpay: 'คุณจำเป็นต้องเพิ่มบัญชีพร้อมเพย์และหมายเลขให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง',
+  bank: 'คุณจำเป็นต้องเพิ่มบัญชีธนาคารและเลขบัญชีให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง',
+  truemoney: 'คุณจำเป็นต้องเพิ่มบัญชี TrueMoney และหมายเลขโทรศัพท์ให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง'
+};
+
 function updateAccountVerifyBadges() {
+  const d = window._lastPaymentSettings || {};
   document.querySelectorAll('.slipok-linked-note[data-method]').forEach(note => {
     const method = note.getAttribute('data-method');
-    note.setAttribute('data-verify-state', isMethodAccountVerified(method) ? 'verified' : 'unverified');
+    const verified = isMethodAccountVerified(method);
+    note.setAttribute('data-verify-state', verified ? 'verified' : 'unverified');
     const text = note.querySelector('.verify-text');
-    if (text) text.textContent = isMethodAccountVerified(method) ? '' : 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
+    const caveat = note.querySelector('.verify-caveat');
+    if (verified) {
+      const at = d[`${method}_account_verified_at`];
+      let dateStr = '-';
+      try { if (at) dateStr = new Date(at).toLocaleString('th-TH'); } catch (e) {}
+      if (text) text.textContent = `ยืนยันบัญชีด้วยสลิปแล้ว (ล่าสุด: ${dateStr})`;
+      if (caveat) caveat.textContent = '⚠️ ต้องคงบัญชีนี้ไว้ในเว็บ SlipOK เสมอ — หากถอดออกภายหลัง ระบบจะตรวจสลิปของผู้โดเนทไม่ผ่าน (TipKub ตรวจสอบสถานะสดจาก SlipOK ไม่ได้)';
+    } else {
+      if (text) text.textContent = ACCOUNT_UNVERIFIED_TEXT[method] || 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
+      if (caveat) caveat.textContent = '';
+    }
   });
 }
 
@@ -7984,8 +8005,16 @@ async function verifySlipOkAccount(method) {
         showNotification(data.message || 'ยืนยันบัญชีสำเร็จ!');
         window._lastPaymentSettings = window._lastPaymentSettings || {};
         window._lastPaymentSettings[`${method}_account_verified`] = 1;
+        window._lastPaymentSettings[`${method}_account_verified_at`] = new Date().toISOString();
         updateAccountVerifyBadges();
       } else {
+        // WRONG_RECEIVER on an already-verified method = server-side reactive reset fired
+        // (account was pulled from SlipOK) — reflect it in the badge immediately.
+        if (data.errorCode === 'WRONG_RECEIVER' && window._lastPaymentSettings) {
+          window._lastPaymentSettings[`${method}_account_verified`] = 0;
+          window._lastPaymentSettings[`${method}_account_verified_at`] = null;
+          updateAccountVerifyBadges();
+        }
         showNotification(data.error || 'ยืนยันบัญชีไม่สำเร็จ', 'error');
       }
     } catch (err) {

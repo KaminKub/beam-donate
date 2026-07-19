@@ -1113,9 +1113,10 @@ function startPromptPayPolling() {
   }, 3000);
 }
 
-function showPaymentError(message) {
+function showPaymentError(message, isWarning) {
   if (paymentError) {
     paymentError.style.display = 'flex';
+    paymentError.classList.toggle('warning', !!isWarning);
   }
   if (paymentErrorMessage) {
     paymentErrorMessage.textContent = message;
@@ -1278,6 +1279,14 @@ async function doVerifySlip() {
       paymentStatus.style.display = 'none';
       showPaymentError(data.error || 'สลิปนี้ถูกใช้แล้ว');
       btnVerifySlip.innerHTML = '<i class="fas fa-check-circle"></i> ตรวจสอบสลิป';
+      btnVerifySlip.disabled = false;
+      return;
+    }
+
+    if (errorCode === 'BANK_UNAVAILABLE') {
+      paymentStatus.style.display = 'none';
+      showPaymentError('ระบบธนาคารขัดข้องชั่วคราว ทำให้ตรวจสลิปอัตโนมัติไม่ได้\n\nกรุณาแจ้งสตรีมเมอร์ว่าเงินเข้าแล้วแต่ตรวจสลิปไม่ได้ เพื่อให้สตรีมเมอร์กดยืนยันรับด้วยตัวเอง — รายการของคุณถูกบันทึกไว้ในระบบแล้ว\n\n(หรือรอประมาณ 15 นาทีแล้วอัพโหลดสลิปใบเดิมอีกครั้ง)', true);
+      btnVerifySlip.innerHTML = '<i class="fas fa-redo"></i> ลองใหม่อีกครั้ง';
       btnVerifySlip.disabled = false;
       return;
     }
@@ -1463,6 +1472,14 @@ async function doVerifyTrueMoney() {
       return;
     }
 
+    if (errorCode === 'BANK_UNAVAILABLE') {
+      trueMoneyPaymentStatus.style.display = 'none';
+      showTrueMoneyError('ระบบธนาคารขัดข้องชั่วคราว ทำให้ตรวจสลิปอัตโนมัติไม่ได้\n\nกรุณาแจ้งสตรีมเมอร์ว่าเงินเข้าแล้วแต่ตรวจสลิปไม่ได้ เพื่อให้สตรีมเมอร์กดยืนยันรับด้วยตัวเอง — รายการของคุณถูกบันทึกไว้ในระบบแล้ว\n\n(หรือรอประมาณ 15 นาทีแล้วอัพโหลดสลิปใบเดิมอีกครั้ง)', true);
+      btnVerifyTrueMoney.innerHTML = '<i class="fas fa-redo"></i> ลองใหม่อีกครั้ง';
+      btnVerifyTrueMoney.disabled = false;
+      return;
+    }
+
     if (isRetryable) {
       trueMoneyPaymentStatus.style.display = 'none';
       showTrueMoneyError(`${data.error} — คุณสามารถลองใหม่ได้`);
@@ -1512,8 +1529,11 @@ function handleSlipDelay(delayMinutes, btnElement, statusElement, retryFn, getSt
   updateDelayUI();
 }
 
-function showTrueMoneyError(message) {
-  if (trueMoneyPaymentError) trueMoneyPaymentError.style.display = 'flex';
+function showTrueMoneyError(message, isWarning) {
+  if (trueMoneyPaymentError) {
+    trueMoneyPaymentError.style.display = 'flex';
+    trueMoneyPaymentError.classList.toggle('warning', !!isWarning);
+  }
   if (trueMoneyPaymentErrorMessage) trueMoneyPaymentErrorMessage.textContent = message;
 }
 
@@ -1671,6 +1691,14 @@ async function doVerifyBank() {
       return;
     }
 
+    if (errorCode === 'BANK_UNAVAILABLE') {
+      bankPaymentStatus.style.display = 'none';
+      showBankError('ระบบธนาคารขัดข้องชั่วคราว ทำให้ตรวจสลิปอัตโนมัติไม่ได้\n\nกรุณาแจ้งสตรีมเมอร์ว่าเงินเข้าแล้วแต่ตรวจสลิปไม่ได้ เพื่อให้สตรีมเมอร์กดยืนยันรับด้วยตัวเอง — รายการของคุณถูกบันทึกไว้ในระบบแล้ว\n\n(หรือรอประมาณ 15 นาทีแล้วอัพโหลดสลิปใบเดิมอีกครั้ง)', true);
+      btnVerifyBank.textContent = 'ลองใหม่อีกครั้ง';
+      btnVerifyBank.disabled = false;
+      return;
+    }
+
     bankPaymentStatus.style.display = 'none';
     const errText = typeof data.error === 'string' ? data.error : 'สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรง';
     if (isRetryable) {
@@ -1690,8 +1718,11 @@ async function doVerifyBank() {
   }
 }
 
-function showBankError(message) {
-  if (bankPaymentError) bankPaymentError.style.display = 'flex';
+function showBankError(message, isWarning) {
+  if (bankPaymentError) {
+    bankPaymentError.style.display = 'flex';
+    bankPaymentError.classList.toggle('warning', !!isWarning);
+  }
   if (bankPaymentErrorMessage) bankPaymentErrorMessage.textContent = message;
 }
 
