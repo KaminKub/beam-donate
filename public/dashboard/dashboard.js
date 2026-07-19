@@ -7974,7 +7974,7 @@ function updateAccountVerifyBadges() {
       let dateStr = '-';
       try { if (at) dateStr = new Date(at).toLocaleString('th-TH'); } catch (e) {}
       if (text) text.textContent = `ยืนยันบัญชีด้วยสลิปแล้ว (ล่าสุด: ${dateStr})`;
-      if (caveat) caveat.textContent = '⚠️ ต้องคงบัญชีนี้ไว้ในเว็บ SlipOK เสมอ — หากถอดออกภายหลัง ระบบจะตรวจสลิปของผู้โดเนทไม่ผ่าน (TipKub ตรวจสอบสถานะสดจาก SlipOK ไม่ได้)';
+      if (caveat) caveat.textContent = '⚠️ ข้อมูลบัญชีต้องตรงกับเว็บ SlipOK เสมอ — หากข้อมูลไม่ตรง หรือถอดออกภายหลัง ระบบจะตรวจสลิปของผู้โดเนทไม่ผ่าน (TipKub ตรวจสอบสถานะสดจาก SlipOK ไม่ได้)';
     } else {
       if (text) text.textContent = ACCOUNT_UNVERIFIED_TEXT[method] || 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
       if (caveat) caveat.textContent = '';
