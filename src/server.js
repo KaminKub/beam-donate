@@ -786,8 +786,12 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
     ...extraAlert
   });
   // § 2.6 TIER_DONATE_BLUEPRINT.md — ลบ donor-temp audio หลังใช้ครั้งเดียว (fire-and-forget, ห้าม block alert)
+  // ต้องหน่วงลบ: overlay เพิ่งได้ SSE แล้วค่อย fetch ไฟล์จาก R2 — ลบทันทีทำให้ alert จริงไม่มีเสียง (404)
   if (tx.tier_sound_is_temp === 1 && tx.tier_sound_url) {
-    deleteFromR2ByUrl(tx.tier_sound_url).catch(err => console.error('[tier-audio-cleanup]', censor(err.message)));
+    const url = tx.tier_sound_url;
+    setTimeout(() => {
+      deleteFromR2ByUrl(url).catch(err => console.error('[tier-audio-cleanup]', censor(err.message)));
+    }, 10 * 60 * 1000);
   }
   if (tx.streamer_username && finalAmount > 0) {
     try {
@@ -2278,7 +2282,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API: สร้าง Donation (Payment Link)
 app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
   try {
-    const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp } = req.body;
+    const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
     if (!username) return res.status(400).json({ error: 'ไม่ระบุชื่อผู้รับบริจาค' });
 
@@ -2286,7 +2290,7 @@ app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
     if (Number(streamer.is_active) === 0) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
 
-    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp });
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
 
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
@@ -5023,7 +5027,7 @@ const setupWebhookLimiter = rateLimit({
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp } = req.body;
+    const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
     if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
 
@@ -5038,7 +5042,7 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
     if (!streamer.promptpay_enabled) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้เปิด PromptPay' });
 
-    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp });
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
 
     let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
     if (phone && phone.includes(':')) {
