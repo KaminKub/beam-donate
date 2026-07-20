@@ -4491,24 +4491,6 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
     if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
     if (changedTo('truemoney_phone', req.body.truemoney_phone)) resetFlags.truemoney_account_verified = 0;
 
-    // Part 3 guard: block only the closed→open transition when the destination account
-    // hasn't been verified with a real slip yet. This endpoint receives X_enabled on every
-    // save (frontend echoes whatever it last loaded) — checking req.body alone would 400
-    // every save for already-enabled users, not just the moment they flip the toggle on.
-    const wantsEnable = (field) => !!req.body[field];
-    const isNewlyEnabling = (field) => wantsEnable(field) && streamer[field] !== 1;
-    const effectiveVerified = (field) => resetFlags[field] !== undefined ? false : streamer[field];
-
-    if (isNewlyEnabling('promptpay_enabled') && !effectiveVerified('promptpay_account_verified')) {
-      return res.status(400).json({ error: 'กรุณายืนยันบัญชีพร้อมเพย์ด้วยสลิปจริงก่อนเปิดใช้งาน' });
-    }
-    if (isNewlyEnabling('bank_enabled') && !effectiveVerified('bank_account_verified')) {
-      return res.status(400).json({ error: 'กรุณายืนยันบัญชีธนาคารด้วยสลิปจริงก่อนเปิดใช้งาน' });
-    }
-    if (isNewlyEnabling('truemoney_enabled') && !effectiveVerified('truemoney_account_verified') && streamer.truemoney_webhook_enabled !== 1) {
-      return res.status(400).json({ error: 'กรุณายืนยันบัญชี TrueMoney ด้วยสลิปจริงก่อนเปิดใช้งาน (หรือเปิดใช้ TrueMoney Webhook แทน)' });
-    }
-
     const updatedStreamer = await db.saveStreamer({
       twitch_id: req.user.twitch_id || null,
       streamlabs_id: req.user.streamlabs_id || null,

@@ -1428,25 +1428,6 @@ async function initializeDashboard() {
         // FFP disabled - ไม่ทำอะไร
         if (method === 'ffp') return;
 
-        // Part 3 gate: block only the closed→open transition when this method's account
-        // hasn't been verified with a real slip yet — open its settings panel instead so
-        // the user can reach the "ยืนยันบัญชี" button (bypasses the active-card requirement
-        // on .btn-settings, since the account isn't enabled yet).
-        if (!card.classList.contains('active') && !isMethodAccountVerified(method)) {
-          showNotification('กรุณายืนยันบัญชีด้วยสลิปจริงก่อน — เลื่อนลงกดปุ่ม "ยืนยันบัญชีด้วยสลิปจริง" ในแผงตั้งค่า', 'error');
-          const settingsBtn = card.querySelector('.btn-settings');
-          const targetPanelId = settingsBtn?.getAttribute('data-target');
-          if (targetPanelId) {
-            openSettingsPanel(targetPanelId);
-            card.classList.add('panel-open');
-            settingsBtn.classList.add('panel-open');
-            setTimeout(() => {
-              document.getElementById(targetPanelId)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 100);
-          }
-          return;
-        }
-
         // Toggle active state (checkbox behavior)
         card.classList.toggle('active');
 
