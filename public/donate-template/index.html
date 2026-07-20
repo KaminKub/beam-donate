@@ -124,7 +124,30 @@
     }
     .tier-banner.tier-level-2 { background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.35); color: #bfdbfe; }
     .tier-banner.tier-level-3 { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.4); color: #fde68a; }
-    .tier-option-block { margin-bottom: 12px; }
+    .tier-banner { transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+    /* Show/Hide Transitions (UI_UX_LESSONS.md §Show/Hide) — grid-template-rows 0fr↔1fr animates actual content height (no max-height gotcha) */
+    .tier-option-block {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      margin-bottom: 0;
+      transition: grid-template-rows 0.3s ease, opacity 0.25s ease, margin-bottom 0.3s ease;
+    }
+    .tier-option-block.tier-block-open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      margin-bottom: 12px;
+    }
+    .tier-option-block > .tier-option-inner { overflow: hidden; min-height: 0; }
+    .tier-unlock-hint {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .tier-unlock-hint .tier-hint-item { white-space: nowrap; }
+    .tier-unlock-hint .tier-hint-sep { opacity: 0.4; margin: 0 6px; }
     .tier-option-label { font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
     .tier-image-choices { display: flex; gap: 8px; flex-wrap: wrap; }
     .tier-image-choice {
@@ -249,27 +272,33 @@
             <span class="currency">฿</span>
             <input type="number" id="customAmount" placeholder="ระบุจำนวนเงิน..." min="1">
           </div>
+          <div id="tierUnlockHint" class="tier-unlock-hint" style="display:none"></div>
           <div id="minAmountWarning" class="min-amount-warning" style="display: none;">กรุณาระบุจำนวนเงินขั้นต่ำ ฿<span id="minAmountWarningValue">1</span></div>
         </div>
 
         <div id="tierDonateSection">
           <div id="tierBanner" class="tier-banner"></div>
 
-          <div id="tierImageChoiceBlock" class="tier-option-block" style="display:none">
+          <div id="tierImageChoiceBlock" class="tier-option-block">
+            <div class="tier-option-inner">
             <div class="tier-option-label"><i class="fa-solid fa-image"></i> เลือกสติ๊กเกอร์ Alert</div>
             <div id="tierImageChoices" class="tier-image-choices"></div>
+            </div>
           </div>
 
-          <div id="tierSoundChoiceBlock" class="tier-option-block sound-source-block" style="display:none" data-sound-source="library">
+          <div id="tierSoundChoiceBlock" class="tier-option-block sound-source-block" data-sound-source="library">
+            <div class="tier-option-inner">
             <div class="tier-option-label"><i class="fa-solid fa-music"></i> เลือกเสียงแจ้งเตือน</div>
             <div class="tier-sound-selected-row">
               <button type="button" id="btnPickTierSound" class="btn btn-secondary btn-sm"><i class="fa-solid fa-music"></i> เลือกเสียง</button>
               <span id="tierSoundSelectedLabel">ไม่ใช้เสียงพิเศษ</span>
               <button type="button" id="btnChangeTierSound" class="btn-text" style="display:none;">เปลี่ยนตัวเลือก</button>
             </div>
+            </div>
           </div>
 
-          <div id="tierOwnAudioBlock" class="tier-option-block sound-source-block" style="display:none">
+          <div id="tierOwnAudioBlock" class="tier-option-block sound-source-block">
+            <div class="tier-option-inner">
             <div class="tier-option-label"><i class="fa-solid fa-microphone"></i> อัพโหลด/อัดเสียงของคุณเอง</div>
             <div class="tier-subtabs" id="tierOwnAudioSubtabs">
               <button type="button" class="tier-subtab-btn active" data-subtab="upload" id="tierUploadSubtabBtn"><i class="fa-solid fa-upload"></i> อัพโหลดเสียง</button>
@@ -299,6 +328,7 @@
                   <button type="button" id="tierRecordConfirmBtn" class="btn-primary btn-sm"><i class="fa-solid fa-check"></i> ใช้เสียงนี้</button>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -800,6 +830,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260720_2"></script>
+  <script src="/donate-template/app.js?v=20260720_5"></script>
 </body>
 </html>

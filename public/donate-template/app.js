@@ -477,10 +477,31 @@ async function loadTierSettings(username) {
     const data = await res.json();
     if (!data.enabled) return;
     tierSettings = data;
+    renderTierUnlockHint();
     recomputeTierUnlock();
   } catch (e) {
     // Silent fail — tier donate is an enhancement, ไม่บล็อกการโดเนทหลัก (§4.6 Mobile Donor Resilience)
   }
+}
+
+// เขียนข้อความกำกับใต้ customAmount บอกเงินเริ่มต้นปลดล็อกแต่ละ Tier
+function renderTierUnlockHint() {
+  const hint = document.getElementById('tierUnlockHint');
+  if (!hint) return;
+  if (!tierSettings || !Array.isArray(tierSettings.tiers) || tierSettings.tiers.length === 0) {
+    hint.style.display = 'none';
+    return;
+  }
+  const tiers = tierSettings.tiers
+    .filter(t => t.active !== false)
+    .sort((a, b) => a.level - b.level);
+  if (tiers.length === 0) { hint.style.display = 'none'; return; }
+  const parts = tiers.map(t => {
+    const name = (t.name || '').trim() || ('Tier ' + t.level);
+    return `<span class="tier-hint-item">${escapeHtml(name)} @ ฿${t.min_amount.toLocaleString()}</span>`;
+  });
+  hint.innerHTML = 'ปลดล็อก: ' + parts.join('<span class="tier-hint-sep">·</span>');
+  hint.style.display = '';
 }
 
 function recomputeTierUnlock() {
@@ -535,12 +556,15 @@ function renderTierSection(unlocked) {
 
   if (!unlocked) {
     section.classList.remove('tier-open');
+    document.getElementById('tierImageChoiceBlock')?.classList.remove('tier-block-open');
+    document.getElementById('tierSoundChoiceBlock')?.classList.remove('tier-block-open');
+    document.getElementById('tierOwnAudioBlock')?.classList.remove('tier-block-open');
     return;
   }
   section.classList.add('tier-open');
   banner.className = 'tier-banner tier-level-' + unlocked.level;
   const tierName = (unlocked.name || '').trim();
-  banner.textContent = `${tierName ? tierName : 'Tier ' + unlocked.level}!`;
+  banner.textContent = `ปลดล็อกระดับ :${tierName ? tierName : 'Tier ' + unlocked.level}!`;
 
   // Image choices
   const imgBlock = document.getElementById('tierImageChoiceBlock');
@@ -565,17 +589,17 @@ function renderTierSection(unlocked) {
       el.onclick = () => selectTierImage(img.url, el);
       imgChoicesEl.appendChild(el);
     });
-    imgBlock.style.display = '';
+    imgBlock.classList.add('tier-block-open');
   } else {
-    imgBlock.style.display = 'none';
+    imgBlock.classList.remove('tier-block-open');
   }
 
   // Sound library choices
   const sndBlock = document.getElementById('tierSoundChoiceBlock');
   if (unlocked.allow_sound_choice) {
-    sndBlock.style.display = '';
+    sndBlock.classList.add('tier-block-open');
   } else {
-    sndBlock.style.display = 'none';
+    sndBlock.classList.remove('tier-block-open');
   }
 
   // Own audio (upload / record)
@@ -588,7 +612,7 @@ function renderTierSection(unlocked) {
   const hasUpload = unlocked.allow_own_upload === true;
   const hasRecord = unlocked.allow_own_record === true && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
   if (hasUpload || hasRecord) {
-    ownBlock.style.display = '';
+    ownBlock.classList.add('tier-block-open');
     if (uploadSubtab) uploadSubtab.style.display = hasUpload ? '' : 'none';
     if (recordSubtab) recordSubtab.style.display = hasRecord ? '' : 'none';
     if (ownSubtabs) ownSubtabs.style.display = (hasUpload && hasRecord) ? '' : 'none';
@@ -600,7 +624,7 @@ function renderTierSection(unlocked) {
       recordPane.style.display = '';
     }
   } else {
-    ownBlock.style.display = 'none';
+    ownBlock.classList.remove('tier-block-open');
   }
 }
 
@@ -1008,14 +1032,14 @@ async function startTierRecording() {
     if (btnLabel) btnLabel.textContent = 'หยุดอัดเสียง';
     if (status) status.textContent = 'กำลังอัด...';
 
-    let remaining = 15;
+    let remaining = 8;
     if (timerEl) { timerEl.style.display = ''; timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
     tierRecordCountdownInterval = setInterval(() => {
       remaining -= 1;
       if (timerEl) timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`;
       if (remaining <= 0) clearInterval(tierRecordCountdownInterval);
     }, 1000);
-    tierRecordTimeout = setTimeout(() => stopTierRecording(false), 15000);
+    tierRecordTimeout = setTimeout(() => stopTierRecording(false), 8000);
   } catch (err) {
     closeTierAudioContext();
     if (status) status.textContent = 'ไม่สามารถใช้ไมค์ได้: ' + (err.name || err.message);
@@ -1122,13 +1146,19 @@ function updateAmountOptions(min) {
   });
 }
 
-// Amount button click
+// Amount button click — กดปุ่มเดิมซ้ำ = ยกเลิกเลือก
 amountBtns.forEach(btn => {
   btn.addEventListener('click', () => {
+    const wasSelected = btn.classList.contains('selected');
     amountBtns.forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    selectedAmount = parseInt(btn.dataset.amount);
-    customAmountInput.value = selectedAmount;
+    if (wasSelected) {
+      selectedAmount = 0;
+      customAmountInput.value = '';
+    } else {
+      btn.classList.add('selected');
+      selectedAmount = parseInt(btn.dataset.amount);
+      customAmountInput.value = selectedAmount;
+    }
     updateDonateButton();
   });
 });
