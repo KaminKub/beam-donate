@@ -93,11 +93,14 @@
     root.setProperty('--lb-title-filter', [outlineFn, 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))'].filter(Boolean).join(' '));
     root.setProperty('--lb-row-filter', outlineFn || 'none');
 
-    // Row background ("เปิดสีพื้นหลังชื่อ") — สี/ความโปร่งใสผูก user config; ไฮไลต์ทองอันดับ 1 คงที่ แยกจาก toggle นี้
+    // Row background ("เปิดสีพื้นหลังชื่อ") — toggle on/off เท่านั้น; สี neutral คงที่ ไม่ขับจาก color input
+    // ponytail: color input ผูก glow อย่างเดียว (สอดคล้อง label "สี Effect เรืองแสง") — ห้ามแตะ .lb-row background
     const rowBgOn = cfg.row_bg_enabled !== false && cfg.row_bg_enabled !== 0;
-    const rowBgAlpha = rowBgOn ? (typeof cfg.row_bg_opacity === 'number' ? cfg.row_bg_opacity : 6) / 100 : 0;
-    root.setProperty('--lb-row-bg', rowBgOn ? hexToRgba(cfg.row_bg_color || '#ffffff', rowBgAlpha) : 'transparent');
+    root.setProperty('--lb-row-bg', rowBgOn ? 'rgba(255, 255, 255, 0.06)' : 'transparent');
     root.setProperty('--lb-row-gold-bg', rowBgOn ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.18), rgba(255, 255, 255, 0.04))' : 'transparent');
+    // Glow effect — สี+ความโปร่งใสผูก user config (แยกจาก row bg)
+    const glowAlpha = rowBgOn ? (typeof cfg.row_bg_opacity === 'number' ? cfg.row_bg_opacity : 6) / 100 : 0;
+    root.setProperty('--lb-row-glow', rowBgOn ? hexToRgba(cfg.row_bg_color || '#ffffff', glowAlpha) : 'transparent');
 
     // Row border ("เปิดกรอบชื่อ") — แยกจากกรอบ #lbWrapper (border_enabled ด้านบน) โดยสิ้นเชิง
     const rowBorderOn = cfg.row_border_enabled !== false && cfg.row_border_enabled !== 0;

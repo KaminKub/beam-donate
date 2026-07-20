@@ -137,7 +137,7 @@ body {
 
 @keyframes lb-glow-pulse {
   0%   { box-shadow: 0 0 0 rgba(168, 85, 247, 0); }
-  40%  { box-shadow: 0 0 18px var(--lb-row-bg, rgba(168, 85, 247, 0.5)) ; }
+  40%  { box-shadow: 0 0 18px var(--lb-row-glow, rgba(168, 85, 247, 0.5)); }
   100% { box-shadow: 0 0 0 rgba(168, 85, 247, 0); }
 }
 
