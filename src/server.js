@@ -55,7 +55,7 @@ const UPLOAD_ALLOWED_TYPES = {
   pagebg:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3'],
   video:   ['video/mp4', 'video/webm'],
-  tierAlert: ['image/jpeg', 'image/png', 'image/webp', 'video/webm']
+  tierAlert: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm']
 };
 const UPLOAD_EXT_MAP = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
@@ -248,9 +248,9 @@ const defaultSettings = {
   tier_donate_settings: JSON.stringify({
     enabled: false,
     tiers: [
-      { level: 1, min_amount: 50, active: true, allow_image_choice: true, allow_sound_choice: false, allow_own_audio: false },
-      { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: false },
-      { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: true }
+      { level: 1, min_amount: 50, active: true, name: '', allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false },
+      { level: 2, min_amount: 200, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false },
+      { level: 3, min_amount: 500, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true }
     ],
     alert_images: []
   }),
@@ -1381,6 +1381,11 @@ app.post('/api/demo/alerts/test', demoRateLimiter, demoAlertLimiter, (req, res) 
   // Use demo-only broadcast — must NOT reach real overlay
   broadcastDemoAlert(DEMO_STREAMER_USERNAME, alertData);
   res.json({ success: true, alert: alertData });
+});
+
+app.post('/api/demo/alerts/test-clear-sticky', demoRateLimiter, demoAlertLimiter, (req, res) => {
+  broadcastDemoAlert(DEMO_STREAMER_USERNAME, { type: 'clear_sticky_alert' });
+  res.json({ success: true });
 });
 
 app.get('/demo/dona-monitor', demoRateLimiter, (req, res) => {
@@ -3585,6 +3590,7 @@ app.get('/api/page/:username/tier-settings', tierSettingsLimiter, async (req, re
     if (!streamer) return res.json({ enabled: false });
     let tierSettings = null;
     try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
+    tierSettings = normalizeTierDonateSettings(tierSettings);
     if (!tierSettings || !tierSettings.enabled) return res.json({ enabled: false });
     let soundLibrary = [];
     try { soundLibrary = JSON.parse(streamer.sound_library || '[]'); } catch {}
@@ -3625,8 +3631,16 @@ app.post('/api/donate/upload-tier-audio', sameOriginCheck, donorAudioUploadLimit
 
     let tierSettings = null;
     try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
-    if (!tierSettings || !tierSettings.enabled || !Array.isArray(tierSettings.tiers) ||
-        !tierSettings.tiers.some(t => t.active !== false && t.allow_own_audio === true)) {
+    tierSettings = normalizeTierDonateSettings(tierSettings);
+    if (!tierSettings || !tierSettings.enabled || !Array.isArray(tierSettings.tiers)) {
+      return res.status(403).json({ error: 'ผู้ใช้นี้ไม่เปิดใช้งานอัพโหลด/อัดเสียงเอง' });
+    }
+    const mode = req.body?.mode === 'record' ? 'record' : 'upload';
+    const hasAllowedTier = tierSettings.tiers.some(t => {
+      if (t.active === false) return false;
+      return mode === 'record' ? t.allow_own_record === true : t.allow_own_upload === true;
+    });
+    if (!hasAllowedTier) {
       return res.status(403).json({ error: 'ผู้ใช้นี้ไม่เปิดใช้งานอัพโหลด/อัดเสียงเอง' });
     }
 
@@ -3663,6 +3677,8 @@ app.get('/api/page/:username/settings', async (req, res) => {
       pageBgUrl: streamer.page_bg_url || '',
       headerBgY: streamer.header_bg_y != null ? streamer.header_bg_y : 50,
       headerBgZoom: streamer.header_bg_zoom != null ? streamer.header_bg_zoom : 100,
+      customImageMode: streamer.customImageMode || 'emoji',
+      customImageValue: streamer.customImageValue || '',
       timer: (() => {
         const t = getTimerConfig(streamer);
         if (!t.enabled) return { enabled: false };
@@ -3749,6 +3765,16 @@ function validateAudioUrl(url) {
   }
 }
 
+// § 10.15 TIER_DONATE_BLUEPRINT.md — host-check จริงสำหรับ MyInstants URL ที่ donor เลือก
+function isMyinstantsUrl(url) {
+  try {
+    const p = new URL(url);
+    return p.protocol === 'https:' && p.hostname === 'www.myinstants.com';
+  } catch {
+    return false;
+  }
+}
+
 // ownership check เดียวกับ /api/upload/delete-file — url ต้องขึ้นต้นด้วย R2 public URL + folder/{streamerId}-
 function isOwnedR2Url(url, folder, streamerId) {
   if (!url || typeof url !== 'string') return false;
@@ -3772,10 +3798,15 @@ function validateTierDonateSettings(obj, streamerId) {
     if (![1, 2, 3].includes(t.level)) return { valid: false, message: 'tier level ไม่ถูกต้อง' };
     const minAmount = Number(t.min_amount);
     if (!Number.isFinite(minAmount) || minAmount < 1) return { valid: false, message: `Tier ${t.level}: min_amount ต้องมากกว่า 0` };
+    if (typeof t.name !== 'string' || t.name.length > 20) return { valid: false, message: `Tier ${t.level}: ชื่อต้องไม่เกิน 20 ตัวอักษร` };
     if (t.active !== false) {
       if (minAmount <= prevMin) return { valid: false, message: 'min_amount ต้องเรียงจากน้อยไปมาก' };
       prevMin = minAmount;
     }
+    if (typeof t.allow_image_choice !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_image_choice ไม่ถูกต้อง` };
+    if (typeof t.allow_sound_choice !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_sound_choice ไม่ถูกต้อง` };
+    if (typeof t.allow_own_upload !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_own_upload ไม่ถูกต้อง` };
+    if (typeof t.allow_own_record !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_own_record ไม่ถูกต้อง` };
   }
   if (obj.alert_images !== undefined) {
     if (!Array.isArray(obj.alert_images) || obj.alert_images.length > 3) {
@@ -3787,6 +3818,19 @@ function validateTierDonateSettings(obj, streamerId) {
     }
   }
   return { valid: true };
+}
+
+// § 10.5 TIER_DONATE_BLUEPRINT.md — backward-compat shim: old tiers saved with allow_own_audio
+// expand into the new split flags allow_own_upload / allow_own_record on read.
+function normalizeTierDonateSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return settings;
+  if (Array.isArray(settings.tiers)) {
+    settings.tiers.forEach(t => {
+      if (t.allow_own_upload === undefined) t.allow_own_upload = t.allow_own_audio ?? false;
+      if (t.allow_own_record === undefined) t.allow_own_record = t.allow_own_audio ?? false;
+    });
+  }
+  return settings;
 }
 
 // § 2.1 TIER_DONATE_BLUEPRINT.md — validate sound_library JSON array (cap 5, ownership + audio-type check)
@@ -3807,6 +3851,7 @@ function computeTierAssignment(streamer, amount, body) {
   const result = { tier_level: null, tier_image_url: null, tier_sound_url: null, tier_sound_is_temp: 0 };
   let tierSettings = null;
   try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
+  tierSettings = normalizeTierDonateSettings(tierSettings);
   if (!tierSettings || !tierSettings.enabled || !Array.isArray(tierSettings.tiers)) return result;
 
   const unlocked = tierSettings.tiers
@@ -3815,13 +3860,14 @@ function computeTierAssignment(streamer, amount, body) {
   if (!unlocked) return result;
   result.tier_level = unlocked.level;
 
-  const { tierImageUrl, tierSoundUrl, tierSoundIsTemp } = body || {};
+  const { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = body || {};
   if (tierImageUrl && unlocked.allow_image_choice) {
     const images = Array.isArray(tierSettings.alert_images) ? tierSettings.alert_images : [];
     if (images.some(img => img.url === tierImageUrl)) result.tier_image_url = tierImageUrl;
   }
   if (tierSoundUrl) {
-    if (tierSoundIsTemp && unlocked.allow_own_audio) {
+    const ownMode = tierSoundMode === 'record' ? 'record' : 'upload';
+    if (tierSoundIsTemp && (ownMode === 'record' ? unlocked.allow_own_record : unlocked.allow_own_upload)) {
       if (isOwnedR2Url(tierSoundUrl, 'donor-temp', streamer.id)) {
         result.tier_sound_url = tierSoundUrl;
         result.tier_sound_is_temp = 1;
@@ -3831,6 +3877,10 @@ function computeTierAssignment(streamer, amount, body) {
       try { soundLibrary = JSON.parse(streamer.sound_library || '[]'); } catch {}
       if (soundLibrary.some(s => s.url === tierSoundUrl)) {
         result.tier_sound_url = tierSoundUrl;
+      } else if (isMyinstantsUrl(tierSoundUrl)) {
+        // § 10.15 donor MyInstants catalog — external URL, not R2, not temp
+        result.tier_sound_url = tierSoundUrl;
+        result.tier_sound_is_temp = 0;
       }
     }
   }
@@ -3910,12 +3960,30 @@ app.post('/api/alerts/test', ensureAuthenticated, csrfProtection, async (req, re
       message: message || '',
       timestamp: new Date().toISOString()
     };
-    
+    const tierLevel = req.body?.tierLevel;
+    if ([1, 2, 3].includes(Number(tierLevel))) {
+      alertData.tierLevel = Number(tierLevel);
+    }
+    if (req.body?.sticky === true || req.body?.sticky === 'true') {
+      alertData.sticky = true;
+    }
+
     broadcastAlert(actualUsername, alertData);
     res.json({ success: true, alert: alertData });
   } catch (err) {
     console.error('Test alert error:', err);
     res.status(500).json({ error: 'ไม่สามารถส่ง Alert ทดสอบได้' });
+  }
+});
+
+app.post('/api/alerts/test-clear-sticky', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    broadcastAlert(actualUsername, { type: 'clear_sticky_alert' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Clear sticky alert error:', err);
+    res.status(500).json({ error: 'ไม่สามารถปิด Preview ได้' });
   }
 });
 
@@ -4143,16 +4211,16 @@ app.get('/api/myinstants/proxy', ensureAuthenticated, myinstantsLimiter, async (
   }
 });
 
-app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
+async function handleMyinstantsSearch(req, res) {
   try {
     const query = (req.query.q || '').trim();
     const pageId = req.query.page || 'th';
     const offset = parseInt(req.query.offset) || 0;
     const limit = parseInt(req.query.limit) || 10;
-    
+
     let targetUrl;
     let pageName;
-    
+
     if (query) {
       targetUrl = `https://www.myinstants.com/search/?name=${encodeURIComponent(query)}`;
       pageName = `Search: ${query}`;
@@ -4168,7 +4236,7 @@ app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async 
     const allResults = await scrapeMyInstants(targetUrl);
     const paginatedResults = allResults.slice(offset, offset + limit);
 
-    const responseData = { 
+    const responseData = {
       results: paginatedResults,
       total: allResults.length,
       hasMore: offset + limit < allResults.length,
@@ -4186,9 +4254,25 @@ app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, async 
     console.error('MyInstants search error:', err.message);
     res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้' });
   }
+}
+
+// § 10.15 TIER_DONATE_BLUEPRINT.md — public read-only MyInstants variants for donor catalog
+const publicMyinstantsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'ค้นหาบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
+app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, handleMyinstantsSearch);
+app.get('/api/public/myinstants/search', publicMyinstantsLimiter, handleMyinstantsSearch);
+
 app.get('/api/myinstants/pages', ensureAuthenticated, (req, res) => {
+  res.json({ pages: myinstantsPages });
+});
+
+app.get('/api/public/myinstants/pages', publicMyinstantsLimiter, (req, res) => {
   res.json({ pages: myinstantsPages });
 });
 
@@ -5550,8 +5634,11 @@ app.post('/api/upload/presign', presignLimiter, ensureAuthenticated, csrfProtect
     if (!fileType || !UPLOAD_ALLOWED_TYPES[category].includes(fileType)) {
       return res.status(400).json({ error: `ประเภทไฟล์ไม่รองรับ: ${fileType}` });
     }
-    if (fileSize !== undefined && fileSize > UPLOAD_MAX_SIZES[category]) {
-      return res.status(413).json({ error: `ไฟล์ใหญ่เกินกำหนด (สูงสุด ${Math.round(UPLOAD_MAX_SIZES[category] / 1024 / 1024)}MB)` });
+    const ANIMATED_TYPES = ['image/gif', 'image/webp', 'video/webm'];
+    const isAnimated = ANIMATED_TYPES.includes(fileType);
+    const maxAllowed = (category === 'tierAlert' && isAnimated) ? 2 * 1024 * 1024 : UPLOAD_MAX_SIZES[category];
+    if (fileSize !== undefined && fileSize > maxAllowed) {
+      return res.status(413).json({ error: `ไฟล์ใหญ่เกินกำหนด (สูงสุด ${Math.round(maxAllowed / 1024 / 1024)}MB)` });
     }
 
     const streamer = await getStreamerForUser(req.user);

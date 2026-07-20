@@ -433,10 +433,14 @@ async function initializeDashboard() {
         const message = msgs[Math.floor(Math.random() * msgs.length)];
         const amount  = amounts[Math.floor(Math.random() * amounts.length)];
         try {
+          const tierLevel = getTestAlertTierLevel();
           const res = await fetch('/api/demo/alerts/test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ donor, amount, message })
+            body: JSON.stringify({
+              donor, amount, message,
+              ...(tierLevel ? { tierLevel } : {})
+            })
           });
           if (res.ok) showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
           else if (res.status === 429) showNotification('ส่ง Alert บ่อยเกินไป กรุณารอสักครู่', 'error');
@@ -450,6 +454,18 @@ async function initializeDashboard() {
         btn.style.cursor = '';
         btn.onclick = demoAlertHandler;
       });
+
+      const tierSelectDesktop = document.getElementById('testAlertTierLevel');
+      const tierSelectMobile = document.getElementById('testAlertTierLevelMobile');
+      if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
+      if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
+
+      const btnStickyTier2 = document.getElementById('btnStickyTier2');
+      const btnStickyTier3 = document.getElementById('btnStickyTier3');
+      const btnCloseSticky = document.getElementById('btnCloseStickyPreview');
+      if (btnStickyTier2) btnStickyTier2.onclick = () => showStickyTierPreview(2);
+      if (btnStickyTier3) btnStickyTier3.onclick = () => showStickyTierPreview(3);
+      if (btnCloseSticky) btnCloseSticky.onclick = closeStickyPreview;
 
       // Overlay subtab buttons (Alert vs Goal vs Timer)
       const demoSubtabAlert = document.getElementById('btnSubtabAlert');
@@ -787,9 +803,21 @@ async function initializeDashboard() {
 
     const btnQuickAlert = document.getElementById('btnQuickTestAlert');
     if (btnQuickAlert) btnQuickAlert.onclick = triggerRandomTestAlert;
-    
+
     const btnQuickAlertMobile = document.getElementById('btnQuickTestAlertMobile');
     if (btnQuickAlertMobile) btnQuickAlertMobile.onclick = triggerRandomTestAlert;
+
+    const tierSelectDesktop = document.getElementById('testAlertTierLevel');
+    const tierSelectMobile = document.getElementById('testAlertTierLevelMobile');
+    if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
+    if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
+
+    const btnStickyTier2 = document.getElementById('btnStickyTier2');
+    const btnStickyTier3 = document.getElementById('btnStickyTier3');
+    const btnCloseSticky = document.getElementById('btnCloseStickyPreview');
+    if (btnStickyTier2) btnStickyTier2.onclick = () => showStickyTierPreview(2);
+    if (btnStickyTier3) btnStickyTier3.onclick = () => showStickyTierPreview(3);
+    if (btnCloseSticky) btnCloseSticky.onclick = closeStickyPreview;
 
     const btnReloadPreview = document.getElementById('btnReloadPreview');
     if (btnReloadPreview) {
@@ -903,6 +931,16 @@ async function initializeDashboard() {
     if (soundLibraryModalEl) {
       soundLibraryModalEl.addEventListener('click', (e) => {
         if (e.target === soundLibraryModalEl) closeSoundLibraryModal();
+      });
+    }
+    const btnManageTierImageLibraryEl = document.getElementById('btnManageTierImageLibrary');
+    if (btnManageTierImageLibraryEl) btnManageTierImageLibraryEl.onclick = openTierImageLibraryModal;
+    const btnCloseTierImageLibraryEl = document.getElementById('btnCloseTierImageLibrary');
+    if (btnCloseTierImageLibraryEl) btnCloseTierImageLibraryEl.onclick = closeTierImageLibraryModal;
+    const tierImageLibraryModalEl = document.getElementById('tierImageLibraryModal');
+    if (tierImageLibraryModalEl) {
+      tierImageLibraryModalEl.addEventListener('click', (e) => {
+        if (e.target === tierImageLibraryModalEl) closeTierImageLibraryModal();
       });
     }
     const soundLibraryFileEl = document.getElementById('soundLibraryFile');
@@ -4148,13 +4186,15 @@ async function simulateTransactionAlert(id) {
     const tx = allTransactions.find(t => t.id === id);
     if (!tx) throw new Error('ไม่พบข้อมูลธุรกรรม');
     
+    const tierLevel = getTestAlertTierLevel();
     const response = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         donor: tx.donor,
         amount: tx.amount,
-        message: tx.message
+        message: tx.message,
+        ...(tierLevel ? { tierLevel } : {})
       })
     });
     
@@ -4256,12 +4296,29 @@ async function triggerRandomTestAlert() {
   simulateCustomAlert(donor, amount, message);
 }
 
+function getTestAlertTierLevel() {
+  const desktop = document.getElementById('testAlertTierLevel');
+  const mobile = document.getElementById('testAlertTierLevelMobile');
+  return (desktop?.value || mobile?.value || '');
+}
+
+function syncTestAlertTierLevel(value) {
+  const desktop = document.getElementById('testAlertTierLevel');
+  const mobile = document.getElementById('testAlertTierLevelMobile');
+  if (desktop) desktop.value = value;
+  if (mobile) mobile.value = value;
+}
+
 async function simulateCustomAlert(donor, amount, message) {
   try {
+    const tierLevel = getTestAlertTierLevel();
     const res = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ donor, amount, message })
+      body: JSON.stringify({
+        donor, amount, message,
+        ...(tierLevel ? { tierLevel } : {})
+      })
     });
     if (res.ok) {
       showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
@@ -4273,6 +4330,48 @@ async function simulateCustomAlert(donor, amount, message) {
   } catch (err) {
     console.error('Failed to trigger test alert:', err);
     showNotification('ส่ง Alert ไม่สำเร็จ', 'error');
+  }
+}
+
+async function showStickyTierPreview(level) {
+  try {
+    const isDemo = window.DEMO_MODE === true;
+    const endpoint = isDemo ? '/api/demo/alerts/test' : '/api/alerts/test';
+    const res = await fetchWithCsrf(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ donor: 'ผู้ทดสอบ', amount: 100, message: '', tierLevel: level, sticky: true })
+    });
+    if (res.ok) {
+      const closeBtn = document.getElementById('btnCloseStickyPreview');
+      if (closeBtn) closeBtn.style.display = '';
+      showNotification(`แสดงตัวอย่าง Tier ${level} ค้างไว้แล้ว กด "ปิด Preview" เมื่อต้องการหยุด`, 'success');
+    } else {
+      showNotification('ส่ง Preview ไม่สำเร็จ', 'error');
+    }
+  } catch (err) {
+    showNotification('ส่ง Preview ไม่สำเร็จ', 'error');
+  }
+}
+
+async function closeStickyPreview() {
+  try {
+    const isDemo = window.DEMO_MODE === true;
+    const endpoint = isDemo ? '/api/demo/alerts/test-clear-sticky' : '/api/alerts/test-clear-sticky';
+    const res = await fetchWithCsrf(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (res.ok) {
+      const closeBtn = document.getElementById('btnCloseStickyPreview');
+      if (closeBtn) closeBtn.style.display = 'none';
+      showNotification('ปิด Preview แล้ว', 'success');
+    } else {
+      showNotification('ปิด Preview ไม่สำเร็จ', 'error');
+    }
+  } catch (err) {
+    showNotification('ปิด Preview ไม่สำเร็จ', 'error');
   }
 }
 
@@ -4684,14 +4783,14 @@ function loadTierDonateSettingsFromData(s) {
 
   const tiers = Array.isArray(t.tiers) ? t.tiers : [];
   const defaults = [
-    { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_audio: false },
-    { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: false },
-    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_audio: true }
+    { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false },
+    { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false },
+    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false }
   ];
   const rowIds = {
-    1: { min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', own: 'tierAllowOwnAudio1' },
-    2: { active: 'tierActive2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', own: 'tierAllowOwnAudio2' },
-    3: { active: 'tierActive3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', own: 'tierAllowOwnAudio3' }
+    1: { name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', record: 'tierAllowOwnRecord1' },
+    2: { active: 'tierActive2', name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', record: 'tierAllowOwnRecord2' },
+    3: { active: 'tierActive3', name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', record: 'tierAllowOwnRecord3' }
   };
   [1, 2, 3].forEach(level => {
     const d = defaults[level - 1];
@@ -4701,14 +4800,18 @@ function loadTierDonateSettingsFromData(s) {
       const activeEl = document.getElementById(ids.active);
       if (activeEl) activeEl.checked = saved.active !== false && saved.active !== undefined ? !!saved.active : false;
     }
+    const nameEl = document.getElementById(ids.name);
+    if (nameEl) nameEl.value = saved.name ?? '';
     const minEl = document.getElementById(ids.min);
     if (minEl) minEl.value = saved.min_amount ?? d.min_amount;
     const imgEl = document.getElementById(ids.img);
     if (imgEl) imgEl.checked = saved.allow_image_choice !== undefined ? !!saved.allow_image_choice : !!d.allow_image_choice;
     const sndEl = document.getElementById(ids.snd);
     if (sndEl) sndEl.checked = saved.allow_sound_choice !== undefined ? !!saved.allow_sound_choice : !!d.allow_sound_choice;
-    const ownEl = document.getElementById(ids.own);
-    if (ownEl) ownEl.checked = saved.allow_own_audio !== undefined ? !!saved.allow_own_audio : !!d.allow_own_audio;
+    const uploadEl = document.getElementById(ids.upload);
+    if (uploadEl) uploadEl.checked = saved.allow_own_upload !== undefined ? !!saved.allow_own_upload : (!!saved.allow_own_audio || !!d.allow_own_upload);
+    const recordEl = document.getElementById(ids.record);
+    if (recordEl) recordEl.checked = saved.allow_own_record !== undefined ? !!saved.allow_own_record : (!!saved.allow_own_audio || !!d.allow_own_record);
   });
 
   tierAlertImages = [null, null, null];
@@ -4839,6 +4942,14 @@ function openSoundLibraryModal() {
 }
 function closeSoundLibraryModal() {
   const modal = document.getElementById('soundLibraryModal');
+  if (modal) modal.classList.remove('active');
+}
+function openTierImageLibraryModal() {
+  const modal = document.getElementById('tierImageLibraryModal');
+  if (modal) modal.classList.add('active');
+}
+function closeTierImageLibraryModal() {
+  const modal = document.getElementById('tierImageLibraryModal');
   if (modal) modal.classList.remove('active');
 }
 
@@ -6966,16 +7077,18 @@ function collectTierDonateSettings() {
   if (errEl) errEl.style.display = 'none';
 
   const tiers = [
-    { level: 1, active: true, min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', own: 'tierAllowOwnAudio1' },
-    { level: 2, active: document.getElementById('tierActive2')?.checked || false, min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', own: 'tierAllowOwnAudio2' },
-    { level: 3, active: document.getElementById('tierActive3')?.checked || false, min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', own: 'tierAllowOwnAudio3' }
+    { level: 1, active: true, name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', record: 'tierAllowOwnRecord1' },
+    { level: 2, active: document.getElementById('tierActive2')?.checked || false, name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', record: 'tierAllowOwnRecord2' },
+    { level: 3, active: document.getElementById('tierActive3')?.checked || false, name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', record: 'tierAllowOwnRecord3' }
   ].map(t => ({
     level: t.level,
     active: t.active,
+    name: (document.getElementById(t.name)?.value || '').trim(),
     min_amount: parseInt(document.getElementById(t.min)?.value, 10) || 1,
     allow_image_choice: document.getElementById(t.img)?.checked || false,
     allow_sound_choice: document.getElementById(t.snd)?.checked || false,
-    allow_own_audio: document.getElementById(t.own)?.checked || false
+    allow_own_upload: document.getElementById(t.upload)?.checked || false,
+    allow_own_record: document.getElementById(t.record)?.checked || false
   }));
 
   let prevMin = -Infinity;

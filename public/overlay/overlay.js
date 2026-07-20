@@ -49,6 +49,7 @@ let isShowing = false;
 
 // ========== Static Preview State ==========
 let staticPreviewEl = null;
+let currentStickyAlertBox = null;
 
 // ========== SSE Connection ==========
 let eventSource = null;
@@ -212,7 +213,7 @@ function connectSSE() {
       // Donation Alert Event
       if (data.type === 'donation') {
         console.log('💝 Donation event received:', data);
-        
+
         // Client-side minimum amount filter
         const amount = Number(data.amount) || 0;
         if (amount < overlaySettings.minAmount) {
@@ -222,6 +223,18 @@ function connectSSE() {
 
         alertQueue.push(data);
         processQueue();
+      }
+
+      if (data.type === 'clear_sticky_alert') {
+        if (currentStickyAlertBox) {
+          currentStickyAlertBox.classList.add('exit');
+          setTimeout(() => {
+            currentStickyAlertBox.remove();
+            currentStickyAlertBox = null;
+            isShowing = false;
+            processQueue();
+          }, 550);
+        }
       }
     } catch (err) {
       console.error('Error parsing SSE data:', err);
@@ -254,7 +267,7 @@ function isDashboardPreview() {
 }
 
 function showStaticPreview() {
-  if (isShowing || !isDashboardPreview()) return;
+  if (isShowing || currentStickyAlertBox || !isDashboardPreview()) return;
 
   if (staticPreviewEl) {
     staticPreviewEl.remove();
@@ -393,6 +406,12 @@ async function showAlert(data) {
     el.style.transition = 'opacity 0.25s ease';
     el.style.opacity = '0';
     setTimeout(() => el.remove(), 280);
+  }
+  if (currentStickyAlertBox) {
+    const el = currentStickyAlertBox;
+    currentStickyAlertBox = null;
+    el.classList.add('exit');
+    setTimeout(() => el.remove(), 550);
   }
 
   const template = document.getElementById('alertTemplate');
@@ -552,21 +571,30 @@ async function showAlert(data) {
   const progressBar = alertBox.querySelector('.alert-progress-bar');
   progressBar.style.animation = `progressShrink ${barDurationMs}ms linear ${barDelayMs}ms both`;
 
-  // Auto remove alert after duration
-  setTimeout(() => {
-    alertBox.classList.add('exit');
-
-
-
+  if (data.sticky) {
+    // Sticky preview: stay on screen until explicitly cleared by a real alert or clear_sticky_alert event.
+    currentStickyAlertBox = alertBox;
+    const ENTRANCE_MS = { 'slide-down': 600, 'slide-up': 600, 'fade': 500, 'zoom': 600 };
+    const entranceMs = ENTRANCE_MS[overlaySettings.animation] || 600;
     setTimeout(() => {
-      alertBox.remove();
       isShowing = false;
       processQueue();
-      if (alertQueue.length === 0) {
-        setTimeout(showStaticPreview, 700);
-      }
-    }, 550);
-  }, alertDurationMs);
+    }, entranceMs);
+  } else {
+    // Auto remove alert after duration
+    setTimeout(() => {
+      alertBox.classList.add('exit');
+
+      setTimeout(() => {
+        alertBox.remove();
+        isShowing = false;
+        processQueue();
+        if (alertQueue.length === 0) {
+          setTimeout(showStaticPreview, 700);
+        }
+      }, 550);
+    }, alertDurationMs);
+  }
 }
 
 // ========== Web Audio API Notification Synthesizer ==========

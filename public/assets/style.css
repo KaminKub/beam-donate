@@ -1814,3 +1814,191 @@ input[type=number] {
 }
 
 .badge-tooltip.visible { opacity: 1; }
+
+/* ========== Tier Donate Sound Picker + Source Mutual Exclusion (TIER_DONATE_BLUEPRINT.md §10.7, §10.10, §10.15) ========== */
+.tier-sound-selected-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tier-sound-selected-row #tierSoundSelectedLabel {
+  font-size: 13px;
+  color: #e2e8f0;
+}
+.btn-text {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* Sound source mutual exclusion */
+.sound-source-block.sound-source-dimmed,
+.sound-source-pane.sound-source-dimmed {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* Record review */
+.tier-record-review-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+#tierRecordPreview {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Tier Sound Picker Modal */
+.tier-sound-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1001;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.tier-sound-picker-overlay.active {
+  display: flex;
+  opacity: 1;
+}
+.tier-sound-picker-box {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  padding: 20px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(15, 15, 25, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.tier-sound-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+.tier-sound-picker-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+}
+.tier-sound-picker-close:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+.tier-sound-picker-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.tier-sound-picker-tab {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tier-sound-picker-tab.active,
+.tier-sound-picker-tab:hover {
+  color: #f1f5f9;
+}
+.tier-sound-picker-tab.active {
+  border-bottom-color: #60a5fa;
+}
+.tier-sound-picker-body {
+  overflow-y: auto;
+  max-height: 55vh;
+}
+.tier-sound-picker-panel {
+  display: none;
+}
+.tier-sound-picker-panel.active {
+  display: block;
+}
+.tier-sound-search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tier-sound-search-row input {
+  flex: 1;
+}
+.tier-sound-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tier-sound-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tier-sound-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.tier-sound-item.selected {
+  background: rgba(96, 165, 250, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+}
+.tier-sound-item .sound-label {
+  flex: 1;
+  font-size: 13px;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tier-sound-item .sound-actions {
+  display: flex;
+  gap: 6px;
+}
+.tier-sound-item button {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.tier-sound-item button:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+.tier-sound-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 20px 10px;
+}

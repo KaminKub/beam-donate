@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260719_2">
+  <link rel="stylesheet" href="/assets/style.css?v=20260720_1">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -243,31 +243,44 @@
           <div id="tierBanner" class="tier-banner"></div>
 
           <div id="tierImageChoiceBlock" class="tier-option-block" style="display:none">
-            <div class="tier-option-label"><i class="fa-solid fa-image"></i> เลือกภาพ/วิดีโอ Alert</div>
+            <div class="tier-option-label"><i class="fa-solid fa-image"></i> เลือกสติ๊กเกอร์ Alert</div>
             <div id="tierImageChoices" class="tier-image-choices"></div>
           </div>
 
-          <div id="tierSoundChoiceBlock" class="tier-option-block" style="display:none">
+          <div id="tierSoundChoiceBlock" class="tier-option-block sound-source-block" style="display:none" data-sound-source="library">
             <div class="tier-option-label"><i class="fa-solid fa-music"></i> เลือกเสียงแจ้งเตือน</div>
-            <select id="tierSoundSelect" class="form-select"></select>
+            <div class="tier-sound-selected-row">
+              <button type="button" id="btnPickTierSound" class="btn btn-secondary btn-sm"><i class="fa-solid fa-music"></i> เลือกเสียง</button>
+              <span id="tierSoundSelectedLabel">ไม่ใช้เสียงพิเศษ</span>
+              <button type="button" id="btnChangeTierSound" class="btn-text" style="display:none;">เปลี่ยนตัวเลือก</button>
+            </div>
           </div>
 
-          <div id="tierOwnAudioBlock" class="tier-option-block" style="display:none">
+          <div id="tierOwnAudioBlock" class="tier-option-block sound-source-block" style="display:none">
             <div class="tier-option-label"><i class="fa-solid fa-microphone"></i> อัพโหลด/อัดเสียงของคุณเอง</div>
-            <div class="tier-subtabs">
-              <button type="button" class="tier-subtab-btn active" data-subtab="upload"><i class="fa-solid fa-upload"></i> อัพโหลดเสียง</button>
+            <div class="tier-subtabs" id="tierOwnAudioSubtabs">
+              <button type="button" class="tier-subtab-btn active" data-subtab="upload" id="tierUploadSubtabBtn"><i class="fa-solid fa-upload"></i> อัพโหลดเสียง</button>
               <button type="button" class="tier-subtab-btn" data-subtab="record" id="tierRecordSubtabBtn"><i class="fa-solid fa-microphone"></i> อัดเสียงจากไมค์</button>
             </div>
-            <div id="tierUploadPane">
+            <div id="tierUploadPane" class="sound-source-pane" data-sound-source="upload">
               <input type="file" id="tierOwnAudioFile" accept="audio/*">
               <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
             </div>
-            <div id="tierRecordPane" style="display:none">
-              <button type="button" id="tierRecordBtn" class="btn-secondary" style="padding:8px 16px;border-radius:8px;cursor:pointer;">
-                <i class="fa-solid fa-circle" style="color:#ef4444;"></i> <span id="tierRecordBtnLabel">เริ่มอัดเสียง</span>
-              </button>
-              <div id="tierRecordTimer" class="tier-record-timer" style="display:none"></div>
-              <span id="tierRecordStatus" style="font-size:12px;color:#94a3b8;"></span>
+            <div id="tierRecordPane" class="sound-source-pane" data-sound-source="record" style="display:none">
+              <div id="tierRecordControls">
+                <button type="button" id="tierRecordBtn" class="btn-secondary" style="padding:8px 16px;border-radius:8px;cursor:pointer;">
+                  <i class="fa-solid fa-circle" style="color:#ef4444;"></i> <span id="tierRecordBtnLabel">เริ่มอัดเสียง</span>
+                </button>
+                <div id="tierRecordTimer" class="tier-record-timer" style="display:none"></div>
+                <span id="tierRecordStatus" style="font-size:12px;color:#94a3b8;"></span>
+              </div>
+              <div id="tierRecordReview" style="display:none;">
+                <audio id="tierRecordPreview" controls></audio>
+                <div class="tier-record-review-actions">
+                  <button type="button" id="tierRecordRetryBtn" class="btn-secondary btn-sm"><i class="fa-solid fa-rotate-left"></i> อัดใหม่</button>
+                  <button type="button" id="tierRecordConfirmBtn" class="btn-primary btn-sm"><i class="fa-solid fa-check"></i> ใช้เสียงนี้</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -739,10 +752,36 @@
       </div>
     </div>
   </div>
+  <!-- Tier Sound Picker Modal -->
+  <div id="tierSoundPickerModal" class="tier-sound-picker-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="tierSoundPickerTitle">
+    <div class="tier-sound-picker-box card glass-card">
+      <div class="tier-sound-picker-header">
+        <span id="tierSoundPickerTitle"><i class="fa-solid fa-music" style="color:#60a5fa;margin-right:8px;"></i>เลือกเสียงแจ้งเตือน</span>
+        <button id="btnCloseTierSoundPicker" class="tier-sound-picker-close" aria-label="ปิด">✕</button>
+      </div>
+      <div class="tier-sound-picker-tabs">
+        <button type="button" class="tier-sound-picker-tab active" data-tab="library"><i class="fa-solid fa-folder-open"></i> คลังของสตรีมเมอร์</button>
+        <button type="button" class="tier-sound-picker-tab" data-tab="catalog"><i class="fa-solid fa-globe"></i> ค้นหาเสียงสำเร็จรูป</button>
+      </div>
+      <div class="tier-sound-picker-body">
+        <div id="tierSoundPickerLibrary" class="tier-sound-picker-panel active">
+          <div id="tierSoundLibraryList" class="tier-sound-list"></div>
+        </div>
+        <div id="tierSoundPickerCatalog" class="tier-sound-picker-panel">
+          <div class="tier-sound-search-row">
+            <input type="text" id="tierSoundCatalogSearch" class="form-control" placeholder="ค้นหาเสียง..." maxlength="50">
+            <button type="button" id="btnTierSoundCatalogSearch" class="btn-primary btn-sm"><i class="fa-solid fa-search"></i> ค้นหา</button>
+          </div>
+          <div id="tierSoundCatalogList" class="tier-sound-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </div>  <!-- end container -->
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260719_3"></script>
+  <script src="/donate-template/app.js?v=20260720_1"></script>
 </body>
 </html>
