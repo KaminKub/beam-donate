@@ -26,9 +26,11 @@ const TursoStore = require('./sessionStore');
 const passport = require('passport');
 const _rateLimit = require('express-rate-limit');
 // wrap once: fallback keyGenerator prevents ERR_ERL_UNDEFINED_IP_ADDRESS when
-// req.ip is undefined (connection destroyed prematurely — mobile/CGNAT drops)
+// req.ip is undefined (connection destroyed prematurely — mobile/CGNAT drops).
+// Use express-rate-limit's built-in ipKeyGenerator so IPv6 addresses are
+// normalized to /56 subnets and validation is satisfied.
 const rateLimit = (opts) => _rateLimit({
-  keyGenerator: (req) => req.ip || req.socket?.remoteAddress || 'unknown',
+  keyGenerator: (req) => _rateLimit.ipKeyGenerator(req.ip || req.socket?.remoteAddress || 'unknown'),
   ...opts,
 });
 const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
