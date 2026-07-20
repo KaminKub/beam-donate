@@ -513,6 +513,7 @@ function resetTierSelections() {
   const changeBtn = document.getElementById('btnChangeTierSound');
   if (changeBtn) changeBtn.style.display = 'none';
   hideTierRecordReview();
+  hideTierUploadReview();
 }
 
 function buildDefaultTierImagePreview() {
@@ -873,8 +874,43 @@ document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e
     currentSoundSource = 'upload';
     updateSoundSourceUI('upload');
     setStatus('อัปโหลดสำเร็จ ✓');
+    showTierUploadReview(data.url);
   } catch (err) {
     setStatus('อัปโหลดไม่สำเร็จ: ' + err.message);
+  }
+});
+
+// Own-audio: uploaded file review (play + change)
+function showTierUploadReview(url) {
+  const labelBtn = document.getElementById('tierUploadLabelBtn');
+  const review = document.getElementById('tierUploadReview');
+  const preview = document.getElementById('tierUploadPreview');
+  if (labelBtn) labelBtn.style.display = 'none';
+  if (review) review.style.display = '';
+  if (preview) preview.src = url;
+}
+
+function hideTierUploadReview() {
+  const labelBtn = document.getElementById('tierUploadLabelBtn');
+  const review = document.getElementById('tierUploadReview');
+  const preview = document.getElementById('tierUploadPreview');
+  if (labelBtn) labelBtn.style.display = '';
+  if (review) review.style.display = 'none';
+  if (preview) { preview.pause(); preview.src = ''; }
+}
+
+document.getElementById('tierUploadCancelBtn')?.addEventListener('click', () => {
+  hideTierUploadReview();
+  const fileInput = document.getElementById('tierOwnAudioFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('tierOwnAudioStatus');
+  if (status) status.textContent = '';
+  if (currentSoundSource === 'upload') {
+    selectedTierSoundUrl = null;
+    selectedTierSoundIsTemp = false;
+    selectedTierSoundLabel = '';
+    currentSoundSource = null;
+    updateSoundSourceUI(null);
   }
 });
 
