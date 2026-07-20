@@ -1058,9 +1058,12 @@ async function saveStreamer(data) {
        catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
      }
    }
-   // In-place encrypt — overwrite same column (no _encrypted suffix)
+   // In-place encrypt — overwrite same column (no _encrypted suffix).
+   // Skip values containing '*' — those are censor placeholders from the dashboard
+   // (e.g. "พ*ท" for bank_account_name, "123****89" for account_number). Saving
+   // them would overwrite the real DB value with a masked string.
    for (const field of ['streamlabs_access_token', 'streamlabs_refresh_token', 'bank_account_name']) {
-     if (data[field]?.length && !isEncrypted(data[field])) {
+     if (data[field]?.length && !isEncrypted(data[field]) && !data[field].includes('*')) {
        try { data[field] = encrypt(data[field]); }
        catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
      }
