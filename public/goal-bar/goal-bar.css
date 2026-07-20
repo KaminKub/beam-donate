@@ -76,6 +76,7 @@ body.position-bottom #animStage {
    จะตัดข้อความชื่อ/ยอดที่โผล่ใต้หลอด ถ้าไม่จองพื้นที่ไว้ จองอัตโนมัติเฉพาะตอนเปิดใช้ */
 #goalBarWrapper.pointer-active-h {
   padding-bottom: 25px;
+  padding-inline: 50px;
 }
 
 #goalTrack {
