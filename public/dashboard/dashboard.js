@@ -1513,8 +1513,13 @@ async function initializeDashboard() {
     // SlipOK Test buttons
     const btnTestSlipOk = document.getElementById('btnTestSlipOk');
     if (btnTestSlipOk) {
-      btnTestSlipOk.onclick = testSlipOkConnection;
+      btnTestSlipOk.onclick = () => testSlipOkConnection('promptpay');
     }
+
+    // SlipOK Test link (per-method, in slipok-linked-note)
+    document.querySelectorAll('.slipok-test-link').forEach(btn => {
+      btn.onclick = () => testSlipOkConnection(btn.getAttribute('data-method') || 'promptpay');
+    });
 
     // TrueMoney Webhook modal
     initTrueMoneyWebhookModal();
@@ -8371,6 +8376,7 @@ function updateAccountVerifyBadges() {
     note.setAttribute('data-verify-state', verified ? 'verified' : 'unverified');
     const text = note.querySelector('.verify-text');
     const caveat = note.querySelector('.verify-caveat');
+    const testBtn = note.querySelector('.slipok-test-link');
     if (verified) {
       const at = d[`${method}_account_verified_at`];
       let dateStr = '-';
@@ -8380,6 +8386,10 @@ function updateAccountVerifyBadges() {
     } else {
       if (text) text.textContent = ACCOUNT_UNVERIFIED_TEXT[method] || 'ยังไม่ได้ทดสอบการเชื่อมต่อ SlipOK';
       if (caveat) caveat.textContent = '';
+    }
+    if (testBtn) {
+      // visible เฉพาะ unverified
+      testBtn.style.display = verified ? 'none' : '';
     }
   });
 }
@@ -8446,7 +8456,7 @@ function updateSlipOkStatus(connected, lastCheck) {
 }
 
 
-async function testSlipOkConnection() {
+async function testSlipOkConnection(method) {
   const api = document.getElementById('inputSlipOkApi')?.value.trim();
   const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
 
@@ -8463,10 +8473,12 @@ async function testSlipOkConnection() {
 
   try {
     const payload = {
+      method: method || 'promptpay',
       slipok_api: api,
       slipok_api_key: apiKey,
       promptpay_type: document.getElementById('inputPromptPayType')?.value || 'phone',
-      promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || ''
+      promptpay_value: document.getElementById('inputPromptPay')?.value.trim() || '',
+      truemoney_phone: document.getElementById('inputTrueMoneyPhone')?.value.trim() || ''
     };
 
     const response = await fetchWithCsrf('/api/payment/test-slipok', {
