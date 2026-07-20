@@ -925,6 +925,7 @@ function showTierRecordReview(blob) {
   if (preview) {
     tierRecordPreviewUrl = URL.createObjectURL(blob);
     preview.src = tierRecordPreviewUrl;
+    preview.load();
   }
 }
 
@@ -971,9 +972,11 @@ async function startTierRecording() {
   const btnLabel = document.getElementById('tierRecordBtnLabel');
   const timerEl = document.getElementById('tierRecordTimer');
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // §10.9 — live auto-gain + compressor to boost quiet mobile mics and prevent clipping
+    closeTierAudioContext();
+    // §10.9 — create + resume AudioContext first, while still inside user gesture
     tierAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    await tierAudioContext.resume();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const source = tierAudioContext.createMediaStreamSource(stream);
     tierGainNode = tierAudioContext.createGain();
     tierGainNode.gain.value = 2.5;
@@ -983,16 +986,27 @@ async function startTierRecording() {
     compressor.connect(dest);
     tierMediaRecorder = new MediaRecorder(dest.stream);
     tierRecordedChunks = [];
-    tierMediaRecorder.ondataavailable = e => tierRecordedChunks.push(e.data);
+    tierMediaRecorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) tierRecordedChunks.push(e.data);
+    };
+    tierMediaRecorder.onerror = (e) => {
+      if (status) status.textContent = 'อัดเสียงล้มเหลว: ' + (e.message || 'MediaRecorder error');
+      stopTierRecording(true);
+    };
     tierMediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
       closeTierAudioContext();
       const blob = new Blob(tierRecordedChunks, { type: 'audio/webm' });
-      showTierRecordReview(blob);
+      if (blob.size === 0) {
+        if (status) status.textContent = 'ไม่ได้บันทึกเสียง กรุณาอัดใหม่';
+        hideTierRecordReview();
+      } else {
+        showTierRecordReview(blob);
+      }
     };
-    tierMediaRecorder.start();
+    tierMediaRecorder.start(1000);
     if (btnLabel) btnLabel.textContent = 'หยุดอัดเสียง';
-    if (status) status.textContent = '';
+    if (status) status.textContent = 'กำลังอัด...';
 
     let remaining = 15;
     if (timerEl) { timerEl.style.display = ''; timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
@@ -1003,7 +1017,10 @@ async function startTierRecording() {
     }, 1000);
     tierRecordTimeout = setTimeout(() => stopTierRecording(false), 15000);
   } catch (err) {
-    document.getElementById('tierRecordSubtabBtn').style.display = 'none';
+    closeTierAudioContext();
+    if (status) status.textContent = 'ไม่สามารถใช้ไมค์ได้: ' + (err.name || err.message);
+    const recordSubtab = document.getElementById('tierRecordSubtabBtn');
+    if (recordSubtab) recordSubtab.style.display = 'none';
     document.getElementById('tierUploadPane').style.display = '';
     document.getElementById('tierRecordPane').style.display = 'none';
     document.querySelector('.tier-subtab-btn[data-subtab="upload"]')?.classList.add('active');
@@ -1018,18 +1035,19 @@ function stopTierRecording(cancel) {
   if (timerEl) timerEl.style.display = 'none';
   const btnLabel = document.getElementById('tierRecordBtnLabel');
   if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
-  closeTierAudioContext();
+  // ห้ามปิด AudioContext ก่อน MediaRecorder.stop() — จะทำให้ WebM ขาด/ว่าง
   if (cancel && tierMediaRecorder) {
     tierMediaRecorder.onstop = null;
     if (tierMediaRecorder.state === 'recording') {
       tierMediaRecorder.stream?.getTracks().forEach(t => t.stop());
       tierMediaRecorder.stop();
     }
+    closeTierAudioContext();
     tierMediaRecorder = null;
     return;
   }
   if (tierMediaRecorder && tierMediaRecorder.state === 'recording') {
-    tierMediaRecorder.stop();
+    tierMediaRecorder.stop(); // onstop จะปิด AudioContext + สร้าง blob เอง
   }
 }
 

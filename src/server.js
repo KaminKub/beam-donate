@@ -24,7 +24,13 @@ const promptparse = require('promptparse');
 const session = require('express-session');
 const TursoStore = require('./sessionStore');
 const passport = require('passport');
-const rateLimit = require('express-rate-limit');
+const _rateLimit = require('express-rate-limit');
+// wrap once: fallback keyGenerator prevents ERR_ERL_UNDEFINED_IP_ADDRESS when
+// req.ip is undefined (connection destroyed prematurely — mobile/CGNAT drops)
+const rateLimit = (opts) => _rateLimit({
+  keyGenerator: (req) => req.ip || req.socket?.remoteAddress || 'unknown',
+  ...opts,
+});
 const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
