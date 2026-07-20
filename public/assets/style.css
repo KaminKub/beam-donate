@@ -1980,21 +1980,36 @@ input[type=number] {
 }
 .tier-sound-item .sound-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .tier-sound-item button {
-  background: none;
-  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #94a3b8;
   cursor: pointer;
-  font-size: 18px;
-  padding: 4px;
-  border-radius: 6px;
-  transition: color 0.15s, background 0.15s;
+  font-size: 16px;
+  padding: 0;
+  border-radius: 10px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
-.tier-sound-item button:hover {
+.tier-sound-item button:hover,
+.tier-sound-item button:active {
   color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+@media (max-width: 600px) {
+  .tier-sound-item button {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+  }
 }
 .tier-sound-empty {
   text-align: center;
