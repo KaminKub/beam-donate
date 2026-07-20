@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>อัพโหลดสลิปโอนเงิน - TipKub</title>
+  <link rel="icon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans Thai', 'Kanit', sans-serif; }
+    :root {
+      --bg-dark: #07090e;
+      --bg-main: #0c0f1c;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: rgba(18, 22, 38, 0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+    }
+    .logo-mark { margin-bottom: 18px; }
+    .highlight-amount {
+      background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      display: inline-block;
+      width: fit-content;
+      animation: shineText 3s linear infinite;
+      line-height: 1.3;
+      font-family: 'Kanit', sans-serif;
+      font-size: 1.6rem;
+    }
+    @keyframes shineText { 0% { background-position: 200% center; } 100% { background-position: 0% center; } }
+    h1 { font-size: 1.4rem; margin-bottom: 6px; }
+    .subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 4px; }
+    .amount-line { font-size: 1.1rem; font-weight: 700; color: #4ade80; margin-bottom: 22px; }
+
+    .dropzone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 32px 20px;
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255,255,255,0.03);
+    }
+    .dropzone:active { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+    .dropzone span { font-size: 15px; font-weight: 600; color: #e5e7eb; }
+    .dropzone small { font-size: 12px; color: var(--text-muted); }
+    .dropzone i { font-size: 28px; color: #9ca3af; }
+
+    .preview-box { margin-top: 4px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+    .preview-box img { width: 100%; max-height: 280px; object-fit: contain; display: block; }
+
+    .status-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 18px;
+    }
+    .status-box.checking { background: rgba(245,158,11,0.1); color: #fbbf24; }
+    .status-box.success { background: rgba(16,185,129,0.1); color: #34d399; }
+    .status-box.error { background: rgba(239,68,68,0.1); color: #f87171; }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-retry {
+      margin-top: 14px;
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+    #honeypot { position: absolute; left: -9999px; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-mark"><span class="highlight-amount">TipKub</span></div>
+    <h1>อัพโหลดสลิปจากมือถือ</h1>
+    <p class="subtitle" id="streamerLine">กำลังส่งสลิปให้ -</p>
+    <p class="amount-line" id="amountLine">฿0</p>
+
+    <input type="file" id="slipFileInput" accept="image/*" style="display:none;">
+    <input type="text" id="honeypot" name="contact_email" tabindex="-1" autocomplete="off">
+
+    <label for="slipFileInput" class="dropzone" id="dropzone">
+      <i class="fas fa-image"></i>
+      <span>เลือกรูปสลิป</span>
+      <small>JPG/PNG</small>
+    </label>
+
+    <div class="preview-box" id="previewBox" style="display:none;">
+      <img id="previewImage" src="" alt="Preview">
+    </div>
+
+    <div class="status-box" id="statusBox" style="display:none;"></div>
+    <button type="button" class="btn-retry" id="btnRetry" style="display:none;">
+      <i class="fas fa-rotate"></i> เลือกรูปใหม่
+    </button>
+  </div>
+
+  <script src="mobile-slip.js?v=20260719_1"></script>
+</body>
+</html>

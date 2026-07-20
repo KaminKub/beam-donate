@@ -1914,6 +1914,7 @@ function startPromptPayPolling() {
         clearPendingQR();
         stopPolling();
         stopCountdown();
+        closeMobileSlipModal();
         if (paymentStatus) {
           paymentStatus.style.display = 'flex';
           paymentStatus.className = 'status success';
@@ -1926,6 +1927,7 @@ function startPromptPayPolling() {
         clearPendingQR();
         stopPolling();
         stopCountdown();
+        closeMobileSlipModal();
         if (paymentStatus) {
           paymentStatus.style.display = 'flex';
           paymentStatus.className = 'status expired';
@@ -2043,6 +2045,35 @@ if (btnRemoveSlip) {
     slipUploadBtn.style.display = 'flex';
     btnVerifySlip.disabled = true;
     paymentStatus.style.display = 'none';
+  });
+}
+
+// ========== Mobile Slip Upload (QR handoff) ==========
+const btnMobileSlipUpload = document.getElementById('btnMobileSlipUpload');
+const mobileSlipModal = document.getElementById('mobileSlipModal');
+const mobileSlipQrImage = document.getElementById('mobileSlipQrImage');
+const btnCloseMobileSlipModal = document.getElementById('btnCloseMobileSlipModal');
+const mobileSlipModalStatus = document.getElementById('mobileSlipModalStatus');
+
+function openMobileSlipModal() {
+  if (!currentChargeId || !mobileSlipModal) return;
+  const username = window.location.pathname.split('/')[1];
+  const mobileUrl = `${window.location.origin}/mobile-slip/?ref=${encodeURIComponent(currentChargeId)}&amt=${encodeURIComponent(selectedAmount)}&u=${encodeURIComponent(username)}&pt=${encodeURIComponent(pageToken)}`;
+  mobileSlipQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}`;
+  mobileSlipModalStatus.className = 'status checking';
+  mobileSlipModalStatus.innerHTML = '<div class="spinner-small"></div><span>รอการอัพโหลดจากมือถือ...</span>';
+  mobileSlipModal.style.display = 'flex';
+}
+
+function closeMobileSlipModal() {
+  if (mobileSlipModal) mobileSlipModal.style.display = 'none';
+}
+
+if (btnMobileSlipUpload) btnMobileSlipUpload.addEventListener('click', openMobileSlipModal);
+if (btnCloseMobileSlipModal) btnCloseMobileSlipModal.addEventListener('click', closeMobileSlipModal);
+if (mobileSlipModal) {
+  mobileSlipModal.addEventListener('click', (e) => {
+    if (e.target === mobileSlipModal) closeMobileSlipModal();
   });
 }
 

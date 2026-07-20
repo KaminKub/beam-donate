@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260720_2">
+  <link rel="stylesheet" href="/assets/style.css?v=20260720_3">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -513,6 +513,10 @@
           </div>
         </div>
 
+        <button type="button" id="btnMobileSlipUpload" class="btn-mobile-slip">
+          <i class="fa-solid fa-mobile-screen-button"></i> อัพสลิปผ่านมือถือ
+        </button>
+
         <button id="btnVerifySlip" class="btn-verify-slip" disabled>
           <i class="fas fa-check-circle"></i> ตรวจสอบสลิป
         </button>
@@ -542,6 +546,24 @@
         </div>
       </div>
     </div>  <!-- end step-qr -->
+
+    <!-- Mobile Slip Upload Modal (QR handoff) -->
+    <div id="mobileSlipModal" class="mobile-slip-modal-overlay" style="display:none;">
+      <div class="mobile-slip-modal card glass-card">
+        <button type="button" id="btnCloseMobileSlipModal" class="mobile-slip-modal-close" aria-label="ปิด">
+          <i class="fas fa-times"></i>
+        </button>
+        <h3><i class="fa-solid fa-qrcode" style="color:#818cf8;"></i> สแกนเพื่ออัพสลิปจากมือถือ</h3>
+        <p class="subtitle">เปิดกล้องมือถือแล้วสแกน QR ด้านล่าง จะพาไปหน้าอัพโหลดสลิปทันที</p>
+        <div class="mobile-slip-qr-box">
+          <img id="mobileSlipQrImage" src="" alt="QR สำหรับอัพโหลดสลิปจากมือถือ" width="200" height="200">
+        </div>
+        <div id="mobileSlipModalStatus" class="status checking">
+          <div class="spinner-small"></div>
+          <span>รอการอัพโหลดจากมือถือ...</span>
+        </div>
+      </div>
+    </div>
 
     <!-- หน้า TrueMoney Wallet -->
     <div id="step-truemoney" class="step">
@@ -830,6 +852,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260720_8"></script>
+  <script src="/donate-template/app.js?v=20260720_9"></script>
 </body>
 </html>

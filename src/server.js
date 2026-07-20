@@ -2387,7 +2387,7 @@ app.post('/webhook', webhookLimiter, async (req, res) => {
 const RESERVED_WORDS = [
   'login', 'auth', 'api', 'overlay', 'alert-test', 'thank-you', 'register',
   'admin', 'demo', 'health', 'goal-bar', 'timer', 'leader-board', 'recent-donate', 'webhook', 'login-failed', 'forbidden',
-  'privacy', 'terms-of-services',
+  'privacy', 'terms-of-services', 'mobile-slip',
 ];
 
 async function validateUsername(req, res, next) {
@@ -5328,7 +5328,7 @@ const pollSlipLimiter = rateLimit({
   message: { success: false, errorCode: 'RATE_LIMITED', error: 'กรุณารอสักครู่' }
 });
 
-app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (req, res) => {
+app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;

@@ -1437,6 +1437,101 @@ input[type=number] {
   transform: scale(1.1);
 }
 
+/* ========== Mobile Slip Upload (QR handoff) ========== */
+.btn-mobile-slip {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(129, 140, 248, 0.1);
+  border: 1.5px solid rgba(129, 140, 248, 0.35);
+  border-radius: 12px;
+  color: #a5b4fc;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-mobile-slip:hover {
+  background: rgba(129, 140, 248, 0.18);
+  border-color: #818cf8;
+}
+
+.mobile-slip-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 9, 14, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.mobile-slip-modal {
+  position: relative;
+  max-width: 340px;
+  width: 100%;
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.mobile-slip-modal h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.mobile-slip-modal .subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+.mobile-slip-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #e5e7eb;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.mobile-slip-modal-close:hover {
+  background: rgba(255,255,255,0.16);
+}
+
+.mobile-slip-qr-box {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  display: inline-flex;
+  margin-bottom: 18px;
+}
+
+.mobile-slip-qr-box img {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+@media (max-width: 480px) {
+  .mobile-slip-modal { padding: 22px 18px; }
+  .mobile-slip-qr-box img { width: 170px; height: 170px; }
+}
+
 /* ========== Slip Verify Button ========== */
 .btn-verify-slip {
   width: 100%;
