@@ -1514,14 +1514,6 @@ async function initializeDashboard() {
       });
     });
 
-    // Part 3 — verify-account button handlers
-    document.querySelectorAll('.btn-verify-slipok-account').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        verifySlipOkAccount(btn.getAttribute('data-method'));
-      });
-    });
-
     // PromptPay Type dropdown handler
     const promptpayTypeSelect = document.getElementById('inputPromptPayType');
     if (promptpayTypeSelect) {
@@ -8381,13 +8373,13 @@ function isMethodAccountVerified(method) {
   return true;
 }
 
-// Round 3 — SlipOK has no API to list bound accounts, so "verified" can only ever mean
-// "proved once with a real slip on {date}", never a live status. Per-method unverified copy
-// tells the streamer exactly what to match in SlipOK before re-verifying.
+// เชื่อมต่อ API สำเร็จ = verified ทันที (ความรับผิดชอบของ streamer เองว่าเพิ่มบัญชีตรงกันใน
+// SlipOK แล้ว) กลับเป็น unverified เฉพาะตอนเปลี่ยนข้อมูลบัญชี (payment/settings reset-on-change)
+// — ต้องกด "ทดสอบการเชื่อมต่อ" ใหม่เพื่อให้กลับมา verified
 const ACCOUNT_UNVERIFIED_TEXT = {
-  promptpay: 'คุณจำเป็นต้องเพิ่มบัญชีพร้อมเพย์และหมายเลขให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง',
-  bank: 'คุณจำเป็นต้องเพิ่มบัญชีธนาคารและเลขบัญชีให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง',
-  truemoney: 'คุณจำเป็นต้องเพิ่มบัญชี TrueMoney และหมายเลขโทรศัพท์ให้ตรงกับที่กรอกใน TipKub ในเว็บ SlipOK ก่อน จากนั้นกดยืนยันด้วยสลิปจริง'
+  promptpay: 'ข้อมูลบัญชีพร้อมเพย์เปลี่ยนไปหลังยืนยันล่าสุด — หากมั่นใจว่าเพิ่มบัญชีนี้ตรงกันใน SlipOK แล้ว เพื่อความปลอดภัย กรุณากด "ทดสอบการเชื่อมต่อ" ของ API อีกครั้ง',
+  bank: 'ข้อมูลบัญชีธนาคารเปลี่ยนไปหลังยืนยันล่าสุด — หากมั่นใจว่าเพิ่มบัญชีนี้ตรงกันใน SlipOK แล้ว เพื่อความปลอดภัย กรุณากด "ทดสอบการเชื่อมต่อ" ของ API อีกครั้ง',
+  truemoney: 'ข้อมูลบัญชี TrueMoney เปลี่ยนไปหลังยืนยันล่าสุด — หากมั่นใจว่าเพิ่มบัญชีนี้ตรงกันใน SlipOK แล้ว เพื่อความปลอดภัย กรุณากด "ทดสอบการเชื่อมต่อ" ของ API อีกครั้ง'
 };
 
 function updateAccountVerifyBadges() {
@@ -8402,57 +8394,13 @@ function updateAccountVerifyBadges() {
       const at = d[`${method}_account_verified_at`];
       let dateStr = '-';
       try { if (at) dateStr = new Date(at).toLocaleString('th-TH'); } catch (e) {}
-      if (text) text.textContent = `ยืนยันบัญชีด้วยสลิปแล้ว (ล่าสุด: ${dateStr})`;
-      if (caveat) caveat.textContent = '⚠️ ข้อมูลบัญชีต้องตรงกับเว็บ SlipOK เสมอ — หากข้อมูลไม่ตรง หรือถอดออกภายหลัง ระบบจะตรวจสลิปของผู้โดเนทไม่ผ่าน (TipKub ตรวจสอบสถานะสดจาก SlipOK ไม่ได้)';
+      if (text) text.textContent = `เชื่อมต่อ SlipOK สำเร็จ (ล่าสุด: ${dateStr})`;
+      if (caveat) caveat.textContent = '⚠️ ข้อมูลบัญชีต้องตรงกับเว็บ SlipOK เสมอ — เป็นความรับผิดชอบของคุณเองที่ต้องตรวจสอบ หากเปลี่ยนข้อมูลบัญชีในภายหลัง ต้องกด "ทดสอบการเชื่อมต่อ" ใหม่อีกครั้ง';
     } else {
-      if (text) text.textContent = ACCOUNT_UNVERIFIED_TEXT[method] || 'ยังไม่ได้ยืนยันบัญชีนี้ใน SlipOK';
+      if (text) text.textContent = ACCOUNT_UNVERIFIED_TEXT[method] || 'ยังไม่ได้ทดสอบการเชื่อมต่อ SlipOK';
       if (caveat) caveat.textContent = '';
     }
   });
-}
-
-async function verifySlipOkAccount(method) {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file) return;
-
-    const btn = document.querySelector(`.btn-verify-slipok-account[data-method="${method}"]`);
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังตรวจสอบ...'; }
-
-    try {
-      const formData = new FormData();
-      formData.append('slip', file);
-      formData.append('method', method);
-
-      const response = await fetchWithCsrf('/api/payment/verify-slipok-account', { method: 'POST', body: formData });
-      const data = await response.json();
-
-      if (data.success) {
-        showNotification(data.message || 'ยืนยันบัญชีสำเร็จ!');
-        window._lastPaymentSettings = window._lastPaymentSettings || {};
-        window._lastPaymentSettings[`${method}_account_verified`] = 1;
-        window._lastPaymentSettings[`${method}_account_verified_at`] = new Date().toISOString();
-        updateAccountVerifyBadges();
-      } else {
-        // WRONG_RECEIVER on an already-verified method = server-side reactive reset fired
-        // (account was pulled from SlipOK) — reflect it in the badge immediately.
-        if (data.errorCode === 'WRONG_RECEIVER' && window._lastPaymentSettings) {
-          window._lastPaymentSettings[`${method}_account_verified`] = 0;
-          window._lastPaymentSettings[`${method}_account_verified_at`] = null;
-          updateAccountVerifyBadges();
-        }
-        showNotification(data.error || 'ยืนยันบัญชีไม่สำเร็จ', 'error');
-      }
-    } catch (err) {
-      showNotification('เกิดข้อผิดพลาดในการยืนยันบัญชี', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-receipt"></i> ยืนยันบัญชีด้วยสลิปจริง'; }
-    }
-  };
-  input.click();
 }
 
 function updateSlipOkStatus(connected, lastCheck) {
@@ -8549,7 +8497,17 @@ async function testSlipOkConnection() {
     const data = await response.json();
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK สำเร็จ — บันทึกข้อมูลเรียบร้อย');
-      updateSlipOkStatus(true, new Date().toISOString());
+      const now = new Date().toISOString();
+      updateSlipOkStatus(true, now);
+
+      // เชื่อมต่อสำเร็จ = verified ทันทีทั้ง 3 วิธี (promptpay/bank/truemoney ใช้ API เดียวกัน)
+      window._lastPaymentSettings = window._lastPaymentSettings || {};
+      ['promptpay', 'bank', 'truemoney'].forEach(method => {
+        window._lastPaymentSettings[`${method}_account_verified`] = 1;
+        window._lastPaymentSettings[`${method}_account_verified_at`] = now;
+      });
+      updateAccountVerifyBadges();
+
       fetchQuotaMini('promptpay', true);
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');

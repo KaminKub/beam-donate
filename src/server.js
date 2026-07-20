@@ -4551,9 +4551,9 @@ function validateSlipOkUrl(url) {
   }
 }
 
-// Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow) and
-// /api/payment/verify-slipok-account (account-verification flow). Normalizes both the
-// success and failure shapes so callers don't duplicate SlipOK's error-code mapping.
+// Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow).
+// Normalizes both the success and failure shapes so callers don't duplicate SlipOK's
+// error-code mapping.
 async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
   try {
     const response = await axios.post(branchUrl, {
@@ -4598,84 +4598,6 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
     return { success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' };
   }
 }
-
-const VERIFY_ACCOUNT_METHODS = ['promptpay', 'bank', 'truemoney'];
-
-// POST /api/payment/verify-slipok-account — Part 3: prove SlipOK actually knows this receiver
-// (SlipOK has no API to list bound accounts) by sending one real slip and checking it isn't
-// rejected as a wrong-receiver. Not a donation: no transaction row, no slipHashCache touch.
-app.post('/api/payment/verify-slipok-account', ensureAuthenticated, csrfProtection, upload.single('slip'), async (req, res) => {
-  try {
-    const { method } = req.body;
-    if (!VERIFY_ACCOUNT_METHODS.includes(method)) return res.status(400).json({ error: 'method ไม่ถูกต้อง' });
-    if (!req.file) return res.status(400).json({ success: false, errorCode: 'NO_FILE', error: 'กรุณาอัพโหลดไฟล์สลิป' });
-
-    const actualUsername = await getActualUsername(req.user);
-    const streamer = await db.getStreamer(actualUsername);
-    if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
-
-    const decrypted = decryptPaymentFields(streamer);
-    const isTruemoney = method === 'truemoney';
-    // Fallback chain mirrors /api/verify-slip — user เก่าที่มีแค่ slot เดียวใช้ได้ทั้ง 2 ทาง
-    const api = isTruemoney ? (decrypted.truemoney_slipok_api || decrypted.slipok_api) : (decrypted.slipok_api || decrypted.truemoney_slipok_api);
-    const apiKey = isTruemoney ? (decrypted.truemoney_slipok_api_key || decrypted.slipok_api_key) : (decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key);
-    if (!api || !apiKey) return res.status(400).json({ error: 'กรุณาทดสอบการเชื่อมต่อ SlipOK ก่อน' });
-
-    try { validateSlipOkUrl(api); } catch (e) { return res.status(400).json({ error: e.message }); }
-
-    // amount=0: SlipOK treats amount as optional — this call only checks receiver-match, so
-    // forcing an amount would fail a correct slip on a typo'd digit and burn a quota hit for nothing.
-    const result = await callSlipOkVerify(api.replace(/\/quota$/, ''), apiKey, req.file.buffer.toString('base64'), 0);
-
-    if (result.success) {
-      const now = new Date().toISOString();
-      const flagMap = {
-        promptpay: { promptpay_account_verified: 1, promptpay_account_verified_at: now },
-        bank: { bank_account_verified: 1, bank_account_verified_at: now },
-        truemoney: { truemoney_account_verified: 1, truemoney_account_verified_at: now }
-      };
-      await db.saveStreamer({
-        twitch_id: req.user.twitch_id || null,
-        streamlabs_id: req.user.streamlabs_id || null,
-        username: actualUsername,
-        ...flagMap[method]
-      });
-      return res.json({ success: true, message: 'ยืนยันบัญชีสำเร็จ! เปิดใช้งานวิธีรับเงินนี้ได้แล้ว' });
-    }
-
-    if (result.errorCode === 'WRONG_RECEIVER') {
-      // Reactive reset: SlipOK no longer recognizes this receiver — proof the account was
-      // unlinked from SlipOK's side. Safe here only (authenticated, streamer uploads their own
-      // slip) — must never run from the public /api/verify-slip path (griefing vector).
-      const verifiedFieldMap = {
-        promptpay: 'promptpay_account_verified',
-        bank: 'bank_account_verified',
-        truemoney: 'truemoney_account_verified'
-      };
-      const verifiedField = verifiedFieldMap[method];
-      if (streamer[verifiedField] === 1) {
-        await db.saveStreamer({
-          twitch_id: req.user.twitch_id || null,
-          streamlabs_id: req.user.streamlabs_id || null,
-          username: actualUsername,
-          [verifiedField]: 0,
-          // saveStreamer's UPDATE path uses COALESCE(?, existing) per column — passing null
-          // here would be swallowed and leave the stale timestamp in place. '' is a real
-          // (non-NULL) value so COALESCE actually overwrites it.
-          [`${verifiedField}_at`]: ''
-        });
-      }
-      return res.json({ success: false, errorCode: 'WRONG_RECEIVER', error: 'สลิปถูกต้อง แต่บัญชีปลายทางยังไม่ตรงกับที่ผูกไว้ใน SlipOK — กรุณาเพิ่มบัญชีนี้ในเว็บ SlipOK ก่อน แล้วลองใหม่ (ใช้สลิปใบใหม่)' });
-    }
-    if (result.errorCode === 'BANK_UNAVAILABLE') {
-      return res.json({ success: false, errorCode: 'BANK_UNAVAILABLE', error: 'ระบบธนาคารขัดข้องชั่วคราว — รอประมาณ 15 นาทีแล้วลองใหม่ด้วยสลิปใบเดิมได้ (ไม่เสียโควต้า)' });
-    }
-    return res.json({ success: false, errorCode: result.errorCode, error: result.error });
-  } catch (err) {
-    console.error('Verify SlipOK account error:', err);
-    res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการยืนยันบัญชี' });
-  }
-});
 
 // POST /api/payment/test-tfp - Test TFP API connection
 app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async (req, res) => {
@@ -4739,6 +4661,17 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       return Math.max(100, quota);
     }
 
+    // Successful API test = streamer's own confirmation the receiver is bound in SlipOK
+    // (SlipOK has no "list bound accounts" API to check this automatically) — trust it and
+    // mark all 3 methods verified immediately. Only reset-on-account-change (payment/settings)
+    // clears this; re-running the test here is how the streamer re-proves it after that.
+    const now = new Date().toISOString();
+    const verifiedFlags = {
+      promptpay_account_verified: 1, promptpay_account_verified_at: now,
+      bank_account_verified: 1, bank_account_verified_at: now,
+      truemoney_account_verified: 1, truemoney_account_verified_at: now
+    };
+
     if (isTruemoney) {
       const currentQuota = response.data?.data?.quota || 0;
       const existingTotal = streamer?.truemoney_slipok_quota_total || 0;
@@ -4749,11 +4682,12 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
         streamlabs_id: req.user.streamlabs_id || null,
         username: actualUsername,
         truemoney_slipok_connected: 1,
-        truemoney_slipok_last_check: new Date().toISOString(),
+        truemoney_slipok_last_check: now,
         truemoney_phone: realTruemoneyPhone,
         truemoney_slipok_api: realApi,
         truemoney_slipok_api_key: realApiKey,
-        truemoney_slipok_quota_total: newSnapshot
+        truemoney_slipok_quota_total: newSnapshot,
+        ...verifiedFlags
       });
     } else {
       const currentQuota = response.data?.data?.quota || 0;
@@ -4765,16 +4699,17 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
         streamlabs_id: req.user.streamlabs_id || null,
         username: actualUsername,
         slipok_connected: 1,
-        slipok_last_check: new Date().toISOString(),
+        slipok_last_check: now,
         promptpay_type: realPromptpayType,
         promptpay_value: realPromptpayValue,
         slipok_api: realApi,
         slipok_api_key: realApiKey,
         slipok_quota_total: newSnapshot,
         truemoney_slipok_connected: 1,
-        truemoney_slipok_last_check: new Date().toISOString(),
+        truemoney_slipok_last_check: now,
         truemoney_slipok_api: realApi,
-        truemoney_slipok_api_key: realApiKey
+        truemoney_slipok_api_key: realApiKey,
+        ...verifiedFlags
       });
     }
 
