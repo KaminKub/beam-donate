@@ -1949,7 +1949,9 @@ async function getAllR2Refs(r2PublicUrl) {
       profile_image_value,
       header_bg_url,
       page_bg_url,
-      timer_settings
+      timer_settings,
+      tier_donate_settings,
+      sound_library
     FROM streamers`
   );
   const refs = new Set();
@@ -1960,7 +1962,7 @@ async function getAllR2Refs(r2PublicUrl) {
   };
   for (const row of result.rows) {
     for (const [col, val] of Object.entries(row)) {
-      if (col === 'timer_settings') continue; // JSON blob, handled below
+      if (col === 'timer_settings' || col === 'tier_donate_settings' || col === 'sound_library') continue; // JSON blobs, handled below
       addRef(val);
     }
     // timer_settings is a JSON blob; R2 URLs hidden inside (e.g. sound_url)
@@ -1970,6 +1972,18 @@ async function getAllR2Refs(r2PublicUrl) {
       try {
         const t = JSON.parse(row.timer_settings);
         addRef(t.sound_url);
+      } catch { /* malformed blob → skip */ }
+    }
+    if (typeof row.tier_donate_settings === 'string') {
+      try {
+        const t = JSON.parse(row.tier_donate_settings);
+        (t.alert_images || []).forEach(img => { if (img?.url) addRef(img.url); });
+      } catch { /* malformed blob → skip */ }
+    }
+    if (typeof row.sound_library === 'string') {
+      try {
+        const lib = JSON.parse(row.sound_library);
+        (Array.isArray(lib) ? lib : []).forEach(s => { if (s?.url) addRef(s.url); });
       } catch { /* malformed blob → skip */ }
     }
   }
