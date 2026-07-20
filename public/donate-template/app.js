@@ -519,11 +519,10 @@ function buildDefaultTierImagePreview() {
   const mode = pageSettings?.customImageMode || 'emoji';
   const value = pageSettings?.customImageValue || '';
   if (!value) return '';
-  if (mode === 'video') {
-    return `<video src="${escapeAttr(value)}" width="56" height="56" muted loop autoplay playsinline></video>`;
-  }
-  if (mode === 'image' || mode === 'custom') {
-    return `<img src="${escapeAttr(value)}" width="56" height="56" alt="">`;
+  if (mode === 'upload') {
+    return isWebm(value)
+      ? `<video src="${escapeAttr(value)}" width="56" height="56" muted loop autoplay playsinline></video>`
+      : `<img src="${escapeAttr(value)}" width="56" height="56" alt="">`;
   }
   return escapeHtml(value);
 }
@@ -540,7 +539,7 @@ function renderTierSection(unlocked) {
   section.classList.add('tier-open');
   banner.className = 'tier-banner tier-level-' + unlocked.level;
   const tierName = (unlocked.name || '').trim();
-  banner.textContent = `🎉 ปลดล็อก ${tierName ? tierName : 'Tier ' + unlocked.level}!`;
+  banner.textContent = `${tierName ? tierName : 'Tier ' + unlocked.level}!`;
 
   // Image choices
   const imgBlock = document.getElementById('tierImageChoiceBlock');

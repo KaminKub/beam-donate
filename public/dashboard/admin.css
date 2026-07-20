@@ -3567,6 +3567,42 @@ label {
   animation: headerClickFlash 0.35s ease-out;
 }
 
+/* Tier Donate: divider between Tier 1/2/3 setting blocks */
+.tier-row {
+  border-left: 3px solid var(--tier-row-color, #94a3b8);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.tier-row-1 { --tier-row-color: #94a3b8; }
+.tier-row-2 { --tier-row-color: #60a5fa; }
+.tier-row-3 { --tier-row-color: #fbbf24; }
+
+.tier-row-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tier-row-header label:first-child {
+  font-weight: 600;
+}
+
+.tier-row-active-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+  font-size: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
 @keyframes headerClickFlash {
   0%   { background: rgba(102, 126, 234, 0.18); }
   100% { background: transparent; }

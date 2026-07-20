@@ -1385,7 +1385,7 @@
                         <div class="form-row">
                           <div class="form-group">
                             <button type="button" id="btnManageTierImageLibrary" class="btn btn-secondary">
-                              <i class="fa-solid fa-images"></i> จัดการคลังสติ๊กเกอร์แจ้งเตือน
+                              <i class="fa-solid fa-images"></i> จัดการคลังสติ๊กเกอร์แจ้งเตือน (<span id="lblTierImageLibraryCount">0</span>/3)
                             </button>
                           </div>
                         </div>
@@ -1400,51 +1400,73 @@
                         </div>
 
                         <h5 class="section-divider">ตั้งค่า Tier</h5>
-                        <div class="form-row">
-                          <div class="form-group full-width">
+
+                        <div class="tier-row tier-row-1">
+                          <div class="tier-row-header">
                             <label><i class="fa-solid fa-medal" style="color:#94a3b8;"></i> Tier 1 (ค่าเริ่มต้น)</label>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                              <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName1" class="form-control" maxlength="20" placeholder="เช่น VIP ทอง (ไม่ใส่ = ใช้ 'Tier 1')" style="width:220px;"></span>
-                            </div>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount1" class="form-control" min="1" value="50" style="width:100px;"> บาท</span>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage1" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound1"><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload1"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord1"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                          </div>
+                          <div class="form-row">
+                            <div class="form-group full-width">
+                              <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName1" class="form-control" maxlength="20" placeholder="เช่น VIP ทอง (ไม่ใส่ = ใช้ 'Tier 1')" style="width:220px;"></span>
+                                <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount1" class="form-control" min="1" value="50" style="width:100px;"> บาท</span>
+                              </div>
+                              <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage1" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound1"><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload1"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord1"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <div class="form-row">
-                          <div class="form-group full-width">
-                            <label><i class="fa-solid fa-medal" style="color:#60a5fa;"></i> Tier 2 <label style="font-weight:400;font-size:12px;margin-left:8px;"><label class="switch"><input type="checkbox" id="tierActive2"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label></label>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                              <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName2" class="form-control" maxlength="20" placeholder="เช่น VIP เพชร (ไม่ใส่ = ใช้ 'Tier 2')" style="width:220px;"></span>
-                            </div>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount2" class="form-control" min="1" value="200" style="width:100px;"> บาท</span>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage2" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound2" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload2"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord2"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+
+                        <div class="tier-row tier-row-2">
+                          <div class="tier-row-header">
+                            <label><i class="fa-solid fa-medal" style="color:#60a5fa;"></i> Tier 2</label>
+                          </div>
+                          <div class="widget-settings-body" data-body-for="tier2">
+                            <div class="form-row">
+                              <div class="form-group full-width">
+                                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                  <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName2" class="form-control" maxlength="20" placeholder="เช่น VIP เพชร (ไม่ใส่ = ใช้ 'Tier 2')" style="width:220px;"></span>
+                                  <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount2" class="form-control" min="1" value="200" style="width:100px;"> บาท</span>
+                                </div>
+                                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage2" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound2" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload2"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord2"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                                </div>
+                              </div>
                             </div>
                           </div>
+                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive2"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label>
                         </div>
-                        <div class="form-row">
-                          <div class="form-group full-width">
-                            <label><i class="fa-solid fa-medal" style="color:#fbbf24;"></i> Tier 3 <label style="font-weight:400;font-size:12px;margin-left:8px;"><label class="switch"><input type="checkbox" id="tierActive3"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label></label>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                              <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName3" class="form-control" maxlength="20" placeholder="เช่น VIP แพลทินัม (ไม่ใส่ = ใช้ 'Tier 3')" style="width:220px;"></span>
-                            </div>
-                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                              <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount3" class="form-control" min="1" value="500" style="width:100px;"> บาท</span>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage3" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound3" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload3"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                              <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord3"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+
+                        <div class="tier-row tier-row-3">
+                          <div class="tier-row-header">
+                            <label><i class="fa-solid fa-medal" style="color:#fbbf24;"></i> Tier 3</label>
+                          </div>
+                          <div class="widget-settings-body" data-body-for="tier3">
+                            <div class="form-row">
+                              <div class="form-group full-width">
+                                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                  <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName3" class="form-control" maxlength="20" placeholder="เช่น VIP แพลทินัม (ไม่ใส่ = ใช้ 'Tier 3')" style="width:220px;"></span>
+                                  <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount3" class="form-control" min="1" value="500" style="width:100px;"> บาท</span>
+                                </div>
+                                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage3" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound3" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload3"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord3"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                                </div>
+                              </div>
                             </div>
                           </div>
+                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive3"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label>
                         </div>
+
                         <p id="tierOrderError" style="display:none;color:#ef4444;font-size:12px;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ยอดขั้นต่ำของแต่ละ Tier ต้องเรียงจากน้อยไปมาก</p>
                       </div>
                     </div><!-- /card-body-panel panelTierDonate -->

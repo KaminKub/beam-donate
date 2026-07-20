@@ -1550,6 +1550,8 @@ async function initializeDashboard() {
     registerWidgetVisibility('chkLeaderboardEnabled', '#leaderboardSettingsBody, [data-body-for="leaderboard"]');
     registerWidgetVisibility('chkRecentdonateEnabled', '#recentdonateSettingsBody, [data-body-for="recentdonate"]');
     registerWidgetVisibility('chkTierDonateEnabled', '[data-body-for="tierDonate"]');
+    registerWidgetVisibility('tierActive2', '[data-body-for="tier2"]');
+    registerWidgetVisibility('tierActive3', '[data-body-for="tier3"]');
 
     if (window._slLinkedOnLoad) {
       window._slLinkedOnLoad = false;
@@ -4632,11 +4634,17 @@ const TIER_IMAGE_SLOT_IDS = {
   3: { preview: 'tierImagePreview3', file: 'tierImageFile3', clear: 'btnClearTierImage3', status: 'tierImageStatus3' }
 };
 
+function updateTierImageLibraryCount() {
+  const countLbl = document.getElementById('lblTierImageLibraryCount');
+  if (countLbl) countLbl.textContent = tierAlertImages.filter(img => img && img.url).length;
+}
+
 function renderTierImageSlot(slot) {
   const ids = TIER_IMAGE_SLOT_IDS[slot];
   const entry = tierAlertImages[slot - 1];
   const preview = document.getElementById(ids.preview);
   const clearBtn = document.getElementById(ids.clear);
+  updateTierImageLibraryCount();
   if (entry && entry.url) {
     if (preview) { setMediaPreview(preview, entry.url); preview.style.display = isWebm(entry.url) ? 'none' : 'block'; }
     if (clearBtn) clearBtn.style.display = '';
@@ -4709,6 +4717,7 @@ function loadTierDonateSettingsFromData(s) {
     if (ids.active) {
       const activeEl = document.getElementById(ids.active);
       if (activeEl) activeEl.checked = saved.active !== false && saved.active !== undefined ? !!saved.active : false;
+      updateWidgetBodyVisibility(ids.active);
     }
     const nameEl = document.getElementById(ids.name);
     if (nameEl) nameEl.value = saved.name ?? '';
