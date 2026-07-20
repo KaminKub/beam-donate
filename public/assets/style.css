@@ -1972,7 +1972,7 @@ input[type=number] {
 }
 .tier-sound-item .sound-label {
   flex: 1;
-  font-size: 13px;
+  font-size: 15px;
   color: #f1f5f9;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1987,7 +1987,7 @@ input[type=number] {
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 18px;
   padding: 4px;
   border-radius: 6px;
   transition: color 0.15s, background 0.15s;
