@@ -460,13 +460,6 @@ async function initializeDashboard() {
       if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
       if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
 
-      const btnStickyTier2 = document.getElementById('btnStickyTier2');
-      const btnStickyTier3 = document.getElementById('btnStickyTier3');
-      const btnCloseSticky = document.getElementById('btnCloseStickyPreview');
-      if (btnStickyTier2) btnStickyTier2.onclick = () => showStickyTierPreview(2);
-      if (btnStickyTier3) btnStickyTier3.onclick = () => showStickyTierPreview(3);
-      if (btnCloseSticky) btnCloseSticky.onclick = closeStickyPreview;
-
       // Overlay subtab buttons (Alert vs Goal vs Timer)
       const demoSubtabAlert = document.getElementById('btnSubtabAlert');
       const demoSubtabGoal  = document.getElementById('btnSubtabGoal');
@@ -811,13 +804,6 @@ async function initializeDashboard() {
     const tierSelectMobile = document.getElementById('testAlertTierLevelMobile');
     if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
     if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
-
-    const btnStickyTier2 = document.getElementById('btnStickyTier2');
-    const btnStickyTier3 = document.getElementById('btnStickyTier3');
-    const btnCloseSticky = document.getElementById('btnCloseStickyPreview');
-    if (btnStickyTier2) btnStickyTier2.onclick = () => showStickyTierPreview(2);
-    if (btnStickyTier3) btnStickyTier3.onclick = () => showStickyTierPreview(3);
-    if (btnCloseSticky) btnCloseSticky.onclick = closeStickyPreview;
 
     const btnReloadPreview = document.getElementById('btnReloadPreview');
     if (btnReloadPreview) {
@@ -4333,49 +4319,6 @@ async function simulateCustomAlert(donor, amount, message) {
   }
 }
 
-async function showStickyTierPreview(level) {
-  try {
-    const isDemo = window.DEMO_MODE === true;
-    const endpoint = isDemo ? '/api/demo/alerts/test' : '/api/alerts/test';
-    const res = await fetchWithCsrf(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ donor: 'ผู้ทดสอบ', amount: 100, message: '', tierLevel: level, sticky: true })
-    });
-    if (res.ok) {
-      const closeBtn = document.getElementById('btnCloseStickyPreview');
-      if (closeBtn) closeBtn.style.display = '';
-      showNotification(`แสดงตัวอย่าง Tier ${level} ค้างไว้แล้ว กด "ปิด Preview" เมื่อต้องการหยุด`, 'success');
-    } else {
-      showNotification('ส่ง Preview ไม่สำเร็จ', 'error');
-    }
-  } catch (err) {
-    showNotification('ส่ง Preview ไม่สำเร็จ', 'error');
-  }
-}
-
-async function closeStickyPreview() {
-  try {
-    const isDemo = window.DEMO_MODE === true;
-    const endpoint = isDemo ? '/api/demo/alerts/test-clear-sticky' : '/api/alerts/test-clear-sticky';
-    const res = await fetchWithCsrf(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    if (res.ok) {
-      const closeBtn = document.getElementById('btnCloseStickyPreview');
-      if (closeBtn) closeBtn.style.display = 'none';
-      showNotification('ปิด Preview แล้ว', 'success');
-    } else {
-      showNotification('ปิด Preview ไม่สำเร็จ', 'error');
-    }
-  } catch (err) {
-    showNotification('ปิด Preview ไม่สำเร็จ', 'error');
-  }
-}
-
-
 // ========== Overlay Settings Logic ==========
 function toggleTtsSubSettings(enabled) {
   const container = document.getElementById('ttsSubSettingsContainer');
@@ -4785,7 +4728,7 @@ function loadTierDonateSettingsFromData(s) {
   const defaults = [
     { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false },
     { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false },
-    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false }
+    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true }
   ];
   const rowIds = {
     1: { name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', record: 'tierAllowOwnRecord1' },

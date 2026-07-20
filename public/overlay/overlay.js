@@ -446,9 +446,6 @@ async function showAlert(data) {
     // Set content
     const donorNameEl = alertBox.querySelector('.donor-name');
     donorNameEl.innerHTML = line1;
-    // TIER_DONATE_BLUEPRINT.md § 5.1 — เอฟเฟกต์เรืองแสงตาม tier (alertBox เป็น clone ใหม่ทุกครั้ง ไม่ reuse → ไม่มี class ค้าง)
-    if (data.tierLevel) donorNameEl.classList.add(`tier-effect-${data.tierLevel}`);
-
     // Handle Custom Icon/Image
     const iconEmojiEl = alertBox.querySelector('.icon-emoji');
     const iconContainer = alertBox.querySelector('.alert-icon');
