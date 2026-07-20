@@ -1006,7 +1006,11 @@ function closeTierAudioContext() {
   tierGainNode = null;
 }
 
+let tierRecordStarting = false;
 async function startTierRecording() {
+  // กันกดซ้ำระหว่างรอ getUserMedia (permission prompt) — double-start ทำให้ countdown interval ซ้อนแล้ววิ่งติดลบ
+  if (tierRecordStarting) return;
+  tierRecordStarting = true;
   const status = document.getElementById('tierRecordStatus');
   const btnLabel = document.getElementById('tierRecordBtnLabel');
   const timerEl = document.getElementById('tierRecordTimer');
@@ -1032,10 +1036,13 @@ async function startTierRecording() {
       if (status) status.textContent = 'อัดเสียงล้มเหลว: ' + (e.message || 'MediaRecorder error');
       stopTierRecording(true);
     };
+    const recorder = tierMediaRecorder;
     tierMediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
       closeTierAudioContext();
-      const blob = new Blob(tierRecordedChunks, { type: 'audio/webm' });
+      // iOS Safari อัดเป็น audio/mp4 ไม่ใช่ webm — ต้องใช้ mime จริงของ recorder ไม่งั้นไฟล์ติดป้ายผิด
+      const mime = (recorder.mimeType || 'audio/webm').split(';')[0];
+      const blob = new Blob(tierRecordedChunks, { type: mime });
       if (blob.size === 0) {
         if (status) status.textContent = 'ไม่ได้บันทึกเสียง กรุณาอัดใหม่';
         hideTierRecordReview();
@@ -1049,13 +1056,17 @@ async function startTierRecording() {
 
     let remaining = 8;
     if (timerEl) { timerEl.style.display = ''; timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
-    tierRecordCountdownInterval = setInterval(() => {
+    // clear ด้วย id ของตัวเอง — ห้ามอ้างตัวแปร shared (ถ้าถูก start รอบใหม่ทับ จะ clear ผิดตัว)
+    const countdownId = setInterval(() => {
       remaining -= 1;
       if (timerEl) timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`;
-      if (remaining <= 0) clearInterval(tierRecordCountdownInterval);
+      if (remaining <= 0) clearInterval(countdownId);
     }, 1000);
+    tierRecordCountdownInterval = countdownId;
     tierRecordTimeout = setTimeout(() => stopTierRecording(false), 8000);
+    tierRecordStarting = false;
   } catch (err) {
+    tierRecordStarting = false;
     closeTierAudioContext();
     if (status) status.textContent = 'ไม่สามารถใช้ไมค์ได้: ' + (err.name || err.message);
     const recordSubtab = document.getElementById('tierRecordSubtabBtn');
@@ -1097,7 +1108,8 @@ async function uploadTierRecordedAudio(blob) {
   try {
     const username = window.location.pathname.split('/')[1];
     const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
+    const ext = { 'audio/mp4': 'm4a', 'audio/ogg': 'ogg' }[blob.type] || 'webm';
+    formData.append('audio', blob, 'recording.' + ext);
     formData.append('username', username);
     formData.append('mode', 'record');
     const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });

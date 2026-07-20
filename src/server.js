@@ -3620,7 +3620,7 @@ app.get('/api/page/:username/tier-settings', tierSettingsLimiter, async (req, re
 
 // § 2.4 TIER_DONATE_BLUEPRINT.md — donor own-audio upload (upload หรือ MediaRecorder blob)
 // ⚠️ ห้ามเรียก validateAudioUrl() ที่นี่ — ฟังก์ชันนั้น reject .webm โดยตั้งใจสำหรับ arbitrary streamer-typed URL field คนละ trust boundary (§7 pitfall #1)
-const ALLOWED_TIER_AUDIO_MIMES = { 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/webm': 'webm' };
+const ALLOWED_TIER_AUDIO_MIMES = { 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/webm': 'webm', 'audio/mp4': 'm4a' };
 const tierAudioUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 1 * 1024 * 1024 },
