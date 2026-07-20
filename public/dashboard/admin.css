@@ -3598,9 +3598,7 @@ label {
   gap: 6px;
   font-weight: 400;
   font-size: 12px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  margin-left: auto;
 }
 
 @keyframes headerClickFlash {
