@@ -97,58 +97,6 @@
   }
   #sgImg2 { object-position: left top; }
 
-  .sg-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .sg-cursor {
-    position: absolute;
-    width: 22px;
-    height: 26px;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 20;
-    transition: left 0.7s cubic-bezier(0.4,0,0.2,1),
-                top 0.7s cubic-bezier(0.4,0,0.2,1),
-                opacity 0.3s;
-    filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.6));
-    opacity: 0;
-  }
-  .sg-cursor svg { width: 100%; height: 100%; }
-
-  .sg-click-ring {
-    position: absolute;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 2px solid rgba(74,222,128,0.8);
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0;
-    z-index: 19;
-    transition: left 0.7s cubic-bezier(0.4,0,0.2,1), top 0.7s cubic-bezier(0.4,0,0.2,1);
-  }
-  .sg-click-ring.sg-clicking {
-    animation: sgClickRing 0.5s ease-out forwards;
-  }
-  @keyframes sgClickRing {
-    0%  { transform: translate(-50%,-50%) scale(0); opacity: 0.9; }
-    100%{ transform: translate(-50%,-50%) scale(2); opacity: 0; }
-  }
-
-  .sg-key-highlight {
-    position: absolute;
-    border-radius: 6px;
-    background: rgba(74,222,128,0.15);
-    border: 2px solid rgba(74,222,128,0.5);
-    opacity: 0;
-    transition: opacity 0.5s, all 0.8s cubic-bezier(0.4,0,0.2,1);
-    pointer-events: none;
-    z-index: 15;
-  }
-
   .sg-caption {
     padding: 16px 22px;
     font-size: 16px;
@@ -261,13 +209,9 @@
   document.head.appendChild(styleEl);
 
   /* ── Modal HTML ─────────────────────────────────────────── */
-  const CURSOR_SVG = '<svg viewBox="0 0 20 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 1L3 18L6.5 14.5L9.5 21.5L11.5 20.5L8.5 13.5L14 13.5L3 1Z" fill="white" stroke="#222" stroke-width="1.2"/></svg>';
-
   function makeSlide(id, content, caption, hidden) {
     return `<div class="sg-slide${hidden ? ' sg-slide-hidden' : ''}" id="sgSlide${id}">${content}<p class="sg-caption">${caption}</p></div>`;
   }
-  function makeCursor(n) { return `<div class="sg-cursor" id="sgCursor${n}">${CURSOR_SVG}</div>`; }
-  function makeRing(n)   { return `<div class="sg-click-ring" id="sgRing${n}"></div>`; }
 
   const modalHTML = `
   <div class="modal" id="slipokGuideModal">
@@ -285,41 +229,32 @@
       <div class="sg-slides-container">
         ${makeSlide(1,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg1" src="/assets/slipok-guide/SlipOK_Guide_3-1.jpg" alt="Account Tab" width="1614" height="885">
+            <img class="sg-img" id="sgImg1" src="/assets/slipok-guide/SlipOK_Guide_1.jpg" alt="Account Tab" width="1614" height="885">
           </div>`,
           '<i class="fas fa-university"></i> คลิก <strong>บัญชี</strong> ในแถบเมนู แล้วกด <strong>+ สร้างบัญชีธนาคารเพิ่ม</strong>', false)}
         ${makeSlide(2,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg2" src="/assets/slipok-guide/SlipOK_Guide_4.jpg" alt="Fill Bank" width="1414" height="891">
+            <img class="sg-img" id="sgImg2" src="/assets/slipok-guide/SlipOK_Guide_2.jpg" alt="Fill Bank" width="1414" height="891">
           </div>`,
           '<i class="fas fa-mobile-alt"></i> เลือกช่องทางรับเงิน (PromptPay / TrueMoney) กรอกข้อมูล แล้วกด <strong>สร้างบัญชี</strong>', true)}
         ${makeSlide(3,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg3" src="/assets/slipok-guide/SlipOK_Guide_5.jpg" alt="Branch" width="1624" height="855">
+            <img class="sg-img" id="sgImg3" src="/assets/slipok-guide/SlipOK_Guide_3.jpg" alt="Branch" width="1624" height="855">
           </div>`,
           '<i class="fas fa-code-branch"></i> คลิก <strong>สาขา</strong> ในแถบเมนู แล้วกด <strong>+ สร้างสาขาเพิ่ม</strong>', true)}
         ${makeSlide(4,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg4" src="/assets/slipok-guide/SlipOK_Guide_6.jpg" alt="API Key" width="1522" height="796">
-            <div class="sg-overlay" id="sgOverlay4">
-              ${makeCursor(4)}${makeRing(4)}
-              <div class="sg-key-highlight" id="sgKeyHL4"></div>
-            </div>
+            <img class="sg-img" id="sgImg4" src="/assets/slipok-guide/SlipOK_Guide_4.jpg" alt="API Key" width="1522" height="796">
           </div>`,
-          '<i class="fas fa-key"></i> เลือก <strong>API Key</strong> เป็นช่องทางตรวจสอบ — จดหรือคัดลอก <strong>API</strong> และ <strong>API Key</strong> ทั้ง 2 ค่าเก็บไว้', true)}
+          '<i class="fas fa-key"></i> เลือก <strong>API Key</strong> เป็นช่องทางตรวจสอบ — จดหรือคัดลอก <strong>API</strong> และ <strong>API Key</strong> ทั้ง 2 ค่าเก็บไว้ แล้วเลื่อนลงกด <strong>สร้างสาขา</strong> เพื่อยืนยัน', true)}
         ${makeSlide(5,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg5" src="/assets/slipok-guide/SlipOK_Guide_7.jpg" alt="Create Branch" width="1440" height="770">
-          </div>`,
-          '<i class="fas fa-arrow-down"></i> เลื่อนลงแล้วกด <strong>สร้างสาขา</strong> เพื่อยืนยัน', true)}
-        ${makeSlide(6,
-          `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg6" src="/assets/slipok-guide/SlipOK_Guide_8.jpg" alt="TipKub API" width="771" height="740">
+            <img class="sg-img" id="sgImg5" src="/assets/slipok-guide/SlipOK_Guide_5.jpg" alt="TipKub API" width="771" height="740">
           </div>`,
           '<i class="fas fa-paste"></i> วาง API และ API Key ใน TipKub แล้วกด <strong>ทดสอบการเชื่อมต่อ</strong>', true)}
-        ${makeSlide(7,
+        ${makeSlide(6,
           `<div class="sg-viewport">
-            <img class="sg-img" id="sgImg7" src="/assets/slipok-guide/SlipOK_Guide_8-1.jpg" alt="API Recovery" width="1547" height="841">
+            <img class="sg-img" id="sgImg6" src="/assets/slipok-guide/SlipOK_Guide_6.jpg" alt="API Recovery" width="1547" height="841">
           </div>`,
           '<i class="fas fa-redo"></i> ลืม API? กลับมาที่หน้า <strong>สาขา</strong> → กดปุ่ม <strong>⋮</strong> → <strong>แก้ไข</strong> เพื่อดู API ได้ตลอดเวลา', true)}
       </div>
@@ -331,14 +266,13 @@
         <span class="sg-dot" onclick="sgGoTo(4)"></span>
         <span class="sg-dot" onclick="sgGoTo(5)"></span>
         <span class="sg-dot" onclick="sgGoTo(6)"></span>
-        <span class="sg-dot" onclick="sgGoTo(7)"></span>
       </div>
 
       <div class="sg-nav">
         <button class="sg-nav-btn" id="sgBtnPrev" onclick="sgNav(-1)" disabled>
           <i class="fas fa-chevron-left"></i> ก่อนหน้า
         </button>
-        <span class="sg-step-label" id="sgStepLabel">1 / 7</span>
+        <span class="sg-step-label" id="sgStepLabel">1 / 6</span>
         <button class="sg-nav-btn sg-nav-btn-next" id="sgBtnNext" onclick="sgNav(1)">
           ถัดไป <i class="fas fa-chevron-right"></i>
         </button>
@@ -355,7 +289,7 @@
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 
   /* ── Logic ──────────────────────────────────────────────── */
-  const TOTAL = 7;
+  const TOTAL = 6;
   let current = 1;
   let animTimers = [];
 
@@ -379,84 +313,17 @@
     animTimers.push(setTimeout(fn, ms));
   }
 
-  function moveCursor(id, leftPct, topPct) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.left = leftPct;
-    el.style.top = topPct;
-    el.style.opacity = '1';
-  }
-  function hideCursor(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.opacity = '0';
-  }
-  function clickRing(ringId, leftPct, topPct) {
-    const el = document.getElementById(ringId);
-    if (!el) return;
-    el.style.left = leftPct;
-    el.style.top = topPct;
-    el.classList.remove('sg-clicking');
-    void el.offsetWidth;
-    el.classList.add('sg-clicking');
-    after(500, () => el.classList.remove('sg-clicking'));
-  }
-
-  function zoomImg(imgId, scale, origin) {
-    const el = document.getElementById(imgId);
-    if (!el) return;
-    el.style.transformOrigin = origin || 'center top';
-    el.style.transform = 'scale(' + scale + ')';
-  }
-  function resetImg(imgId) {
-    const el = document.getElementById(imgId);
-    if (el) { el.style.transform = 'scale(1)'; el.style.transformOrigin = 'center top'; }
-  }
-
-  function showHL(id, leftPct, topPct, w, h) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.left = leftPct; el.style.top = topPct;
-    el.style.width = w; el.style.height = h;
-    el.style.opacity = '1';
-  }
-  function hideHL(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.opacity = '0';
-  }
-
   function animSlide(n) {
     clearAnimTimers();
-    const LOOP = 10000;
 
     if (n === 3) {
       // pan right to reveal + สร้างสาขาเพิ่ม button at far-right of wide image
       const img = document.getElementById('sgImg3');
       if (img) img.style.objectPosition = 'right top';
 
-    } else if (n === 4) {
-      // API Key dropdown at far-left — animate cursor + highlight
-      hideCursor('sgCursor4'); hideHL('sgKeyHL4');
-
-      function loop4() {
-        const img4 = document.getElementById('sgImg4');
-        resetImg('sgImg4'); hideHL('sgKeyHL4'); hideCursor('sgCursor4');
-        if (img4) img4.style.objectPosition = 'left top';
-        after(400,  () => moveCursor('sgCursor4', '13%', '47%'));
-        after(1000, () => clickRing('sgRing4', '13%', '47%'));
-        after(2000, () => zoomImg('sgImg4', 1.5, '10% 65%'));
-        after(2500, () => moveCursor('sgCursor4', '12%', '60%'));
-        after(3000, () => showHL('sgKeyHL4', '4%', '50%', '65%', '28%'));
-        after(7500, () => {
-          resetImg('sgImg4'); hideHL('sgKeyHL4'); hideCursor('sgCursor4');
-          if (img4) img4.style.objectPosition = 'left top';
-        });
-        after(LOOP, loop4);
-      }
-      after(300, loop4);
-
-    } else if (n === 7) {
+    } else if (n === 6) {
       // pan right to reveal ⋮ menu and แก้ไข option
-      const img = document.getElementById('sgImg7');
+      const img = document.getElementById('sgImg6');
       if (img) img.style.objectPosition = 'right top';
     }
   }
