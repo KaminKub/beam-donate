@@ -3728,7 +3728,12 @@ app.get('/api/page/:username/settings', async (req, res) => {
         discord: streamer.social_discord,
         instagram: streamer.social_instagram,
       },
-      badges: db.resolveBadgeDisplay(streamer)  // array key ที่ user เลือกโชว์เท่านั้น (ปิดหมด → [])
+      badges: db.resolveBadgeDisplay(streamer),  // array key ที่ user เลือกโชว์เท่านั้น (ปิดหมด → [])
+      // Default alert sound — ให้ donor ทดสอบฟัง "เสียงเริ่มต้น" ของ streamer ได้ (overlay เล่น client-side อยู่แล้ว ไม่ใช่ secret)
+      soundEnabled: Number(streamer.soundEnabled) !== 0,
+      soundChoice: streamer.soundChoice || 'none',
+      customSoundUrl: streamer.customSoundUrl || '',
+      soundVolume: streamer.soundVolume != null ? streamer.soundVolume : 0.5
     });
   } catch (err) {
     console.error('Get page settings error:', err);

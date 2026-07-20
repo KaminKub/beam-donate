@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260720_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260720_3">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1377,29 +1377,29 @@
                     <div class="card-body-panel" id="panelTierDonate">
                       <div class="switch-group">
                         <label class="switch"><input type="checkbox" id="chkTierDonateEnabled" name="tierDonateEnabled"><span class="slider-switch"></span></label>
-                        <span class="switch-label">เปิดระบบทุนนิยม</span>
+                        <span class="switch-label"><i class="fa-solid fa-crown" style="color:#fbbf24;"></i> เปิดระบบทุนนิยม</span>
                       </div>
                       <div class="widget-settings-body" data-body-for="tierDonate">
 
-                        <h5 class="section-divider">คลังสติ๊กเกอร์ Alert ประจำ Tier (สูงสุด 3 ไฟล์)</h5>
+                        <h5 class="section-divider"><i class="fa-solid fa-images" style="color:#8b5cf6;"></i> คลังสติ๊กเกอร์ Alert ประจำ Tier (สูงสุด 3 ไฟล์)</h5>
                         <div class="form-row">
                           <div class="form-group">
                             <button type="button" id="btnManageTierImageLibrary" class="btn btn-secondary">
-                              <i class="fa-solid fa-images"></i> จัดการคลังสติ๊กเกอร์แจ้งเตือน (<span id="lblTierImageLibraryCount">0</span>/3)
+                              <i class="fa-solid fa-images" style="color:#8b5cf6;"></i> จัดการคลังสติ๊กเกอร์แจ้งเตือน (<span id="lblTierImageLibraryCount">0</span>/3)
                             </button>
                           </div>
                         </div>
 
-                        <h5 class="section-divider">คลังเสียงแจ้งเตือน</h5>
+                        <h5 class="section-divider"><i class="fa-solid fa-music" style="color:#60a5fa;"></i> คลังเสียงแจ้งเตือน</h5>
                         <div class="form-row">
                           <div class="form-group">
                             <button type="button" id="btnManageSoundLibrary" class="btn btn-secondary">
-                              <i class="fa-solid fa-music"></i> จัดการคลังเสียงแจ้งเตือน (<span id="lblSoundLibraryCount">0</span>/5)
+                              <i class="fa-solid fa-music" style="color:#60a5fa;"></i> จัดการคลังเสียงแจ้งเตือน (<span id="lblSoundLibraryCount">0</span>/5)
                             </button>
                           </div>
                         </div>
 
-                        <h5 class="section-divider">ตั้งค่า Tier</h5>
+                        <h5 class="section-divider"><i class="fa-solid fa-ranking-star" style="color:#fbbf24;"></i> ตั้งค่า Tier</h5>
 
                         <div class="tier-row tier-row-1">
                           <div class="tier-row-header">
@@ -1408,14 +1408,14 @@
                           <div class="form-row">
                             <div class="form-group full-width">
                               <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                                <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName1" class="form-control" maxlength="20" placeholder="เช่น VIP ทอง (ไม่ใส่ = ใช้ 'Tier 1')" style="width:220px;"></span>
-                                <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount1" class="form-control" min="1" value="50" style="width:100px;"> บาท</span>
+                                <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-tag" style="color:#8b5cf6;"></i> ชื่อ Tier <input type="text" id="tierName1" class="form-control" maxlength="20" placeholder="เช่น VIP ทอง (ไม่ใส่ = ใช้ 'Tier 1')" style="width:220px;"></span>
+                                <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-baht-sign" style="color:#f59e0b;"></i> ยอดขั้นต่ำ <input type="number" id="tierMinAmount1" class="form-control" min="1" value="50" style="width:100px;"> บาท</span>
                               </div>
                               <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage1" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound1"><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload1"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord1"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage1" checked><span class="slider-switch"></span></label> <i class="fa-solid fa-image" style="color:#8b5cf6;"></i> ให้เลือกภาพ</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound1"><span class="slider-switch"></span></label> <i class="fa-solid fa-music" style="color:#60a5fa;"></i> ให้เลือกเสียงจากคลัง</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload1"><span class="slider-switch"></span></label> <i class="fa-solid fa-upload" style="color:#60a5fa;"></i> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord1"><span class="slider-switch"></span></label> <i class="fa-solid fa-microphone" style="color:#60a5fa;"></i> ให้อัดเสียงจากไมค์เอง</label>
                               </div>
                             </div>
                           </div>
@@ -1429,19 +1429,19 @@
                             <div class="form-row">
                               <div class="form-group full-width">
                                 <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                                  <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName2" class="form-control" maxlength="20" placeholder="เช่น VIP เพชร (ไม่ใส่ = ใช้ 'Tier 2')" style="width:220px;"></span>
-                                  <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount2" class="form-control" min="1" value="200" style="width:100px;"> บาท</span>
+                                  <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-tag" style="color:#8b5cf6;"></i> ชื่อ Tier <input type="text" id="tierName2" class="form-control" maxlength="20" placeholder="เช่น VIP เพชร (ไม่ใส่ = ใช้ 'Tier 2')" style="width:220px;"></span>
+                                  <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-baht-sign" style="color:#f59e0b;"></i> ยอดขั้นต่ำ <input type="number" id="tierMinAmount2" class="form-control" min="1" value="200" style="width:100px;"> บาท</span>
                                 </div>
                                 <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage2" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound2" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload2"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord2"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage2" checked><span class="slider-switch"></span></label> <i class="fa-solid fa-image" style="color:#8b5cf6;"></i> ให้เลือกภาพ</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound2" checked><span class="slider-switch"></span></label> <i class="fa-solid fa-music" style="color:#60a5fa;"></i> ให้เลือกเสียงจากคลัง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload2"><span class="slider-switch"></span></label> <i class="fa-solid fa-upload" style="color:#60a5fa;"></i> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord2"><span class="slider-switch"></span></label> <i class="fa-solid fa-microphone" style="color:#60a5fa;"></i> ให้อัดเสียงจากไมค์เอง</label>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive2"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label>
+                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive2"><span class="slider-switch"></span></label> <i class="fa-solid fa-toggle-on" style="color:#4ade80;"></i> เปิดใช้ Tier นี้</label>
                         </div>
 
                         <div class="tier-row tier-row-3">
@@ -1452,19 +1452,19 @@
                             <div class="form-row">
                               <div class="form-group full-width">
                                 <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-                                  <span style="display:flex;align-items:center;gap:6px;">ชื่อ Tier <input type="text" id="tierName3" class="form-control" maxlength="20" placeholder="เช่น VIP แพลทินัม (ไม่ใส่ = ใช้ 'Tier 3')" style="width:220px;"></span>
-                                  <span style="display:flex;align-items:center;gap:6px;">ยอดขั้นต่ำ <input type="number" id="tierMinAmount3" class="form-control" min="1" value="500" style="width:100px;"> บาท</span>
+                                  <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-tag" style="color:#8b5cf6;"></i> ชื่อ Tier <input type="text" id="tierName3" class="form-control" maxlength="20" placeholder="เช่น VIP แพลทินัม (ไม่ใส่ = ใช้ 'Tier 3')" style="width:220px;"></span>
+                                  <span style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-baht-sign" style="color:#f59e0b;"></i> ยอดขั้นต่ำ <input type="number" id="tierMinAmount3" class="form-control" min="1" value="500" style="width:100px;"> บาท</span>
                                 </div>
                                 <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage3" checked><span class="slider-switch"></span></label> ให้เลือกภาพ</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound3" checked><span class="slider-switch"></span></label> ให้เลือกเสียงจากคลัง</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload3"><span class="slider-switch"></span></label> ให้อัพโหลดไฟล์เสียงเอง</label>
-                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord3"><span class="slider-switch"></span></label> ให้อัดเสียงจากไมค์เอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowImage3" checked><span class="slider-switch"></span></label> <i class="fa-solid fa-image" style="color:#8b5cf6;"></i> ให้เลือกภาพ</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowSound3" checked><span class="slider-switch"></span></label> <i class="fa-solid fa-music" style="color:#60a5fa;"></i> ให้เลือกเสียงจากคลัง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnUpload3"><span class="slider-switch"></span></label> <i class="fa-solid fa-upload" style="color:#60a5fa;"></i> ให้อัพโหลดไฟล์เสียงเอง</label>
+                                  <label style="display:flex;align-items:center;gap:6px;"><label class="switch"><input type="checkbox" id="tierAllowOwnRecord3"><span class="slider-switch"></span></label> <i class="fa-solid fa-microphone" style="color:#60a5fa;"></i> ให้อัดเสียงจากไมค์เอง</label>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive3"><span class="slider-switch"></span></label> เปิดใช้ Tier นี้</label>
+                          <label class="tier-row-active-toggle"><label class="switch"><input type="checkbox" id="tierActive3"><span class="slider-switch"></span></label> <i class="fa-solid fa-toggle-on" style="color:#4ade80;"></i> เปิดใช้ Tier นี้</label>
                         </div>
 
                         <p id="tierOrderError" style="display:none;color:#ef4444;font-size:12px;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ยอดขั้นต่ำของแต่ละ Tier ต้องเรียงจากน้อยไปมาก</p>
@@ -3600,7 +3600,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260720_2"></script>
+  <script src="/dashboard/dashboard.js?v=20260720_3"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

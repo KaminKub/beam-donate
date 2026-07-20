@@ -530,7 +530,7 @@ function resetTierSelections() {
   if (status) status.textContent = '';
   closeTierSoundPicker();
   const soundLabel = document.getElementById('tierSoundSelectedLabel');
-  if (soundLabel) soundLabel.textContent = 'ไม่ใช้เสียงพิเศษ';
+  if (soundLabel) soundLabel.textContent = 'เสียงเริ่มต้น';
   const changeBtn = document.getElementById('btnChangeTierSound');
   if (changeBtn) changeBtn.style.display = 'none';
   hideTierRecordReview();
@@ -669,6 +669,8 @@ function updateSoundSourceUI(activeSource) {
 // §10.7 / §10.15 — tier sound picker modal
 let currentPreviewAudio = null;
 let currentPreviewUrl = null;
+let currentDefaultPreviewPlaying = false;
+let defaultPreviewAudioCtx = null;
 
 function openTierSoundPicker() {
   const modal = document.getElementById('tierSoundPickerModal');
@@ -712,6 +714,7 @@ function stopTierSoundPreview() {
     currentPreviewAudio = null;
     currentPreviewUrl = null;
   }
+  stopDefaultSoundPreview();
   updateTierSoundPlayIcons();
 }
 
@@ -720,9 +723,137 @@ function updateTierSoundPlayIcons() {
     const playBtn = item.querySelector('.sound-play-btn');
     if (!playBtn) return;
     const url = item.dataset.url;
-    const isPlaying = currentPreviewAudio && !currentPreviewAudio.paused && currentPreviewUrl === url;
+    const isPlaying = (currentPreviewAudio && !currentPreviewAudio.paused && currentPreviewUrl === url)
+                   || (url === '__default__' && currentDefaultPreviewPlaying);
     playBtn.innerHTML = `<i class="fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'}"></i>`;
   });
+}
+
+// "เสียงเริ่มต้น" = alert sound ที่ streamer ตั้งใน overlay (soundChoice + customSoundUrl + soundVolume)
+// ทดสอบฟังได้ทั้ง URL-based (custom_url/upload_sound/custom) และ synth preset (chime/retro/modern/bell)
+// ponytail: synth ทับซ้อน overlay.js ~130 บรรทัดโดยเจตนา — overlay คือ core feature + เคยมี bug เสียง (2026-07-20), ห้ามแตะ
+function getDefaultSoundInfo() {
+  const s = pageSettings || {};
+  if (!s.soundEnabled) return { type: 'none' };
+  const choice = s.soundChoice || 'none';
+  if (choice === 'none') return { type: 'none' };
+  if (choice === 'custom') return { type: 'url', url: '/assets/audio/my-sound.mp3' };
+  if (choice === 'custom_url' || choice === 'upload_sound') {
+    if (!s.customSoundUrl) return { type: 'none' };
+    return { type: 'url', url: s.customSoundUrl };
+  }
+  if (choice === 'chime' || choice === 'retro' || choice === 'modern' || choice === 'bell') {
+    return { type: 'synth', choice };
+  }
+  return { type: 'none' };
+}
+
+function stopDefaultSoundPreview() {
+  currentDefaultPreviewPlaying = false;
+  if (currentPreviewAudio) {
+    currentPreviewAudio.pause();
+    currentPreviewAudio.currentTime = 0;
+    currentPreviewAudio = null;
+  }
+  if (currentPreviewUrl === '__default__') currentPreviewUrl = null;
+}
+
+async function playDefaultSoundPreview() {
+  const info = getDefaultSoundInfo();
+  if (info.type === 'none') return;
+  stopTierSoundPreview();
+  currentDefaultPreviewPlaying = true;
+  currentPreviewUrl = '__default__';
+  updateTierSoundPlayIcons();
+  const volume = Number(pageSettings.soundVolume) || 0.5;
+  if (info.type === 'url') {
+    const audio = new Audio(info.url);
+    audio.volume = volume;
+    currentPreviewAudio = audio;
+    audio.onended = () => { stopDefaultSoundPreview(); updateTierSoundPlayIcons(); };
+    audio.onerror = () => { stopDefaultSoundPreview(); updateTierSoundPlayIcons(); };
+    await audio.play().catch(() => { stopDefaultSoundPreview(); updateTierSoundPlayIcons(); });
+    return;
+  }
+  try {
+    await synthAlertSound(info.choice, volume);
+  } finally {
+    stopDefaultSoundPreview();
+    updateTierSoundPlayIcons();
+  }
+}
+
+// synth preset replica — mirror overlay.js playNotificationSound() synth branches
+async function synthAlertSound(choice, volume) {
+  if (!defaultPreviewAudioCtx) {
+    defaultPreviewAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  const audioCtx = defaultPreviewAudioCtx;
+  const now = audioCtx.currentTime;
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(volume, now);
+  masterGain.connect(audioCtx.destination);
+
+  if (choice === 'chime') {
+    const notes = [
+      { freq: 587.33, start: 0, duration: 0.15 },
+      { freq: 880.00, start: 0.12, duration: 0.25 },
+      { freq: 1174.66, start: 0.28, duration: 0.35 }
+    ];
+    notes.forEach(note => {
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(note.freq, now + note.start);
+      gainNode.gain.setValueAtTime(0, now + note.start);
+      gainNode.gain.linearRampToValueAtTime(0.25, now + note.start + 0.03);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + note.start + note.duration);
+      osc.connect(gainNode); gainNode.connect(masterGain);
+      osc.start(now + note.start); osc.stop(now + note.start + note.duration + 0.05);
+    });
+    return new Promise(r => setTimeout(r, 700));
+  }
+  if (choice === 'retro') {
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(523.25, now);
+    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.25);
+    gainNode.gain.setValueAtTime(0.15, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc.connect(gainNode); gainNode.connect(masterGain);
+    osc.start(now); osc.stop(now + 0.3);
+    return new Promise(r => setTimeout(r, 400));
+  }
+  if (choice === 'modern') {
+    const oscTypes = ['sine', 'triangle'];
+    const freqs = [329.63, 392.00, 523.25, 659.25];
+    freqs.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = oscTypes[idx % oscTypes.length];
+      osc.frequency.setValueAtTime(freq, now);
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.08, now + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.6 + (idx * 0.1));
+      osc.connect(gainNode); gainNode.connect(masterGain);
+      osc.start(now); osc.stop(now + 1.0);
+    });
+    return new Promise(r => setTimeout(r, 1100));
+  }
+  if (choice === 'bell') {
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1567.98, now);
+    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.8);
+    gainNode.gain.setValueAtTime(0.3, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    osc.connect(gainNode); gainNode.connect(masterGain);
+    osc.start(now); osc.stop(now + 0.9);
+    return new Promise(r => setTimeout(r, 1000));
+  }
+  return Promise.resolve();
 }
 
 function renderTierSoundLibraryList() {
@@ -731,10 +862,21 @@ function renderTierSoundLibraryList() {
   list.innerHTML = '';
   const defaultItem = document.createElement('div');
   defaultItem.className = 'tier-sound-item' + (selectedTierSoundUrl ? '' : ' selected');
-  defaultItem.dataset.url = '';
-  defaultItem.dataset.label = 'ไม่ใช้เสียงพิเศษ';
-  defaultItem.innerHTML = `<span class="sound-label"><i class="fa-solid fa-ban" style="margin-right:6px;"></i>ไม่ใช้เสียงพิเศษ</span>`;
-  defaultItem.onclick = () => selectTierSound(null, 'ไม่ใช้เสียงพิเศษ', 'library');
+  defaultItem.dataset.url = '__default__';
+  defaultItem.dataset.label = 'เสียงเริ่มต้น';
+  const hasDefault = getDefaultSoundInfo().type !== 'none';
+  const playBtn = hasDefault
+    ? `<span class="sound-actions"><button type="button" class="sound-play-btn" aria-label="ฟังตัวอย่าง"><i class="fa-solid fa-play"></i></button></span>`
+    : '';
+  defaultItem.innerHTML = `<span class="sound-label"><i class="fa-solid fa-volume-high" style="margin-right:6px;"></i>เสียงเริ่มต้น</span>${playBtn}`;
+  defaultItem.onclick = (e) => {
+    if (hasDefault && e.target.closest('.sound-play-btn')) {
+      if (currentDefaultPreviewPlaying) { stopDefaultSoundPreview(); updateTierSoundPlayIcons(); }
+      else playDefaultSoundPreview();
+    } else {
+      selectTierSound(null, 'เสียงเริ่มต้น', 'library');
+    }
+  };
   list.appendChild(defaultItem);
 
   const library = Array.isArray(tierSettings?.sound_library) ? tierSettings.sound_library : [];
@@ -826,7 +968,7 @@ async function searchTierSoundCatalog(query) {
 function selectTierSound(url, label, source) {
   selectedTierSoundUrl = url || null;
   selectedTierSoundIsTemp = false;
-  selectedTierSoundLabel = label || 'ไม่ใช้เสียงพิเศษ';
+  selectedTierSoundLabel = label || 'เสียงเริ่มต้น';
   currentSoundSource = url ? source : null;
   updateSoundSourceUI(currentSoundSource);
   const labelEl = document.getElementById('tierSoundSelectedLabel');
@@ -845,7 +987,7 @@ document.getElementById('btnChangeTierSound')?.addEventListener('click', () => {
   currentSoundSource = null;
   updateSoundSourceUI(null);
   const labelEl = document.getElementById('tierSoundSelectedLabel');
-  if (labelEl) labelEl.textContent = 'ไม่ใช้เสียงพิเศษ';
+  if (labelEl) labelEl.textContent = 'เสียงเริ่มต้น';
 });
 document.querySelectorAll('.tier-sound-picker-tab').forEach(btn => {
   btn.addEventListener('click', () => {
