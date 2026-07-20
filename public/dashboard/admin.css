@@ -4772,3 +4772,15 @@ label {
   margin-top: 8px;
   min-height: 34px;
 }
+
+.payment-method-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+}

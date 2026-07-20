@@ -3884,7 +3884,8 @@ function computeTierAssignment(streamer, amount, body) {
   if (!unlocked) return result;
   result.tier_level = unlocked.level;
 
-  const { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = body || {};
+  const { tierImageUrl, tierSoundUrl, tierSoundMode } = body || {};
+  const tierSoundIsTemp = body?.tierSoundIsTemp === true || body?.tierSoundIsTemp === 'true' || body?.tierSoundIsTemp === 1 || body?.tierSoundIsTemp === '1';
   if (tierImageUrl && unlocked.allow_image_choice) {
     const images = Array.isArray(tierSettings.alert_images) ? tierSettings.alert_images : [];
     if (images.some(img => img.url === tierImageUrl)) result.tier_image_url = tierImageUrl;
@@ -5300,7 +5301,7 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
 
-    const { username, amount, name, message, timerAction, method } = req.body;
+    const { username, amount, name, message, timerAction, method, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'Missing username or amount' });
     if (amount < 1) return res.status(400).json({ error: 'Amount must be at least 1' });
     if (!['P2P', 'PROMPTPAY_IN'].includes(method)) {
@@ -5344,6 +5345,8 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
       qrData = generatePromptPayPayload(promptpayId, displayAmount);
     }
 
+    const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
+
     await db.saveTransaction({
       id: refId,
       amount: displayAmount,
@@ -5353,7 +5356,8 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
       streamer_username: username,
       payment_method: 'truemoney_webhook',
       createdAt,
-      timer_action: sanitizeTimerAction(timerAction)
+      timer_action: sanitizeTimerAction(timerAction),
+      ...tierAssignment
     });
     db.logIpEvent('donate_submit', req.ip, username, { amount: displayAmount, method, ref: refId }).catch(() => {});
 
@@ -5410,7 +5414,7 @@ const pollSlipLimiter = rateLimit({
 app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction } = req.body;
+    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
     const donorTimerAction = sanitizeTimerAction(timerAction);
     const slipFile = req.file;
 
@@ -5475,6 +5479,7 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
     let effectiveReferenceId = referenceId;
     if (!effectiveReferenceId && (isTruemoney || method === 'bank')) {
       effectiveReferenceId = `${method}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const tierAssignment = computeTierAssignment(streamer, parseFloat(amount) || 0, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
       await db.saveTransaction({
         id: effectiveReferenceId,
         amount: parseFloat(amount) || 0,
@@ -5484,7 +5489,8 @@ app.post('/api/verify-slip', uploadSlipLimiter, upload.single('slip'), async (re
         streamer_username: username,
         payment_method: method,
         createdAt: new Date().toISOString(),
-        timer_action: donorTimerAction
+        timer_action: donorTimerAction,
+        ...tierAssignment
       });
       pendingTx = await db.getTransactionById(effectiveReferenceId);
     }

@@ -2266,6 +2266,10 @@ async function doVerifyTrueMoney() {
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
     formData.append('timerAction', getTimerActionForSubmit() || '');
+    formData.append('tierImageUrl', selectedTierImageUrl || '');
+    formData.append('tierSoundUrl', selectedTierSoundUrl || '');
+    formData.append('tierSoundIsTemp', selectedTierSoundIsTemp ? 'true' : 'false');
+    formData.append('tierSoundMode', selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : '');
     if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     const response = await fetch('/api/verify-slip', {
@@ -2486,6 +2490,10 @@ async function doVerifyBank() {
     formData.append('name', donorNameInput?.value?.trim() || '');
     formData.append('message', donorMessageInput?.value?.trim() || '');
     formData.append('timerAction', getTimerActionForSubmit() || '');
+    formData.append('tierImageUrl', selectedTierImageUrl || '');
+    formData.append('tierSoundUrl', selectedTierSoundUrl || '');
+    formData.append('tierSoundIsTemp', selectedTierSoundIsTemp ? 'true' : 'false');
+    formData.append('tierSoundMode', selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : '');
     if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     bankPaymentStatus.style.display = 'flex';
@@ -2739,7 +2747,11 @@ async function createTrueMoneyQR() {
         name: donorNameInput.value,
         message: donorMessageInput.value,
         timerAction: getTimerActionForSubmit(),
-        method: trueMoneyQrMethod
+        method: trueMoneyQrMethod,
+        tierImageUrl: selectedTierImageUrl || null,
+        tierSoundUrl: selectedTierSoundUrl || null,
+        tierSoundIsTemp: selectedTierSoundIsTemp || false,
+        tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null
       })
     });
 
