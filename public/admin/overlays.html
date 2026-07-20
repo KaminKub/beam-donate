@@ -147,7 +147,6 @@ function renderTable(data) {
       <td>${formatLastSeen(row.lastSeenSec)}</td>
       <td class="link-cell">
         <a href="/${escapeHtml(row.username)}" target="_blank" class="tbl-link"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
-        <a href="/${escapeHtml(row.username)}/dashboard" target="_blank" class="tbl-link"><i class="fa-solid fa-gauge"></i> Dashboard</a>
       </td>
     </tr>`;
   }).join('');

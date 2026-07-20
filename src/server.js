@@ -2217,7 +2217,9 @@ app.get('/api/admin/users', adminMonitorLimiter, ensureAdmin, async (req, res) =
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const q = (req.query.q || '').trim().toLowerCase();
     const filter = req.query.filter || 'all';
-    const users = await db.getAdminUsers({ page, q, filter });
+    const sort = (req.query.sort || 'registered').trim().toLowerCase();
+    const order = (req.query.order || 'desc').trim().toLowerCase();
+    const users = await db.getAdminUsers({ page, q, filter, sort, order });
     users.users = users.users.map(u => ({
       ...u,
       hasBetaBadge: !!db.parseBadges(u.badges).beta_tester

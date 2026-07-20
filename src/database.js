@@ -2264,7 +2264,16 @@ async function getAdminTxStats() {
   return { total: total.rows[0].n, today: todayCount.rows[0].n, week: weekCount.rows[0].n };
 }
 
-async function getAdminUsers({ page = 1, q = '', filter = 'all' } = {}) {
+// ponytail: whitelist sort keys — SQL-concat, args-only for WHERE; sort is from fixed map
+const ADMIN_USER_SORT_MAP = {
+  registered: 'tos_accepted_at',
+  username: 'username',
+  status: 'is_active',
+  auth: '(CASE WHEN twitch_id IS NOT NULL AND twitch_id != \'\' THEN 1 ELSE 0 END + CASE WHEN streamlabs_id IS NOT NULL AND streamlabs_id != \'\' THEN 1 ELSE 0 END)',
+  payment: '(promptpay_enabled + truemoney_enabled + tfp_connected + bank_enabled)',
+  badge: "(CASE WHEN badges LIKE '%beta_tester%' THEN 1 ELSE 0 END)",
+};
+async function getAdminUsers({ page = 1, q = '', filter = 'all', sort = 'registered', order = 'desc' } = {}) {
   await ensureConnected();
   if (isFallback || !db) return { users: [], total: 0, page, pageSize: 25 };
   const PAGE_SIZE = 25;
@@ -2275,13 +2284,17 @@ async function getAdminUsers({ page = 1, q = '', filter = 'all' } = {}) {
   if (filter === 'active')   { where.push('is_active = 1'); }
   if (filter === 'inactive') { where.push('is_active = 0'); }
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const sortExpr = ADMIN_USER_SORT_MAP[sort] || ADMIN_USER_SORT_MAP.registered;
+  const dir = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  // ponytail: push NULL registered dates to bottom regardless of dir — unknown date = neither oldest nor newest
+  const nullGuard = sort === 'registered' ? `CASE WHEN tos_accepted_at IS NULL THEN 1 ELSE 0 END ASC, ` : '';
   const [rows, countRow] = await Promise.all([
     db.execute(
       `SELECT username, is_active, primary_auth_provider,
               (twitch_id IS NOT NULL AND twitch_id != '') AS has_twitch,
               (streamlabs_id IS NOT NULL AND streamlabs_id != '') AS has_streamlabs,
-              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected, badges
-       FROM streamers ${whereClause} ORDER BY username ASC LIMIT ? OFFSET ?`,
+              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected, bank_enabled, badges
+       FROM streamers ${whereClause} ORDER BY ${nullGuard}${sortExpr} ${dir}, username ASC LIMIT ? OFFSET ?`,
       [...args, PAGE_SIZE, offset]
     ),
     db.execute(`SELECT COUNT(*) as n FROM streamers ${whereClause}`, args),

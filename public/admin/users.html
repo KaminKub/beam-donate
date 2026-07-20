@@ -38,7 +38,7 @@
     .search-box input:focus { border-color: rgba(102,126,234,0.5); }
     .search-box i { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem; }
     select.filter-select {
-      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      background: rgb(255 255 255 / 13%); border: 1px solid rgba(255,255,255,0.12);
       border-radius: 8px; padding: 0.45rem 0.75rem; color: #e2e8f0; font-size: 0.875rem; outline: none;
     }
     .btn-refresh {
@@ -119,13 +119,25 @@
       <option value="active">Active</option>
       <option value="inactive">Banned</option>
     </select>
+    <select class="filter-select" id="sortSelect" title="เรียงลำดับตามคอลัมน์">
+      <option value="registered">วันที่ลงทะเบียน</option>
+      <option value="username">Username</option>
+      <option value="status">Status</option>
+      <option value="auth">Auth</option>
+      <option value="payment">Payment</option>
+      <option value="badge">TestKub</option>
+    </select>
+    <select class="filter-select" id="orderSelect" title="ทิศทางเรียงลำดับ">
+      <option value="desc">ล่าสุด → เก่าสุด</option>
+      <option value="asc">เก่าสุด → ล่าสุด</option>
+    </select>
     <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
   </div>
   <div class="table-wrap">
     <table class="user-table">
-      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>TestKub</th><th>LINKS</th></tr></thead>
+      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>REGISTERED</th><th>TestKub</th><th>LINKS</th></tr></thead>
       <tbody id="tbody">
-        <tr><td colspan="6" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+        <tr><td colspan="7" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
       </tbody>
     </table>
   </div>
@@ -167,14 +179,22 @@ function paymentLabel(row) {
   if (row.promptpay_enabled) methods.push('PromptPay');
   if (row.truemoney_enabled) methods.push('TrueMoney');
   if (row.tfp_connected) methods.push('TFP');
+  if (row.bank_enabled) methods.push('Bank');
   return methods.length ? methods.join(', ') : '—';
+}
+
+function formatDate(iso) {
+  if (!iso) return '<span style="color:#64748b;">—</span>';
+  const d = new Date(iso);
+  if (isNaN(d)) return '<span style="color:#64748b;">—</span>';
+  return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function renderTable(data) {
   document.getElementById('totalCount').textContent = data.total;
   const tbody = document.getElementById('tbody');
   if (!data.users.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
   } else {
     tbody.innerHTML = data.users.map(u => `
       <tr>
@@ -185,6 +205,7 @@ function renderTable(data) {
         </span></td>
         <td>${providerLogos(u)}</td>
         <td><span class="badge-payment">${escapeHtml(paymentLabel(u))}</span></td>
+        <td>${formatDate(u.tos_accepted_at)}</td>
         <td><button class="badge-toggle-btn ${u.hasBetaBadge ? 'active' : ''}" data-username="${escapeHtml(u.username)}" data-active="${u.hasBetaBadge ? '1' : '0'}"><i class="fa-solid fa-flask"></i> TestKub</button></td>
         <td class="link-cell">
           <a href="/${escapeHtml(u.username)}" target="_blank" class="tbl-link"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
@@ -248,7 +269,9 @@ async function fetchUsers() {
   setLoadingState(true);
   const q = document.getElementById('searchInput').value.trim();
   const filter = document.getElementById('filterSelect').value;
-  const url = `/api/admin/users?page=${currentPage}&q=${encodeURIComponent(q)}&filter=${filter}`;
+  const sort = document.getElementById('sortSelect').value;
+  const order = document.getElementById('orderSelect').value;
+  const url = `/api/admin/users?page=${currentPage}&q=${encodeURIComponent(q)}&filter=${filter}&sort=${sort}&order=${order}`;
   try {
     const res = await fetch(url, { credentials: 'include' });
     if (res.status === 401 || res.status === 403) {
@@ -258,7 +281,7 @@ async function fetchUsers() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     renderTable(await res.json());
   } catch (err) {
-    document.getElementById('tbody').innerHTML = '<tr><td colspan="6" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
     console.error('[Users] fetch error:', err);
   } finally {
     setLoadingState(false);
@@ -272,6 +295,8 @@ document.getElementById('searchInput').addEventListener('input', () => {
   searchTimer = setTimeout(() => { currentPage = 1; fetchUsers(); }, 400);
 });
 document.getElementById('filterSelect').addEventListener('change', () => { currentPage = 1; fetchUsers(); });
+document.getElementById('sortSelect').addEventListener('change', () => { currentPage = 1; fetchUsers(); });
+document.getElementById('orderSelect').addEventListener('change', () => { currentPage = 1; fetchUsers(); });
 document.getElementById('btnRefresh').addEventListener('click', fetchUsers);
 
 fetchUsers();
