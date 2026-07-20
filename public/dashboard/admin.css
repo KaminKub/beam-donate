@@ -1557,12 +1557,18 @@ label {
   gap: 16px;
   margin-bottom: 40px;
   position: sticky;
-  bottom: 20px;
+  bottom: 0;
   z-index: 10;
+  padding: 12px 0 14px;
+  background: linear-gradient(to top, var(--bg-main) 60%, rgba(0,0,0,0));
+  background-attachment: local;
 }
 
 .settings-actions button {
   flex: 1;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.35);
 }
 
 /* ========== Live Preview Iframe Block ========== */
@@ -2219,7 +2225,7 @@ label {
     padding: 10px 0;
     margin-bottom: 0;
   }
-  
+
   /* Payment Methods Mobile */
   .payment-method-card .card-icon {
     width: 100px;
@@ -3837,6 +3843,11 @@ label {
 @media (prefers-reduced-motion: reduce) {
   .widget-shortcut-toggle .subtab-btn.shortcut-intro,
   .widget-shortcut-toggle .subtab-btn.shortcut-intro::before { animation: none; }
+}
+@media (max-width: 768px) {
+  .widget-shortcut-toggle .subtab-btn {
+    flex: 1 1 100%;
+  }
 }
 
 /* ========== Goal Quick-Add Buttons ========== */
