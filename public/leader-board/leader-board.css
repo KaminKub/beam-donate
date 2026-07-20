@@ -40,7 +40,7 @@ body {
   gap: clamp(10px, 1vw, 16px);
   padding: clamp(8px, 1vw, 14px) clamp(12px, 1.4vw, 20px);
   border-radius: 10px;
-  background: var(--lb-row-bg, rgba(255, 255, 255, 0.06));
+  background: rgba(8, 8, 8, 0.021);
   border: 1px solid var(--lb-row-border-color, rgba(255, 255, 255, 0.08));
 }
 

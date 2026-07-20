@@ -506,10 +506,12 @@ async function resolveLeaderboardEntries(username, limit = 5) {
   const s = await db.getSettings(username, defaultSettings);
   let lb = {};
   try { lb = JSON.parse(s.leaderboard_settings || '{}'); } catch {}
+  const me = parseInt(lb.max_entries, 10);
+  const effectiveLimit = (Number.isInteger(me) && me >= 1 && me <= 10) ? me : limit;
   const mode = lb.period_mode || 'all';
-  if (mode === 'all') return db.getLeaderboardAlltime(username, limit);
+  if (mode === 'all') return db.getLeaderboardAlltime(username, effectiveLimit);
   const periodDays = resolvePeriodDays(lb);
-  return db.getLeaderboard(username, limit, periodDays);
+  return db.getLeaderboard(username, effectiveLimit, periodDays);
 }
 
 // [Requirement #8] Recent Donate mirrors Leader Board's period_mode filter — no all-time aggregate needed, 'all' = no date filter
@@ -517,8 +519,10 @@ async function resolveRecentDonateEntries(username, limit = 5) {
   const s = await db.getSettings(username, defaultSettings);
   let rd = {};
   try { rd = JSON.parse(s.recentdonate_settings || '{}'); } catch {}
+  const me = parseInt(rd.max_entries, 10);
+  const effectiveLimit = (Number.isInteger(me) && me >= 1 && me <= 10) ? me : limit;
   const periodDays = resolvePeriodDays(rd);
-  return db.getRecentDonations(username, limit, periodDays);
+  return db.getRecentDonations(username, effectiveLimit, periodDays);
 }
 
 // broadcastLeaderboardUpdate() → real leader-board clients only (mirrors broadcastGoalUpdate's demo exclusion)
@@ -3100,11 +3104,11 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           return res.status(400).json({ error: `${key} ไม่ถูกต้อง` });
         }
-        // max_entries: 1-5
+        // max_entries: 1-10
         if (parsed.max_entries !== undefined) {
           const n = parseInt(parsed.max_entries, 10);
-          if (!Number.isInteger(n) || n < 1 || n > 5) {
-            return res.status(400).json({ error: `${key}.max_entries ต้องอยู่ระหว่าง 1-5` });
+          if (!Number.isInteger(n) || n < 1 || n > 10) {
+            return res.status(400).json({ error: `${key}.max_entries ต้องอยู่ระหว่าง 1-10` });
           }
         }
         // title: max 40 chars
@@ -3355,7 +3359,7 @@ app.post('/api/widget/recentdonate/test', ensureAuthenticated, csrfProtection, a
   const username = await getActualUsername(req.user);
   const clients = sseClients.filter(c => c.username === username && c.source === 'recent-donate');
   if (clients.length) {
-    const rest = await db.getRecentDonations(username, 4);
+    const rest = await resolveRecentDonateEntries(username, 4);
     const entries = [{ donor: String(donor).slice(0, 60), amount: Number(amount) || 0, message: 'ทดสอบระบบ', paidAt: new Date().toISOString(), payment_method: 'test' }, ...rest]
       .map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method }));
     const payload = JSON.stringify({ type: 'recentdonate_update', entries });

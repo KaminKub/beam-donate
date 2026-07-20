@@ -133,7 +133,7 @@
   }
 
   function render(entries) {
-    const max = Math.min(Math.max(parseInt(cfg.max_entries, 10) || 5, 1), 5);
+    const max = Math.min(Math.max(parseInt(cfg.max_entries, 10) || 5, 1), 10);
     const rows = (entries || []).slice(0, max);
     const tplLeft = cfg.row_template_left || '#{อันดับ}  {ผู้โดเนท} ';
     const tplRight = cfg.row_template_right || '{จำนวนเงิน} {สกุลเงิน}';
