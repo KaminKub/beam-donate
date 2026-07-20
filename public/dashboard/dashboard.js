@@ -433,14 +433,10 @@ async function initializeDashboard() {
         const message = msgs[Math.floor(Math.random() * msgs.length)];
         const amount  = amounts[Math.floor(Math.random() * amounts.length)];
         try {
-          const tierLevel = getTestAlertTierLevel();
           const res = await fetch('/api/demo/alerts/test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              donor, amount, message,
-              ...(tierLevel ? { tierLevel } : {})
-            })
+            body: JSON.stringify({ donor, amount, message })
           });
           if (res.ok) showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
           else if (res.status === 429) showNotification('ส่ง Alert บ่อยเกินไป กรุณารอสักครู่', 'error');
@@ -454,11 +450,6 @@ async function initializeDashboard() {
         btn.style.cursor = '';
         btn.onclick = demoAlertHandler;
       });
-
-      const tierSelectDesktop = document.getElementById('testAlertTierLevel');
-      const tierSelectMobile = document.getElementById('testAlertTierLevelMobile');
-      if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
-      if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
 
       // Overlay subtab buttons (Alert vs Goal vs Timer)
       const demoSubtabAlert = document.getElementById('btnSubtabAlert');
@@ -799,11 +790,6 @@ async function initializeDashboard() {
 
     const btnQuickAlertMobile = document.getElementById('btnQuickTestAlertMobile');
     if (btnQuickAlertMobile) btnQuickAlertMobile.onclick = triggerRandomTestAlert;
-
-    const tierSelectDesktop = document.getElementById('testAlertTierLevel');
-    const tierSelectMobile = document.getElementById('testAlertTierLevelMobile');
-    if (tierSelectDesktop) tierSelectDesktop.addEventListener('change', () => syncTestAlertTierLevel(tierSelectDesktop.value));
-    if (tierSelectMobile) tierSelectMobile.addEventListener('change', () => syncTestAlertTierLevel(tierSelectMobile.value));
 
     const btnReloadPreview = document.getElementById('btnReloadPreview');
     if (btnReloadPreview) {
@@ -4172,15 +4158,13 @@ async function simulateTransactionAlert(id) {
     const tx = allTransactions.find(t => t.id === id);
     if (!tx) throw new Error('ไม่พบข้อมูลธุรกรรม');
     
-    const tierLevel = getTestAlertTierLevel();
     const response = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         donor: tx.donor,
         amount: tx.amount,
-        message: tx.message,
-        ...(tierLevel ? { tierLevel } : {})
+        message: tx.message
       })
     });
     
@@ -4282,29 +4266,12 @@ async function triggerRandomTestAlert() {
   simulateCustomAlert(donor, amount, message);
 }
 
-function getTestAlertTierLevel() {
-  const desktop = document.getElementById('testAlertTierLevel');
-  const mobile = document.getElementById('testAlertTierLevelMobile');
-  return (desktop?.value || mobile?.value || '');
-}
-
-function syncTestAlertTierLevel(value) {
-  const desktop = document.getElementById('testAlertTierLevel');
-  const mobile = document.getElementById('testAlertTierLevelMobile');
-  if (desktop) desktop.value = value;
-  if (mobile) mobile.value = value;
-}
-
 async function simulateCustomAlert(donor, amount, message) {
   try {
-    const tierLevel = getTestAlertTierLevel();
     const res = await fetchWithCsrf('/api/alerts/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        donor, amount, message,
-        ...(tierLevel ? { tierLevel } : {})
-      })
+      body: JSON.stringify({ donor, amount, message })
     });
     if (res.ok) {
       showNotification('ส่ง Alert ทดสอบแล้ว!', 'success');
