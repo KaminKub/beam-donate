@@ -611,6 +611,8 @@ function renderTierSection(unlocked) {
   const recordPane = document.getElementById('tierRecordPane');
   const hasUpload = unlocked.allow_own_upload === true;
   const hasRecord = unlocked.allow_own_record === true && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  const ownLabelText = document.getElementById('tierOwnAudioLabelText');
+  if (ownLabelText) ownLabelText.textContent = hasRecord ? 'อัพโหลด/อัดเสียงของคุณเอง' : 'อัพโหลดเสียง';
   if (hasUpload || hasRecord) {
     ownBlock.classList.add('tier-block-open');
     if (uploadSubtab) uploadSubtab.style.display = hasUpload ? '' : 'none';
@@ -950,6 +952,19 @@ function showTierRecordReview(blob) {
     tierRecordPreviewUrl = URL.createObjectURL(blob);
     preview.src = tierRecordPreviewUrl;
     preview.load();
+    // Chrome bug: live-recorded webm blob has no duration box → duration reports
+    // Infinity/NaN and controls UI shows stuck 0:00. Force a seek so the browser
+    // computes the real duration, then reset playhead to 0.
+    preview.addEventListener('loadedmetadata', function fixDuration() {
+      preview.removeEventListener('loadedmetadata', fixDuration);
+      if (preview.duration === Infinity || isNaN(preview.duration)) {
+        preview.currentTime = 1e101;
+        preview.addEventListener('timeupdate', function resetTime() {
+          preview.removeEventListener('timeupdate', resetTime);
+          preview.currentTime = 0;
+        });
+      }
+    });
   }
 }
 
