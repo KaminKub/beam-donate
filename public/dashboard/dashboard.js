@@ -1180,9 +1180,23 @@ async function initializeDashboard() {
     // Goal bar width range slider sync
     const rangeEl = document.getElementById('inputGoalBarWidth');
     const txtEl = document.getElementById('txtGoalBarWidth');
+    const autoWidthEl = document.getElementById('chkGoalBarWidthAuto');
     if (rangeEl && txtEl) {
       rangeEl.addEventListener('input', () => {
+        if (autoWidthEl && autoWidthEl.checked) return;
         txtEl.textContent = rangeEl.value + 'px';
+      });
+    }
+    if (rangeEl && txtEl && autoWidthEl) {
+      autoWidthEl.addEventListener('change', () => {
+        rangeEl.disabled = autoWidthEl.checked;
+        if (autoWidthEl.checked) {
+          txtEl.textContent = 'Auto';
+          txtEl.style.opacity = '0.6';
+        } else {
+          txtEl.textContent = rangeEl.value + 'px';
+          txtEl.style.opacity = '';
+        }
       });
     }
 
@@ -1282,6 +1296,7 @@ async function initializeDashboard() {
           goal_end_date: endDateVal,
           goal_bar_width: document.getElementById('inputGoalBarWidth').value || '600',
           goal_bar_thickness: document.getElementById('inputGoalBarThickness').value || '45',
+          goal_bar_width_auto: document.getElementById('chkGoalBarWidthAuto').checked ? 1 : 0,
           goal_text_settings: JSON.stringify({
             color_label: document.getElementById('inputGoalTextColorLabel')?.value || '#ffffff',
             color_bar:   document.getElementById('inputGoalTextColorBar')?.value   || '#ffffff',
@@ -1723,11 +1738,14 @@ function loadDemoGoalSettingsFromData(data) {
   if (colorEl) colorEl.value = data.goal_bar_color || '#4ade80';
   const txtColor = document.getElementById('txtGoalBarColor');
   if (txtColor) txtColor.value = data.goal_bar_color || '#4ade80';
+  const gAutoW = data.goal_bar_width_auto == 1 || data.goal_bar_width_auto === true;
   const widthEl = document.getElementById('inputGoalBarWidth');
   if (widthEl) {
     widthEl.value = normalizeGoalBarWidth(data.goal_bar_width);
     widthEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
+  const gAutoChk = document.getElementById('chkGoalBarWidthAuto');
+  if (gAutoChk) { gAutoChk.checked = gAutoW; gAutoChk.dispatchEvent(new Event('change', { bubbles: true })); }
   const thicknessEl = document.getElementById('inputGoalBarThickness');
   if (thicknessEl) {
     thicknessEl.value = normalizeGoalBarThickness(data.goal_bar_thickness);

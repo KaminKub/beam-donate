@@ -230,6 +230,7 @@ async function migrateDB() {
         goal_bar_layout TEXT DEFAULT 'horizontal',
         goal_bar_thickness TEXT DEFAULT '45',
         goal_pointer_enabled INTEGER DEFAULT 0,
+        goal_bar_width_auto INTEGER DEFAULT 0,
         goal_pointer_side TEXT DEFAULT 'right',
         goal_pointer_content TEXT DEFAULT 'both',
         tos_accepted_at TEXT DEFAULT NULL,
@@ -465,6 +466,7 @@ async function migrateDB() {
       { name: 'goal_bar_layout', type: "TEXT DEFAULT 'horizontal'" },
       { name: 'goal_bar_thickness', type: "TEXT DEFAULT '45'" },
       { name: 'goal_pointer_enabled', type: 'INTEGER DEFAULT 0' },
+      { name: 'goal_bar_width_auto', type: 'INTEGER DEFAULT 0' },
       { name: 'goal_pointer_side', type: "TEXT DEFAULT 'right'" },
       { name: 'goal_pointer_content', type: "TEXT DEFAULT 'both'" },
       { name: 'tos_accepted_at', type: 'TEXT DEFAULT NULL' },
@@ -1194,6 +1196,7 @@ async function saveStreamer(data) {
                goal_bar_width = COALESCE(?, streamers.goal_bar_width),
                goal_bar_layout = COALESCE(?, streamers.goal_bar_layout),
                goal_bar_thickness = COALESCE(?, streamers.goal_bar_thickness),
+               goal_bar_width_auto = COALESCE(?, streamers.goal_bar_width_auto),
                goal_pointer_enabled = COALESCE(?, streamers.goal_pointer_enabled),
                goal_pointer_side = COALESCE(?, streamers.goal_pointer_side),
                goal_pointer_content = COALESCE(?, streamers.goal_pointer_content),
@@ -1328,6 +1331,7 @@ async function saveStreamer(data) {
           finalData.goal_bar_width !== undefined ? finalData.goal_bar_width : null,
           finalData.goal_bar_layout !== undefined ? finalData.goal_bar_layout : null,
           finalData.goal_bar_thickness !== undefined ? finalData.goal_bar_thickness : null,
+          finalData.goal_bar_width_auto !== undefined ? (finalData.goal_bar_width_auto ? 1 : 0) : null,
           finalData.goal_pointer_enabled !== undefined ? (finalData.goal_pointer_enabled ? 1 : 0) : null,
           finalData.goal_pointer_side !== undefined ? finalData.goal_pointer_side : null,
           finalData.goal_pointer_content !== undefined ? finalData.goal_pointer_content : null,
@@ -1368,8 +1372,8 @@ async function saveStreamer(data) {
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1504,7 +1508,8 @@ async function saveStreamer(data) {
         finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
         finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
         finalData.tier_donate_settings !== undefined ? finalData.tier_donate_settings : null,
-        finalData.sound_library !== undefined ? finalData.sound_library : null
+        finalData.sound_library !== undefined ? finalData.sound_library : null,
+        finalData.goal_bar_width_auto !== undefined ? (finalData.goal_bar_width_auto ? 1 : 0) : 0
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;

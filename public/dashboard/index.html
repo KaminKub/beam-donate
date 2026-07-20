@@ -1595,6 +1595,32 @@
                             </select>
                           </div>
                         </div>
+                        <div class="form-row goal-width-row">
+                          <div class="form-group">
+                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i>
+                              <span id="lblGoalBarWidth">ความยาวหลอดสูงสุด (px)</span>
+                            </label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
+                              <span class="width-value" id="txtGoalBarWidth">600px</span>
+                            </div>
+                            <div class="switch-group" style="margin-top:8px;">
+                              <label class="switch">
+                                <input type="checkbox" id="chkGoalBarWidthAuto">
+                                <span class="slider-switch"></span>
+                              </label>
+                              <span class="switch-label"><i class="fa-solid fa-expand" style="color:#22c55e;"></i> ขยายตามหน้าจออัตโนมัติ</span>
+                            </div>
+                            <small class="form-hint">เปิด Auto จะใช้ 92% ของความกว้างหน้าจอ (สูงสุด 1600px)</small>
+                          </div>
+                          <div class="form-group">
+                            <label for="inputGoalBarThickness"><i class="fa-solid fa-ruler" style="color:#3b82f6;"></i> ความหนาของหลอด (px)</label>
+                            <div class="width-input-wrapper">
+                              <input type="range" id="inputGoalBarThickness" min="20" max="140" step="5" value="45">
+                              <span class="width-value" id="txtGoalBarThickness">45px</span>
+                            </div>
+                          </div>
+                        </div>
                         <div class="form-row">
                           <div class="form-group full-width pointer-panel" id="goalPointerPanel">
                             <div class="pointer-header">
@@ -1707,24 +1733,6 @@
                             <div class="color-input-wrapper">
                               <input type="color" id="inputGoalBarColor" value="#4ade80">
                               <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
-                            </div>
-                          </div>
-                        </div>
-                        <div class="form-row goal-width-row">
-                          <div class="form-group">
-                            <label for="inputGoalBarWidth"><i class="fa-solid fa-arrows-left-right" style="color:#3b82f6;"></i>
-                              <span id="lblGoalBarWidth">ความยาวหลอดสูงสุด (px)</span>
-                            </label>
-                            <div class="width-input-wrapper">
-                              <input type="range" id="inputGoalBarWidth" min="300" max="1080" step="10" value="600">
-                              <span class="width-value" id="txtGoalBarWidth">600px</span>
-                            </div>
-                          </div>
-                          <div class="form-group">
-                            <label for="inputGoalBarThickness"><i class="fa-solid fa-ruler" style="color:#3b82f6;"></i> ความหนาของหลอด (px)</label>
-                            <div class="width-input-wrapper">
-                              <input type="range" id="inputGoalBarThickness" min="20" max="140" step="5" value="45">
-                              <span class="width-value" id="txtGoalBarThickness">45px</span>
                             </div>
                           </div>
                         </div>
@@ -3610,7 +3618,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260720_3"></script>
+  <script src="/dashboard/dashboard.js?v=20260720_4"></script>
   <script src="/dashboard/slipok-guide.js"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

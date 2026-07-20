@@ -199,6 +199,7 @@ const defaultSettings = {
   goal_bar_width: '600',
   goal_bar_layout: 'horizontal',
   goal_bar_thickness: '45',
+  goal_bar_width_auto: 0,
   goal_pointer_enabled: 0,
   goal_pointer_side: 'right',
   goal_pointer_content: 'both',
@@ -1300,7 +1301,7 @@ function applyDemoMask(row) {
     // Goal bar
     'goal_enabled', 'goal_amount', 'goal_current', 'goal_label', 'goal_bar_color',
     'goal_show_on_donate', 'goal_end_date', 'goal_bar_text',
-    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
+    'goal_subtitle1', 'goal_subtitle2', 'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness', 'goal_bar_width_auto',
     'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
     // Streamlabs display name (not tokens)
     'streamlabs_username',
@@ -3024,7 +3025,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_enabled', 'goal_amount', 'goal_current',
   'goal_label', 'goal_bar_color', 'goal_show_on_donate',
   'goal_end_date', 'goal_bar_text', 'goal_subtitle1', 'goal_subtitle2',
-  'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness',
+  'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness', 'goal_bar_width_auto',
   'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
   'tier_donate_settings', 'sound_library'

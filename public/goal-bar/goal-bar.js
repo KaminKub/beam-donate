@@ -298,9 +298,15 @@
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
       document.documentElement.style.setProperty('--bar-color', color);
-      const raw = parseInt(data.goal_bar_width, 10);
-      const barMaxWidth = (raw >= 300 && raw <= 1080) ? raw : 600;
-      wrapper.style.setProperty('--bar-max-width', barMaxWidth + 'px');
+      const isVertical = (data.goal_bar_layout || 'horizontal') === 'vertical';
+      const autoWidth = data.goal_bar_width_auto == 1 || data.goal_bar_width_auto === true;
+      if (autoWidth) {
+        wrapper.style.setProperty('--bar-max-width', isVertical ? 'min(92vh, 1600px)' : 'min(92vw, 1600px)');
+      } else {
+        const raw = parseInt(data.goal_bar_width, 10);
+        const barMaxWidth = (raw >= 300 && raw <= 1080) ? raw : 600;
+        wrapper.style.setProperty('--bar-max-width', barMaxWidth + 'px');
+      }
       const rawThickness = parseInt(data.goal_bar_thickness, 10);
       const barThickness = (rawThickness >= 20 && rawThickness <= 140) ? rawThickness : 45;
       wrapper.style.setProperty('--bar-thickness', barThickness + 'px');
