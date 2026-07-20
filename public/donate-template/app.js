@@ -2049,19 +2049,36 @@ if (btnRemoveSlip) {
 }
 
 // ========== Mobile Slip Upload (QR handoff) ==========
+// promptpay: referenceId มีอยู่แล้วก่อนเข้าหน้านี้ + desktop poll /api/verify-promptpay-slip อยู่แล้ว
+//   → modal แสดง "รอการอัพโหลด..." ได้จริง เพราะมีคนรออยู่จริง
+// truemoney/bank: ยังไม่มี referenceId ล่วงหน้า (server สร้างเองตอนอัพสลิปจริง) และ desktop
+//   ไม่มี polling loop รอผลอยู่เดิม (fire-and-forget) → ต้องบอกตามจริงว่าหน้านี้จะไม่อัปเดตเอง
+//   (การบริจาคยังสำเร็จจริงฝั่ง server เหมือนเดิม แค่ tab นี้ไม่รู้)
 const btnMobileSlipUpload = document.getElementById('btnMobileSlipUpload');
+const btnMobileSlipUploadTrueMoney = document.getElementById('btnMobileSlipUploadTrueMoney');
+const btnMobileSlipUploadBank = document.getElementById('btnMobileSlipUploadBank');
 const mobileSlipModal = document.getElementById('mobileSlipModal');
 const mobileSlipQrImage = document.getElementById('mobileSlipQrImage');
 const btnCloseMobileSlipModal = document.getElementById('btnCloseMobileSlipModal');
 const mobileSlipModalStatus = document.getElementById('mobileSlipModalStatus');
 
-function openMobileSlipModal() {
-  if (!currentChargeId || !mobileSlipModal) return;
+function openMobileSlipModal(method) {
+  if (!mobileSlipModal) return;
+  if (method === 'promptpay' && !currentChargeId) return;
+
   const username = window.location.pathname.split('/')[1];
-  const mobileUrl = `${window.location.origin}/mobile-slip/?ref=${encodeURIComponent(currentChargeId)}&amt=${encodeURIComponent(selectedAmount)}&u=${encodeURIComponent(username)}&pt=${encodeURIComponent(pageToken)}`;
+  let mobileUrl = `${window.location.origin}/mobile-slip/?m=${encodeURIComponent(method)}&amt=${encodeURIComponent(selectedAmount)}&u=${encodeURIComponent(username)}&pt=${encodeURIComponent(pageToken)}`;
+  if (currentChargeId) mobileUrl += `&ref=${encodeURIComponent(currentChargeId)}`;
+
   mobileSlipQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}`;
-  mobileSlipModalStatus.className = 'status checking';
-  mobileSlipModalStatus.innerHTML = '<div class="spinner-small"></div><span>รอการอัพโหลดจากมือถือ...</span>';
+
+  if (method === 'promptpay') {
+    mobileSlipModalStatus.className = 'status checking';
+    mobileSlipModalStatus.innerHTML = '<div class="spinner-small"></div><span>รอการอัพโหลดจากมือถือ...</span>';
+  } else {
+    mobileSlipModalStatus.className = 'status checking';
+    mobileSlipModalStatus.innerHTML = '<span><i class="fa-solid fa-circle-info"></i> อัพโหลดจากมือถือได้เลย หน้านี้จะไม่อัปเดตอัตโนมัติ — ปิดหน้าต่างนี้เองได้หลังอัพสลิปเสร็จ</span>';
+  }
   mobileSlipModal.style.display = 'flex';
 }
 
@@ -2069,7 +2086,9 @@ function closeMobileSlipModal() {
   if (mobileSlipModal) mobileSlipModal.style.display = 'none';
 }
 
-if (btnMobileSlipUpload) btnMobileSlipUpload.addEventListener('click', openMobileSlipModal);
+if (btnMobileSlipUpload) btnMobileSlipUpload.addEventListener('click', () => openMobileSlipModal('promptpay'));
+if (btnMobileSlipUploadTrueMoney) btnMobileSlipUploadTrueMoney.addEventListener('click', () => openMobileSlipModal('truemoney'));
+if (btnMobileSlipUploadBank) btnMobileSlipUploadBank.addEventListener('click', () => openMobileSlipModal('bank'));
 if (btnCloseMobileSlipModal) btnCloseMobileSlipModal.addEventListener('click', closeMobileSlipModal);
 if (mobileSlipModal) {
   mobileSlipModal.addEventListener('click', (e) => {

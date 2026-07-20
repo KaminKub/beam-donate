@@ -1,5 +1,6 @@
 (() => {
   const params = new URLSearchParams(window.location.search);
+  const method = params.get('m') || 'promptpay';
   const ref = params.get('ref');
   const amt = params.get('amt') || '0';
   const username = params.get('u') || '';
@@ -18,7 +19,14 @@
   streamerLine.textContent = username ? `กำลังส่งสลิปให้ ${username}` : 'ไม่พบข้อมูลผู้รับ';
   amountLine.textContent = `฿${amt}`;
 
-  if (!ref) {
+  // promptpay QR handoff ผูก referenceId ล่วงหน้าเสมอ (create-charge สร้างให้ก่อนเปิด QR)
+  // truemoney/bank ไม่มี referenceId ล่วงหน้า — server จะสร้างเองตอนอัพสลิปจริง (เหมือน desktop flow เดิม)
+  if (method === 'promptpay' && !ref) {
+    dropzone.style.display = 'none';
+    showStatus('error', 'ลิงก์ไม่สมบูรณ์ กรุณากลับไปที่หน้าคอมพิวเตอร์แล้วสแกน QR ใหม่');
+    return;
+  }
+  if (!username) {
     dropzone.style.display = 'none';
     showStatus('error', 'ลิงก์ไม่สมบูรณ์ กรุณากลับไปที่หน้าคอมพิวเตอร์แล้วสแกน QR ใหม่');
     return;
@@ -69,7 +77,8 @@
     try {
       const formData = new FormData();
       formData.append('slip', file);
-      formData.append('referenceId', ref);
+      if (ref) formData.append('referenceId', ref);
+      if (method !== 'promptpay') formData.append('method', method);
       formData.append('amount', amt);
       formData.append('username', username);
       formData.append('page_token', pageToken);
@@ -79,7 +88,10 @@
       const data = await response.json();
 
       if (data.success) {
-        showStatus('success', '✅ ส่งสลิปสำเร็จ! กรุณากลับไปที่หน้าคอมพิวเตอร์');
+        const successMsg = method === 'promptpay'
+          ? '✅ ส่งสลิปสำเร็จ! กรุณากลับไปที่หน้าคอมพิวเตอร์'
+          : '✅ ส่งสลิปสำเร็จ! การบริจาคเสร็จสมบูรณ์แล้ว (หน้าคอมพิวเตอร์อาจไม่อัปเดตอัตโนมัติ ปิดหน้านี้ได้เลย)';
+        showStatus('success', successMsg);
         return;
       }
 
