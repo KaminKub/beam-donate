@@ -7957,7 +7957,9 @@ function validatePromptPaySettings() {
 // fill webhook URL input — guard against placeholder ('กำลังโหลด...') before accUsername loads
 function fillWebhookUrl() {
   const urlInput = document.getElementById('webhookUrlInput');
-  const username = document.getElementById('accUsername')?.textContent?.trim() || '';
+  // canonical username จาก payment settings (ไม่พึ่ง accUsername DOM ที่ default 'กำลังโหลด...')
+  const username = window._lastPaymentSettings?.username
+    || document.getElementById('accUsername')?.textContent?.trim() || '';
   if (!urlInput || !username || username === 'กำลังโหลด...' || username.includes('...')) return;
   urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
 }
@@ -8142,12 +8144,7 @@ function initTrueMoneyWebhookModal() {
   }
 
   function openGuide() {
-    const data = window._lastPaymentSettings || {};
-    const username = document.getElementById('accUsername')?.textContent?.trim() || '';
-    const urlInput = document.getElementById('webhookUrlInput');
-    if (urlInput && username) {
-      urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
-    }
+    fillWebhookUrl();
     const tokenInput = document.getElementById('webhookConnectToken');
     if (tokenInput) tokenInput.value = '';
     showStep(1);

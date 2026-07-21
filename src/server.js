@@ -4443,6 +4443,7 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
 
     const decrypted = decryptPaymentFields(streamer);
     res.json({
+      username: actualUsername, // webhook URL builder needs canonical username (not DOM placeholder)
       payment_method: decrypted.payment_method || 'ffp',
       promptpay_phone: decrypted.promptpay_phone || '',
       promptpay_name: decrypted.promptpay_name || '',
