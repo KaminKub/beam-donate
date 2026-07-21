@@ -1007,6 +1007,9 @@ document.getElementById('ytChangeUrlBtn')?.addEventListener('click', () => {
   selectedTierYoutube = null;
   const urlInput = document.getElementById('ytUrlInput');
   if (urlInput) urlInput.value = '';
+  const loadBtn = document.getElementById('ytUrlLoadBtn');
+  if (loadBtn) { loadBtn.disabled = false; loadBtn.innerHTML = '<i class="fa-solid fa-download"></i> โหลดคลิป'; }
+  ytShowStatus('');
   showYtStep1();
 });
 
@@ -1023,7 +1026,7 @@ document.getElementById('ytUseClipBtn')?.addEventListener('click', () => {
   closeYoutubeModal();
   updateSoundSourceUI('youtube');
   const labelBtn = document.getElementById('btnPickTierYoutube');
-  if (labelBtn) labelBtn.innerHTML = '<i class="fa-brands fa-youtube"></i> เลือกคลิปแล้ว (แก้ไข)';
+  if (labelBtn) labelBtn.innerHTML = '<i class="fa-brands fa-youtube"></i> Youtube <i class="fas fa-check-circle"></i>';
 });
 
 document.getElementById('btnPickTierYoutube')?.addEventListener('click', openYoutubeModal);
