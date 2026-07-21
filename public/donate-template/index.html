@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260721_6">
+  <link rel="stylesheet" href="/assets/style.css?v=20260721_7">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -418,12 +418,15 @@
           </div>
 
           <div class="payment-method-option" data-method="truemoney" id="optionTrueMoney">
-            <div class="payment-method-icon">
-              <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet">
+            <div class="payment-method-icon-wrap">
+              <div class="payment-method-icon">
+                <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet">
+              </div>
+              <span class="truemoney-p2p-badge" id="trueMoneyP2PBadge" style="display: none;">P2P</span>
             </div>
             <div class="payment-method-info">
               <h3>TrueMoney Wallet</h3>
-              <span class="payment-method-badge" style="font-size: 12px; background: rgba(239,68,68,0.15); color: #f87171;">ระบบตรวจสลิปขัดข้อง </br>อัพสลิปได้ - แต่สตรีมเมอร์ต้องกดตรวจสอบเงินด้วยตัวเอง</span>
+              <p>สแกน QR ยืนยันอัตโนมัติ ไม่ต้องอัพสลิป</p>
             </div>
             <div class="payment-method-check">
               <i class="fas fa-check-circle"></i>
@@ -693,10 +696,6 @@
           <span>กำลังตรวจสอบ...</span>
         </div>
 
-        <button id="btnTrueMoneyQrSlipFallback" class="btn-secondary" style="display: none; margin-bottom: 10px;">
-          <i class="fa-solid fa-receipt" style="color: #94a3b8;"></i> อัพโหลดสลิปแทน
-        </button>
-
         <div class="button-group">
           <button id="btnBackTrueMoneyQr" class="btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> ย้อนกลับ
@@ -904,6 +903,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260721_10"></script>
+  <script src="/donate-template/app.js?v=20260721_12"></script>
 </body>
 </html>

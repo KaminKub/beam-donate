@@ -4513,6 +4513,16 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (re
     if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
     if (changedTo('truemoney_phone', req.body.truemoney_phone)) resetFlags.truemoney_account_verified = 0;
 
+    // Reverse of setup-webhook's conflict guard (~5254): เปิด SlipOK พร้อมเพย์กลับ ต้องปิด
+    // PROMPTPAY_IN ของ TrueMoney webhook ด้วย (ชิงพื้นที่ QR พร้อมเพย์เดียวกัน — เปิดพร้อมกันไม่ได้)
+    if (req.body.promptpay_enabled) {
+      const webhookMethods = (streamer.truemoney_webhook_methods || '').split(',').filter(Boolean);
+      if (streamer.truemoney_webhook_enabled === 1 && webhookMethods.includes('PROMPTPAY_IN')) {
+        const remaining = webhookMethods.filter(m => m !== 'PROMPTPAY_IN');
+        resetFlags.truemoney_webhook_methods = remaining.length ? remaining.join(',') : 'P2P';
+      }
+    }
+
     const updatedStreamer = await db.saveStreamer({
       twitch_id: req.user.twitch_id || null,
       streamlabs_id: req.user.streamlabs_id || null,

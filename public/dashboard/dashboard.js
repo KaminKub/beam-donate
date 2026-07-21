@@ -7976,23 +7976,33 @@ function renderTrueMoneyWebhookState(data) {
   const secretSet = !!data.truemoney_webhook_secret_set;
   const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
 
+  const hiddenNote = document.getElementById('truemoneyWebhookRequiredNote');
+  if (hiddenNote) hiddenNote.classList.toggle('is-visible', !!data.truemoney_enabled && !enabled);
+
   // badge — three states (no expiry countdown: Open API expiry unknown, RT#5)
-  let badgeText, badgeColor;
+  // dot ใช้ .status-dot เหมือนหน้าโดเนท/TikTok bridge badge (ไม่ใช้ emoji)
+  let badgeText, badgeColor, dotCls;
   if (enabled) {
-    badgeText = '🟢 เชื่อมต่อแล้ว · ไม่ต้องใช้สลิป';
+    badgeText = 'เชื่อมต่อแล้ว · ไม่ต้องใช้สลิป';
     badgeColor = '#10b981';
+    dotCls = 'online';
   } else if (secretSet) {
-    badgeText = '🔴 เชื่อมต่อไม่ได้ · กดต่ออายุ';
+    badgeText = 'เชื่อมต่อไม่ได้ · กดต่ออายุ';
     badgeColor = '#ef4444';
+    dotCls = 'error';
   } else {
-    badgeText = '⚪ ยังไม่เชื่อมต่อ';
+    badgeText = 'ยังไม่เชื่อมต่อ';
     badgeColor = '#94a3b8';
+    dotCls = '';
   }
   badge.className = 'webhook-badge';
   badge.style.background = `${badgeColor}26`;
   badge.style.color = badgeColor;
   badge.style.border = `1px solid ${badgeColor}40`;
-  badge.textContent = badgeText;
+  const badgeDot = badge.querySelector('.status-dot');
+  const badgeTextEl = badge.querySelector('.webhook-badge-text');
+  if (badgeDot) badgeDot.className = 'status-dot' + (dotCls ? ' ' + dotCls : '');
+  if (badgeTextEl) badgeTextEl.textContent = badgeText;
 
   if (quota) {
     const tx = data.truemoney_webhook_tx_month || 0;

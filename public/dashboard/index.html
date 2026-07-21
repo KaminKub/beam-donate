@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260721_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260721_4">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -773,11 +773,14 @@
                       <!-- TrueMoney Card (SIMPLIFIED) -->
                       <div class="payment-method-item">
                         <div class="payment-method-card" data-method="truemoney" id="cardTrueMoney">
+                          <div class="method-feature-ribbon" title="เข้าเกณฑ์: บัญชีที่รับเงินหรือเติมเงิน ≥50 ครั้ง/เดือน">
+                            <i class="fa-solid fa-bolt"></i> ไม่อัพสลิป
+                          </div>
                           <div class="card-icon">
                             <img src="/assets/payment/TrueWallate.png" alt="TrueMoney Wallet" width="144" height="144" loading="eager">
                           </div>
                           <h3>TrueMoney Wallet</h3>
-                          <p><span class="payment-method-badge" style="font-size: 12px; background: rgba(239,68,68,0.15); color: #f87171;">ไม่แนะนำ : ระบบตรวจสลิปขัดข้อง </br>อัพสลิปได้ - แต่สตรีมเมอร์ต้องกดตรวจสอบด้วยตัวเองที่หน้าประวัติโดเนท</span></p>
+                          <p><span class="payment-method-badge" style="font-size: 12px; background: rgba(59,130,246,0.15); color: #60a5fa;">รับเงินอัตโนมัติผ่าน Webhook · สำหรับบัญชีที่รับ/เติมเงิน ≥50 ครั้ง/เดือน</span></p>
                           <button type="button" class="btn-settings" data-target="truemoneySettingsPanel">
                             <span>ตั้งค่า</span>
                             <i class="fas fa-chevron-down"></i>
@@ -797,25 +800,21 @@
                               <label for="inputTrueMoneyPhone">เบอร์โทรศัพท์ TrueMoney Wallet</label>
                               <input type="tel" id="inputTrueMoneyPhone" class="form-control"
                                      placeholder="0812345678" maxlength="10" inputmode="numeric">
-                              <small class="text-muted">เบอร์โทรที่ผูกกับบัญชี TrueMoney Wallet (10 หลัก)</small>
+                              <small class="text-muted">เบอร์ที่ผูก wallet — ใช้สร้าง QR รับเงินแบบโอนในแอป (P2P)</small>
                             </div>
-                            <div class="slipok-linked-note" data-verify-state="unverified" data-method="truemoney">
-                              <i class="fa-solid fa-circle-check verify-icon-ok"></i>
-                              <i class="fa-solid fa-triangle-exclamation verify-icon-warn"></i>
-                              <span class="verify-text">ยังไม่ได้ทดสอบการเชื่อมต่อ SlipOK</span>
-                              <button type="button" class="slipok-test-link" data-method="truemoney">คลิกทดสอบ API</button>
-                              <span class="verify-caveat"></span>
+                            <div class="webhook-hidden-note" id="truemoneyWebhookRequiredNote">
+                              <i class="fa-solid fa-eye-slash" style="color:#f59e0b;"></i>
+                              <span>TrueMoney จะแสดงบนหน้าโดเนทเมื่อเชื่อม Webhook แล้วเท่านั้น</span>
                             </div>
                           </div>
 
-                          <!-- TrueMoney Webhook Auto-Confirm (secondary — SlipOK is default) -->
+                          <!-- TrueMoney Webhook Auto-Confirm (primary method) -->
                           <div class="settings-section" id="truemoneyWebhookSection">
-                            <h5 id="webhookSectionToggle" class="webhook-section-toggle">
-                              <span class="webhook-addon-chip">ฟีเจอร์เสริม</span>
-                              <span>TrueMoney Webhook — ยืนยันอัตโนมัติ ไม่ต้องอัพสลิป <span class="webhook-toggle-sub"></br>(เฉพาะบัญชี Business)</span></span>
+                            <h5 id="webhookSectionToggle" class="webhook-section-toggle is-open">
+                              <span>TrueMoney Webhook — วิธีรับเงินอัตโนมัติ ไม่ต้องอัพสลิป (บัญชีที่เข้าเกณฑ์)</span>
                               <i class="fa-solid fa-chevron-down webhook-section-chevron"></i>
                             </h5>
-                            <div class="webhook-section-body" id="webhookSectionBody">
+                            <div class="webhook-section-body is-open" id="webhookSectionBody">
                               <div class="webhook-section-body-inner">
                               <div class="webhook-hero-badge">
                                 <i class="fa-solid fa-circle-check"></i> ไม่ต้องใช้สลิป · รับเงินไม่จำกัด · ยืนยันอัตโนมัติใน 1 นาที
@@ -826,7 +825,10 @@
                               </div>
 
                             <div class="webhook-status-row">
-                              <span class="webhook-badge" id="webhookStatusBadge">ยังไม่เชื่อมต่อ</span>
+                              <span class="webhook-badge" id="webhookStatusBadge">
+                                <span class="status-dot"></span>
+                                <span class="webhook-badge-text">ยังไม่เชื่อมต่อ</span>
+                              </span>
                               <span class="webhook-quota-mini" id="webhookQuotaMini"></span>
                             </div>
 
@@ -3595,7 +3597,7 @@
           <span>ฉันยืนยันว่า:<br>
             • ยืนยันตัวตน (KYC) ในแอพ TrueMoney แล้ว<br>
             • เข้าใจว่า 100 ธุรกรรมแรกต่อเดือน ไม่มีค่าธรรมเนียม — หากเกินโควตา TrueMoney จะหักค่าธรรมเนียม <strong>10฿ ต่อครั้ง</strong> จาก TrueMoney Wallet ของคุณโดยตรง <strong>TipKub ไม่มีส่วนเกี่ยวข้องและไม่ได้รับเงินส่วนนี้</strong> <a href="https://developer.truemoney.com" target="_blank" rel="noopener noreferrer" style="color:#f59e0b;">(เงื่อนไข TrueMoney Open API)</a><br>
-            • เข้าใจว่าถ้า Webhook เชื่อมต่อไม่ได้ ระบบจะกลับไปใช้สลิป SlipOK แทน
+            • เข้าใจว่าถ้า Webhook หลุด/หมดอายุ TrueMoney จะถูกซ่อนจากหน้าโดเนทชั่วคราวจนกว่าจะเชื่อมใหม่ (ผู้โดเนทยังใช้พร้อมเพย์/ธนาคารได้)
           </span>
         </label>
       </div>
@@ -3633,7 +3635,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260721_2"></script>
+  <script src="/dashboard/dashboard.js?v=20260721_4"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

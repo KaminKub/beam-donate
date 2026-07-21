@@ -1961,7 +1961,7 @@ btnDonate.addEventListener('click', async () => {
     if (res.ok) {
       const methods = await res.json();
       streamerPaymentMethods = methods;
-      const hasAnyMethod = methods.promptpay || methods.truemoney || methods.truemoney_webhook || methods.bank || methods.ffp;
+      const hasAnyMethod = methods.promptpay || methods.truemoney_webhook || methods.bank || methods.ffp;
 
       if (!hasAnyMethod) {
         // Shake + Red Glow + Message
@@ -1998,13 +1998,20 @@ btnDonate.addEventListener('click', async () => {
 
       if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
       if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
-      if (optionTrueMoney) optionTrueMoney.style.display = (methods.truemoney || methods.truemoney_webhook) ? '' : 'none';
+      if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney_webhook ? '' : 'none';
       if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
+
+      // P2P badge — เฉพาะตอน TrueMoney webhook เข้าแทนที่พร้อมเพย์ SlipOK (method PROMPTPAY_IN active)
+      const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
+      if (trueMoneyP2PBadge) {
+        const usesPromptPayIn = (methods.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
+        trueMoneyP2PBadge.style.display = usesPromptPayIn ? '' : 'none';
+      }
 
       // Auto-select first available method
       if (methods.promptpay) {
         selectPaymentMethod('promptpay');
-      } else if (methods.truemoney || methods.truemoney_webhook) {
+      } else if (methods.truemoney_webhook) {
         selectPaymentMethod('truemoney');
       } else if (methods.bank) {
         selectPaymentMethod('bank');
