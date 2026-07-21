@@ -3703,7 +3703,9 @@ async function fetchUserPaymentStatus() {
     applyBrandIdentity(user);
 
     const connected = user.slipok_connected || user.truemoney_slipok_connected;
-    renderSlipokDashCard(connected);
+    // disconnected at load: distinguish "never configured" vs "was connected but failed"
+    const reason = connected ? null : (user.slipokApiConfigured ? 'error' : 'no-api');
+    renderSlipokDashCard(connected, reason);
 
     if (connected) {
       fetchSlipokDashQuota();
@@ -3723,24 +3725,53 @@ function applyBrandIdentity(user) {
   }
 }
 
-function renderSlipokDashCard(connected) {
+// Cross-fade swap between two panels (avoids instant display:none↔block per UI/UX show/hide rule)
+function slipokFadeSwap(showEl, hideEl) {
+  if (hideEl && hideEl.style.display !== 'none' && hideEl.style.opacity !== '0') {
+    hideEl.style.opacity = '0';
+    hideEl.addEventListener('transitionend', function done() {
+      hideEl.style.display = 'none';
+    }, { once: true });
+  }
+  if (showEl && (showEl.style.display === 'none' || showEl.style.opacity === '0')) {
+    showEl.style.display = 'block';
+    showEl.style.opacity = '0';
+    requestAnimationFrame(() => { showEl.style.opacity = '1'; });
+  }
+}
+
+// reason: 'no-api' (never configured) | 'error' (was connected but fetch failed)
+function renderSlipokDashCard(connected, reason) {
   const card = document.getElementById('statCardSlipok');
   const connectedEl = document.getElementById('slipokDashConnected');
   const disconnectedEl = document.getElementById('slipokDashDisconnected');
+  const titleEl = document.getElementById('slipokDashNoApiTitle');
+  const linkEl = document.getElementById('slipokDashSetupLink');
 
   if (!card) return;
 
   if (connected) {
-    connectedEl.style.display = 'block';
-    disconnectedEl.style.display = 'none';
+    slipokFadeSwap(connectedEl, disconnectedEl);
     card.onclick = () => fetchSlipokDashQuota(null, true);
+    card.title = 'คลิกเพื่อรีเฟรชเครดิต SlipOK';
   } else {
-    connectedEl.style.display = 'none';
-    disconnectedEl.style.display = 'block';
+    const isError = reason === 'error';
+    if (titleEl) {
+      titleEl.textContent = isError ? 'ไม่สามารถเชื่อมต่อ SlipOK' : 'ยังไม่เชื่อมต่อ API';
+      titleEl.classList.toggle('is-error', isError);
+    }
+    if (linkEl) {
+      linkEl.innerHTML = isError
+        ? 'คลิกเพื่อลองใหม่ <i class="fa-solid fa-rotate"></i>'
+        : 'คลิกตั้งค่า <i class="fa-solid fa-arrow-right"></i>';
+    }
+    slipokFadeSwap(disconnectedEl, connectedEl);
     card.onclick = (e) => {
       e.stopPropagation();
-      switchTab('payment-setup');
+      if (isError) fetchSlipokDashQuota(null, true);
+      else switchTab('payment-setup');
     };
+    card.title = isError ? 'คลิกเพื่อลองเชื่อมต่อ SlipOK อีกครั้ง' : 'คลิกเพื่อตั้งค่า SlipOK API';
   }
 }
 
@@ -3770,11 +3801,18 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     }
     if (!response.ok) {
       if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
+      // 401/403/404 = API key issue → disconnect (server already set slipok_connected=0)
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
+        updateSlipOkStatus(false, new Date().toISOString());
+        renderSlipokDashCard(false, 'error');
+      }
       return false;
     }
     const result = await response.json();
     if (!result.success) {
-      if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
+      if (metaEl && method === 'truemoney') metaEl.textContent = result.error || 'ไม่สามารถดึงข้อมูลได้';
+      updateSlipOkStatus(false, new Date().toISOString());
+      renderSlipokDashCard(false, 'error');
       return false;
     }
 
@@ -3833,6 +3871,9 @@ async function fetchSlipokDashQuota(method, showFeedback) {
   } catch (err) {
     console.error('fetchSlipokDashQuota error:', err.message);
     if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+    // Auto-disconnect UI on network/parse failure
+    updateSlipOkStatus(false, new Date().toISOString());
+    renderSlipokDashCard(false, 'error');
     return false;
   }
 }
@@ -8505,11 +8546,18 @@ async function testSlipOkConnection(method) {
       updateAccountVerifyBadges();
 
       fetchQuotaMini('promptpay', true);
+      // Reconnect dashboard stat card + refresh quota numbers
+      renderSlipokDashCard(true);
+      fetchSlipokDashQuota();
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
+      // Auto-disconnect UI (server already sets slipok_connected=0)
+      updateSlipOkStatus(false, new Date().toISOString());
+      renderSlipokDashCard(false, 'error');
     }
   } catch (err) {
     showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
+    updateSlipOkStatus(false, new Date().toISOString());
   } finally {
     if (btn) {
       btn.disabled = false;

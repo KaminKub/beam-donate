@@ -781,10 +781,17 @@ body {
 
 .slipok-dash-disconnected {
   text-align: center;
+  transition: opacity 0.25s ease;
+}
+.slipok-dash-connected {
+  transition: opacity 0.25s ease;
 }
 .slipok-dash-no-api {
   font-size: 14px; color: var(--text-muted);
   font-weight: 500; margin-bottom: 4px;
+}
+.slipok-dash-no-api.is-error {
+  color: #f87171;
 }
 .slipok-dash-setup-link {
   font-size: 11px; color: #818cf8; cursor: pointer;

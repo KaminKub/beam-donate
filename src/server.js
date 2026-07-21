@@ -2859,6 +2859,7 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       email: req.user.email || 'Not provided',
       slipok_connected: !!streamer.slipok_connected,
       truemoney_slipok_connected: !!streamer.truemoney_slipok_connected,
+      slipokApiConfigured: !!(streamer.slipok_api || streamer.truemoney_slipok_api),
       profileImage,
       profileGlowColor: streamer.profile_glow_color || '#005704',
       badges,
@@ -4551,6 +4552,26 @@ function validateSlipOkUrl(url) {
   }
 }
 
+// SlipOK error code → Thai user-facing message
+const SLIPOK_ERROR_MAP = {
+  1000: 'กรุณาใส่ข้อมูล QR Code ให้ครบ',
+  1001: 'ไม่พบข้อมูลสาขา กรุณาตรวจสอบไอดีสาขา',
+  1002: 'Authorization Header ไม่ถูกต้อง กรุณาตรวจสอบ API Key',
+  1003: 'Package ของคุณหมดอายุแล้ว กรุณาต่ออายุแพ็กเกจใน Chat Line SlipOK',
+  1004: 'Package ของคุณใช้เกินโควต้า กรุณาต่อสมาชิกแพ็กเกจใน Chat Line SlipOK',
+  1005: 'ไฟล์ไม่ใช่ไฟล์ภาพ กรุณาอัพโหลดไฟล์เฉพาะนามสกุลที่กำหนด',
+  1006: 'รูปภาพไม่ถูกต้อง หรือไฟล์เสีย',
+  1007: 'รูปภาพไม่มี QR Code',
+  1008: 'QR ดังกล่าวไม่ใช่ QR สำหรับการตรวจสอบการชำระเงิน',
+  1009: 'ข้อมูลธนาคารขัดข้องชั่วคราว กรุณาลองใหม่ใน 15 นาที',
+  1010: 'สลิปจากธนาคารนี้อยู่ระหว่างตรวจสอบ กรุณารอสักครู่',
+  1011: 'QR Code หมดอายุ หรือไม่มีรายการอยู่จริง',
+  1012: 'สลิปซ้ำ — สลิปนี้เคยถูกใช้งานแล้ว',
+  1013: 'ยอดที่ส่งมาไม่ตรงกับยอดสลิป',
+  1014: 'บัญชีผู้รับไม่ตรงกับบัญชีหลักของร้าน',
+  1015: 'ไม่พบข้อมูล Package กรุณาตรวจสอบสิทธิ์แพ็กเกจ'
+};
+
 // Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow).
 // Normalizes both the success and failure shapes so callers don't duplicate SlipOK's
 // error-code mapping.
@@ -4583,7 +4604,7 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
                        'SLIP_INVALID';
     return { success: false, errorCode: mappedCode, error: slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง', delayMinutes: slipData?.delay || null };
   } catch (slipErr) {
-    console.error('SlipOK verification error:', slipErr.message);
+    console.error('SlipOK verification error: code=' + (slipErr.response?.data?.code || slipErr.code || 'UNKNOWN'));
     if (slipErr.response) {
       const body = slipErr.response.data;
       const slipCode = body?.code;
@@ -4715,7 +4736,8 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
 
     res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ', quota: response.data?.data?.quota });
   } catch (err) {
-    console.error('Test SlipOK error:', err);
+    const slipCode = err.response?.data?.code;
+    console.error('Test SlipOK error: code=' + (slipCode || err.response?.status || err.code || 'UNKNOWN'));
     const actualUsername = await getActualUsername(req.user);
     const isTruemoney = req.body.method === 'truemoney';
     try {
@@ -4727,19 +4749,22 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async 
       }
     } catch (ignore) {}
 
-    const errorMsg = err.response
-      ? (err.response.status === 401 || err.response.status === 403
-          ? 'SlipOK API key ไม่ถูกต้องหรือไม่ได้รับอนุญาต'
-          : err.response.status === 429
-            ? 'SlipOK API ถูกใช้งานเกินโควต้า กรุณาตรวจสอบแพ็คเกจของคุณ'
-            : `SlipOK ตอบกลับ HTTP ${err.response.status}`)
-      : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
-        ? 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ SlipOK ได้'
-        : err.code === 'ETIMEDOUT'
-          ? 'หมดเวลาเชื่อมต่อกับ SlipOK'
-          : `เกิดข้อผิดพลาด: ${err.message}`;
+    const slipMsg = SLIPOK_ERROR_MAP[slipCode] || null;
+    const errorMsg = slipMsg
+      ? slipMsg
+      : err.response
+        ? (err.response.status === 401 || err.response.status === 403
+            ? 'SlipOK API key ไม่ถูกต้องหรือไม่ได้รับอนุญาต'
+            : err.response.status === 429
+              ? 'SlipOK API ถูกใช้งานเกินโควต้า กรุณาตรวจสอบแพ็คเกจของคุณ'
+              : `SlipOK ตอบกลับ HTTP ${err.response.status}`)
+        : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
+          ? 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ SlipOK ได้'
+          : err.code === 'ETIMEDOUT'
+            ? 'หมดเวลาเชื่อมต่อกับ SlipOK'
+            : `เกิดข้อผิดพลาด: ${err.message}`;
 
-    res.status(502).json({ success: false, error: errorMsg });
+    res.status(502).json({ success: false, error: errorMsg, errorCode: slipCode || null });
   }
 });
 
@@ -4818,9 +4843,23 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
       }
     });
   } catch (err) {
-    console.error('SlipOK quota fetch error:', err.response?.status || 'NO_RESPONSE', err.message);
+    const slipCode = err.response?.data?.code;
+    console.error('SlipOK quota fetch error: code=' + (slipCode || err.response?.status || 'NO_RESPONSE'));
+
+    // Auto-disconnect on quota fetch failure
+    const actualUsername = await getActualUsername(req.user);
+    const isTruemoney = req.query.method === 'truemoney';
+    try {
+      const _ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: actualUsername };
+      if (isTruemoney) {
+        await db.saveStreamer({ ..._ids, truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
+      } else {
+        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
+      }
+    } catch (ignore) {}
+
     const status = err.response?.status || 500;
-    res.status(status).json({ error: 'ไม่สามารถดึงข้อมูลโควต้าได้' });
+    res.status(status).json({ success: false, error: 'ไม่สามารถดึงข้อมูลโควต้าได้', errorCode: slipCode || null });
   }
 });
 
