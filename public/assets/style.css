@@ -2003,28 +2003,6 @@ input[type=number] {
   color: #f1f5f9;
   background: rgba(255, 255, 255, 0.08);
 }
-.tier-sound-picker-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-.tier-sound-picker-tab {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  font-size: 13px;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-}
-.tier-sound-picker-tab.active,
-.tier-sound-picker-tab:hover {
-  color: #f1f5f9;
-}
-.tier-sound-picker-tab.active {
-  border-bottom-color: #60a5fa;
-}
 .tier-sound-picker-body {
   overflow-y: auto;
   max-height: 55vh;

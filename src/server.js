@@ -3897,13 +3897,13 @@ function computeTierAssignment(streamer, amount, body) {
         result.tier_sound_url = tierSoundUrl;
         result.tier_sound_is_temp = 1;
       }
-    } else if (!tierSoundIsTemp && unlocked.allow_sound_choice) {
+    } else if (!tierSoundIsTemp) {
       let soundLibrary = [];
       try { soundLibrary = JSON.parse(streamer.sound_library || '[]'); } catch {}
-      if (soundLibrary.some(s => s.url === tierSoundUrl)) {
+      if (unlocked.allow_sound_choice && soundLibrary.some(s => s.url === tierSoundUrl)) {
         result.tier_sound_url = tierSoundUrl;
-      } else if (isMyinstantsUrl(tierSoundUrl)) {
-        // § 10.15 donor MyInstants catalog — external URL, not R2, not temp
+      } else if (unlocked.allow_own_upload && isMyinstantsUrl(tierSoundUrl)) {
+        // catalog ใช้สิทธิ์เดียวกับ "อัพโหลดเสียงเอง" ไม่ใช่ allow_sound_choice — ตั้งใจแยกจาก library
         result.tier_sound_url = tierSoundUrl;
         result.tier_sound_is_temp = 0;
       }

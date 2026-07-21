@@ -655,7 +655,7 @@ function updateSoundSourceUI(activeSource) {
   if (activeSource === 'library') {
     uploadPane?.classList.add('sound-source-dimmed');
     recordPane?.classList.add('sound-source-dimmed');
-  } else if (activeSource === 'upload') {
+  } else if (activeSource === 'upload' || activeSource === 'catalog') {
     libraryBlock?.classList.add('sound-source-dimmed');
     recordPane?.classList.add('sound-source-dimmed');
   } else if (activeSource === 'record') {
@@ -672,10 +672,19 @@ let currentPreviewUrl = null;
 let currentDefaultPreviewPlaying = false;
 let defaultPreviewAudioCtx = null;
 
-function openTierSoundPicker() {
+function openTierSoundPicker(mode) {
   const modal = document.getElementById('tierSoundPickerModal');
   if (!modal) return;
-  switchTierSoundTab('library');
+  const title = document.getElementById('tierSoundPickerTitle');
+  document.getElementById('tierSoundPickerLibrary')?.classList.toggle('active', mode !== 'catalog');
+  document.getElementById('tierSoundPickerCatalog')?.classList.toggle('active', mode === 'catalog');
+  if (mode === 'catalog') {
+    if (title) title.innerHTML = '<i class="fa-solid fa-globe" style="color:#3b82f6;margin-right:8px;"></i>ค้นหาเสียงสำเร็จรูป';
+    searchTierSoundCatalog('');
+  } else {
+    if (title) title.innerHTML = '<i class="fa-solid fa-music" style="color:#60a5fa;margin-right:8px;"></i>เลือกเสียงแจ้งเตือน';
+    renderTierSoundLibraryList();
+  }
   modal.classList.add('active');
   modal.style.display = 'flex';
 }
@@ -686,16 +695,6 @@ function closeTierSoundPicker() {
   stopTierSoundPreview();
   modal.classList.remove('active');
   setTimeout(() => { if (!modal.classList.contains('active')) modal.style.display = 'none'; }, 200);
-}
-
-function switchTierSoundTab(tab) {
-  document.querySelectorAll('.tier-sound-picker-tab').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
-  });
-  document.querySelectorAll('.tier-sound-picker-panel').forEach(p => {
-    p.classList.toggle('active', p.id === (tab === 'library' ? 'tierSoundPickerLibrary' : 'tierSoundPickerCatalog'));
-  });
-  if (tab === 'library') renderTierSoundLibraryList();
 }
 
 function playTierSoundPreview(url) {
@@ -955,7 +954,7 @@ async function searchTierSoundCatalog(query) {
           if (currentPreviewUrl === s.mp3Url && currentPreviewAudio && !currentPreviewAudio.paused) stopTierSoundPreview();
           else playTierSoundPreview(s.mp3Url);
         } else {
-          selectTierSound(s.mp3Url, s.name, 'library');
+          selectTierSound(s.mp3Url, s.name, 'catalog');
         }
       };
       list.appendChild(item);
@@ -971,14 +970,23 @@ function selectTierSound(url, label, source) {
   selectedTierSoundLabel = label || 'เสียงเริ่มต้น';
   currentSoundSource = url ? source : null;
   updateSoundSourceUI(currentSoundSource);
-  const labelEl = document.getElementById('tierSoundSelectedLabel');
-  if (labelEl) labelEl.textContent = selectedTierSoundLabel;
+  if (source === 'catalog') {
+    const status = document.getElementById('tierOwnAudioStatus');
+    if (status) status.textContent = url ? `🎵 ${selectedTierSoundLabel}` : '';
+    hideTierUploadReview();
+    const fileInput = document.getElementById('tierOwnAudioFile');
+    if (fileInput) fileInput.value = '';
+  } else {
+    const labelEl = document.getElementById('tierSoundSelectedLabel');
+    if (labelEl) labelEl.textContent = selectedTierSoundLabel;
+  }
   closeTierSoundPicker();
   stopTierSoundPreview();
 }
 
 // Sound picker bindings
-document.getElementById('btnPickTierSound')?.addEventListener('click', openTierSoundPicker);
+document.getElementById('btnPickTierSound')?.addEventListener('click', () => openTierSoundPicker('library'));
+document.getElementById('btnPickTierCatalog')?.addEventListener('click', () => openTierSoundPicker('catalog'));
 document.getElementById('btnCloseTierSoundPicker')?.addEventListener('click', closeTierSoundPicker);
 document.getElementById('btnChangeTierSound')?.addEventListener('click', () => {
   selectedTierSoundUrl = null;
@@ -988,13 +996,6 @@ document.getElementById('btnChangeTierSound')?.addEventListener('click', () => {
   updateSoundSourceUI(null);
   const labelEl = document.getElementById('tierSoundSelectedLabel');
   if (labelEl) labelEl.textContent = 'เสียงเริ่มต้น';
-});
-document.querySelectorAll('.tier-sound-picker-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    switchTierSoundTab(tab);
-    if (tab === 'catalog') searchTierSoundCatalog('');
-  });
 });
 document.getElementById('btnTierSoundCatalogSearch')?.addEventListener('click', () => {
   const q = document.getElementById('tierSoundCatalogSearch')?.value || '';

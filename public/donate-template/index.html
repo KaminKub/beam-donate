@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260720_3">
+  <link rel="stylesheet" href="/assets/style.css?v=20260721_1">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -307,6 +307,7 @@
             <div id="tierUploadPane" class="sound-source-pane" data-sound-source="upload">
               <input type="file" id="tierOwnAudioFile" accept="audio/*" hidden>
               <label for="tierOwnAudioFile" id="tierUploadLabelBtn" class="tier-upload-label"><i class="fa-solid fa-upload"></i> เลือกไฟล์เสียง</label>
+              <button type="button" id="btnPickTierCatalog" class="tier-upload-label"><i class="fa-solid fa-globe" style="color:#3b82f6;"></i> ค้นหาเสียงสำเร็จรูป</button>
               <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
               <div id="tierUploadReview" style="display:none;">
                 <audio id="tierUploadPreview" controls></audio>
@@ -837,10 +838,6 @@
         <span id="tierSoundPickerTitle"><i class="fa-solid fa-music" style="color:#60a5fa;margin-right:8px;"></i>เลือกเสียงแจ้งเตือน</span>
         <button id="btnCloseTierSoundPicker" class="tier-sound-picker-close" aria-label="ปิด">✕</button>
       </div>
-      <div class="tier-sound-picker-tabs">
-        <button type="button" class="tier-sound-picker-tab active" data-tab="library"><i class="fa-solid fa-folder-open"></i> คลังของสตรีมเมอร์</button>
-        <button type="button" class="tier-sound-picker-tab" data-tab="catalog"><i class="fa-solid fa-globe"></i> ค้นหาเสียงสำเร็จรูป</button>
-      </div>
       <div class="tier-sound-picker-body">
         <div id="tierSoundPickerLibrary" class="tier-sound-picker-panel active">
           <div id="tierSoundLibraryList" class="tier-sound-list"></div>
@@ -860,6 +857,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260720_10"></script>
+  <script src="/donate-template/app.js?v=20260721_1"></script>
 </body>
 </html>
