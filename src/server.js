@@ -3671,7 +3671,9 @@ app.post('/api/donate/upload-tier-audio', sameOriginCheck, donorAudioUploadLimit
     }
 
     const ext = ALLOWED_TIER_AUDIO_MIMES[req.file.mimetype];
-    const key = `donor-temp/${streamer.id}-${crypto.randomUUID()}.${ext}`;
+    // SEC: แยก subfolder ตาม mode — ผูก origin ของไฟล์ (record/upload) เข้ากับ path
+    // กัน donor อัดที่ Tier สูงแล้วส่งเป็น upload ที่ Tier ต่ำ (หรือกลับกัน) — computeTierAssignment เช็ค folder ตรง mode
+    const key = `donor-temp/${mode}/${streamer.id}-${crypto.randomUUID()}.${ext}`;
     const url = await uploadBufferToR2(req.file.buffer, key, req.file.mimetype);
     res.json({ success: true, url });
   } catch (err) {
@@ -3902,7 +3904,8 @@ function computeTierAssignment(streamer, amount, body) {
   if (tierSoundUrl) {
     const ownMode = tierSoundMode === 'record' ? 'record' : 'upload';
     if (tierSoundIsTemp && (ownMode === 'record' ? unlocked.allow_own_record : unlocked.allow_own_upload)) {
-      if (isOwnedR2Url(tierSoundUrl, 'donor-temp', streamer.id)) {
+      // SEC: folder ต้องตรง mode — ไฟล์ที่อัด (donor-temp/record/) ใช้เป็น upload ไม่ได้ และกลับกัน
+      if (isOwnedR2Url(tierSoundUrl, `donor-temp/${ownMode}`, streamer.id)) {
         result.tier_sound_url = tierSoundUrl;
         result.tier_sound_is_temp = 1;
       }
