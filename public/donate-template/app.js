@@ -557,7 +557,7 @@ function resetTierSelections() {
   ytPlayerReady = false;
   closeYoutubeModal();
   const ytBtnLabel = document.getElementById('btnPickTierYoutube');
-  if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> ใช้เสียงจากคลิป YouTube';
+  if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> YouTube';
 }
 
 function buildDefaultTierImagePreview() {
@@ -791,22 +791,11 @@ function ytShowStatus(msg, isError) {
   el.style.display = msg ? '' : 'none';
 }
 
-function ytUpdateDisclaimerGate() {
-  const ack = localStorage.getItem('ytDisclaimerAck') === '1';
-  const box = document.getElementById('ytDisclaimerBox');
-  const check = document.getElementById('ytDisclaimerAckCheck');
-  const loadBtn = document.getElementById('ytUrlLoadBtn');
-  if (box) box.style.display = ack ? 'none' : '';
-  if (loadBtn) loadBtn.disabled = !ack && !check?.checked;
-}
-document.getElementById('ytDisclaimerAckCheck')?.addEventListener('change', ytUpdateDisclaimerGate);
-
 function showYtStep1() {
   const s1 = document.getElementById('ytStep1');
   const s2 = document.getElementById('ytStep2');
   if (s1) s1.style.display = '';
   if (s2) s2.style.display = 'none';
-  ytUpdateDisclaimerGate();
 }
 
 function showYtStep2() {
@@ -826,7 +815,6 @@ function resetYoutubeModalToStep1() {
   ytDuration = 0;
   const btn = document.getElementById('ytUrlLoadBtn');
   if (btn) { btn.innerHTML = '<i class="fa-solid fa-download"></i> โหลดคลิป'; }
-  ytUpdateDisclaimerGate();
   showYtStep1();
 }
 
@@ -858,15 +846,17 @@ function formatYtTime(sec) {
 
 function updateYtRangeUI() {
   const startHandle = document.getElementById('ytStartHandle');
-  const endHandle = document.getElementById('ytEndHandle');
+  const lengthHandle = document.getElementById('ytEndHandle');
   const fill = document.getElementById('ytRangeFill');
   const startLabel = document.getElementById('ytStartLabel');
   const endLabel = document.getElementById('ytEndLabel');
   const startInput = document.getElementById('ytStartInput');
   const endInput = document.getElementById('ytEndInput');
-  if (!startHandle || !endHandle || !ytDuration) return;
+  const lengthLabel = document.getElementById('ytLengthLabel');
+  if (!startHandle || !lengthHandle || !ytDuration) return;
   startHandle.value = ytStartSec;
-  endHandle.value = ytEndSec;
+  lengthHandle.max = Math.min(10, ytDuration - ytStartSec);
+  lengthHandle.value = ytEndSec - ytStartSec;
   const pctStart = (ytStartSec / ytDuration) * 100;
   const pctEnd = (ytEndSec / ytDuration) * 100;
   if (fill) { fill.style.left = pctStart + '%'; fill.style.width = Math.max(0, pctEnd - pctStart) + '%'; }
@@ -874,22 +864,26 @@ function updateYtRangeUI() {
   if (endLabel) endLabel.textContent = formatYtTime(ytEndSec);
   if (startInput) startInput.value = ytStartSec.toFixed(1);
   if (endInput) endInput.value = ytEndSec.toFixed(1);
+  if (lengthLabel) lengthLabel.textContent = (ytEndSec - ytStartSec).toFixed(1) + ' วิ';
 }
 
 function initDualHandle(duration) {
   const startHandle = document.getElementById('ytStartHandle');
-  const endHandle = document.getElementById('ytEndHandle');
-  if (!startHandle || !endHandle) return;
-  startHandle.min = endHandle.min = 0;
-  startHandle.max = endHandle.max = duration;
-  startHandle.step = endHandle.step = 0.1;
+  const lengthHandle = document.getElementById('ytEndHandle');
+  if (!startHandle || !lengthHandle) return;
+  startHandle.min = 0;
+  startHandle.max = duration;
+  startHandle.step = 0.1;
+  lengthHandle.min = 0.1;
+  lengthHandle.step = 0.1;
   updateYtRangeUI();
 }
 
 function onYtStartInput(v) {
   if (!Number.isFinite(v)) return;
+  const length = ytEndSec - ytStartSec;
   ytStartSec = Math.max(0, Math.min(v, ytDuration - 0.1));
-  if (ytEndSec - ytStartSec > 10 || ytEndSec <= ytStartSec) ytEndSec = Math.min(ytStartSec + 10, ytDuration);
+  ytEndSec = Math.min(ytStartSec + (length > 0.05 ? length : 10), ytDuration);
   updateYtRangeUI();
 }
 
@@ -900,8 +894,16 @@ function onYtEndInput(v) {
   updateYtRangeUI();
 }
 
+// ปรับความยาวคลิปแบบซูม (scale 0.1-10 วิคงที่ ไม่ขึ้นกับความยาวคลิปเต็ม) — แก้ปัญหาเลื่อนละเอียดยากเมื่อคลิปยาว
+function onYtLengthInput(len) {
+  if (!Number.isFinite(len)) return;
+  const maxLen = Math.min(10, ytDuration - ytStartSec);
+  ytEndSec = ytStartSec + Math.max(0.1, Math.min(len, maxLen));
+  updateYtRangeUI();
+}
+
 document.getElementById('ytStartHandle')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
-document.getElementById('ytEndHandle')?.addEventListener('input', (e) => onYtEndInput(parseFloat(e.target.value)));
+document.getElementById('ytEndHandle')?.addEventListener('input', (e) => onYtLengthInput(parseFloat(e.target.value)));
 document.getElementById('ytStartInput')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
 document.getElementById('ytEndInput')?.addEventListener('input', (e) => onYtEndInput(parseFloat(e.target.value)));
 
@@ -932,7 +934,6 @@ document.getElementById('ytUrlLoadBtn')?.addEventListener('click', () => {
     ytShowStatus('ลิงก์ YouTube ไม่ถูกต้อง', true);
     return;
   }
-  localStorage.setItem('ytDisclaimerAck', '1');
   ytShowStatus('');
   const btn = document.getElementById('ytUrlLoadBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลด...'; }
@@ -1469,20 +1470,39 @@ async function startTierRecording() {
   const timerEl = document.getElementById('tierRecordTimer');
   try {
     closeTierAudioContext();
-    // §10.9 — create + resume AudioContext first, while still inside user gesture
     tierAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // §10.9 — getUserMedia ก่อน (ใช้ user gesture จากปุ่มกด), ค่อย resume AudioContext ทีหลัง
+    // iOS Safari: await ระหว่างทางอาจตัด gesture chain → getUserMedia reject
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+    } catch (e) {
+      // iOS 14-15 ไม่รองรับ constraint object → OverconstrainedError → fallback เป็น default
+      if (e.name === 'OverconstrainedError') {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } else {
+        throw e;
+      }
+    }
     await tierAudioContext.resume();
-    // ปิด browser processing ทั้งหมด — noiseSuppression ตัวการตัดเสียงบุ๋มลากยาวในที่เสียงดัง/หน้าพัดลม/เปิดเพลง,
-    // autoGainControl สู้ gainNode ของเรา, echoCancellation ไม่จำเป็น (อัดไม่ได้เล่นเสียงกลับ)
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-    });
     const source = tierAudioContext.createMediaStreamSource(stream);
     tierGainNode = tierAudioContext.createGain();
     tierGainNode.gain.value = 2.5;
-    source.connect(tierGainNode); // ห้ามลืม — source ต้องเชื่อมเข้า gainNode ก่อน ไม่งั้น recorder ได้ความเงียบ
+    source.connect(tierGainNode);
+    // brick-wall limiter — กัน digital clip โดยไม่ตัดเสียงกลางทาง
+    // threshold -3dB จับเฉพาะ peak ใกล้เพดาน, ratio 20:1 เกือบ brick-wall,
+    // attack 0.003s เร็วทัน peak, release 0.05s เร็วมากไม่ pumping
+    const limiter = tierAudioContext.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.05;
     const dest = tierAudioContext.createMediaStreamDestination();
-    tierGainNode.connect(dest);
+    tierGainNode.connect(limiter);
+    limiter.connect(dest);
     tierMediaRecorder = new MediaRecorder(dest.stream);
     tierRecordedChunks = [];
     tierMediaRecorder.ondataavailable = e => {
