@@ -236,7 +236,7 @@
           `<div class="sg-viewport">
             <img class="sg-img" id="sgImg2" src="/assets/slipok-guide/SlipOK_Guide_2.jpg" alt="Fill Bank" width="1414" height="891">
           </div>`,
-          '<i class="fas fa-mobile-alt"></i> เลือกช่องทางรับเงิน (PromptPay / TrueMoney) กรอกข้อมูล แล้วกด <strong>สร้างบัญชี</strong>', true)}
+          '<i class="fas fa-mobile-alt"></i> เลือกช่องทางรับเงิน (PromptPay / ธนาคาร) กรอกข้อมูล แล้วกด <strong>สร้างบัญชี</strong>', true)}
         ${makeSlide(3,
           `<div class="sg-viewport">
             <img class="sg-img" id="sgImg3" src="/assets/slipok-guide/SlipOK_Guide_3.jpg" alt="Branch" width="1624" height="855">
