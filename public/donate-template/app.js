@@ -681,7 +681,10 @@ function updateSoundSourceUI(activeSource) {
   const recordPane = document.getElementById('tierRecordPane');
   const changeBtn = document.getElementById('btnChangeTierSound');
 
-  [libraryBlock, uploadPane, recordPane].forEach(el => el?.classList.remove('sound-source-dimmed'));
+  [libraryBlock, uploadPane, recordPane,
+    document.getElementById('tierUploadLabelBtn'),
+    document.getElementById('btnPickTierCatalog')
+  ].forEach(el => el?.classList.remove('sound-source-dimmed'));
   if (activeSource === 'library') {
     uploadPane?.classList.add('sound-source-dimmed');
     recordPane?.classList.add('sound-source-dimmed');
@@ -699,6 +702,42 @@ function updateSoundSourceUI(activeSource) {
   }
 
   if (changeBtn) changeBtn.style.display = activeSource ? '' : 'none';
+}
+
+// Plan B: auto-clear previous sound source when switching to a new one
+function clearTierSoundSource() {
+  // Clear upload state
+  hideTierUploadReview();
+  const fileInput = document.getElementById('tierOwnAudioFile');
+  if (fileInput) fileInput.value = '';
+  const status = document.getElementById('tierOwnAudioStatus');
+  if (status) status.textContent = '';
+
+  // Clear YouTube state
+  clearInterval(ytPlayTestTimer);
+  if (selectedTierYoutube) {
+    selectedTierYoutube = null;
+    if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
+    const ytPlayerDiv = document.getElementById('ytPlayer');
+    if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
+    ytPlayerReady = false;
+    const ytBtnLabel = document.getElementById('btnPickTierYoutube');
+    if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> YouTube';
+  }
+  closeYoutubeModal();
+
+  // Clear catalog/library state
+  closeTierSoundPicker();
+  stopTierSoundPreview();
+
+  // Clear record state
+  stopTierRecording(true);
+  hideTierRecordReview();
+
+  // Reset shared state
+  selectedTierSoundUrl = null;
+  selectedTierSoundIsTemp = false;
+  selectedTierSoundLabel = '';
 }
 
 // §10.7 / §10.15 — tier sound picker modal
@@ -911,7 +950,8 @@ function onYtStartInput(v) {
 function onYtEndInput(v) {
   if (!Number.isFinite(v)) return;
   ytEndSec = Math.min(ytDuration, Math.max(v, 0.1));
-  if (ytEndSec - ytStartSec > 10 || ytStartSec >= ytEndSec) ytStartSec = Math.max(ytEndSec - 10, 0);
+  // ponytail: 0.05 epsilon ทน float drift (เช่นเดียวกับ validation ใน ytUseClipBtn)
+  if (ytEndSec - ytStartSec > 10.05 || ytStartSec >= ytEndSec) ytStartSec = Math.max(ytEndSec - 10, 0);
   updateYtRangeUI();
 }
 
@@ -1014,15 +1054,15 @@ document.getElementById('ytChangeUrlBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('ytUseClipBtn')?.addEventListener('click', () => {
-  if (ytEndSec - ytStartSec <= 0 || ytEndSec - ytStartSec > 10) {
+  // ponytail: 0.05 epsilon ทน IEEE-754 drift — (6.1+10)-6.1 = 10.000000000000002 ซึ่งความยาวจริงคือ 10
+  const len = ytEndSec - ytStartSec;
+  if (len < 0.05 || len > 10.05) {
     ytShowStatus('ช่วงเสียงต้องมากกว่า 0 และไม่เกิน 10 วินาที', true);
     return;
   }
-  clearInterval(ytPlayTestTimer);
+  clearTierSoundSource();
   if (ytPlayer) { try { ytPlayer.pauseVideo(); } catch {} }
   selectedTierYoutube = { videoId: currentYtVideoId, startSec: ytStartSec, endSec: ytEndSec };
-  selectedTierSoundUrl = null; // §10.10 mutual-exclusivity — ล้าง source อื่น
-  selectedTierSoundIsTemp = false;
   closeYoutubeModal();
   updateSoundSourceUI('youtube');
   const labelBtn = document.getElementById('btnPickTierYoutube');
@@ -1300,6 +1340,7 @@ async function searchTierSoundCatalog(query) {
 }
 
 function selectTierSound(url, label, source) {
+  clearTierSoundSource();
   selectedTierSoundUrl = url || null;
   selectedTierSoundIsTemp = false;
   selectedTierSoundLabel = label || 'เสียงเริ่มต้น';
@@ -1308,9 +1349,6 @@ function selectTierSound(url, label, source) {
   if (source === 'catalog') {
     const status = document.getElementById('tierOwnAudioStatus');
     if (status) status.textContent = url ? `🎵 ${selectedTierSoundLabel}` : '';
-    hideTierUploadReview();
-    const fileInput = document.getElementById('tierOwnAudioFile');
-    if (fileInput) fileInput.value = '';
   } else {
     const labelEl = document.getElementById('tierSoundSelectedLabel');
     if (labelEl) labelEl.textContent = selectedTierSoundLabel;
@@ -1355,6 +1393,7 @@ document.querySelectorAll('.tier-subtab-btn').forEach(btn => {
 document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  clearTierSoundSource();
   const status = document.getElementById('tierOwnAudioStatus');
   const setStatus = (msg) => { if (status) status.textContent = msg; };
   if (file.size > 1024 * 1024) {
@@ -1602,6 +1641,7 @@ function stopTierRecording(cancel) {
 }
 
 async function uploadTierRecordedAudio(blob) {
+  clearTierSoundSource();
   const status = document.getElementById('tierRecordStatus');
   const setStatus = (msg) => { if (status) status.textContent = msg; };
   setStatus('กำลังอัปโหลด...');
