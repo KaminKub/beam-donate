@@ -269,7 +269,7 @@
       </div>
 
       <div class="sg-nav">
-        <button class="sg-nav-btn" id="sgBtnPrev" onclick="sgNav(-1)" disabled>
+        <button class="sg-nav-btn" id="sgBtnPrev" onclick="sgNav(-1)">
           <i class="fas fa-chevron-left"></i> ก่อนหน้า
         </button>
         <span class="sg-step-label" id="sgStepLabel">1 / 6</span>
