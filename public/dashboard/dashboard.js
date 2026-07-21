@@ -4697,14 +4697,14 @@ function loadTierDonateSettingsFromData(s) {
 
   const tiers = Array.isArray(t.tiers) ? t.tiers : [];
   const defaults = [
-    { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false },
-    { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false },
-    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true }
+    { level: 1, min_amount: 50, allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false, allow_youtube_clip: false },
+    { level: 2, min_amount: 200, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false, allow_youtube_clip: false },
+    { level: 3, min_amount: 500, active: false, allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true, allow_youtube_clip: false }
   ];
   const rowIds = {
-    1: { name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', record: 'tierAllowOwnRecord1' },
-    2: { active: 'tierActive2', name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', record: 'tierAllowOwnRecord2' },
-    3: { active: 'tierActive3', name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', record: 'tierAllowOwnRecord3' }
+    1: { name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', youtube: 'tierAllowYoutubeClip1', record: 'tierAllowOwnRecord1' },
+    2: { active: 'tierActive2', name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', youtube: 'tierAllowYoutubeClip2', record: 'tierAllowOwnRecord2' },
+    3: { active: 'tierActive3', name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', youtube: 'tierAllowYoutubeClip3', record: 'tierAllowOwnRecord3' }
   };
   [1, 2, 3].forEach(level => {
     const d = defaults[level - 1];
@@ -4725,6 +4725,8 @@ function loadTierDonateSettingsFromData(s) {
     if (sndEl) sndEl.checked = saved.allow_sound_choice !== undefined ? !!saved.allow_sound_choice : !!d.allow_sound_choice;
     const uploadEl = document.getElementById(ids.upload);
     if (uploadEl) uploadEl.checked = saved.allow_own_upload !== undefined ? !!saved.allow_own_upload : (!!saved.allow_own_audio || !!d.allow_own_upload);
+    const youtubeEl = document.getElementById(ids.youtube);
+    if (youtubeEl) youtubeEl.checked = saved.allow_youtube_clip !== undefined ? !!saved.allow_youtube_clip : !!d.allow_youtube_clip;
     const recordEl = document.getElementById(ids.record);
     if (recordEl) recordEl.checked = saved.allow_own_record !== undefined ? !!saved.allow_own_record : (!!saved.allow_own_audio || !!d.allow_own_record);
   });
@@ -6992,9 +6994,9 @@ function collectTierDonateSettings() {
   if (errEl) errEl.style.display = 'none';
 
   const tiers = [
-    { level: 1, active: true, name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', record: 'tierAllowOwnRecord1' },
-    { level: 2, active: document.getElementById('tierActive2')?.checked || false, name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', record: 'tierAllowOwnRecord2' },
-    { level: 3, active: document.getElementById('tierActive3')?.checked || false, name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', record: 'tierAllowOwnRecord3' }
+    { level: 1, active: true, name: 'tierName1', min: 'tierMinAmount1', img: 'tierAllowImage1', snd: 'tierAllowSound1', upload: 'tierAllowOwnUpload1', youtube: 'tierAllowYoutubeClip1', record: 'tierAllowOwnRecord1' },
+    { level: 2, active: document.getElementById('tierActive2')?.checked || false, name: 'tierName2', min: 'tierMinAmount2', img: 'tierAllowImage2', snd: 'tierAllowSound2', upload: 'tierAllowOwnUpload2', youtube: 'tierAllowYoutubeClip2', record: 'tierAllowOwnRecord2' },
+    { level: 3, active: document.getElementById('tierActive3')?.checked || false, name: 'tierName3', min: 'tierMinAmount3', img: 'tierAllowImage3', snd: 'tierAllowSound3', upload: 'tierAllowOwnUpload3', youtube: 'tierAllowYoutubeClip3', record: 'tierAllowOwnRecord3' }
   ].map(t => ({
     level: t.level,
     active: t.active,
@@ -7003,6 +7005,7 @@ function collectTierDonateSettings() {
     allow_image_choice: document.getElementById(t.img)?.checked || false,
     allow_sound_choice: document.getElementById(t.snd)?.checked || false,
     allow_own_upload: document.getElementById(t.upload)?.checked || false,
+    allow_youtube_clip: document.getElementById(t.youtube)?.checked || false,
     allow_own_record: document.getElementById(t.record)?.checked || false
   }));
 

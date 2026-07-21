@@ -307,6 +307,7 @@
             <div id="tierUploadPane" class="sound-source-pane" data-sound-source="upload">
               <input type="file" id="tierOwnAudioFile" accept="audio/*" hidden>
               <label for="tierOwnAudioFile" id="tierUploadLabelBtn" class="tier-upload-label"><i class="fa-solid fa-upload"></i> เลือกไฟล์เสียง</label>
+              <button type="button" id="btnPickTierYoutube" class="tier-upload-label tier-youtube-label"><i class="fa-brands fa-youtube"></i> ใช้เสียงจากคลิป YouTube</button>
               <button type="button" id="btnPickTierCatalog" class="tier-upload-label"><i class="fa-solid fa-globe" style="color:#3b82f6;"></i> ค้นหาเสียงสำเร็จรูป</button>
               <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
               <div id="tierUploadReview" style="display:none;">
@@ -852,11 +853,55 @@
       </div>
     </div>
   </div>
+  <!-- YouTube Tier Sound Modal -->
+  <div id="tierSoundYoutubeModal" class="tier-sound-picker-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ytModalTitle">
+    <div class="tier-sound-picker-box card glass-card yt-modal-box">
+      <div class="tier-sound-picker-header">
+        <span id="ytModalTitle"><i class="fa-brands fa-youtube" style="color:#ff0000;margin-right:8px;"></i>ใช้เสียงจากคลิป YouTube</span>
+        <button id="btnCloseYoutubeModal" class="tier-sound-picker-close" aria-label="ปิด">✕</button>
+      </div>
+      <div class="tier-sound-picker-body">
+        <div id="ytModalStatus" class="yt-status-text" style="display:none;"></div>
+        <div id="ytStep1">
+          <div class="yt-disclaimer" id="ytDisclaimerBox">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <div>
+              เสียงจาก YouTube อยู่ภายใต้ลิขสิทธิ์ของเจ้าของคลิป กรุณาใช้คลิปที่คุณมีสิทธิ์ หรือคลิป Creative Commons เท่านั้น
+              <label class="yt-disclaimer-ack"><input type="checkbox" id="ytDisclaimerAckCheck"> รับทราบ</label>
+            </div>
+          </div>
+          <input type="url" id="ytUrlInput" class="form-control" placeholder="https://www.youtube.com/watch?v=..." style="margin-top:10px;">
+          <button type="button" id="ytUrlLoadBtn" class="btn-primary" style="margin-top:10px;" disabled><i class="fa-solid fa-download"></i> โหลดคลิป</button>
+        </div>
+        <div id="ytStep2" style="display:none;">
+          <div id="ytPlayerWrap"><div id="ytPlayer"></div></div>
+          <div class="yt-range-wrapper">
+            <div class="yt-range-labels"><span id="ytStartLabel">0:00.0</span><span id="ytEndLabel">0:10.0</span></div>
+            <div class="yt-range-track">
+              <div id="ytRangeFill" class="yt-range-fill"></div>
+              <input type="range" id="ytStartHandle" min="0" max="10" step="0.1" value="0">
+              <input type="range" id="ytEndHandle" min="0" max="10" step="0.1" value="10">
+            </div>
+          </div>
+          <div class="yt-manual-inputs">
+            <span>เริ่ม</span><input type="number" id="ytStartInput" step="0.1" min="0">
+            <span>ถึง</span><input type="number" id="ytEndInput" step="0.1" min="0">
+            <span>วินาที</span>
+          </div>
+          <button type="button" id="ytPlayTestBtn" class="btn-secondary"><i class="fa-solid fa-play"></i> ทดลองฟัง</button>
+          <div class="yt-step2-actions">
+            <button type="button" id="ytChangeUrlBtn" class="btn-text"><i class="fa-solid fa-rotate-left"></i> เปลี่ยนลิงก์ YouTube</button>
+            <button type="button" id="ytUseClipBtn" class="btn-primary"><i class="fa-solid fa-check"></i> ใช้เสียงนี้</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   </div>  <!-- end container -->
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260721_1"></script>
+  <script src="/donate-template/app.js?v=20260721_4"></script>
 </body>
 </html>

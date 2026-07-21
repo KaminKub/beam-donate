@@ -280,7 +280,10 @@ async function migrateDB() {
         tier_level INTEGER DEFAULT NULL,
         tier_image_url TEXT DEFAULT NULL,
         tier_sound_url TEXT DEFAULT NULL,
-        tier_sound_is_temp INTEGER DEFAULT 0
+        tier_sound_is_temp INTEGER DEFAULT 0,
+        tier_sound_youtube_id TEXT DEFAULT NULL,
+        tier_sound_youtube_start REAL DEFAULT NULL,
+        tier_sound_youtube_end REAL DEFAULT NULL
       )
      `);
     await db.execute(`
@@ -364,7 +367,10 @@ async function migrateDB() {
       { name: 'tier_level', type: 'INTEGER DEFAULT NULL' },
       { name: 'tier_image_url', type: 'TEXT DEFAULT NULL' },
       { name: 'tier_sound_url', type: 'TEXT DEFAULT NULL' },
-      { name: 'tier_sound_is_temp', type: 'INTEGER DEFAULT 0' }
+      { name: 'tier_sound_is_temp', type: 'INTEGER DEFAULT 0' },
+      { name: 'tier_sound_youtube_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'tier_sound_youtube_start', type: 'REAL DEFAULT NULL' },
+      { name: 'tier_sound_youtube_end', type: 'REAL DEFAULT NULL' }
     ];
 
     for (const col of requiredTxCols) {
@@ -795,8 +801,8 @@ async function saveTransaction(data) {
   const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
 
   await db.execute({
-    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action, tier_level, tier_image_url, tier_sound_url, tier_sound_is_temp)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action, tier_level, tier_image_url, tier_sound_url, tier_sound_is_temp, tier_sound_youtube_id, tier_sound_youtube_start, tier_sound_youtube_end)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             amount = COALESCE(excluded.amount, transactions.amount),
             donor = COALESCE(excluded.donor, transactions.donor),
@@ -816,7 +822,10 @@ async function saveTransaction(data) {
             tier_level = COALESCE(excluded.tier_level, transactions.tier_level),
             tier_image_url = COALESCE(excluded.tier_image_url, transactions.tier_image_url),
             tier_sound_url = COALESCE(excluded.tier_sound_url, transactions.tier_sound_url),
-            tier_sound_is_temp = COALESCE(excluded.tier_sound_is_temp, transactions.tier_sound_is_temp)`,
+            tier_sound_is_temp = COALESCE(excluded.tier_sound_is_temp, transactions.tier_sound_is_temp),
+            tier_sound_youtube_id = COALESCE(excluded.tier_sound_youtube_id, transactions.tier_sound_youtube_id),
+            tier_sound_youtube_start = COALESCE(excluded.tier_sound_youtube_start, transactions.tier_sound_youtube_start),
+            tier_sound_youtube_end = COALESCE(excluded.tier_sound_youtube_end, transactions.tier_sound_youtube_end)`,
     args: [
       data.id,
       data.amount || 0,
@@ -838,7 +847,10 @@ async function saveTransaction(data) {
       data.tier_level ?? null,
       data.tier_image_url ?? null,
       data.tier_sound_url ?? null,
-      data.tier_sound_is_temp !== undefined ? (data.tier_sound_is_temp ? 1 : 0) : 0
+      data.tier_sound_is_temp !== undefined ? (data.tier_sound_is_temp ? 1 : 0) : 0,
+      data.tier_sound_youtube_id ?? null,
+      data.tier_sound_youtube_start ?? null,
+      data.tier_sound_youtube_end ?? null
     ]
   });
   

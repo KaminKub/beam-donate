@@ -520,7 +520,9 @@ async function showAlert(data) {
   // Play Alert Audio Notification
   // TIER_DONATE_BLUEPRINT.md § 5.1 — donor's tier sound pick overrides the streamer's configured alert sound entirely
   if (overlaySettings.soundEnabled) {
-    if (data.tierSoundUrl) {
+    if (data.tierYoutubeId) {
+      await playYoutubeTierSound(data.tierYoutubeId, data.tierYoutubeStart, data.tierYoutubeEnd, overlaySettings.soundVolume);
+    } else if (data.tierSoundUrl) {
       await new Promise((resolve) => {
         const audio = new Audio(data.tierSoundUrl);
         audio.volume = Number(overlaySettings.soundVolume) || 0.5;
@@ -596,6 +598,71 @@ async function showAlert(data) {
 
 // ========== Web Audio API Notification Synthesizer ==========
 let audioCtx = null;
+
+// ========== YouTube Tier Sound (YOUTUBE_TIER_SOUND_BLUEPRINT.md §9) ==========
+let ytApiLoadingOverlay = false;
+
+function ensureYoutubeApi(cb, onFail) {
+  if (window.YT && window.YT.Player) return cb();
+  if (ytApiLoadingOverlay) {
+    const check = setInterval(() => { if (window.YT && window.YT.Player) { clearInterval(check); cb(); } }, 100);
+    return;
+  }
+  ytApiLoadingOverlay = true;
+  let settled = false;
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    ytApiLoadingOverlay = false;
+    if (onFail) onFail();
+  }, 10000);
+  window.onYouTubeIframeAPIReady = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    ytApiLoadingOverlay = false;
+    cb();
+  };
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+function playYoutubeTierSound(videoId, startSec, endSec, volume) {
+  return new Promise((resolve) => {
+    ensureYoutubeApi(() => {
+      const hiddenDiv = document.createElement('div');
+      hiddenDiv.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:200px;height:200px;opacity:0;pointer-events:none;';
+      document.body.appendChild(hiddenDiv);
+      let done = false;
+      let iv;
+      const finish = (player) => {
+        if (done) return;
+        done = true;
+        clearInterval(iv);
+        try { player?.destroy(); } catch {}
+        hiddenDiv.remove();
+        resolve();
+      };
+      const player = new YT.Player(hiddenDiv, {
+        videoId,
+        playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, origin: window.location.origin },
+        events: {
+          onReady: (e) => {
+            e.target.setVolume(Math.round((Number(volume) || 0.5) * 100));
+            e.target.seekTo(startSec, true);
+            e.target.playVideo();
+            iv = setInterval(() => {
+              if (e.target.getCurrentTime() >= endSec) { finish(e.target); }
+            }, 100);
+            setTimeout(() => { finish(e.target); }, (endSec - startSec) * 1000 + 1500);
+          },
+          onError: (e) => { console.warn('[YT overlay] error', e.data); finish(e.target); }
+        }
+      });
+    }, () => resolve());
+  });
+}
 
 async function playNotificationSound(soundChoice, volume) {
   try {

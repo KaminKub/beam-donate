@@ -257,9 +257,9 @@ const defaultSettings = {
   tier_donate_settings: JSON.stringify({
     enabled: false,
     tiers: [
-      { level: 1, min_amount: 50, active: true, name: '', allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false },
-      { level: 2, min_amount: 200, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false },
-      { level: 3, min_amount: 500, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true }
+      { level: 1, min_amount: 50, active: true, name: '', allow_image_choice: true, allow_sound_choice: false, allow_own_upload: false, allow_own_record: false, allow_youtube_clip: false },
+      { level: 2, min_amount: 200, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: false, allow_own_record: false, allow_youtube_clip: false },
+      { level: 3, min_amount: 500, active: false, name: '', allow_image_choice: true, allow_sound_choice: true, allow_own_upload: true, allow_own_record: true, allow_youtube_clip: false }
     ],
     alert_images: []
   }),
@@ -788,6 +788,11 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
     ...(tx.tier_level ? { tierLevel: tx.tier_level } : {}),
     ...(tx.tier_image_url ? { tierImageUrl: tx.tier_image_url } : {}),
     ...(tx.tier_sound_url ? { tierSoundUrl: tx.tier_sound_url } : {}),
+    ...(tx.tier_sound_youtube_id ? {
+      tierYoutubeId: tx.tier_sound_youtube_id,
+      tierYoutubeStart: tx.tier_sound_youtube_start,
+      tierYoutubeEnd: tx.tier_sound_youtube_end
+    } : {}),
     ...extraAlert
   });
   // § 2.6 TIER_DONATE_BLUEPRINT.md — ลบ donor-temp audio หลังใช้ครั้งเดียว (fire-and-forget, ห้าม block alert)
@@ -854,8 +859,9 @@ if (helmet) {
       // SSE + API calls to self, Google Fonts/TTS, Twitch/Streamlabs OAuth redirects.
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://static.cloudflareinsights.com'],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://static.cloudflareinsights.com', 'https://www.youtube.com'],
         scriptSrcAttr: ["'unsafe-inline'"],
+        frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
@@ -2289,7 +2295,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API: สร้าง Donation (Payment Link)
 app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
   try {
-    const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
+    const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
     if (!username) return res.status(400).json({ error: 'ไม่ระบุชื่อผู้รับบริจาค' });
 
@@ -2297,7 +2303,7 @@ app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
     if (Number(streamer.is_active) === 0) return res.status(404).json({ error: 'ไม่พบผู้รับบริจาคในระบบ' });
 
-    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
 
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.get('host');
@@ -3831,6 +3837,7 @@ function validateTierDonateSettings(obj, streamerId) {
     if (typeof t.allow_sound_choice !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_sound_choice ไม่ถูกต้อง` };
     if (typeof t.allow_own_upload !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_own_upload ไม่ถูกต้อง` };
     if (typeof t.allow_own_record !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_own_record ไม่ถูกต้อง` };
+    if (typeof t.allow_youtube_clip !== 'boolean') return { valid: false, message: `Tier ${t.level}: allow_youtube_clip ไม่ถูกต้อง` };
   }
   if (obj.alert_images !== undefined) {
     if (!Array.isArray(obj.alert_images) || obj.alert_images.length > 3) {
@@ -3872,7 +3879,8 @@ function validateSoundLibrary(arr, streamerId) {
 // § 2.5 TIER_DONATE_BLUEPRINT.md — server คำนวณ tier_level เองเสมอ ห้าม trust client (§7 pitfall #2)
 // tierImageUrl/tierSoundUrl ผิด/ปลอม → ละเว้นเงียบๆ (เซ็ต null) ไม่ error ทั้งการโดเนท (§7 pitfall #3)
 function computeTierAssignment(streamer, amount, body) {
-  const result = { tier_level: null, tier_image_url: null, tier_sound_url: null, tier_sound_is_temp: 0 };
+  const result = { tier_level: null, tier_image_url: null, tier_sound_url: null, tier_sound_is_temp: 0,
+    tier_sound_youtube_id: null, tier_sound_youtube_start: null, tier_sound_youtube_end: null };
   let tierSettings = null;
   try { tierSettings = JSON.parse(streamer.tier_donate_settings || 'null'); } catch {}
   tierSettings = normalizeTierDonateSettings(tierSettings);
@@ -3884,7 +3892,7 @@ function computeTierAssignment(streamer, amount, body) {
   if (!unlocked) return result;
   result.tier_level = unlocked.level;
 
-  const { tierImageUrl, tierSoundUrl, tierSoundMode } = body || {};
+  const { tierImageUrl, tierSoundUrl, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = body || {};
   const tierSoundIsTemp = body?.tierSoundIsTemp === true || body?.tierSoundIsTemp === 'true' || body?.tierSoundIsTemp === 1 || body?.tierSoundIsTemp === '1';
   if (tierImageUrl && unlocked.allow_image_choice) {
     const images = Array.isArray(tierSettings.alert_images) ? tierSettings.alert_images : [];
@@ -3907,6 +3915,16 @@ function computeTierAssignment(streamer, amount, body) {
         result.tier_sound_url = tierSoundUrl;
         result.tier_sound_is_temp = 0;
       }
+    }
+  }
+  if (tierYoutubeId && unlocked.allow_youtube_clip === true) {
+    const validId = /^[a-zA-Z0-9_-]{11}$/.test(tierYoutubeId);
+    const s = Number(tierYoutubeStart), e = Number(tierYoutubeEnd);
+    const validRange = Number.isFinite(s) && Number.isFinite(e) && s >= 0 && e > s && (e - s) <= 10;
+    if (validId && validRange) {
+      result.tier_sound_youtube_id = tierYoutubeId;
+      result.tier_sound_youtube_start = s;
+      result.tier_sound_youtube_end = e;
     }
   }
   return result;
@@ -4957,7 +4975,7 @@ const setupWebhookLimiter = rateLimit({
 app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
+    const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
     if (amount < 1) return res.status(400).json({ error: 'จำนวนเงินต้องมากกว่า 0' });
 
@@ -4972,7 +4990,7 @@ app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
     if (!streamer.promptpay_enabled) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้เปิด PromptPay' });
 
-    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
+    const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
 
     let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
     if (phone && phone.includes(':')) {
@@ -5218,7 +5236,7 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
 
-    const { username, amount, name, message, timerAction, method, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
+    const { username, amount, name, message, timerAction, method, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     if (!username || !amount) return res.status(400).json({ error: 'Missing username or amount' });
     if (amount < 1) return res.status(400).json({ error: 'Amount must be at least 1' });
     if (!['P2P', 'PROMPTPAY_IN'].includes(method)) {
@@ -5262,7 +5280,7 @@ app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
       qrData = generatePromptPayPayload(promptpayId, displayAmount);
     }
 
-    const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
+    const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
 
     await db.saveTransaction({
       id: refId,
@@ -5331,7 +5349,7 @@ const pollSlipLimiter = rateLimit({
 app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
-    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode } = req.body;
+    const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     const donorTimerAction = sanitizeTimerAction(timerAction);
     const slipFile = req.file;
 
@@ -5396,7 +5414,7 @@ app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('
     let effectiveReferenceId = referenceId;
     if (!effectiveReferenceId && (isTruemoney || method === 'bank')) {
       effectiveReferenceId = `${method}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const tierAssignment = computeTierAssignment(streamer, parseFloat(amount) || 0, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode });
+      const tierAssignment = computeTierAssignment(streamer, parseFloat(amount) || 0, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
       await db.saveTransaction({
         id: effectiveReferenceId,
         amount: parseFloat(amount) || 0,

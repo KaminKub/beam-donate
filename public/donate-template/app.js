@@ -40,6 +40,18 @@ let tierRecordPendingBlob = null;
 let tierRecordPreviewUrl = null;
 let currentSoundSource = null;
 
+// YouTube Tier Sound (YOUTUBE_TIER_SOUND_BLUEPRINT.md §8.1)
+let selectedTierYoutube = null; // { videoId, startSec, endSec } — null = ไม่ได้เลือก
+let ytPlayer = null;
+let ytPlayerReady = false;
+let ytDuration = 0;
+let ytStartSec = 0;
+let ytEndSec = 10;
+let ytApiLoading = false;
+let currentYtVideoId = null;
+let pendingYtStartSec = null;
+let ytPlayTestTimer = null;
+
 // ========== Anti-Bot: Page Token from Server ==========
 let pageToken = '';
 const metaToken = document.querySelector('meta[name="page-token"]');
@@ -535,6 +547,17 @@ function resetTierSelections() {
   if (changeBtn) changeBtn.style.display = 'none';
   hideTierRecordReview();
   hideTierUploadReview();
+
+  // YouTube Tier Sound reset (§8.10)
+  clearInterval(ytPlayTestTimer);
+  selectedTierYoutube = null;
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
+  const ytPlayerDiv = document.getElementById('ytPlayer');
+  if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
+  ytPlayerReady = false;
+  closeYoutubeModal();
+  const ytBtnLabel = document.getElementById('btnPickTierYoutube');
+  if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> ใช้เสียงจากคลิป YouTube';
 }
 
 function buildDefaultTierImagePreview() {
@@ -611,23 +634,30 @@ function renderTierSection(unlocked) {
   const recordPane = document.getElementById('tierRecordPane');
   const hasUpload = unlocked.allow_own_upload === true;
   const hasRecord = unlocked.allow_own_record === true && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  const hasYoutube = unlocked.allow_youtube_clip === true;
   const ownLabelText = document.getElementById('tierOwnAudioLabelText');
   if (ownLabelText) ownLabelText.textContent = hasRecord ? 'อัพโหลด/อัดเสียงของคุณเอง' : 'อัพโหลดเสียง';
-  if (hasUpload || hasRecord) {
+  if (hasUpload || hasRecord || hasYoutube) {
     ownBlock.classList.add('tier-block-open');
-    if (uploadSubtab) uploadSubtab.style.display = hasUpload ? '' : 'none';
+    if (uploadSubtab) uploadSubtab.style.display = (hasUpload || hasYoutube) ? '' : 'none';
     if (recordSubtab) recordSubtab.style.display = hasRecord ? '' : 'none';
-    if (ownSubtabs) ownSubtabs.style.display = (hasUpload && hasRecord) ? '' : 'none';
-    if (hasUpload && !hasRecord) {
+    if (ownSubtabs) ownSubtabs.style.display = ((hasUpload || hasYoutube) && hasRecord) ? '' : 'none';
+    if ((hasUpload || hasYoutube) && !hasRecord) {
       uploadPane.style.display = '';
       recordPane.style.display = 'none';
-    } else if (!hasUpload && hasRecord) {
+    } else if (!(hasUpload || hasYoutube) && hasRecord) {
       uploadPane.style.display = 'none';
       recordPane.style.display = '';
     }
   } else {
     ownBlock.classList.remove('tier-block-open');
   }
+  const uploadLabelBtn = document.getElementById('tierUploadLabelBtn');
+  if (uploadLabelBtn) uploadLabelBtn.style.display = hasUpload ? '' : 'none';
+  const catalogBtn = document.getElementById('btnPickTierCatalog');
+  if (catalogBtn) catalogBtn.style.display = hasUpload ? '' : 'none'; // กัน bypass gap — ดู §11
+  const ytBtn = document.getElementById('btnPickTierYoutube');
+  if (ytBtn) ytBtn.style.display = hasYoutube ? '' : 'none';
 }
 
 function selectTierImage(url, el) {
@@ -661,6 +691,11 @@ function updateSoundSourceUI(activeSource) {
   } else if (activeSource === 'record') {
     libraryBlock?.classList.add('sound-source-dimmed');
     uploadPane?.classList.add('sound-source-dimmed');
+  } else if (activeSource === 'youtube') {
+    libraryBlock?.classList.add('sound-source-dimmed');
+    recordPane?.classList.add('sound-source-dimmed');
+    document.getElementById('tierUploadLabelBtn')?.classList.add('sound-source-dimmed');
+    document.getElementById('btnPickTierCatalog')?.classList.add('sound-source-dimmed');
   }
 
   if (changeBtn) changeBtn.style.display = activeSource ? '' : 'none';
@@ -696,6 +731,281 @@ function closeTierSoundPicker() {
   modal.classList.remove('active');
   setTimeout(() => { if (!modal.classList.contains('active')) modal.style.display = 'none'; }, 200);
 }
+
+// ========== YouTube Tier Sound (YOUTUBE_TIER_SOUND_BLUEPRINT.md §8) ==========
+
+function ensureYoutubeApi(cb, onFail) {
+  if (window.YT && window.YT.Player) return cb();
+  if (ytApiLoading) {
+    const check = setInterval(() => { if (window.YT && window.YT.Player) { clearInterval(check); cb(); } }, 100);
+    return;
+  }
+  ytApiLoading = true;
+  let settled = false;
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    ytApiLoading = false;
+    if (onFail) onFail();
+  }, 10000); // §10 mobile resilience — webview may block YouTube embed
+  window.onYouTubeIframeAPIReady = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    ytApiLoading = false;
+    cb();
+  };
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+function parseYoutubeUrl(url) {
+  try {
+    const u = new URL(url);
+    let videoId = null;
+    const host = u.hostname.replace('www.', '');
+    if (host === 'youtube.com' && u.pathname === '/watch') videoId = u.searchParams.get('v');
+    else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1).split('/')[0];
+    else if (host === 'youtube.com' && u.pathname.startsWith('/embed/')) videoId = u.pathname.split('/')[2];
+    else if (host === 'youtube.com' && u.pathname.startsWith('/shorts/')) videoId = u.pathname.split('/')[2];
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return null;
+    const tRaw = u.searchParams.get('t') || u.searchParams.get('start');
+    return { videoId, tSec: parseYoutubeTimestamp(tRaw) };
+  } catch { return null; }
+}
+
+function parseYoutubeTimestamp(raw) {
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+  const m = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  return (parseInt(m[1] || 0, 10) * 3600) + (parseInt(m[2] || 0, 10) * 60) + parseInt(m[3] || 0, 10);
+}
+
+function ytShowStatus(msg, isError) {
+  const el = document.getElementById('ytModalStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'yt-status-text' + (isError ? ' yt-status-error' : '');
+  el.style.display = msg ? '' : 'none';
+}
+
+function ytUpdateDisclaimerGate() {
+  const ack = localStorage.getItem('ytDisclaimerAck') === '1';
+  const box = document.getElementById('ytDisclaimerBox');
+  const check = document.getElementById('ytDisclaimerAckCheck');
+  const loadBtn = document.getElementById('ytUrlLoadBtn');
+  if (box) box.style.display = ack ? 'none' : '';
+  if (loadBtn) loadBtn.disabled = !ack && !check?.checked;
+}
+document.getElementById('ytDisclaimerAckCheck')?.addEventListener('change', ytUpdateDisclaimerGate);
+
+function showYtStep1() {
+  const s1 = document.getElementById('ytStep1');
+  const s2 = document.getElementById('ytStep2');
+  if (s1) s1.style.display = '';
+  if (s2) s2.style.display = 'none';
+  ytUpdateDisclaimerGate();
+}
+
+function showYtStep2() {
+  const s1 = document.getElementById('ytStep1');
+  const s2 = document.getElementById('ytStep2');
+  if (s1) s1.style.display = 'none';
+  if (s2) s2.style.display = '';
+  ytShowStatus('');
+}
+
+function resetYoutubeModalToStep1() {
+  clearInterval(ytPlayTestTimer);
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
+  const ytPlayerDiv = document.getElementById('ytPlayer');
+  if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
+  ytPlayerReady = false;
+  ytDuration = 0;
+  const btn = document.getElementById('ytUrlLoadBtn');
+  if (btn) { btn.innerHTML = '<i class="fa-solid fa-download"></i> โหลดคลิป'; }
+  ytUpdateDisclaimerGate();
+  showYtStep1();
+}
+
+function openYoutubeModal() {
+  const modal = document.getElementById('tierSoundYoutubeModal');
+  if (!modal) return;
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+  if (selectedTierYoutube || ytPlayer) {
+    showYtStep2();
+  } else {
+    ytShowStatus('');
+    showYtStep1();
+  }
+}
+
+function closeYoutubeModal() {
+  const modal = document.getElementById('tierSoundYoutubeModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => { if (!modal.classList.contains('active')) modal.style.display = 'none'; }, 200);
+}
+
+function formatYtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1);
+  return `${m}:${s.padStart(4, '0')}`;
+}
+
+function updateYtRangeUI() {
+  const startHandle = document.getElementById('ytStartHandle');
+  const endHandle = document.getElementById('ytEndHandle');
+  const fill = document.getElementById('ytRangeFill');
+  const startLabel = document.getElementById('ytStartLabel');
+  const endLabel = document.getElementById('ytEndLabel');
+  const startInput = document.getElementById('ytStartInput');
+  const endInput = document.getElementById('ytEndInput');
+  if (!startHandle || !endHandle || !ytDuration) return;
+  startHandle.value = ytStartSec;
+  endHandle.value = ytEndSec;
+  const pctStart = (ytStartSec / ytDuration) * 100;
+  const pctEnd = (ytEndSec / ytDuration) * 100;
+  if (fill) { fill.style.left = pctStart + '%'; fill.style.width = Math.max(0, pctEnd - pctStart) + '%'; }
+  if (startLabel) startLabel.textContent = formatYtTime(ytStartSec);
+  if (endLabel) endLabel.textContent = formatYtTime(ytEndSec);
+  if (startInput) startInput.value = ytStartSec.toFixed(1);
+  if (endInput) endInput.value = ytEndSec.toFixed(1);
+}
+
+function initDualHandle(duration) {
+  const startHandle = document.getElementById('ytStartHandle');
+  const endHandle = document.getElementById('ytEndHandle');
+  if (!startHandle || !endHandle) return;
+  startHandle.min = endHandle.min = 0;
+  startHandle.max = endHandle.max = duration;
+  startHandle.step = endHandle.step = 0.1;
+  updateYtRangeUI();
+}
+
+function onYtStartInput(v) {
+  if (!Number.isFinite(v)) return;
+  ytStartSec = Math.max(0, Math.min(v, ytDuration - 0.1));
+  if (ytEndSec - ytStartSec > 10 || ytEndSec <= ytStartSec) ytEndSec = Math.min(ytStartSec + 10, ytDuration);
+  updateYtRangeUI();
+}
+
+function onYtEndInput(v) {
+  if (!Number.isFinite(v)) return;
+  ytEndSec = Math.min(ytDuration, Math.max(v, 0.1));
+  if (ytEndSec - ytStartSec > 10 || ytStartSec >= ytEndSec) ytStartSec = Math.max(ytEndSec - 10, 0);
+  updateYtRangeUI();
+}
+
+document.getElementById('ytStartHandle')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
+document.getElementById('ytEndHandle')?.addEventListener('input', (e) => onYtEndInput(parseFloat(e.target.value)));
+document.getElementById('ytStartInput')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
+document.getElementById('ytEndInput')?.addEventListener('input', (e) => onYtEndInput(parseFloat(e.target.value)));
+
+function onYtPlayerReady(e) {
+  ytPlayerReady = true;
+  ytDuration = e.target.getDuration();
+  if (!ytDuration || ytDuration === Infinity || ytDuration > 86400) {
+    ytShowStatus('คลิป Live ไม่รองรับ — กรุณาเลือกคลิปปกติ', true);
+    resetYoutubeModalToStep1();
+    return;
+  }
+  ytStartSec = Math.max(0, Math.min(pendingYtStartSec ?? 0, ytDuration - 0.1));
+  ytEndSec = Math.min(ytStartSec + 10, ytDuration);
+  initDualHandle(ytDuration);
+  showYtStep2();
+}
+
+function onYtPlayerError(e) {
+  console.warn('[YT donate] error', e.data);
+  ytShowStatus('เจ้าของคลิปปิดการฝัง กรุณาเลือกคลิปอื่น', true);
+  resetYoutubeModalToStep1();
+}
+
+document.getElementById('ytUrlLoadBtn')?.addEventListener('click', () => {
+  const url = document.getElementById('ytUrlInput')?.value?.trim();
+  const parsed = parseYoutubeUrl(url);
+  if (!parsed) {
+    ytShowStatus('ลิงก์ YouTube ไม่ถูกต้อง', true);
+    return;
+  }
+  localStorage.setItem('ytDisclaimerAck', '1');
+  ytShowStatus('');
+  const btn = document.getElementById('ytUrlLoadBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลด...'; }
+  currentYtVideoId = parsed.videoId;
+  pendingYtStartSec = parsed.tSec;
+  ensureYoutubeApi(() => {
+    if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
+    const ytPlayerDiv = document.getElementById('ytPlayer');
+    if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
+    ytPlayer = new YT.Player('ytPlayer', {
+      videoId: currentYtVideoId,
+      playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+      events: { onReady: onYtPlayerReady, onError: onYtPlayerError }
+    });
+  }, () => {
+    ytShowStatus('กรุณาเปิดผ่านเบราว์เซอร์ (Chrome/Safari) เพื่อใช้ฟีเจอร์นี้', true);
+    resetYoutubeModalToStep1();
+  });
+});
+
+document.getElementById('ytPlayTestBtn')?.addEventListener('click', () => {
+  if (!ytPlayer || !ytPlayerReady) return;
+  const btn = document.getElementById('ytPlayTestBtn');
+  if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+    ytPlayer.pauseVideo();
+    clearInterval(ytPlayTestTimer);
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i> ทดลองฟัง';
+    return;
+  }
+  ytPlayer.seekTo(ytStartSec, true);
+  ytPlayer.playVideo();
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-pause"></i> หยุดฟัง';
+  clearInterval(ytPlayTestTimer);
+  ytPlayTestTimer = setInterval(() => {
+    if (ytPlayer.getCurrentTime() >= ytEndSec) {
+      ytPlayer.pauseVideo();
+      clearInterval(ytPlayTestTimer);
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i> ทดลองฟัง';
+    }
+  }, 100);
+});
+
+document.getElementById('ytChangeUrlBtn')?.addEventListener('click', () => {
+  clearInterval(ytPlayTestTimer);
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
+  const ytPlayerDiv = document.getElementById('ytPlayer');
+  if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
+  ytPlayerReady = false;
+  ytDuration = 0;
+  selectedTierYoutube = null;
+  const urlInput = document.getElementById('ytUrlInput');
+  if (urlInput) urlInput.value = '';
+  showYtStep1();
+});
+
+document.getElementById('ytUseClipBtn')?.addEventListener('click', () => {
+  if (ytEndSec - ytStartSec <= 0 || ytEndSec - ytStartSec > 10) {
+    ytShowStatus('ช่วงเสียงต้องมากกว่า 0 และไม่เกิน 10 วินาที', true);
+    return;
+  }
+  clearInterval(ytPlayTestTimer);
+  if (ytPlayer) { try { ytPlayer.pauseVideo(); } catch {} }
+  selectedTierYoutube = { videoId: currentYtVideoId, startSec: ytStartSec, endSec: ytEndSec };
+  selectedTierSoundUrl = null; // §10.10 mutual-exclusivity — ล้าง source อื่น
+  selectedTierSoundIsTemp = false;
+  closeYoutubeModal();
+  updateSoundSourceUI('youtube');
+  const labelBtn = document.getElementById('btnPickTierYoutube');
+  if (labelBtn) labelBtn.innerHTML = '<i class="fa-brands fa-youtube"></i> เลือกคลิปแล้ว (แก้ไข)';
+});
+
+document.getElementById('btnPickTierYoutube')?.addEventListener('click', openYoutubeModal);
+document.getElementById('btnCloseYoutubeModal')?.addEventListener('click', closeYoutubeModal);
 
 function playTierSoundPreview(url) {
   stopTierSoundPreview();
@@ -1162,14 +1472,17 @@ async function startTierRecording() {
     // §10.9 — create + resume AudioContext first, while still inside user gesture
     tierAudioContext = new (window.AudioContext || window.webkitAudioContext)();
     await tierAudioContext.resume();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // ปิด browser processing ทั้งหมด — noiseSuppression ตัวการตัดเสียงบุ๋มลากยาวในที่เสียงดัง/หน้าพัดลม/เปิดเพลง,
+    // autoGainControl สู้ gainNode ของเรา, echoCancellation ไม่จำเป็น (อัดไม่ได้เล่นเสียงกลับ)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
     const source = tierAudioContext.createMediaStreamSource(stream);
     tierGainNode = tierAudioContext.createGain();
     tierGainNode.gain.value = 2.5;
-    const compressor = tierAudioContext.createDynamicsCompressor();
-    source.connect(tierGainNode).connect(compressor);
+    source.connect(tierGainNode); // ห้ามลืม — source ต้องเชื่อมเข้า gainNode ก่อน ไม่งั้น recorder ได้ความเงียบ
     const dest = tierAudioContext.createMediaStreamDestination();
-    compressor.connect(dest);
+    tierGainNode.connect(dest);
     tierMediaRecorder = new MediaRecorder(dest.stream);
     tierRecordedChunks = [];
     tierMediaRecorder.ondataavailable = e => {
@@ -1677,7 +1990,10 @@ btnProceedPayment.addEventListener('click', async () => {
           tierImageUrl: selectedTierImageUrl || null,
           tierSoundUrl: selectedTierSoundUrl || null,
           tierSoundIsTemp: selectedTierSoundIsTemp || false,
-          tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null
+          tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null,
+          tierYoutubeId: selectedTierYoutube?.videoId || null,
+          tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
+          tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
         })
       });
 
@@ -1723,7 +2039,10 @@ btnProceedPayment.addEventListener('click', async () => {
           tierImageUrl: selectedTierImageUrl || null,
           tierSoundUrl: selectedTierSoundUrl || null,
           tierSoundIsTemp: selectedTierSoundIsTemp || false,
-          tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null
+          tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null,
+          tierYoutubeId: selectedTierYoutube?.videoId || null,
+          tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
+          tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
         })
       });
 
@@ -2321,6 +2640,9 @@ async function doVerifyTrueMoney() {
     formData.append('tierSoundUrl', selectedTierSoundUrl || '');
     formData.append('tierSoundIsTemp', selectedTierSoundIsTemp ? 'true' : 'false');
     formData.append('tierSoundMode', selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : '');
+    formData.append('tierYoutubeId', selectedTierYoutube?.videoId || '');
+    formData.append('tierYoutubeStart', selectedTierYoutube ? String(selectedTierYoutube.startSec) : '');
+    formData.append('tierYoutubeEnd', selectedTierYoutube ? String(selectedTierYoutube.endSec) : '');
     if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     const response = await fetch('/api/verify-slip', {
@@ -2545,6 +2867,9 @@ async function doVerifyBank() {
     formData.append('tierSoundUrl', selectedTierSoundUrl || '');
     formData.append('tierSoundIsTemp', selectedTierSoundIsTemp ? 'true' : 'false');
     formData.append('tierSoundMode', selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : '');
+    formData.append('tierYoutubeId', selectedTierYoutube?.videoId || '');
+    formData.append('tierYoutubeStart', selectedTierYoutube ? String(selectedTierYoutube.startSec) : '');
+    formData.append('tierYoutubeEnd', selectedTierYoutube ? String(selectedTierYoutube.endSec) : '');
     if (currentChargeId) formData.append('referenceId', currentChargeId);
 
     bankPaymentStatus.style.display = 'flex';
@@ -2802,7 +3127,10 @@ async function createTrueMoneyQR() {
         tierImageUrl: selectedTierImageUrl || null,
         tierSoundUrl: selectedTierSoundUrl || null,
         tierSoundIsTemp: selectedTierSoundIsTemp || false,
-        tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null
+        tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null,
+        tierYoutubeId: selectedTierYoutube?.videoId || null,
+        tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
+        tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
       })
     });
 
