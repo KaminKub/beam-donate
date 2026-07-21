@@ -3065,6 +3065,7 @@ async function loadAccountInfo() {
     if (response.ok) {
       const data = await response.json();
       document.getElementById('accUsername').textContent = data.username;
+      fillWebhookUrl(); // webhook URL อาศัย accUsername — re-fill หลังได้ username จริง (แก้ URL ลงท้าย '...')
 
       // L26: avatar preview (96×96) — resolve via existing resolveProfileImage (returns URL or default)
       const avatarEl = document.getElementById('accountAvatarPreview');
@@ -7953,6 +7954,14 @@ function validatePromptPaySettings() {
   return { valid: errors.length === 0, errors };
 }
 
+// fill webhook URL input — guard against placeholder ('กำลังโหลด...') before accUsername loads
+function fillWebhookUrl() {
+  const urlInput = document.getElementById('webhookUrlInput');
+  const username = document.getElementById('accUsername')?.textContent?.trim() || '';
+  if (!urlInput || !username || username === 'กำลังโหลด...' || username.includes('...')) return;
+  urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
+}
+
 function renderTrueMoneyWebhookState(data) {
   const badge = document.getElementById('webhookStatusBadge');
   const quota = document.getElementById('webhookQuotaMini');
@@ -7967,10 +7976,7 @@ function renderTrueMoneyWebhookState(data) {
 
   if (!badge) return;
 
-  const username = document.getElementById('accUsername')?.textContent?.trim() || '';
-  if (urlInput && username) {
-    urlInput.value = `${location.origin}/api/truemoney/webhook?streamerId=${encodeURIComponent(username)}`;
-  }
+  fillWebhookUrl();
 
   const enabled = data.truemoney_webhook_enabled === 1 || data.truemoney_webhook_enabled === true || data.truemoney_webhook_enabled === '1';
   const secretSet = !!data.truemoney_webhook_secret_set;
