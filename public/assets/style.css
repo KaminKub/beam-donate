@@ -2266,7 +2266,7 @@ input[type=number] {
   font-size: 0.75rem;
   color: #cbd5e1;
 }
-.yt-manual-inputs input[type="number"] {
+.yt-manual-inputs input[type="text"] {
   width: 72px;
   padding: 6px 8px;
   border-radius: 6px;
@@ -2275,14 +2275,18 @@ input[type=number] {
   color: #f1f5f9;
   font-variant-numeric: tabular-nums;
 }
-/* yt-zoom-row — ปรับความยาวคลิปแบบซูม (scale คงที่ 0.1-10 วิ ไม่ขึ้นกับความยาวคลิปเต็ม) */
+/* yt-zoom-row — เลือกความยาวเสียงนับจากจุดเริ่มต้น (scale คงที่ 0.1-10 วิ ไม่ขึ้นกับความยาวคลิปเต็ม) */
+.yt-zoom-title {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin: 14px 0 6px;
+}
 .yt-zoom-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 2px 0 10px;
 }
-.yt-zoom-row i { color: #94a3b8; font-size: 0.75rem; flex-shrink: 0; }
 .yt-zoom-row input[type="range"] {
   flex: 1;
   height: 4px;

@@ -844,6 +844,27 @@ function formatYtTime(sec) {
   return `${m}:${s.padStart(4, '0')}`;
 }
 
+// ชม.:นาที:วินาที เฉพาะคลิปยาว ≥1 ชม. — สั้นกว่านั้นโชว์แค่ นาที:วินาที
+function formatYtTimeHMS(sec, duration) {
+  if (duration >= 3600) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = (sec % 60).toFixed(1);
+    return `${h}:${String(m).padStart(2, '0')}:${s.padStart(4, '0')}`;
+  }
+  return formatYtTime(sec);
+}
+
+function parseYtTimeInput(str) {
+  if (!str) return NaN;
+  const parts = str.trim().split(':').map(p => parseFloat(p));
+  if (parts.some(p => !Number.isFinite(p))) return NaN;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  return NaN;
+}
+
 function updateYtRangeUI() {
   const startHandle = document.getElementById('ytStartHandle');
   const lengthHandle = document.getElementById('ytEndHandle');
@@ -862,8 +883,8 @@ function updateYtRangeUI() {
   if (fill) { fill.style.left = pctStart + '%'; fill.style.width = Math.max(0, pctEnd - pctStart) + '%'; }
   if (startLabel) startLabel.textContent = formatYtTime(ytStartSec);
   if (endLabel) endLabel.textContent = formatYtTime(ytEndSec);
-  if (startInput) startInput.value = ytStartSec.toFixed(1);
-  if (endInput) endInput.value = ytEndSec.toFixed(1);
+  if (startInput) startInput.value = formatYtTimeHMS(ytStartSec, ytDuration);
+  if (endInput) endInput.value = formatYtTimeHMS(ytEndSec, ytDuration);
   if (lengthLabel) lengthLabel.textContent = (ytEndSec - ytStartSec).toFixed(1) + ' วิ';
 }
 
@@ -904,8 +925,8 @@ function onYtLengthInput(len) {
 
 document.getElementById('ytStartHandle')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
 document.getElementById('ytEndHandle')?.addEventListener('input', (e) => onYtLengthInput(parseFloat(e.target.value)));
-document.getElementById('ytStartInput')?.addEventListener('input', (e) => onYtStartInput(parseFloat(e.target.value)));
-document.getElementById('ytEndInput')?.addEventListener('input', (e) => onYtEndInput(parseFloat(e.target.value)));
+document.getElementById('ytStartInput')?.addEventListener('change', (e) => onYtStartInput(parseYtTimeInput(e.target.value)));
+document.getElementById('ytEndInput')?.addEventListener('change', (e) => onYtEndInput(parseYtTimeInput(e.target.value)));
 
 function onYtPlayerReady(e) {
   ytPlayerReady = true;

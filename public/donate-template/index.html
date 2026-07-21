@@ -21,7 +21,7 @@
   <link rel="icon" id="favicon" type="image/png" sizes="256x256" href="https://tipkub.me/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260721_4">
+  <link rel="stylesheet" href="/assets/style.css?v=20260721_6">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -880,16 +880,15 @@
               <div id="ytRangeFill" class="yt-range-fill"></div>
               <input type="range" id="ytStartHandle" min="0" max="10" step="0.1" value="0">
             </div>
+            <div class="yt-zoom-title">เลือกความยาวเสียง</div>
             <div class="yt-zoom-row">
-              <i class="fa-solid fa-magnifying-glass-plus"></i>
-              <input type="range" id="ytEndHandle" min="0.1" max="10" step="0.1" value="10" aria-label="ปรับความยาวคลิป (ซูมละเอียด)">
+              <input type="range" id="ytEndHandle" min="0.1" max="10" step="0.1" value="10" aria-label="เลือกความยาวเสียง (นับจากจุดเริ่มต้น)">
               <span id="ytLengthLabel" class="yt-zoom-len">10.0 วิ</span>
             </div>
           </div>
           <div class="yt-manual-inputs">
-            <span>เริ่ม</span><input type="number" id="ytStartInput" step="0.1" min="0">
-            <span>ถึง</span><input type="number" id="ytEndInput" step="0.1" min="0">
-            <span>วินาที</span>
+            <span>เริ่ม</span><input type="text" inputmode="decimal" id="ytStartInput" placeholder="0:00.0">
+            <span>ถึง</span><input type="text" inputmode="decimal" id="ytEndInput" placeholder="0:10.0">
           </div>
           <button type="button" id="ytPlayTestBtn" class="btn-secondary"><i class="fa-solid fa-play"></i> ทดลองฟัง</button>
           <div class="yt-step2-actions">
@@ -905,6 +904,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260721_7"></script>
+  <script src="/donate-template/app.js?v=20260721_8"></script>
 </body>
 </html>
