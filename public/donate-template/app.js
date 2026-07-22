@@ -1524,11 +1524,26 @@ function closeTierAudioContext() {
 }
 
 let tierRecordStarting = false;
+const TIER_RECORD_WARN = {
+  // เว็บวิวในแอป (TikTok/IG/FB/LINE) หรือเบราว์เซอร์เก่า — ไม่มี getUserMedia
+  nobrowser: '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <strong>เบราว์เซอร์นี้ใช้ไมโครโฟนไม่ได้</strong><br>ถ้าคุณเปิดหน้านี้จากในแอป (เช่น TikTok, Facebook, IG, LINE) กรุณาแตะปุ่มเมนู <i class="fa-solid fa-ellipsis"></i> มุมขวาบน แล้วเลือก <strong>"เปิดในเบราว์เซอร์"</strong> (Chrome / Safari) จากนั้นกลับมาลองอัดเสียงใหม่อีกครั้ง',
+  // ผู้ใช้กดไม่อนุญาต / บล็อกสิทธิ์ไมค์ / ยังไม่กดอนุญาต (NotAllowedError, SecurityError)
+  permission: '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <strong>ต้องอนุญาตให้ใช้ไมโครโฟนก่อน</strong><br>ต้องกด <strong>"อนุญาต"</strong> ให้เว็บเข้าถึงไมโครโฟน ถึงจะอัดเสียงได้ — ถ้าเผลอกดปฏิเสธหรือถูกบล็อกไว้ ให้แตะไอคอน <i class="fa-solid fa-lock"></i> หรือ <i class="fa-solid fa-circle-info"></i> ข้างช่องที่อยู่เว็บ (URL) แล้วเปิดสิทธิ์ไมโครโฟน จากนั้นกดอัดเสียงใหม่<br>ถ้าเปิดจากในแอป (TikTok/Facebook/IG/LINE) ให้เลือก <strong>"เปิดในเบราว์เซอร์"</strong> (Chrome / Safari) ก่อน',
+  // ไม่มีไมค์ในอุปกรณ์ (NotFoundError)
+  nomic: '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <strong>ไม่พบไมโครโฟน</strong><br>อุปกรณ์นี้ไม่มีไมโครโฟน หรือถูกปิดใช้งานอยู่ กรุณาเชื่อมต่อหรือเปิดใช้ไมโครโฟน แล้วลองอัดเสียงใหม่อีกครั้ง'
+};
+function showTierRecordWarn(kind) {
+  const box = document.getElementById('tierRecordUnsupported');
+  if (!box) return;
+  box.innerHTML = TIER_RECORD_WARN[kind] || TIER_RECORD_WARN.nobrowser;
+  box.style.display = '';
+}
+
 async function startTierRecording() {
   const unsupportedBox = document.getElementById('tierRecordUnsupported');
   // เว็บวิวในแอป (TikTok/IG/FB/LINE) มักไม่มี getUserMedia → เตือนให้เปิดเบราว์เซอร์ภายนอก
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    if (unsupportedBox) unsupportedBox.style.display = '';
+    showTierRecordWarn('nobrowser');
     return;
   }
   if (unsupportedBox) unsupportedBox.style.display = 'none'; // เคลียร์เตือนเก่าเมื่อกดลองใหม่
@@ -1616,8 +1631,12 @@ async function startTierRecording() {
     closeTierAudioContext();
     if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
     if (status) status.textContent = '';
-    // getUserMedia reject (permission block / เว็บวิวในแอป) → เตือนสีแดงให้เปิดเบราว์เซอร์ภายนอก
-    if (unsupportedBox) unsupportedBox.style.display = '';
+    // แยกเหตุผล: ปฏิเสธ/บล็อกสิทธิ์ vs ไม่มีไมค์ vs เว็บวิวไม่รองรับ
+    const name = err && err.name;
+    const kind = (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') ? 'permission'
+      : (name === 'NotFoundError' || name === 'DevicesNotFoundError') ? 'nomic'
+      : 'nobrowser';
+    showTierRecordWarn(kind);
   }
 }
 
