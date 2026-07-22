@@ -1525,6 +1525,13 @@ function closeTierAudioContext() {
 
 let tierRecordStarting = false;
 async function startTierRecording() {
+  const unsupportedBox = document.getElementById('tierRecordUnsupported');
+  // เว็บวิวในแอป (TikTok/IG/FB/LINE) มักไม่มี getUserMedia → เตือนให้เปิดเบราว์เซอร์ภายนอก
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (unsupportedBox) unsupportedBox.style.display = '';
+    return;
+  }
+  if (unsupportedBox) unsupportedBox.style.display = 'none'; // เคลียร์เตือนเก่าเมื่อกดลองใหม่
   // กันกดซ้ำระหว่างรอ getUserMedia (permission prompt) — double-start ทำให้ countdown interval ซ้อนแล้ววิ่งติดลบ
   if (tierRecordStarting) return;
   tierRecordStarting = true;
@@ -1607,13 +1614,10 @@ async function startTierRecording() {
   } catch (err) {
     tierRecordStarting = false;
     closeTierAudioContext();
-    if (status) status.textContent = 'ไม่สามารถใช้ไมค์ได้: ' + (err.name || err.message);
-    const recordSubtab = document.getElementById('tierRecordSubtabBtn');
-    if (recordSubtab) recordSubtab.style.display = 'none';
-    document.getElementById('tierUploadPane').style.display = '';
-    document.getElementById('tierRecordPane').style.display = 'none';
-    document.querySelector('.tier-subtab-btn[data-subtab="upload"]')?.classList.add('active');
-    document.getElementById('tierRecordSubtabBtn')?.classList.remove('active');
+    if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
+    if (status) status.textContent = '';
+    // getUserMedia reject (permission block / เว็บวิวในแอป) → เตือนสีแดงให้เปิดเบราว์เซอร์ภายนอก
+    if (unsupportedBox) unsupportedBox.style.display = '';
   }
 }
 
