@@ -14,6 +14,14 @@ const POLLING_TIMEOUT = 600000; // 10 minutes
 const QR_EXPIRY = 10 * 60 * 1000; // 10 minutes
 let pollingStartTime = null;
 
+// P1-3: pause bg video เมื่อสลับแท็บ/ซ่อนหน้า — ประหยัด CPU/แบต
+document.addEventListener('visibilitychange', () => {
+  const bgVid = document.getElementById('page-bg-video');
+  if (!bgVid) return;
+  if (document.hidden) bgVid.pause();
+  else bgVid.play().catch(() => {});
+});
+
 // TrueMoney webhook QR state
 let trueMoneyQrMethod = 'P2P';
 let trueMoneyQrRefId = null;
@@ -415,6 +423,7 @@ async function loadPageContent() {
            if (u.protocol === 'https:' || u.protocol === 'http:') {
              const safeUrl = data.pageBgUrl.replace(/"/g, '%22');
              if (isWebm(data.pageBgUrl)) {
+               document.body.classList.add('has-video-bg');
                const bgDiv = document.getElementById('page-bg-layer');
                if (bgDiv) bgDiv.style.display = 'none';
                let bgVid = document.getElementById('page-bg-video');
@@ -430,6 +439,7 @@ async function loadPageContent() {
                }
                bgVid.src = data.pageBgUrl;
              } else {
+               document.body.classList.remove('has-video-bg');
                const bgVid = document.getElementById('page-bg-video');
                if (bgVid) bgVid.remove();
                let bgDiv = document.getElementById('page-bg-layer');
