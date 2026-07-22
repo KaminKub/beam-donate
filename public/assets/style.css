@@ -2378,6 +2378,5 @@ input[type=number] {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  /* ชดเชยความทึบที่หายไปจาก blur — การ์ดหลักดันจาก 0.7 → 0.88 */
-  body.has-video-bg .card.glass-card { background: rgba(18, 22, 38, 0.88); }
+  /* คง --glass-bg 0.7 เดิม — โปร่งใสเห็นวีดีโอทะลุเหมือน desktop; alpha compositing ถูก ไม่กระทบ FPS (ต่างจาก blur) */
 }
