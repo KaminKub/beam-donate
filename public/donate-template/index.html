@@ -166,7 +166,9 @@
       background: rgba(255,255,255,0.05); color: #cbd5e1; font-size: 0.78rem; cursor: pointer;
     }
     .tier-subtab-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); color: #fde68a; }
-    .tier-record-timer { font-size: 0.85rem; color: #f87171; margin-top: 6px; }
+    .tier-record-timer { font-size: 0.85rem; color: #f87171; margin-top: 6px; transition: color .2s; }
+    /* ช่วงนับถอยหลังเตรียมตัว (ยังไม่อัดจริง) — ฟ้า+ตัวใหญ่ ให้ต่างจากตอนอัดจริง (แดง) */
+    .tier-record-timer.prep { color: #60a5fa; font-size: 1.05rem; font-weight: 700; }
     .tier-eq-row { display: flex; gap: 6px; margin-bottom: 10px; }
     .tier-eq-btn {
       flex: 1; padding: 7px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
@@ -922,6 +924,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260723_3"></script>
+  <script src="/donate-template/app.js?v=20260723_6"></script>
 </body>
 </html>

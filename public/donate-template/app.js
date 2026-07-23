@@ -39,10 +39,12 @@ let selectedTierSoundUrl = null;
 let selectedTierSoundIsTemp = false;
 let selectedTierSoundLabel = '';
 let tierMediaRecorder = null;
+let tierMicStream = null;
 let tierAudioContext = null;
 let tierGainNode = null;
 let tierRecordedChunks = [];
 let tierRecordTimeout = null;
+let tierRecordWarmupTimeout = null;
 let tierRecordCountdownInterval = null;
 let tierRecordPendingBlob = null;
 let tierRecordPreviewUrl = null;
@@ -1480,7 +1482,7 @@ function showTierRecordReview(blob) {
   if (controls) controls.style.display = 'none';
   if (review) review.style.display = '';
   if (eqRow) {
-    const supportsEq = (window.OfflineAudioContext || window.webkitOfflineAudioContext) && (window.AudioContext || window.webkitAudioContext);
+    const supportsEq = !!(window.AudioContext || window.webkitAudioContext);
     eqRow.style.display = supportsEq ? '' : 'none';
     eqRow.querySelectorAll('.tier-eq-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.eq === 'normal'));
   }
@@ -1537,17 +1539,74 @@ function encodeWav(audioBuffer) {
   return new Blob([ab], { type: 'audio/wav' });
 }
 
+// Pitch-shift preserving duration (chipmunk/deep-voice) — NOT tone-EQ, NOT playbackRate
+// (playbackRate/detune always change pitch+speed together). Algorithm: resample to a
+// shorter/longer sample count (shifts pitch), then OLA time-stretch back to the original
+// sample count (restores duration while keeping the pitch the resample already set).
+function hannWindow(size) {
+  const w = new Float32Array(size);
+  for (let i = 0; i < size; i++) w[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (size - 1));
+  return w;
+}
+
+function resampleLinear(input, targetLength) {
+  const output = new Float32Array(targetLength);
+  const ratio = (input.length - 1) / Math.max(1, targetLength - 1);
+  for (let i = 0; i < targetLength; i++) {
+    const srcPos = i * ratio;
+    const i0 = Math.floor(srcPos);
+    const frac = srcPos - i0;
+    const s0 = input[i0] || 0;
+    const s1 = input[i0 + 1] !== undefined ? input[i0 + 1] : s0;
+    output[i] = s0 + (s1 - s0) * frac;
+  }
+  return output;
+}
+
+// OLA stretch `input` to exactly `targetLength` samples, preserving its pitch/timbre.
+// Loop is bounded by outPos only (never breaks early on input exhaustion) so the full
+// targetLength is always covered — reading past input end just zero-pads instead of
+// cutting the clip short.
+function timeStretch(input, targetLength, grainSize = 2048) {
+  const output = new Float32Array(targetLength);
+  const weight = new Float32Array(targetLength);
+  const win = hannWindow(grainSize);
+  const hopOut = Math.floor(grainSize / 4);
+  const hopIn = (hopOut * input.length) / targetLength;
+  let inPos = 0, outPos = 0;
+  while (outPos < targetLength) {
+    const ri = Math.floor(inPos);
+    const end = Math.min(grainSize, targetLength - outPos);
+    for (let k = 0; k < end; k++) {
+      const sample = ri + k < input.length ? input[ri + k] : 0;
+      output[outPos + k] += sample * win[k];
+      weight[outPos + k] += win[k];
+    }
+    inPos += hopIn;
+    outPos += hopOut;
+  }
+  for (let i = 0; i < targetLength; i++) {
+    if (weight[i] > 1e-6) output[i] /= weight[i];
+  }
+  return output;
+}
+
+function pitchShiftSamples(channelData, rate) {
+  const resampledLength = Math.max(1, Math.round(channelData.length / rate));
+  const resampled = resampleLinear(channelData, resampledLength);
+  return timeStretch(resampled, channelData.length);
+}
+
 const TIER_EQ_PRESETS = {
-  bright: { type: 'highshelf', frequency: 3200, gain: 9 },
-  warm: { type: 'lowshelf', frequency: 260, gain: 9 }
+  bright: { rate: 1.45 }, // chipmunk — higher pitch, same duration
+  warm: { rate: 0.72 }    // deep voice — lower pitch, same duration
 };
 
 async function renderEqBlob(originalBlob, mode) {
   const preset = TIER_EQ_PRESETS[mode];
   if (!preset) return originalBlob;
-  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const DecodeCtx = window.AudioContext || window.webkitAudioContext;
-  if (!OfflineCtx || !DecodeCtx) throw new Error('OfflineAudioContext unsupported');
+  if (!DecodeCtx) throw new Error('AudioContext unsupported');
 
   const arrayBuffer = await originalBlob.arrayBuffer();
   const decodeCtx = new DecodeCtx();
@@ -1558,19 +1617,11 @@ async function renderEqBlob(originalBlob, mode) {
     decodeCtx.close();
   }
 
-  const sr = 24000;
-  const offlineCtx = new OfflineCtx(1, Math.ceil(decoded.duration * sr), sr);
-  const source = offlineCtx.createBufferSource();
-  source.buffer = decoded;
-  const filter = offlineCtx.createBiquadFilter();
-  filter.type = preset.type;
-  filter.frequency.value = preset.frequency;
-  filter.gain.value = preset.gain;
-  source.connect(filter);
-  filter.connect(offlineCtx.destination);
-  source.start(0);
-  const rendered = await offlineCtx.startRendering();
-  const wavBlob = encodeWav(rendered);
+  const shifted = pitchShiftSamples(decoded.getChannelData(0), preset.rate);
+  const targetSr = 24000;
+  const finalLength = Math.round((shifted.length * targetSr) / decoded.sampleRate);
+  const final = resampleLinear(shifted, finalLength);
+  const wavBlob = encodeWav({ getChannelData: () => final, sampleRate: targetSr });
   if (wavBlob.size > 1024 * 1024) console.warn('[tier-eq] WAV blob exceeds 1MB:', wavBlob.size);
   return wavBlob;
 }
@@ -1620,7 +1671,8 @@ document.getElementById('tierRecordConfirmBtn')?.addEventListener('click', () =>
 
 // Own-audio: mic recording flow (§4.4 + §10.9 auto-gain)
 document.getElementById('tierRecordBtn')?.addEventListener('click', () => {
-  if (tierMediaRecorder && tierMediaRecorder.state === 'recording') {
+  // กำลังอัด หรือกำลัง warmup (ปุ่มขึ้น "หยุดอัดเสียง" แล้ว) → กดคือหยุด
+  if ((tierMediaRecorder && tierMediaRecorder.state === 'recording') || tierRecordWarmupTimeout) {
     stopTierRecording(false);
   } else {
     startTierRecording();
@@ -1710,15 +1762,11 @@ async function startTierRecording() {
         throw e;
       }
     }
+    tierMicStream = stream; // เก็บ ref ไว้ปิดไมค์ได้ทุก path (รวม cancel/หยุดระหว่าง warmup)
     await tierAudioContext.resume();
     const source = tierAudioContext.createMediaStreamSource(stream);
     tierGainNode = tierAudioContext.createGain();
-    // Fade-in 0→2.5 ช่วง 200ms แรก กลบ cold-start "ตุ๊บ" ของไมค์ (hardware/driver transient
-    // ตอนเพิ่งเปิด) ที่โดนอัดติดต้นคลิป — pop อยู่ต้น stream → คูณ ~0 = เงียบ. เกิดเฉพาะอัดครั้งแรก
-    // หลังโหลดหน้า (ไมค์เย็น), ครั้งถัดไปไมค์อุ่นแล้วไม่มี → 250ms แรกไม่มีเสียงพูดอยู่แล้ว
-    const t0 = tierAudioContext.currentTime;
-    tierGainNode.gain.setValueAtTime(0, t0);
-    tierGainNode.gain.linearRampToValueAtTime(2.5, t0 + 0.2);
+    tierGainNode.gain.value = 2.5;
     source.connect(tierGainNode);
     // brick-wall limiter — กัน digital clip โดยไม่ตัดเสียงกลางทาง
     // threshold -3dB จับเฉพาะ peak ใกล้เพดาน, ratio 20:1 เกือบ brick-wall,
@@ -1744,6 +1792,7 @@ async function startTierRecording() {
     const recorder = tierMediaRecorder;
     tierMediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
+      tierMicStream = null;
       closeTierAudioContext();
       // iOS Safari อัดเป็น audio/mp4 ไม่ใช่ webm — ต้องใช้ mime จริงของ recorder ไม่งั้นไฟล์ติดป้ายผิด
       const mime = (recorder.mimeType || 'audio/webm').split(';')[0];
@@ -1755,23 +1804,44 @@ async function startTierRecording() {
         showTierRecordReview(blob);
       }
     };
-    tierMediaRecorder.start(1000);
     if (btnLabel) btnLabel.textContent = 'หยุดอัดเสียง';
-    if (status) status.textContent = 'กำลังอัด...';
-
-    let remaining = 8;
-    if (timerEl) { timerEl.style.display = ''; timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
-    // clear ด้วย id ของตัวเอง — ห้ามอ้างตัวแปร shared (ถ้าถูก start รอบใหม่ทับ จะ clear ผิดตัว)
-    const countdownId = setInterval(() => {
-      remaining -= 1;
-      if (timerEl) timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`;
-      if (remaining <= 0) clearInterval(countdownId);
+    // เปิดไมค์แล้วแต่ยังไม่อัด — นับถอยหลัง 3 วิก่อนเริ่มอัดจริง. ได้ประโยชน์ 2 ทาง:
+    // (1) condenser mic (desktop) มี "ตุ๊บ" กระแทกตอนเปิดกระทันหัน อยู่ใน buffer แรก → 3 วินี้
+    //     click ไหลผ่าน graph → dest ทิ้งไป โดย recorder ยังไม่ start = ไม่ถูกอัด
+    // (2) donor เตรียมตัวพูดพอดี. มือถือไม่มีอาการนี้แต่นับถอยหลังเหมือนกันเพื่อ UX เดียว
+    let prep = 3;
+    if (status) status.textContent = 'เตรียมตัว...';
+    if (timerEl) { timerEl.style.display = ''; timerEl.classList.add('prep'); timerEl.textContent = `เริ่มอัดใน ${prep} วินาที...`; }
+    const prepId = setInterval(() => {
+      prep -= 1;
+      if (prep > 0 && timerEl) timerEl.textContent = `เริ่มอัดใน ${prep} วินาที...`;
     }, 1000);
-    tierRecordCountdownInterval = countdownId;
-    tierRecordTimeout = setTimeout(() => stopTierRecording(false), 8000);
+    tierRecordCountdownInterval = prepId; // ให้ stopTierRecording (clear ที่ top) เก็บกวาดได้ถ้ากดหยุดระหว่างนับ
+    tierRecordWarmupTimeout = setTimeout(() => {
+      tierRecordWarmupTimeout = null;
+      clearInterval(prepId);
+      // ถูกยกเลิก/ปิด context ระหว่างนับถอยหลัง (กด "หยุด" เร็ว) → ห้าม start
+      if (!tierMediaRecorder || tierMediaRecorder.state !== 'inactive') return;
+      tierRecordedChunks = [];
+      tierMediaRecorder.start(1000);
+      if (status) status.textContent = 'กำลังอัด...';
+
+      let remaining = 8;
+      if (timerEl) { timerEl.classList.remove('prep'); timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`; }
+      // clear ด้วย id ของตัวเอง — ห้ามอ้างตัวแปร shared (ถ้าถูก start รอบใหม่ทับ จะ clear ผิดตัว)
+      const countdownId = setInterval(() => {
+        remaining -= 1;
+        if (timerEl) timerEl.textContent = `กำลังอัด... เหลือ ${remaining} วินาที`;
+        if (remaining <= 0) clearInterval(countdownId);
+      }, 1000);
+      tierRecordCountdownInterval = countdownId;
+      tierRecordTimeout = setTimeout(() => stopTierRecording(false), 8000);
+    }, 3000);
     tierRecordStarting = false;
   } catch (err) {
     tierRecordStarting = false;
+    tierMicStream?.getTracks().forEach(t => t.stop());
+    tierMicStream = null;
     closeTierAudioContext();
     if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
     if (status) status.textContent = '';
@@ -1788,16 +1858,28 @@ function stopTierRecording(cancel) {
   clearTimeout(tierRecordTimeout);
   clearInterval(tierRecordCountdownInterval);
   const timerEl = document.getElementById('tierRecordTimer');
-  if (timerEl) timerEl.style.display = 'none';
+  if (timerEl) { timerEl.style.display = 'none'; timerEl.classList.remove('prep'); }
   const btnLabel = document.getElementById('tierRecordBtnLabel');
   if (btnLabel) btnLabel.textContent = 'เริ่มอัดเสียง';
+  // หยุดระหว่าง warmup (recorder ยังไม่ start) → ยังไม่มีอะไรอัด ทิ้ง cleanup เหมือน cancel
+  if (tierRecordWarmupTimeout) {
+    clearTimeout(tierRecordWarmupTimeout);
+    tierRecordWarmupTimeout = null;
+    if (tierMediaRecorder) tierMediaRecorder.onstop = null;
+    tierMicStream?.getTracks().forEach(t => t.stop());
+    tierMicStream = null;
+    closeTierAudioContext();
+    tierMediaRecorder = null;
+    const status = document.getElementById('tierRecordStatus');
+    if (status) status.textContent = '';
+    return;
+  }
   // ห้ามปิด AudioContext ก่อน MediaRecorder.stop() — จะทำให้ WebM ขาด/ว่าง
   if (cancel && tierMediaRecorder) {
     tierMediaRecorder.onstop = null;
-    if (tierMediaRecorder.state === 'recording') {
-      tierMediaRecorder.stream?.getTracks().forEach(t => t.stop());
-      tierMediaRecorder.stop();
-    }
+    if (tierMediaRecorder.state === 'recording') tierMediaRecorder.stop();
+    tierMicStream?.getTracks().forEach(t => t.stop()); // ปิดไมค์จริง (ไม่ใช่ dest.stream)
+    tierMicStream = null;
     closeTierAudioContext();
     tierMediaRecorder = null;
     return;
