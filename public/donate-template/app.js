@@ -1542,11 +1542,38 @@ const TIER_RECORD_WARN = {
   // ไม่มีไมค์ในอุปกรณ์ (NotFoundError)
   nomic: '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> <strong>ไม่พบไมโครโฟน</strong><br>อุปกรณ์นี้ไม่มีไมโครโฟน หรือถูกปิดใช้งานอยู่ กรุณาเชื่อมต่อหรือเปิดใช้ไมโครโฟน แล้วลองอัดเสียงใหม่อีกครั้ง'
 };
+// ปุ่มก๊อปลิงก์หน้า Donate — สำหรับผู้ใช้ที่ติดในเว็บวิวแอปแล้วหาปุ่มเมนู … ไม่เจอ
+const TIER_RECORD_COPY_LINK = '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(239,68,68,0.25);">หรือก๊อปลิงก์นี้ไปเปิดในเบราว์เซอร์ภายนอกได้ <button type="button" id="tierRecordCopyLink" style="margin-left:4px;padding:4px 10px;border-radius:6px;border:1px solid rgba(252,165,165,0.5);background:rgba(239,68,68,0.15);color:#fca5a5;font-size:12px;cursor:pointer;"><i class="fa-solid fa-copy"></i> <span>คัดลอกลิงก์</span></button></div>';
+
+async function copyDonatePageLink(e) {
+  const btn = e.currentTarget;
+  const url = window.location.href;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    ok = true;
+  } catch {
+    // เว็บวิวในแอปมัก block clipboard API → fallback execCommand
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch {}
+    document.body.removeChild(ta);
+  }
+  btn.innerHTML = ok
+    ? '<i class="fa-solid fa-check" style="color:#22c55e;"></i> <span>คัดลอกแล้ว</span>'
+    : '<i class="fa-solid fa-triangle-exclamation" style="color:#fbbf24;"></i> <span>ก๊อปเองที่ช่อง URL</span>';
+}
+
 function showTierRecordWarn(kind) {
   const box = document.getElementById('tierRecordUnsupported');
   if (!box) return;
-  box.innerHTML = TIER_RECORD_WARN[kind] || TIER_RECORD_WARN.nobrowser;
+  const base = TIER_RECORD_WARN[kind] || TIER_RECORD_WARN.nobrowser;
+  // nomic = เบราว์เซอร์จริงแต่ไม่มีไมค์ → ก๊อปลิงก์เปิดที่อื่นไม่ช่วย
+  box.innerHTML = base + (kind === 'nomic' ? '' : TIER_RECORD_COPY_LINK);
   box.style.display = '';
+  const copyBtn = document.getElementById('tierRecordCopyLink');
+  if (copyBtn) copyBtn.addEventListener('click', copyDonatePageLink);
 }
 
 async function startTierRecording() {
