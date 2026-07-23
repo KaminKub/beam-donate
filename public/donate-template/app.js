@@ -46,6 +46,8 @@ let tierRecordTimeout = null;
 let tierRecordCountdownInterval = null;
 let tierRecordPendingBlob = null;
 let tierRecordPreviewUrl = null;
+let tierRecordOriginalBlob = null;
+let tierRecordEqBusy = false;
 let currentSoundSource = null;
 
 // YouTube Tier Sound (YOUTUBE_TIER_SOUND_BLUEPRINT.md §8.1)
@@ -1470,11 +1472,18 @@ document.getElementById('tierUploadCancelBtn')?.addEventListener('click', () => 
 // §10.8 — recorded audio review
 function showTierRecordReview(blob) {
   tierRecordPendingBlob = blob;
+  tierRecordOriginalBlob = blob;
   const controls = document.getElementById('tierRecordControls');
   const review = document.getElementById('tierRecordReview');
   const preview = document.getElementById('tierRecordPreview');
+  const eqRow = document.getElementById('tierEqRow');
   if (controls) controls.style.display = 'none';
   if (review) review.style.display = '';
+  if (eqRow) {
+    const supportsEq = (window.OfflineAudioContext || window.webkitOfflineAudioContext) && (window.AudioContext || window.webkitAudioContext);
+    eqRow.style.display = supportsEq ? '' : 'none';
+    eqRow.querySelectorAll('.tier-eq-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.eq === 'normal'));
+  }
   if (preview) {
     tierRecordPreviewUrl = URL.createObjectURL(blob);
     preview.src = tierRecordPreviewUrl;
@@ -1497,14 +1506,102 @@ function showTierRecordReview(blob) {
 
 function hideTierRecordReview() {
   tierRecordPendingBlob = null;
+  tierRecordOriginalBlob = null;
+  tierRecordEqBusy = false;
   const controls = document.getElementById('tierRecordControls');
   const review = document.getElementById('tierRecordReview');
   const preview = document.getElementById('tierRecordPreview');
+  const eqRow = document.getElementById('tierEqRow');
   if (controls) controls.style.display = '';
   if (review) review.style.display = 'none';
+  if (eqRow) eqRow.style.display = 'none';
   if (preview) { preview.src = ''; preview.load(); }
   if (tierRecordPreviewUrl) { URL.revokeObjectURL(tierRecordPreviewUrl); tierRecordPreviewUrl = null; }
 }
+
+// §Donor EQ Bake — offline render 3 fixed presets onto recorded blob
+function encodeWav(audioBuffer) {
+  const ch = audioBuffer.getChannelData(0);
+  const n = ch.length, sr = audioBuffer.sampleRate;
+  const ab = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(ab);
+  const wStr = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  wStr(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); wStr(8, 'WAVE');
+  wStr(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  wStr(36, 'data'); v.setUint32(40, n * 2, true);
+  let o = 44;
+  for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, ch[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2; }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+const TIER_EQ_PRESETS = {
+  bright: { type: 'highshelf', frequency: 3200, gain: 9 },
+  warm: { type: 'lowshelf', frequency: 260, gain: 9 }
+};
+
+async function renderEqBlob(originalBlob, mode) {
+  const preset = TIER_EQ_PRESETS[mode];
+  if (!preset) return originalBlob;
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const DecodeCtx = window.AudioContext || window.webkitAudioContext;
+  if (!OfflineCtx || !DecodeCtx) throw new Error('OfflineAudioContext unsupported');
+
+  const arrayBuffer = await originalBlob.arrayBuffer();
+  const decodeCtx = new DecodeCtx();
+  let decoded;
+  try {
+    decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    decodeCtx.close();
+  }
+
+  const sr = 24000;
+  const offlineCtx = new OfflineCtx(1, Math.ceil(decoded.duration * sr), sr);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = decoded;
+  const filter = offlineCtx.createBiquadFilter();
+  filter.type = preset.type;
+  filter.frequency.value = preset.frequency;
+  filter.gain.value = preset.gain;
+  source.connect(filter);
+  filter.connect(offlineCtx.destination);
+  source.start(0);
+  const rendered = await offlineCtx.startRendering();
+  const wavBlob = encodeWav(rendered);
+  if (wavBlob.size > 1024 * 1024) console.warn('[tier-eq] WAV blob exceeds 1MB:', wavBlob.size);
+  return wavBlob;
+}
+
+document.getElementById('tierEqRow')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.tier-eq-btn');
+  if (!btn || tierRecordEqBusy) return;
+  const mode = btn.dataset.eq;
+  const eqRow = document.getElementById('tierEqRow');
+  const preview = document.getElementById('tierRecordPreview');
+  if (!tierRecordOriginalBlob) return;
+
+  tierRecordEqBusy = true;
+  try {
+    const resultBlob = mode === 'normal' ? tierRecordOriginalBlob : await renderEqBlob(tierRecordOriginalBlob, mode);
+    tierRecordPendingBlob = resultBlob;
+    if (preview) {
+      if (tierRecordPreviewUrl) URL.revokeObjectURL(tierRecordPreviewUrl);
+      tierRecordPreviewUrl = URL.createObjectURL(resultBlob);
+      preview.src = tierRecordPreviewUrl;
+      preview.load();
+    }
+    eqRow.querySelectorAll('.tier-eq-btn').forEach((b) => b.classList.toggle('active', b === btn));
+  } catch (err) {
+    console.warn('[tier-eq] render failed, fallback to original:', err);
+    tierRecordPendingBlob = tierRecordOriginalBlob;
+    eqRow.querySelectorAll('.tier-eq-btn').forEach((b) => b.classList.toggle('active', b.dataset.eq === 'normal'));
+    const status = document.getElementById('tierRecordStatus');
+    if (status) status.textContent = 'ปรับโทนเสียงไม่สำเร็จ ใช้เสียงต้นฉบับแทน';
+  } finally {
+    tierRecordEqBusy = false;
+  }
+});
 
 document.getElementById('tierRecordRetryBtn')?.addEventListener('click', () => {
   hideTierRecordReview();
@@ -1708,7 +1805,7 @@ async function uploadTierRecordedAudio(blob) {
   try {
     const username = window.location.pathname.split('/')[1];
     const formData = new FormData();
-    const ext = { 'audio/mp4': 'm4a', 'audio/ogg': 'ogg' }[blob.type] || 'webm';
+    const ext = { 'audio/mp4': 'm4a', 'audio/ogg': 'ogg', 'audio/wav': 'wav' }[blob.type] || 'webm';
     formData.append('audio', blob, 'recording.' + ext);
     formData.append('username', username);
     formData.append('mode', 'record');

@@ -167,6 +167,12 @@
     }
     .tier-subtab-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); color: #fde68a; }
     .tier-record-timer { font-size: 0.85rem; color: #f87171; margin-top: 6px; }
+    .tier-eq-row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tier-eq-btn {
+      flex: 1; padding: 7px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05); color: #cbd5e1; font-size: 0.76rem; cursor: pointer;
+    }
+    .tier-eq-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); color: #fde68a; }
     .tier-upload-label {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 8px 16px;
@@ -332,6 +338,11 @@
               </div>
               <div id="tierRecordReview" style="display:none;">
                 <audio id="tierRecordPreview" controls></audio>
+                <div id="tierEqRow" class="tier-eq-row" style="display:none;">
+                  <button type="button" class="tier-eq-btn active" data-eq="normal">เสียงปกติ</button>
+                  <button type="button" class="tier-eq-btn" data-eq="bright">บีบเสียงแหลม</button>
+                  <button type="button" class="tier-eq-btn" data-eq="warm">เสียงทุ้ม</button>
+                </div>
                 <div class="tier-record-review-actions">
                   <button type="button" id="tierRecordRetryBtn" class="btn-secondary btn-sm"><i class="fa-solid fa-rotate-left"></i> อัดใหม่</button>
                   <button type="button" id="tierRecordConfirmBtn" class="btn-primary btn-sm"><i class="fa-solid fa-check"></i> ใช้เสียงนี้</button>
@@ -910,6 +921,6 @@
 
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260723_1"></script>
+  <script src="/donate-template/app.js?v=20260723_2"></script>
 </body>
 </html>
