@@ -4586,6 +4586,11 @@ const SLIPOK_ERROR_MAP = {
   1015: 'ไม่พบข้อมูล Package กรุณาตรวจสอบสิทธิ์แพ็กเกจ'
 };
 
+// SlipOK codes that mean the streamer's SlipOK account itself is broken/expired/over-quota
+// (not the donor's slip). Non-terminal: donor can retry the same slip after streamer fixes it.
+// Mapped to errorCode 'SLIPOK_ACCOUNT_ISSUE' + raw code forwarded as slipSubCode for donor UX.
+const SLIPOK_ACCOUNT_ISSUE_CODES = new Set([1002, 1003, 1004, 1015]);
+
 // Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow).
 // Normalizes both the success and failure shapes so callers don't duplicate SlipOK's
 // error-code mapping.
@@ -4610,25 +4615,31 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
     }
 
     const slipCode = slipData?.code;
+    const isAccountIssue = SLIPOK_ACCOUNT_ISSUE_CODES.has(slipCode);
     const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
                        slipCode === 1010 ? 'SLIP_DELAY' :
                        slipCode === 1012 ? 'SLIP_DUPLICATE' :
                        slipCode === 1013 ? 'AMOUNT_MISMATCH' :
                        slipCode === 1014 ? 'WRONG_RECEIVER' :
+                       isAccountIssue ? 'SLIPOK_ACCOUNT_ISSUE' :
                        'SLIP_INVALID';
-    return { success: false, errorCode: mappedCode, error: slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง', delayMinutes: slipData?.delay || null };
+    const accountMsg = isAccountIssue ? (SLIPOK_ERROR_MAP[slipCode] || 'ระบบตรวจสลิปของผู้รับขัดข้องหรือหมดอายุ') : null;
+    return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง', delayMinutes: slipData?.delay || null };
   } catch (slipErr) {
     console.error('SlipOK verification error: code=' + (slipErr.response?.data?.code || slipErr.code || 'UNKNOWN'));
     if (slipErr.response) {
       const body = slipErr.response.data;
       const slipCode = body?.code;
+      const isAccountIssue = SLIPOK_ACCOUNT_ISSUE_CODES.has(slipCode);
       const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
                          slipCode === 1010 ? 'SLIP_DELAY' :
                          slipCode === 1012 ? 'SLIP_DUPLICATE' :
                          slipCode === 1013 ? 'AMOUNT_MISMATCH' :
                          slipCode === 1014 ? 'WRONG_RECEIVER' :
+                         isAccountIssue ? 'SLIPOK_ACCOUNT_ISSUE' :
                          'SLIPOK_ERROR';
-      return { success: false, errorCode: mappedCode, error: body?.message || body?.error || 'SlipOK API error', delayMinutes: body?.delay || null };
+      const accountMsg = isAccountIssue ? (SLIPOK_ERROR_MAP[slipCode] || 'ระบบตรวจสลิปของผู้รับขัดข้องหรือหมดอายุ') : null;
+      return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || body?.message || body?.error || 'SlipOK API error', delayMinutes: body?.delay || null };
     }
     return { success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' };
   }
@@ -5536,6 +5547,8 @@ app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('
     // Failure (terminal or temporary) — errorCode/error/delayMinutes come straight from the
     // shared helper. Terminal codes (dup/amount/wrong-receiver/invalid): mark used. SLIP_DELAY
     // (bank sync lag) and CONNECTION_FAILED/SLIPOK_ERROR stay temporary — donor can retry.
+    // SLIPOK_ACCOUNT_ISSUE is intentionally NON-terminal: the slip is fine, the streamer's
+    // SlipOK account is broken/expired — donor can retry the same slip once streamer fixes it.
     if (TERMINAL_SLIP_CODES.has(result.errorCode)) markSlipHashUsed(username, slipHash);
     if (result.errorCode === 'BANK_UNAVAILABLE' && effectiveReferenceId) {
       const tx = pendingTx || await db.getTransactionById(effectiveReferenceId);
@@ -5543,8 +5556,19 @@ app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('
         await db.saveTransaction({ ...tx, id: effectiveReferenceId, status: 'failed' });
       }
     }
+    // Streamer's SlipOK account is broken/expired/over-quota — auto-disconnect both SlipOK
+    // flags so the dashboard warns the streamer immediately. Public route (no req.user):
+    // build _ids from the already-loaded streamer row. Best-effort, never blocks the response.
+    if (result.errorCode === 'SLIPOK_ACCOUNT_ISSUE') {
+      try {
+        const _ids = { twitch_id: streamer.twitch_id || null, streamlabs_id: streamer.streamlabs_id || null, username: streamer.username };
+        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
+      } catch (disconnectErr) {
+        console.error('SlipOK auto-disconnect failed:', disconnectErr.message);
+      }
+    }
     const status = result.errorCode === 'CONNECTION_FAILED' ? 502 : 200;
-    return res.status(status).json({ success: false, errorCode: result.errorCode, error: result.error, delayMinutes: result.delayMinutes, referenceId: effectiveReferenceId });
+    return res.status(status).json({ success: false, errorCode: result.errorCode, slipSubCode: result.slipSubCode ?? undefined, error: result.error, delayMinutes: result.delayMinutes, referenceId: effectiveReferenceId });
   } catch (err) {
     console.error('Verify slip error:', err);
     res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการตรวจสอบสลิป' });
@@ -5735,6 +5759,11 @@ app.use((req, res) => {
 
 // Centralized error handler
 app.use((err, req, res, next) => {
+  // body-parser throws 500 when client disconnects mid-request (common for polling endpoints).
+  // This is a client-side abort, not a server error — return 400 silently.
+  if (err.status === 500 && err.message === 'stream is not readable') {
+    return res.status(400).end();
+  }
   console.error(`Server Error [${req.method} ${req.originalUrl}]:`, err.message);
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);

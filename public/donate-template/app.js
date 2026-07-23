@@ -184,6 +184,8 @@ const minAmountWarning = document.getElementById('minAmountWarning');
 const minAmountWarningValue = document.getElementById('minAmountWarningValue');
 const paymentError = document.getElementById('paymentError');
 const paymentErrorMessage = document.getElementById('paymentErrorMessage');
+const proceedError = document.getElementById('proceedError');
+const proceedErrorMessage = document.getElementById('proceedErrorMessage');
 const qrExpiry = document.getElementById('qrExpiry');
 const qrRecipientName = document.getElementById('qrRecipientName');
 const qrReference = document.getElementById('qrReference');
@@ -2322,6 +2324,7 @@ function selectPaymentMethod(method) {
   selectedPaymentMethod = method;
   document.querySelectorAll('.payment-method-option').forEach(o => o.classList.remove('selected'));
   target.classList.add('selected');
+  hideProceedError();
   btnProceedPayment.disabled = false;
 }
 
@@ -2338,6 +2341,7 @@ btnProceedPayment.addEventListener('click', async () => {
   const username = window.location.pathname.split('/')[1];
   if (!username) return;
 
+  hideProceedError();
   btnProceedPayment.disabled = true;
   btnProceedPayment.textContent = 'กำลังดำเนินการ...';
 
@@ -2371,7 +2375,7 @@ btnProceedPayment.addEventListener('click', async () => {
         throw new Error('ไม่ได้รับลิงก์ชำระเงิน');
       }
     } catch (error) {
-      alert(error.message);
+      showProceedError('สร้างรายการไม่สำเร็จชั่วคราว โปรดลองใหม่อีกครั้ง');
       btnProceedPayment.disabled = false;
       btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
     }
@@ -2415,9 +2419,9 @@ btnProceedPayment.addEventListener('click', async () => {
       const data = await response.json();
       if (!response.ok) {
         if (data.errorCode === 'TFP_NOT_CONFIGURED') {
-          showPaymentError(data.error || 'ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่');
+          showProceedError('ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่');
         } else {
-          showPaymentError(data.error || 'ไม่สามารถสร้าง QR Code ได้');
+          showProceedError('ไม่สามารถสร้าง QR Code ได้ โปรดลองใหม่อีกครั้ง');
         }
         btnProceedPayment.disabled = false;
         btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
@@ -2430,7 +2434,7 @@ btnProceedPayment.addEventListener('click', async () => {
       // Show QR step
       showQRStep(data);
     } catch (error) {
-      showPaymentError(error.message);
+      showProceedError('ไม่สามารถสร้าง QR Code ได้ โปรดลองใหม่อีกครั้ง');
       btnProceedPayment.disabled = false;
       btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
     }
@@ -2640,6 +2644,42 @@ function showPaymentError(message, isWarning) {
 function hidePaymentError() {
   if (paymentError) {
     paymentError.style.display = 'none';
+  }
+}
+
+// Proceed-stage error: banner lives on stepPaymentMethod (the step the donor is actually on
+// when they click Proceed), so create-qr/charge failures are visible instead of writing into
+// a step that only activates on success. Reuse .payment-error (already has transition).
+function showProceedError(message) {
+  if (proceedError) {
+    proceedError.style.display = 'flex';
+  }
+  if (proceedErrorMessage) {
+    proceedErrorMessage.textContent = message;
+  }
+}
+
+function hideProceedError() {
+  if (proceedError) {
+    proceedError.style.display = 'none';
+  }
+}
+
+// SlipOK account-issue donor messages (streamer's SlipOK account broken/expired/over-quota,
+// not the donor's slip). Non-retryable UX: streamer must fix/renew first. subCode = raw
+// SlipOK code (1002/1003/1004/1015) forwarded from backend as slipSubCode.
+function getSlipOkAccountIssueMessage(subCode) {
+  switch (subCode) {
+    case 1002:
+      return 'ระบบตรวจสลิปของผู้รับตั้งค่าผิดพลาด — โปรดแจ้งสตรีมเมอร์ให้อัพเดทการเชื่อมต่อ SlipOK ในแดชบอร์ด';
+    case 1003:
+      return 'ระบบตรวจสลิปของผู้รับหมดอายุ — โปรดแจ้งสตรีมเมอร์ให้ต่ออายุแพ็กเกจใน Line SlipOK แล้วลองใหม่';
+    case 1004:
+      return 'ระบบตรวจสลิปของผู้รับใช้เกินโควต้าเต็มเพดาน — โปรดแจ้งสตรีมเมอร์ให้ชำระส่วนเกิน/ต่อแพ็กเกจใน Line SlipOK';
+    case 1015:
+      return 'ระบบตรวจสลิปของผู้รับขัดข้อง — โปรดแจ้งสตรีมเมอร์ตรวจสอบสิทธิ์แพ็กเกจ SlipOK';
+    default:
+      return 'ระบบตรวจสลิปของผู้รับขัดข้องหรือหมดอายุ — โปรดแจ้งสตรีมเมอร์ให้อัพเดท/ต่ออายุ ระบบตรวจสลิป';
   }
 }
 
@@ -2853,6 +2893,14 @@ async function doVerifySlip() {
       return;
     }
 
+    if (errorCode === 'SLIPOK_ACCOUNT_ISSUE') {
+      paymentStatus.style.display = 'none';
+      showPaymentError(getSlipOkAccountIssueMessage(data.slipSubCode), true);
+      btnVerifySlip.innerHTML = '<i class="fas fa-check-circle"></i> ตรวจสอบสลิป';
+      btnVerifySlip.disabled = false;
+      return;
+    }
+
     if (isRetryable) {
       // Connection failure - keep slip preview, show retry button
       paymentStatus.style.display = 'none';
@@ -3045,6 +3093,14 @@ async function doVerifyTrueMoney() {
       trueMoneyPaymentStatus.style.display = 'none';
       showTrueMoneyError('ระบบธนาคารขัดข้องชั่วคราว ทำให้ตรวจสลิปอัตโนมัติไม่ได้\n\nกรุณาแจ้งสตรีมเมอร์ว่าเงินเข้าแล้วแต่ตรวจสลิปไม่ได้ เพื่อให้สตรีมเมอร์กดยืนยันรับด้วยตัวเอง — รายการของคุณถูกบันทึกไว้ในระบบแล้ว\n\n(หรือรอประมาณ 15 นาทีแล้วอัพโหลดสลิปใบเดิมอีกครั้ง)', true);
       btnVerifyTrueMoney.innerHTML = '<i class="fas fa-redo"></i> ลองใหม่อีกครั้ง';
+      btnVerifyTrueMoney.disabled = false;
+      return;
+    }
+
+    if (errorCode === 'SLIPOK_ACCOUNT_ISSUE') {
+      trueMoneyPaymentStatus.style.display = 'none';
+      showTrueMoneyError(getSlipOkAccountIssueMessage(data.slipSubCode), true);
+      btnVerifyTrueMoney.innerHTML = '<i class="fas fa-check-circle"></i> ตรวจสอบสลิป';
       btnVerifyTrueMoney.disabled = false;
       return;
     }
@@ -3271,6 +3327,14 @@ async function doVerifyBank() {
       bankPaymentStatus.style.display = 'none';
       showBankError('ระบบธนาคารขัดข้องชั่วคราว ทำให้ตรวจสลิปอัตโนมัติไม่ได้\n\nกรุณาแจ้งสตรีมเมอร์ว่าเงินเข้าแล้วแต่ตรวจสลิปไม่ได้ เพื่อให้สตรีมเมอร์กดยืนยันรับด้วยตัวเอง — รายการของคุณถูกบันทึกไว้ในระบบแล้ว\n\n(หรือรอประมาณ 15 นาทีแล้วอัพโหลดสลิปใบเดิมอีกครั้ง)', true);
       btnVerifyBank.textContent = 'ลองใหม่อีกครั้ง';
+      btnVerifyBank.disabled = false;
+      return;
+    }
+
+    if (errorCode === 'SLIPOK_ACCOUNT_ISSUE') {
+      bankPaymentStatus.style.display = 'none';
+      showBankError(getSlipOkAccountIssueMessage(data.slipSubCode), true);
+      btnVerifyBank.innerHTML = '<i class="fas fa-check-circle"></i> ตรวจสอบสลิป';
       btnVerifyBank.disabled = false;
       return;
     }
@@ -3502,7 +3566,7 @@ async function createTrueMoneyQR() {
 
     const data = await response.json();
     if (!response.ok) {
-      setTrueMoneyQrWaitingError(data.error || 'ไม่สามารถสร้าง QR ได้');
+      showProceedError('ไม่สามารถสร้าง QR ได้ โปรดลองใหม่อีกครั้ง');
       if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
       return;
     }
@@ -3510,7 +3574,7 @@ async function createTrueMoneyQR() {
     saveTrueMoneyPendingQR(data);
     showTrueMoneyQrStep(data);
   } catch (error) {
-    setTrueMoneyQrWaitingError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    showProceedError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   }
 }
