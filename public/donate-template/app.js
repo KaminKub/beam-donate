@@ -1484,6 +1484,8 @@ function showTierRecordReview(blob) {
     eqRow.style.display = supportsEq ? '' : 'none';
     eqRow.querySelectorAll('.tier-eq-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.eq === 'normal'));
   }
+  const eqStatus = document.getElementById('tierEqStatus');
+  if (eqStatus) eqStatus.textContent = '';
   if (preview) {
     tierRecordPreviewUrl = URL.createObjectURL(blob);
     preview.src = tierRecordPreviewUrl;
@@ -1590,14 +1592,17 @@ document.getElementById('tierEqRow')?.addEventListener('click', async (e) => {
       tierRecordPreviewUrl = URL.createObjectURL(resultBlob);
       preview.src = tierRecordPreviewUrl;
       preview.load();
+      preview.play().catch(() => {});
     }
     eqRow.querySelectorAll('.tier-eq-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    const eqStatusOk = document.getElementById('tierEqStatus');
+    if (eqStatusOk) eqStatusOk.textContent = '';
   } catch (err) {
     console.warn('[tier-eq] render failed, fallback to original:', err);
     tierRecordPendingBlob = tierRecordOriginalBlob;
     eqRow.querySelectorAll('.tier-eq-btn').forEach((b) => b.classList.toggle('active', b.dataset.eq === 'normal'));
-    const status = document.getElementById('tierRecordStatus');
-    if (status) status.textContent = 'ปรับโทนเสียงไม่สำเร็จ ใช้เสียงต้นฉบับแทน';
+    const eqStatus = document.getElementById('tierEqStatus');
+    if (eqStatus) eqStatus.textContent = 'ปรับโทนเสียงไม่สำเร็จ ใช้เสียงต้นฉบับแทน';
   } finally {
     tierRecordEqBusy = false;
   }
@@ -1708,7 +1713,12 @@ async function startTierRecording() {
     await tierAudioContext.resume();
     const source = tierAudioContext.createMediaStreamSource(stream);
     tierGainNode = tierAudioContext.createGain();
-    tierGainNode.gain.value = 2.5;
+    // Fade-in 0→2.5 ช่วง 200ms แรก กลบ cold-start "ตุ๊บ" ของไมค์ (hardware/driver transient
+    // ตอนเพิ่งเปิด) ที่โดนอัดติดต้นคลิป — pop อยู่ต้น stream → คูณ ~0 = เงียบ. เกิดเฉพาะอัดครั้งแรก
+    // หลังโหลดหน้า (ไมค์เย็น), ครั้งถัดไปไมค์อุ่นแล้วไม่มี → 250ms แรกไม่มีเสียงพูดอยู่แล้ว
+    const t0 = tierAudioContext.currentTime;
+    tierGainNode.gain.setValueAtTime(0, t0);
+    tierGainNode.gain.linearRampToValueAtTime(2.5, t0 + 0.2);
     source.connect(tierGainNode);
     // brick-wall limiter — กัน digital clip โดยไม่ตัดเสียงกลางทาง
     // threshold -3dB จับเฉพาะ peak ใกล้เพดาน, ratio 20:1 เกือบ brick-wall,
