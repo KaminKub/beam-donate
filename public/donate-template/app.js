@@ -1563,25 +1563,51 @@ function resampleLinear(input, targetLength) {
   return output;
 }
 
-// OLA stretch `input` to exactly `targetLength` samples, preserving its pitch/timbre.
-// Loop is bounded by outPos only (never breaks early on input exhaustion) so the full
-// targetLength is always covered — reading past input end just zero-pads instead of
-// cutting the clip short.
+// WSOLA stretch `input` to exactly `targetLength` samples, preserving its pitch/timbre.
+// Plain OLA (copy each grain from a fixed hop position) causes phase clashes between
+// overlapping grains — audible as a doubled/echoey "chorus" artifact. WSOLA fixes this by
+// nudging each grain's read position (±maxShift) to whichever offset best correlates with
+// the tail of the previous grain, so waveform cycles line up across the overlap.
+// Loop is still bounded by outPos only (never breaks early on input exhaustion) so the full
+// targetLength is always covered — reading past input end just zero-pads instead of cutting
+// the clip short. The shift search only changes WHERE a grain is read from, never whether
+// the loop keeps going, so that guarantee holds regardless of shift.
 function timeStretch(input, targetLength, grainSize = 2048) {
   const output = new Float32Array(targetLength);
   const weight = new Float32Array(targetLength);
   const win = hannWindow(grainSize);
   const hopOut = Math.floor(grainSize / 4);
   const hopIn = (hopOut * input.length) / targetLength;
+  const overlapLen = grainSize - hopOut;
+  const corrLen = Math.min(overlapLen, 400);
+  const maxShift = Math.min(Math.floor(hopIn / 2), 150);
+
   let inPos = 0, outPos = 0;
+  let prevRi = null;
   while (outPos < targetLength) {
-    const ri = Math.floor(inPos);
+    let ri = Math.floor(inPos);
+    if (prevRi !== null && maxShift > 0) {
+      const refStart = prevRi + hopOut;
+      if (refStart >= 0 && refStart + corrLen <= input.length) {
+        let bestShift = 0, bestScore = -Infinity;
+        for (let shift = -maxShift; shift <= maxShift; shift++) {
+          const start = ri + shift;
+          if (start < 0 || start + corrLen > input.length) continue;
+          let score = 0;
+          for (let k = 0; k < corrLen; k++) score += input[start + k] * input[refStart + k];
+          if (score > bestScore) { bestScore = score; bestShift = shift; }
+        }
+        ri += bestShift;
+      }
+    }
     const end = Math.min(grainSize, targetLength - outPos);
     for (let k = 0; k < end; k++) {
-      const sample = ri + k < input.length ? input[ri + k] : 0;
+      const idx = ri + k;
+      const sample = idx >= 0 && idx < input.length ? input[idx] : 0;
       output[outPos + k] += sample * win[k];
       weight[outPos + k] += win[k];
     }
+    prevRi = ri;
     inPos += hopIn;
     outPos += hopOut;
   }
