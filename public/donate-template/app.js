@@ -4,6 +4,8 @@ let timerPublicConfig = null;
 let timerActive = false;             // mirror จาก server — drives gate (TIMER_CHOICE_GATE B1)
 let overlayActive = false;           // mirror จาก server — drives statusBtn
 let widgetStatusSource = null;       // EventSource for real-time widget status
+let widgetStatusRetryDelay = 3000;   // manual reconnect backoff (EventSource gives up after a 503)
+let widgetStatusRetryTimer = null;
 let timerChoice = 'add';
 let selectedPaymentMethod = 'ffp';
 let currentChargeId = null;
@@ -26,6 +28,9 @@ document.addEventListener('visibilitychange', () => {
 let trueMoneyQrMethod = 'P2P';
 let trueMoneyQrRefId = null;
 let trueMoneyQrSource = null;
+let trueMoneyStatusRetryDelay = 3000; // manual reconnect backoff (EventSource gives up after a 503)
+let trueMoneyStatusRetryTimer = null;
+let trueMoneyStatusStopped = false;
 let trueMoneyQrFallbackTimer = null;
 let trueMoneyQrCountdownInterval = null;
 let trueMoneyQrExpiresAt = null;
@@ -721,6 +726,16 @@ function updateSoundSourceUI(activeSource) {
 }
 
 // Plan B: auto-clear previous sound source when switching to a new one
+// Amber "system busy" line for the tier sound area (inline, never a modal — the donor
+// hasn't paid yet and is mid-form; a modal would look like their choice was lost).
+function setTierStatusBusy(el, message) {
+  if (!el) return;
+  el.classList.add('tier-status-busy');
+  const icon = document.createElement('i');
+  icon.className = 'fa-solid fa-hourglass-half';
+  el.replaceChildren(icon, ' ' + message);
+}
+
 function clearTierSoundSource() {
   // Clear upload state
   hideTierUploadReview();
@@ -1323,6 +1338,12 @@ async function searchTierSoundCatalog(query) {
     const url = q ? `/api/public/myinstants/search?q=${encodeURIComponent(q)}` : '/api/public/myinstants/search';
     const res = await fetch(url);
     const data = await res.json();
+    // The tier-upload busy message points donors at this catalog, so it must not
+    // read as "ไม่พบเสียง" while the search itself is being shed.
+    if (isOverloadResponse(res, data)) {
+      list.innerHTML = '<div class="tier-sound-empty">ระบบกำลังมีผู้ใช้งานหนาแน่น กรุณาลองค้นหาอีกครั้งใน 1 นาที</div>';
+      return;
+    }
     list.innerHTML = '';
     const results = Array.isArray(data.results) ? data.results : [];
     if (results.length === 0) {
@@ -1411,7 +1432,7 @@ document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e
   if (!file) return;
   clearTierSoundSource();
   const status = document.getElementById('tierOwnAudioStatus');
-  const setStatus = (msg) => { if (status) status.textContent = msg; };
+  const setStatus = (msg) => { if (status) { status.classList.remove('tier-status-busy'); status.textContent = msg; } };
   if (file.size > 1024 * 1024) {
     setStatus('ไฟล์ต้องไม่เกิน 1MB');
     e.target.value = '';
@@ -1426,6 +1447,12 @@ document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e
     formData.append('mode', 'upload');
     const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
     const data = await res.json();
+    // 503 carries `message`, not `error` — without this branch the donor would see "อัปโหลดไม่สำเร็จ: undefined"
+    if (isOverloadResponse(res, data)) {
+      setTierStatusBusy(status, 'ระบบกำลังมีผู้ใช้งานหนาแน่น กรุณาลองอัปโหลดอีกครั้งใน 1 นาที — หรือเลือกเสียงจากคลังของสตรีมเมอร์ไปก่อนได้');
+      e.target.value = ''; // let the donor re-pick the same file
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
     selectedTierSoundUrl = data.url;
     selectedTierSoundIsTemp = true;
@@ -1489,7 +1516,7 @@ function showTierRecordReview(blob) {
     eqRow.querySelectorAll('.tier-eq-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.eq === 'normal'));
   }
   const eqStatus = document.getElementById('tierEqStatus');
-  if (eqStatus) eqStatus.textContent = '';
+  if (eqStatus) { eqStatus.classList.remove('tier-status-busy'); eqStatus.textContent = ''; }
   if (preview) {
     tierRecordPreviewUrl = URL.createObjectURL(blob);
     preview.src = tierRecordPreviewUrl;
@@ -1920,7 +1947,7 @@ function stopTierRecording(cancel) {
 async function uploadTierRecordedAudio(blob) {
   clearTierSoundSource();
   const status = document.getElementById('tierRecordStatus');
-  const setStatus = (msg) => { if (status) status.textContent = msg; };
+  const setStatus = (msg) => { if (status) { status.classList.remove('tier-status-busy'); status.textContent = msg; } };
   setStatus('กำลังอัปโหลด...');
   try {
     const username = window.location.pathname.split('/')[1];
@@ -1931,6 +1958,17 @@ async function uploadTierRecordedAudio(blob) {
     formData.append('mode', 'record');
     const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
     const data = await res.json();
+    // The confirm handler already ran hideTierRecordReview() (which nulls the pending blob),
+    // so put the recording back to make "กดส่งใหม่" true. The message goes on tierEqStatus
+    // because tierRecordStatus sits inside the controls block that the review hides.
+    // ponytail: this resets the EQ button highlight to "normal" while keeping the processed
+    // blob — cosmetic only; wire EQ state through if donors ever report confusion.
+    if (isOverloadResponse(res, data)) {
+      setStatus('');
+      showTierRecordReview(blob);
+      setTierStatusBusy(document.getElementById('tierEqStatus'), 'ระบบกำลังมีผู้ใช้งานหนาแน่น เสียงที่อัดไว้ยังอยู่ กดส่งใหม่อีกครั้งใน 1 นาทีได้เลย');
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
     selectedTierSoundUrl = data.url;
     selectedTierSoundIsTemp = true;
@@ -2202,7 +2240,18 @@ function startWidgetStatusStream() {
       }
     } catch (_) { /* ignore parse blip */ }
   };
-  // EventSource auto-reconnects; browser handles visibility
+  widgetStatusSource.onopen = () => { widgetStatusRetryDelay = 3000; };
+  // EventSource only auto-reconnects after a dropped 200 stream — a 503 (load shedding)
+  // kills it permanently. Reconnect by hand, starting at 3s so a crowd of donate pages
+  // doesn't hammer an already-overloaded server. The server pushes current state on
+  // connect (broadcastWidgetStatus), so no extra fetch is needed after reconnecting.
+  widgetStatusSource.onerror = () => {
+    widgetStatusSource.close();
+    widgetStatusSource = null;
+    clearTimeout(widgetStatusRetryTimer);
+    widgetStatusRetryTimer = setTimeout(startWidgetStatusStream, widgetStatusRetryDelay);
+    widgetStatusRetryDelay = Math.min(widgetStatusRetryDelay * 1.5, 30000);
+  };
 }
 
 function applyOverlayStatus(active) {
@@ -2368,6 +2417,12 @@ btnProceedPayment.addEventListener('click', async () => {
       });
 
       const data = await response.json();
+      if (isOverloadResponse(response, data)) {
+        showOverloadNotice('qr');
+        btnProceedPayment.disabled = false;
+        btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
+        return;
+      }
       if (!response.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
@@ -2418,7 +2473,9 @@ btnProceedPayment.addEventListener('click', async () => {
 
       const data = await response.json();
       if (!response.ok) {
-        if (data.errorCode === 'TFP_NOT_CONFIGURED') {
+        if (isOverloadResponse(response, data)) {
+          showOverloadNotice('qr');
+        } else if (data.errorCode === 'TFP_NOT_CONFIGURED') {
           showProceedError('ระบบเช็คสลิปไม่ทำงานชั่วคราว โปรดรอสักครู่แล้วลองใหม่');
         } else {
           showProceedError('ไม่สามารถสร้าง QR Code ได้ โปรดลองใหม่อีกครั้ง');
@@ -2600,6 +2657,11 @@ function startPromptPayPolling() {
 
       const data = await response.json();
 
+      if (isOverloadResponse(response, data)) {
+        showOverloadNotice('paid', true); // keep polling — the guard releases on its own
+        return;
+      }
+
       if (data.verified) {
         clearPendingQR();
         stopPolling();
@@ -2664,6 +2726,34 @@ function hideProceedError() {
     proceedError.style.display = 'none';
   }
 }
+
+// ===== Overload notice (HTTP 503 SYSTEM_BUSY from loadShedGuard) =====
+const OVERLOAD_BODY = 'ขณะนี้มีผู้ใช้งานจำนวนมากพร้อมกัน เพื่อรักษาเสถียรภาพของระบบ เราขอจำกัดการทำรายการเป็นการชั่วคราว กรุณารอสักครู่แล้วลองใหม่อีกครั้ง ต้องขออภัยในความไม่สะดวกมา ณ ที่นี้';
+const OVERLOAD_BODY_PAID = '\n\nหากท่านโอนเงินแล้ว ยอดเงินของท่านไม่สูญหาย — สามารถกดตรวจสอบสลิปอีกครั้งเมื่อระบบกลับสู่ปกติ หรือสตรีมเมอร์สามารถยืนยันรายการให้ได้โดยตรง';
+
+const OVERLOAD_SNOOZE_MS = 60000;
+let overloadDismissedAt = 0;
+
+// mode 'paid' = donor already transferred money, so reassure them the amount isn't lost.
+// fromPoller = triggered by the background slip poller rather than by the donor. Only
+// those respect the snooze — an action the donor just took must always get an answer.
+function showOverloadNotice(mode, fromPoller) {
+  const overlay = document.getElementById('overloadOverlay');
+  if (!overlay || overlay.classList.contains('open')) return; // idempotent — the slip poller hits this every tick
+  if (fromPoller && Date.now() - overloadDismissedAt < OVERLOAD_SNOOZE_MS) return;
+  const body = document.getElementById('overloadBody');
+  if (body) body.textContent = OVERLOAD_BODY + (mode === 'paid' ? OVERLOAD_BODY_PAID : '');
+  overlay.classList.add('open');
+}
+
+function isOverloadResponse(response, data) {
+  return response.status === 503 && data && data.error === 'SYSTEM_BUSY';
+}
+
+document.getElementById('overloadRetryBtn')?.addEventListener('click', () => {
+  overloadDismissedAt = Date.now();
+  document.getElementById('overloadOverlay')?.classList.remove('open');
+});
 
 // SlipOK account-issue donor messages (streamer's SlipOK account broken/expired/over-quota,
 // not the donor's slip). Non-retryable UX: streamer must fix/renew first. subCode = raw
@@ -2852,6 +2942,14 @@ async function doVerifySlip() {
     });
 
     const data = await response.json();
+
+    if (isOverloadResponse(response, data)) {
+      showOverloadNotice('paid');
+      paymentStatus.style.display = 'none';
+      btnVerifySlip.innerHTML = '<i class="fas fa-redo"></i> ลองใหม่อีกครั้ง';
+      btnVerifySlip.disabled = false;
+      return;
+    }
 
     if (data.success) {
       clearPendingQR();
@@ -3066,6 +3164,14 @@ async function doVerifyTrueMoney() {
 
     const data = await response.json();
     if (data.referenceId) currentChargeId = data.referenceId;
+
+    if (isOverloadResponse(response, data)) {
+      showOverloadNotice('paid');
+      trueMoneyPaymentStatus.style.display = 'none';
+      btnVerifyTrueMoney.innerHTML = '<i class="fas fa-redo"></i> ลองใหม่อีกครั้ง';
+      btnVerifyTrueMoney.disabled = false;
+      return;
+    }
 
     if (data.success) {
       clearPendingQR();
@@ -3301,6 +3407,14 @@ async function doVerifyBank() {
     const data = await response.json();
     if (data.referenceId) currentChargeId = data.referenceId;
 
+    if (isOverloadResponse(response, data)) {
+      showOverloadNotice('paid');
+      bankPaymentStatus.style.display = 'none';
+      btnVerifyBank.textContent = 'ลองใหม่อีกครั้ง';
+      btnVerifyBank.disabled = false;
+      return;
+    }
+
     if (data.success) {
       clearPendingQR();
       bankPaymentStatus.className = 'status success';
@@ -3452,6 +3566,11 @@ function generateTrueMoneyQRImage(qrData) {
 }
 
 function stopTrueMoneyQr() {
+  trueMoneyStatusStopped = true; // QR expired / confirmed / replaced — stop reconnecting
+  if (trueMoneyStatusRetryTimer) {
+    clearTimeout(trueMoneyStatusRetryTimer);
+    trueMoneyStatusRetryTimer = null;
+  }
   if (trueMoneyQrSource) {
     trueMoneyQrSource.close();
     trueMoneyQrSource = null;
@@ -3500,27 +3619,71 @@ function startTrueMoneyQrCountdown(expiresAt) {
   trueMoneyQrCountdownInterval = setInterval(updateTrueMoneyQrCountdown, 1000);
 }
 
+function handleTrueMoneyConfirmed() {
+  stopTrueMoneyQr();
+  if (trueMoneyQrWaiting) {
+    trueMoneyQrWaiting.className = 'qr-waiting-indicator confirmed';
+    trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i><span>ได้รับเงินบริจาคแล้ว! ขอบคุณมากครับ</span>';
+  }
+  clearTrueMoneyPendingQR();
+  setTimeout(() => {
+    window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
+  }, 1500);
+}
+
 function startTrueMoneyStatusStream(refId) {
   stopTrueMoneyQr();
   if (!refId) return;
+  trueMoneyStatusStopped = false;
+  trueMoneyStatusRetryDelay = 3000;
+  connectTrueMoneyStatusStream(refId);
+}
+
+function connectTrueMoneyStatusStream(refId) {
+  if (trueMoneyStatusStopped) return;
   trueMoneyQrSource = new EventSource(`/api/donate/status/stream?ref=${encodeURIComponent(refId)}`);
+  trueMoneyQrSource.onopen = () => { trueMoneyStatusRetryDelay = 3000; };
   trueMoneyQrSource.onmessage = (ev) => {
     try {
       const data = JSON.parse(ev.data);
       if (data.type === 'donate_status' && data.status === 'confirmed') {
-        stopTrueMoneyQr();
-        if (trueMoneyQrWaiting) {
-          trueMoneyQrWaiting.className = 'qr-waiting-indicator confirmed';
-          trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i><span>ได้รับเงินบริจาคแล้ว! ขอบคุณมากครับ</span>';
-        }
-        clearTrueMoneyPendingQR();
-        setTimeout(() => {
-          window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
-        }, 1500);
+        handleTrueMoneyConfirmed();
       }
     } catch (_) {}
   };
-  trueMoneyQrSource.onerror = () => {};
+  // A 503 (load shedding) makes EventSource give up for good, so reconnect by hand.
+  // Backoff starts at 3s — donate pages open in bulk, and faster retries would only
+  // deepen the overload we are backing off from.
+  trueMoneyQrSource.onerror = () => {
+    if (trueMoneyQrSource) {
+      trueMoneyQrSource.close();
+      trueMoneyQrSource = null;
+    }
+    if (trueMoneyStatusStopped) return;
+    clearTimeout(trueMoneyStatusRetryTimer);
+    trueMoneyStatusRetryTimer = setTimeout(() => resyncTrueMoneyStatus(refId), trueMoneyStatusRetryDelay);
+    trueMoneyStatusRetryDelay = Math.min(trueMoneyStatusRetryDelay * 1.5, 30000);
+  };
+}
+
+// While the stream was down the payment may already have been confirmed (webhook fired,
+// or the phone was locked). Check the transaction once before re-opening the stream
+// instead of waiting for an event that has already been missed.
+async function resyncTrueMoneyStatus(refId) {
+  if (trueMoneyStatusStopped) return;
+  try {
+    const response = await fetch('/api/verify-promptpay-slip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...getAntiBotPayload(), referenceId: refId })
+    });
+    const data = await response.json();
+    if (data.verified) {
+      handleTrueMoneyConfirmed();
+      return;
+    }
+  } catch (_) { /* offline or still shedding — just reconnect */ }
+  connectTrueMoneyStatusStream(refId);
 }
 
 async function createTrueMoneyQR() {
@@ -3565,6 +3728,17 @@ async function createTrueMoneyQR() {
     });
 
     const data = await response.json();
+    if (isOverloadResponse(response, data)) {
+      showOverloadNotice('qr');
+      // Two callers: the proceed button (still on the payment-method step) and
+      // btnRetryTrueMoneyQr (on the QR step, which hides itself before calling).
+      // Restore both, otherwise whichever path was used has no way back.
+      if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'none';
+      if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
+      btnProceedPayment.disabled = false;
+      btnProceedPayment.innerHTML = 'ดำเนินการต่อ <i class="fa-solid fa-arrow-right"></i>';
+      return;
+    }
     if (!response.ok) {
       showProceedError('ไม่สามารถสร้าง QR ได้ โปรดลองใหม่อีกครั้ง');
       if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';

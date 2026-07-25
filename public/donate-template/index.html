@@ -188,6 +188,46 @@
     #tierOwnAudioFile { display: none; }
     #tierUploadReview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
     #tierUploadReview audio { height: 32px; max-width: 220px; }
+
+    /* ===== Overload Notice ===== */
+    /* !important: #tierOwnAudioStatus / #tierRecordStatus / #tierEqStatus carry inline colour+size */
+    .tier-status-busy {
+      color: #f59e0b !important;
+      font-size: 13px !important;
+      line-height: 1.5;
+      word-break: break-word;
+      transition: color .2s;
+    }
+    .overload-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+      background: rgba(12, 15, 29, 0.82);
+      opacity: 0; visibility: hidden;
+      transition: opacity .25s ease, visibility .25s ease;
+    }
+    .overload-overlay.open { opacity: 1; visibility: visible; }
+    .overload-card {
+      width: 100%; max-width: 420px;
+      background: #141829; border: 1px solid #f59e0b33; border-radius: 14px;
+      padding: 28px 24px; text-align: center;
+      transform: translateY(12px);
+      transition: transform .25s ease;
+    }
+    .overload-overlay.open .overload-card { transform: translateY(0); }
+    .overload-card .overload-icon { display: block; font-size: 40px; color: #f59e0b; margin-bottom: 14px; }
+    .overload-title { font-size: 18px; font-weight: 600; color: #e2e8f0; margin: 0 0 10px; }
+    .overload-body { font-size: 14px; line-height: 1.6; color: #94a3b8; margin: 0 0 20px; white-space: pre-line; }
+    .overload-retry {
+      background: #667eea; color: #fff; border: none; border-radius: 10px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: filter .2s;
+    }
+    .overload-retry:hover { filter: brightness(1.1); }
+    .overload-retry:disabled { opacity: .6; cursor: not-allowed; }
+    @media (max-width: 768px) {
+      .overload-card { width: calc(100% - 32px); padding: 20px; }
+      .overload-card .overload-icon { font-size: 32px; }
+    }
   </style>
 </head>
 
@@ -927,8 +967,18 @@
 
   </div>  <!-- end container -->
 
+  <!-- Overload notice — shown on HTTP 503 SYSTEM_BUSY from the load-shed guard -->
+  <div id="overloadOverlay" class="overload-overlay">
+    <div class="overload-card">
+      <i class="fa-solid fa-gauge-high overload-icon"></i>
+      <h3 class="overload-title">ระบบกำลังมีผู้ใช้งานหนาแน่น</h3>
+      <p class="overload-body" id="overloadBody"></p>
+      <button type="button" class="overload-retry" id="overloadRetryBtn">ลองใหม่อีกครั้ง</button>
+    </div>
+  </div>
+
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
-  <script src="/donate-template/app.js?v=20260723_8"></script>
+  <script src="/donate-template/app.js?v=20260726_1"></script>
 </body>
 </html>

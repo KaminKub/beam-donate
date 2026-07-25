@@ -268,6 +268,7 @@ const defaultSettings = {
 
 // ========== SSE Alert System ==========
 const MAX_SSE_CLIENTS = 500;
+const { initOverloadMonitor, loadShedGuard, getProtectionState, shedIfBusy } = require('./overload-protection');
 const SSE_CLIENT_TTL = 5 * 60 * 1000;
 let sseClients = [];
 const tokenCache = new Map(); // token → { username, cachedAt }
@@ -1332,6 +1333,10 @@ function applyDemoMask(row) {
   return masked;
 }
 
+// Demo is marketing only — shed the whole group first when the system is under load.
+// Prefix guard is safe here; it must never be used for /api/truemoney (webhook must not be blocked).
+app.use(['/demo', '/api/demo'], loadShedGuard(1));
+
 app.get('/demo/dashboard', demoRateLimiter, (req, res) => {
   const filePath = path.join(__dirname, '../public/dashboard/index.html');
   const html = fs.readFileSync(filePath, 'utf8');
@@ -1443,6 +1448,7 @@ const MAX_DEMO_SSE_PER_IP = 3;
 const ALLOWED_DEMO_SOURCES = new Set(['demo-overlay', 'demo-goal-bar', 'demo-timer', 'demo-leader-board', 'demo-recent-donate']);
 
 app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
+  if (shedIfBusy(res, 1)) return; // also covered by the /api/demo prefix guard; kept local so a route reorder can't silently drop it
   const clientSource = ALLOWED_DEMO_SOURCES.has(req.query.source) ? req.query.source : 'demo-overlay';
   const demoClients = sseClients.filter(c => ALLOWED_DEMO_SOURCES.has(c.source));
   if (demoClients.length >= MAX_DEMO_SSE_CLIENTS) {
@@ -2199,7 +2205,7 @@ app.get('/api/admin/active-overlays', adminMonitorLimiter, ensureAdmin, (req, re
   const activeCount  = active.filter(u => u.connections > 0).length;
   const goalBarCount = active.filter(u => u.hasGoalBar).length;
   const timerCount   = active.filter(u => u.hasTimer).length;
-  res.json({ activeCount, goalBarCount, timerCount, sseTotal: sseClients.length, active, ts: now });
+  res.json({ activeCount, goalBarCount, timerCount, sseTotal: sseClients.length, active, protection: getProtectionState(), ts: now });
 });
 
 app.get('/api/admin/stats', adminMonitorLimiter, ensureAdmin, async (req, res) => {
@@ -2293,7 +2299,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API: สร้าง Donation (Payment Link)
-app.post('/api/create-charge', createChargeLimiter, async (req, res) => {
+app.post('/api/create-charge', loadShedGuard(1), createChargeLimiter, async (req, res) => {
   try {
     const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
@@ -2481,6 +2487,8 @@ app.get('/api/alerts/stream', async (req, res) => {
     res.status(503).json({ error: 'Too many concurrent overlay connections' });
     return;
   }
+  // Streamer widgets are the last thing to shed — level 2 only.
+  if (shedIfBusy(res, 2)) return;
 
   const isValidToken = authMethod === 'token';
   const now = Date.now();
@@ -2579,6 +2587,8 @@ app.get('/api/widget/status/stream', widgetStatusLimiter, async (req, res) => {
   const username = (req.query.username || '').toLowerCase();
   if (!username) return res.status(400).json({ error: 'missing username' });
   if (sseClients.length >= MAX_SSE_CLIENTS) return res.status(503).json({ error: 'Too many concurrent connections' });
+  // Donor convenience only — donate flow falls back to the server-side timerAction default.
+  if (shedIfBusy(res, 1)) return;
 
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*', 'X-Accel-Buffering': 'no' });
   const clientObj = { res, validated: false, username, authMethod: 'public', lastActivity: Date.now(), source: 'dona-monitor' };
@@ -3646,7 +3656,8 @@ const tierAudioUpload = multer({
   }
 });
 
-app.post('/api/donate/upload-tier-audio', sameOriginCheck, donorAudioUploadLimiter, tierAudioUpload.single('audio'), async (req, res) => {
+// loadShedGuard must stay ahead of tierAudioUpload.single() — reject before multer buffers the file into RAM
+app.post('/api/donate/upload-tier-audio', loadShedGuard(1), sameOriginCheck, donorAudioUploadLimiter, tierAudioUpload.single('audio'), async (req, res) => {
   try {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'ไม่พบ username' });
@@ -4313,13 +4324,13 @@ const publicMyinstantsLimiter = rateLimit({
 });
 
 app.get('/api/myinstants/search', ensureAuthenticated, myinstantsLimiter, handleMyinstantsSearch);
-app.get('/api/public/myinstants/search', publicMyinstantsLimiter, handleMyinstantsSearch);
+app.get('/api/public/myinstants/search', loadShedGuard(2), publicMyinstantsLimiter, handleMyinstantsSearch);
 
 app.get('/api/myinstants/pages', ensureAuthenticated, (req, res) => {
   res.json({ pages: myinstantsPages });
 });
 
-app.get('/api/public/myinstants/pages', publicMyinstantsLimiter, (req, res) => {
+app.get('/api/public/myinstants/pages', loadShedGuard(2), publicMyinstantsLimiter, (req, res) => {
   res.json({ pages: myinstantsPages });
 });
 
@@ -5036,7 +5047,7 @@ const setupWebhookLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.post('/api/create-promptpay-qr', promptPayQrLimiter, async (req, res) => {
+app.post('/api/create-promptpay-qr', loadShedGuard(1), promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
@@ -5296,7 +5307,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
 });
 
 // POST /api/truemoney/create-qr - Create TrueMoney P2P or PromptPay QR (public)
-app.post('/api/truemoney/create-qr', truemoneyQrLimiter, async (req, res) => {
+app.post('/api/truemoney/create-qr', loadShedGuard(1), truemoneyQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
 
@@ -5376,6 +5387,8 @@ app.get('/api/donate/status/stream', donateStatusLimiter, async (req, res) => {
   if (sseClients.length >= MAX_SSE_CLIENTS) {
     return res.status(503).json({ error: 'Too many concurrent connections' });
   }
+  // Donor is already paying/paid — shed only at CRITICAL.
+  if (shedIfBusy(res, 2)) return;
 
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*', 'X-Accel-Buffering': 'no' });
   const clientObj = { res, validated: false, ref, authMethod: 'public', lastActivity: Date.now(), source: 'donate-status' };
@@ -5410,7 +5423,8 @@ const pollSlipLimiter = rateLimit({
   message: { success: false, errorCode: 'RATE_LIMITED', error: 'กรุณารอสักครู่' }
 });
 
-app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('slip'), async (req, res) => {
+// loadShedGuard must stay ahead of upload.single() — reject before multer buffers the 5MB slip into RAM
+app.post('/api/verify-slip', loadShedGuard(1), sameOriginCheck, uploadSlipLimiter, upload.single('slip'), async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId, amount, phone, method, username: bodyUsername, name: donorName, message: donorMessage, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
@@ -5575,7 +5589,7 @@ app.post('/api/verify-slip', sameOriginCheck, uploadSlipLimiter, upload.single('
   }
 });
 
-app.post('/api/verify-promptpay-slip', pollSlipLimiter, async (req, res) => {
+app.post('/api/verify-promptpay-slip', loadShedGuard(2), pollSlipLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId } = req.body;
@@ -5666,7 +5680,7 @@ const UPLOAD_MAX_SIZES = {
 };
 
 // POST /api/upload/presign — generate Cloudflare R2 presigned upload URL
-app.post('/api/upload/presign', presignLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/upload/presign', loadShedGuard(1), presignLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const { fileType, category, originalName, oldFileUrl, fileSize } = req.body;
 
@@ -5781,6 +5795,9 @@ if (typeof require !== 'undefined' && require.main === module) {
     console.log(`🧪 Alert Test: http://localhost:${PORT}/alert-test`);
     console.log(`📊 Admin Panel: http://localhost:${PORT}/admin`);
   });
+
+  // Overload protection — pass a getter: sseClients is reassigned by .filter() on disconnect
+  initOverloadMonitor({ getSseClients: () => sseClients });
 
   // Memory monitoring — emergency only
   setInterval(() => {
