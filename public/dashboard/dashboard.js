@@ -3980,18 +3980,102 @@ function renderRecentTransactions(transactions) {
   });
 }
 
+// ---------- Transaction date-range + payment-method summary ----------
+// วันที่ทั้งหมดเทียบเป็น local time (browser tz) — createdAt เป็น ISO UTC, new Date() แปลงให้เอง
+// ห้ามใช้ toISOString() ทำ date string (จะได้ UTC = คลาดวันในไทย +7)
+function toLocalDateInput(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getTxDateRangeBounds() {
+  const sel = document.getElementById('selectTxDateRange');
+  const value = sel ? sel.value : '90';
+
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
+
+  if (value === 'custom') {
+    const fromStr = document.getElementById('inputTxDateFrom')?.value;
+    const toStr = document.getElementById('inputTxDateTo')?.value;
+    return {
+      from: fromStr ? new Date(`${fromStr}T00:00:00`) : null,
+      to: toStr ? new Date(`${toStr}T23:59:59.999`) : to
+    };
+  }
+
+  const days = parseInt(value, 10);
+  if (!days) return { from: null, to: null };
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - (days - 1));
+  return { from, to };
+}
+
+function getTxMethodBucket(method) {
+  const m = String(method || '').toLowerCase();
+  if (m === 'promptpay') return 'promptpay';
+  if (m === 'truemoney' || m === 'truemoney_webhook') return 'truemoney';
+  if (m === 'bank') return 'bank';
+  return 'other';
+}
+
+function renderTxSummaryCards(filtered) {
+  const buckets = {
+    promptpay: { amount: 0, count: 0 },
+    truemoney: { amount: 0, count: 0 },
+    bank: { amount: 0, count: 0 },
+    other: { amount: 0, count: 0 }
+  };
+  let total = 0;
+  let totalCount = 0;
+
+  (filtered || []).forEach(t => {
+    if (t.status !== 'successful') return;
+    const amount = Number(t.amount) || 0;
+    const b = buckets[getTxMethodBucket(t.payment_method)];
+    b.amount += amount;
+    b.count++;
+    total += amount;      // ยอดรวม = ผลรวมทุก bucket รวม "อื่นๆ" แม้การ์ดถูกซ่อน
+    totalCount++;
+  });
+
+  const money = n => `฿${n.toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  setText('txSumTotal', money(total));
+  setText('txSumMeta', `${totalCount.toLocaleString('th-TH')} รายการสำเร็จ`);
+
+  Object.keys(buckets).forEach(key => {
+    const suffix = key.charAt(0).toUpperCase() + key.slice(1);
+    setText(`txSum${suffix}`, money(buckets[key].amount));
+    setText(`txSum${suffix}Count`, `${buckets[key].count.toLocaleString('th-TH')} รายการ`);
+  });
+
+  document.getElementById('txSumOtherCard')?.classList.toggle('visible', buckets.other.count > 0);
+}
+
 function renderFullTransactions(transactions) {
   const tbody = document.querySelector('#fullTransactionsTable tbody');
   tbody.innerHTML = '';
 
   const searchQuery = document.getElementById('inputSearchDonor').value.toLowerCase().trim();
   const filterStatus = document.getElementById('selectFilterStatus').value;
+  const { from, to } = getTxDateRangeBounds();
 
-  const filtered = transactions.filter(t => {
+  const filtered = (transactions || []).filter(t => {
     const nameMatch = (t.donor || '').toLowerCase().includes(searchQuery) || (t.id || '').toLowerCase().includes(searchQuery);
     const statusMatch = filterStatus === 'all' || t.status === filterStatus;
-    return nameMatch && statusMatch;
+    const ts = t.createdAt ? new Date(t.createdAt) : null;
+    const dateMatch = !ts || isNaN(ts.getTime())
+      ? true                                    // ไม่มีวันที่ = ไม่ซ่อน (ห้ามทำเงินหาย)
+      : (!from || ts >= from) && (!to || ts <= to);
+    return nameMatch && statusMatch && dateMatch;
   });
+
+  renderTxSummaryCards(filtered);   // ต้องอยู่ก่อน early-return ไม่งั้นการ์ดค้างค่าเก่า
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">ไม่พบข้อมูลตรงตามเงื่อนไขที่เลือก</td></tr>`;
@@ -4042,6 +4126,32 @@ if (selectFilterStatus) {
     renderFullTransactions(allTransactions);
   });
 }
+
+const selectTxDateRange = document.getElementById('selectTxDateRange');
+if (selectTxDateRange) {
+  selectTxDateRange.addEventListener('change', () => {
+    const isCustom = selectTxDateRange.value === 'custom';
+    const inputFrom = document.getElementById('inputTxDateFrom');
+    const inputTo = document.getElementById('inputTxDateTo');
+
+    if (isCustom && inputFrom && inputTo && !inputFrom.value && !inputTo.value) {
+      const today = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 89);
+      inputFrom.value = toLocalDateInput(start);
+      inputTo.value = toLocalDateInput(today);
+    }
+
+    document.getElementById('txDateRangeCustom')?.classList.toggle('visible', isCustom);
+    renderFullTransactions(allTransactions);
+  });
+}
+
+['inputTxDateFrom', 'inputTxDateTo'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    renderFullTransactions(allTransactions);
+  });
+});
 
 if (btnRefreshTransactions) {
   btnRefreshTransactions.addEventListener('click', async () => {

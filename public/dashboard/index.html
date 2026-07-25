@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260721_4">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260725_2">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -221,6 +221,20 @@
                 <input type="text" id="inputSearchDonor" placeholder="ค้นหาชื่อผู้บริจาค/Reference-ID...">
               </div>
               <div class="filter-groups">
+                <div class="tx-daterange-group">
+                  <select id="selectTxDateRange" class="form-select">
+                    <option value="7">7 วันล่าสุด</option>
+                    <option value="30">30 วันล่าสุด</option>
+                    <option value="90" selected>3 เดือนล่าสุด</option>
+                    <option value="180">6 เดือนล่าสุด</option>
+                    <option value="custom">กำหนดเอง</option>
+                  </select>
+                  <div class="tx-daterange-custom" id="txDateRangeCustom">
+                    <input type="date" id="inputTxDateFrom" class="form-control" aria-label="วันที่เริ่มต้น">
+                    <span class="tx-daterange-sep">ถึง</span>
+                    <input type="date" id="inputTxDateTo" class="form-control" aria-label="วันที่สิ้นสุด">
+                  </div>
+                </div>
                 <select id="selectFilterStatus" class="form-select">
                   <option value="all">แสดงสถานะทั้งหมด</option>
                   <option value="successful">สำเร็จ (Successful)</option>
@@ -232,6 +246,50 @@
                 <button class="btn btn-icon-round" id="btnDownloadTransactions" title="ดาวน์โหลด CSV"><i class="fa-solid fa-download"></i></button>
                 <button class="btn btn-icon-round" id="btnCopyPopupUrl" title="คัดลอกลิงก์ Dona-Monitor ไปวางใน OBS Dock หรือโปรแกรมที่รับรอง"><i class="fa-solid fa-copy"></i></button>
                 <button class="btn btn-icon-round" onclick="openDonationPopup()" title="เปิด Dona-Monitor ในหน้าต่างแยก (Popup)"><i class="fa-solid fa-up-right-from-square"></i></button>
+              </div>
+            </div>
+
+            <!-- Payment-method summary (กรองตาม date-range + search + status เดียวกับตาราง) -->
+            <div class="tx-summary-grid">
+              <div class="stat-card">
+                <div class="stat-icon amount">฿</div>
+                <div class="stat-info">
+                  <h3>ยอดรวมที่กรอง</h3>
+                  <h2 id="txSumTotal">฿0</h2>
+                  <span class="text-muted" id="txSumMeta">0 รายการสำเร็จ</span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon tx-sum-promptpay"><i class="fa-solid fa-qrcode"></i></div>
+                <div class="stat-info">
+                  <h3>PromptPay</h3>
+                  <h2 id="txSumPromptpay">฿0</h2>
+                  <span class="text-muted" id="txSumPromptpayCount">0 รายการ</span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon tx-sum-truemoney"><i class="fa-solid fa-wallet"></i></div>
+                <div class="stat-info">
+                  <h3>TrueMoney</h3>
+                  <h2 id="txSumTruemoney">฿0</h2>
+                  <span class="text-muted" id="txSumTruemoneyCount">0 รายการ</span>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon tx-sum-bank"><i class="fa-solid fa-building-columns"></i></div>
+                <div class="stat-info">
+                  <h3>ธนาคาร</h3>
+                  <h2 id="txSumBank">฿0</h2>
+                  <span class="text-muted" id="txSumBankCount">0 รายการ</span>
+                </div>
+              </div>
+              <div class="stat-card tx-sum-card-other" id="txSumOtherCard">
+                <div class="stat-icon tx-sum-other"><i class="fa-solid fa-ellipsis"></i></div>
+                <div class="stat-info">
+                  <h3>อื่นๆ</h3>
+                  <h2 id="txSumOther">฿0</h2>
+                  <span class="text-muted" id="txSumOtherCount">0 รายการ</span>
+                </div>
               </div>
             </div>
 
@@ -3635,7 +3693,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260721_6"></script>
+  <script src="/dashboard/dashboard.js?v=20260725_1"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
