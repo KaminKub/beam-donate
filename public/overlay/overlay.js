@@ -151,11 +151,12 @@ function applyOutline(settings) {
   if (!outline) outline = { header_amount: 2, message: 1 };
   const hw = Math.min(5, Math.max(0, parseInt(outline.header_amount, 10) || 0));
   const mw = Math.min(5, Math.max(0, parseInt(outline.message, 10) || 0));
+  // width 0 = filter ที่ไม่วาดอะไร แต่ยังบังคับ software raster ทั้ง element → ใช้ 'none' แทน
   document.querySelectorAll('.alert-header, .alert-amount').forEach(el => {
-    el.style.filter = `url(#outline-h-${hw})`;
+    el.style.filter = hw ? `url(#outline-h-${hw})` : 'none';
   });
   document.querySelectorAll('.alert-message').forEach(el => {
-    el.style.filter = `url(#outline-m-${mw})`;
+    el.style.filter = mw ? `url(#outline-m-${mw})` : 'none';
   });
 }
 
