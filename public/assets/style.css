@@ -1555,6 +1555,20 @@ input[type=number] {
   padding: 16px;
   display: inline-flex;
   margin-bottom: 18px;
+  position: relative;
+}
+
+.qr-tipkub-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 4px;
+  box-shadow: 0 0 0 3px #ffffff;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .mobile-slip-qr-box img {
