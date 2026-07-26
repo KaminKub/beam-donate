@@ -5352,7 +5352,7 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), truemoneyQrLimiter, async
       if (!promptpayId) return res.status(400).json({ error: 'PromptPay e-Wallet ID not configured' });
       const extraSatang = crypto.randomInt(1, 100) / 100;
       displayAmount = parseFloat(amount) + extraSatang;
-      qrData = generatePromptPayPayload(promptpayId, displayAmount);
+      qrData = generatePromptPayEWalletPayload(promptpayId, displayAmount);
     }
 
     const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
