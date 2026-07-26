@@ -2436,9 +2436,8 @@ function loadPageSettingsFromData(data) {
     if (el) el.value = data[key] || '';
   }
 
-  // Donate page preview iframe
-  const iframe = document.getElementById('pagePreviewIframe');
-  if (iframe) iframe.src = '/kaminkub';
+  // Donate page preview iframe: activatePagePreview() โหลดตอนเข้าแท็บ page-customization
+  // (ห้ามเซ็ตที่นี่ — demo init จะทำให้หน้าโดเนทค้างใน renderer ทุกแท็บ)
 }
 
 const DEMO_TRANSACTIONS = [
@@ -2721,6 +2720,7 @@ function switchTab(tabId) {
     deactivateTimerPreview();
   }
   if (tabId === 'page-customization') {
+    activatePagePreview(); // ต้องอยู่นอก tabLoaded gate — ไม่งั้นเข้าแท็บครั้งที่ 2 preview ว่างถาวร
     if (!DEMO_MODE && !tabLoaded['page-customization']) {
       tabLoaded['page-customization'] = true;
       loadPageSettings();
@@ -2731,6 +2731,9 @@ function switchTab(tabId) {
     } else {
       ensureBadgesLoaded(); // badge selector ในหน้านี้ต้องมีข้อมูล แม้เปิด account tab ยังไม่เคยโหลด
     }
+  }
+  if (tabId !== 'page-customization') {
+    deactivatePagePreview();
   }
   if (tabId === 'account') {
     if (!DEMO_MODE && !tabLoaded['account']) {
@@ -2835,6 +2838,26 @@ function activateRecentdonatePreview() {
 
 function deactivateRecentdonatePreview() {
   const iframe = document.getElementById('recentdonatePreviewIframe');
+  if (!iframe) return;
+  iframe.src = 'about:blank';
+}
+
+// ========== Donate Page Preview Iframe Control ==========
+// หน้าโดเนทเต็มหน้า (bg video + fonts + QR lib + SSE) ต้องไม่ค้างใน renderer เวลาอยู่แท็บอื่น
+// — ไม่งั้นมันแย่ง frame budget กับ Alert Preview จนภาพ GIF กระตุก
+function activatePagePreview() {
+  const iframe = document.getElementById('pagePreviewIframe');
+  if (!iframe) return;
+  if (!iframe.src || iframe.src.includes('about:blank')) {
+    // demo dashboard = /demo/dashboard → pathname[1] คือ 'demo' ไม่ใช่ username
+    const username = DEMO_MODE ? 'kaminkub' : window.location.pathname.split('/')[1];
+    if (!username) return;
+    iframe.src = `/${username}`;
+  }
+}
+
+function deactivatePagePreview() {
+  const iframe = document.getElementById('pagePreviewIframe');
   if (!iframe) return;
   iframe.src = 'about:blank';
 }
@@ -7290,12 +7313,8 @@ async function loadPageSettings() {
     const pathParts = window.location.pathname.split('/');
     const username = pathParts[1];
     if (!username) return;
-    
-    // Set Iframe SRC immediately to avoid redirect to dashboard
-    const iframe = document.getElementById('pagePreviewIframe');
-    if (iframe) {
-        iframe.src = `/${username}`;
-    }
+
+    // preview iframe: activatePagePreview() เป็นเจ้าของ src แล้ว (เรียกทุกครั้งที่เข้าแท็บ)
 
     // L23: Donate URL preview — set here too (not only in loadAccountInfo)
     // ไม่งั้นเปิด tab page-customization ก่อน account tab → ช่องว่างจนกว่าจะสลับไป account แล้วกลับมา

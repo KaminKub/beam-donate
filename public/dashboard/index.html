@@ -565,7 +565,8 @@
                     <h3><i class="fa-solid fa-image"></i> พรีวิวหน้าโดเนท (Page Preview)</h3>
                   </div>
                   <div class="preview-iframe-wrapper">
-                    <iframe src="" id="pagePreviewIframe" class="preview-iframe"></iframe>
+                    <!-- about:blank (ไม่ใช่ src="") — iframe.src getter จะ resolve "" เป็น URL ของ dashboard ทำให้ guard ใน activatePagePreview() ไม่ผ่าน -->
+                    <iframe src="about:blank" id="pagePreviewIframe" class="preview-iframe"></iframe>
                   </div>
                   <!-- L22: ลิงก์หน้าโดเนท — ย้ายมาไว้ใต้ Page Preview (นอก form เพื่อกด copy/open ไม่ trigger form save) -->
                   <div class="copy-url-group copy-url-group--flat" style="margin-top: 16px; align-items: center; justify-content: center;">
@@ -3093,7 +3094,7 @@
                     <h3><i class="fa-solid fa-tv"></i> หน้าจอจำลองสด (Live Overlay Preview)</h3>
                     <span class="badge badge-success">SSE Connected</span>
                   </div>
-                  <p class="preview-hint">เมื่อกด "Quick Alert" มุมบนขวา งืิหรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
+                  <p class="preview-hint">เมื่อกด "Quick Alert" มุมบนขวา หรือกดบันทึกค่า จะแสดงการปรับแต่งสดใน Iframe นี้ทันที!</p>
                   <div class="preview-iframe-wrapper">
                     <iframe src="about:blank" id="overlayPreviewIframe" class="preview-iframe" allow="autoplay"></iframe>
                   </div>
@@ -3693,7 +3694,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260725_1"></script>
+  <script src="/dashboard/dashboard.js?v=20260726_1"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
