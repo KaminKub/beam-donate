@@ -1559,15 +1559,12 @@ input[type=number] {
 }
 
 .qr-tipkub-logo {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 4px;
-  box-shadow: 0 0 0 3px #ffffff;
-  z-index: 1;
+  display: block;
+  text-align: center;
+  font-family: 'Kanit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 8px;
   pointer-events: none;
 }
 
