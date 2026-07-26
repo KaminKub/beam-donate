@@ -2540,6 +2540,8 @@ function generateQRImage(qrData) {
     const errMsg = document.createElement('p');
     errMsg.textContent = 'ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่';
     qrLoading.replaceChildren(errMsg);
+    const btnSaveQRErr = document.getElementById('btnSaveQR');
+    if (btnSaveQRErr) btnSaveQRErr.style.display = 'none';
   };
 
   try {
@@ -2914,7 +2916,14 @@ function openMobileSlipModal(method) {
   let mobileUrl = `${window.location.origin}/mobile-slip/?m=${encodeURIComponent(method)}&amt=${encodeURIComponent(selectedAmount)}&u=${encodeURIComponent(username)}&pt=${encodeURIComponent(pageToken)}`;
   if (currentChargeId) mobileUrl += `&ref=${encodeURIComponent(currentChargeId)}`;
 
-  mobileSlipQrImage.src = renderQRDataURL(mobileUrl, 200);
+  try {
+    mobileSlipQrImage.src = renderQRDataURL(mobileUrl, 200);
+  } catch (e) {
+    mobileSlipModalStatus.className = 'status expired';
+    mobileSlipModalStatus.innerHTML = '<span><i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถสร้าง QR ได้ กรุณาลองใหม่</span>';
+    mobileSlipModal.style.display = 'flex';
+    return;
+  }
 
   if (method === 'promptpay') {
     mobileSlipModalStatus.className = 'status checking';
@@ -3588,6 +3597,8 @@ function generateTrueMoneyQRImage(qrData) {
   };
   trueMoneyQrImage.onerror = () => {
     trueMoneyQrLoading.innerHTML = '<p>ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่</p>';
+    const btnSaveQRTrueMoneyErr = document.getElementById('btnSaveQRTrueMoney');
+    if (btnSaveQRTrueMoneyErr) btnSaveQRTrueMoneyErr.style.display = 'none';
   };
 
   try {

@@ -39,7 +39,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
 const { determinePrimaryAuth } = require('./auth-helpers');
-const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload, crc16 } = require('./promptpay-payload');
+const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
 
 
 const app = express();
