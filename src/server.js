@@ -2698,6 +2698,7 @@ app.get('/api/transactions/:username', ensureAuthenticated, async (req, res) => 
     const txs = await db.getTransactions(username);
     res.json(txs);
   } catch (err) {
+    console.error(`GET /api/transactions/${username} error:`, err);
     res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลได้' });
   }
 });
