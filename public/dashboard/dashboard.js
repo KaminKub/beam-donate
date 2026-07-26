@@ -6449,6 +6449,30 @@ function initTimerSettingsUI() {
     if (url) window.open(url, '_blank');
   });
 
+  // Timer Dock (OBS Custom Browser Dock)
+  function timerDockUrl() {
+    const u = window.location.pathname.split('/')[1];
+    return u ? `${location.origin}/${u}/timer-dock` : '';
+  }
+  const btnCopyDock = document.getElementById('btnCopyTimerDockUrl');
+  const btnOpenDock = document.getElementById('btnOpenTimerDockUrl');
+  if (btnCopyDock) btnCopyDock.addEventListener('click', () => {
+    const url = timerDockUrl();
+    if (!url) return;
+    navigator.clipboard.writeText(url)
+      .then(() => showNotification('คัดลอกลิงก์ Dock ควบคุม Timer แล้ว!', 'success'))
+      .catch(() => showNotification('ไม่สามารถคัดลอกลิงก์ได้', 'error'));
+  });
+  if (btnOpenDock) btnOpenDock.addEventListener('click', () => {
+    const url = timerDockUrl();
+    if (!url) return;
+    const w = 420, h = 340;
+    const left = Math.max(0, (window.screen.width - w) / 2);
+    const top = Math.max(0, (window.screen.height - h) / 2);
+    window.open(url, 'TipKubTimerDock',
+      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no`);
+  });
+
   const btnReloadTimer = document.getElementById('btnReloadTimerPreview');
   if (btnReloadTimer) btnReloadTimer.addEventListener('click', () => {
     btnReloadTimer.classList.add('spinning');

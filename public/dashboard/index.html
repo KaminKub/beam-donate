@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260725_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260726_2">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3152,6 +3152,15 @@
                     <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 500×260px, background transparent</span>
                   </div>
                   <div class="timer-live-control">
+                    <div class="timer-dock-actions">
+                      <span class="timer-dock-label">
+                        <i class="fa-solid fa-window-restore" style="color:#22d3ee;"><span class="timer-dock-hint">  Dock ควบคุม Timer</span></i>
+                      </span>
+                      <span class="timer-dock-btns">
+                        <button type="button" class="btn btn-icon-round" id="btnCopyTimerDockUrl" title="คัดลอกลิงก์ Dock ควบคุม Timer ไปวางใน OBS Dock หรือโปรแกรมที่รองรับ"><i class="fa-solid fa-copy"></i></button>
+                        <button type="button" class="btn btn-icon-round" id="btnOpenTimerDockUrl" title="เปิด Dock ควบคุม Timer ในหน้าต่างแยก (Popup)"><i class="fa-solid fa-up-right-from-square"></i></button>
+                      </span>
+                    </div>
                     <div class="timer-controls-row">
                       <div class="timer-controls-col">
                         <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
@@ -3694,7 +3703,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260726_1"></script>
+  <script src="/dashboard/dashboard.js?v=20260726_2"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

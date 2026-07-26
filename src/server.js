@@ -1428,6 +1428,17 @@ app.get('/demo/dona-monitor', demoRateLimiter, (req, res) => {
   res.send(injected);
 });
 
+app.get('/demo/timer-dock', demoRateLimiter, (req, res) => {
+  const filePath = path.join(__dirname, '../public/dashboard/timer-dock.html');
+  const html = fs.readFileSync(filePath, 'utf8');
+  const injected = html.replace(
+    '<head>',
+    '<head>\n<meta name="robots" content="noindex,nofollow">\n<script>window.DEMO_MODE=true;window.DEMO_STREAMER="kaminkub";</script>'
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(injected);
+});
+
 app.get('/api/demo/overlay/settings', demoRateLimiter, async (req, res) => {
   try {
     const row = await db.getStreamer(DEMO_STREAMER_USERNAME);
@@ -4380,6 +4391,10 @@ app.get('/:username/dashboard', ensureUserOwner, (req, res) => {
 
 app.get('/:username/dona-monitor', ensureUserOwner, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard/dona-monitor.html'));
+});
+
+app.get('/:username/timer-dock', ensureUserOwner, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/dashboard/timer-dock.html'));
 });
 
 app.get('/:username/overlay', validateUsername, (req, res) => {

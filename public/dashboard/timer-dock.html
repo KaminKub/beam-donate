@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer Dock | TipKub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body.dock-body {
+      font-family: 'Kanit', sans-serif;
+      background: #0c0f1d;
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .dock {
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dock-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .dock-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    /* ponytail: .highlight-amount shine kept per TipKub logo standard — precedent dona-monitor.html ships same
+       animation on an OBS-embedded persistent page; text span is tiny, negligible repaint cost.
+       QA finding #3 exception (user-approved option ข): paused via prefers-reduced-motion AND while the
+       Dock tab/window is hidden (body.dock-hidden, toggled on visibilitychange in JS below, not per-frame) */
+    .highlight-amount {
+      background: linear-gradient(90deg, #4ade80 0%, #ffffff 50%, #4ade80 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      display: inline-block;
+      line-height: 1.3;
+      animation: shineText 3s linear infinite;
+    }
+    @keyframes shineText { to { background-position: -200% center; } }
+    @media (prefers-reduced-motion: reduce) {
+      .highlight-amount { animation: none; }
+    }
+    body.dock-hidden .highlight-amount { animation-play-state: paused; }
+    .dock-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+    .dock-badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+      flex-shrink: 0;
+    }
+    .dock-badge-dot.online { background: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
+    .dock-badge-dot.offline { background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+    .dock-readout {
+      text-align: center;
+      padding: 12px 0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #dockTime {
+      font-size: 40px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #f8fafc;
+      transition: color 0.15s ease;
+    }
+    #dockRunState {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .dock-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .dock-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    }
+    .dock-btn:active { transform: translateY(0) scale(0.96); }
+    .dock-btn.busy { opacity: 0.55; pointer-events: none; }
+    .dock-btn-start:hover, .dock-btn-start.confirm { background: #10b981; border-color: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+    .dock-btn-stop:hover { background: #f59e0b; border-color: #f59e0b; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+    .dock-btn-reset:hover { background: #3b82f6; border-color: #3b82f6; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+    .dock-btn-reset.confirm { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .dock-btn:hover i { color: #fff; }
+    .dock-btn-reset.confirm i { color: #fff; }
+    .dock-delta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .dock-delta-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    }
+    .dock-delta-btn:active { transform: translateY(0) scale(0.96); }
+    .dock-delta-btn.busy { opacity: 0.55; pointer-events: none; }
+    #dockBtnSub:hover { background: #ef4444; border-color: #ef4444; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+    #dockBtnAdd:hover { background: #10b981; border-color: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+    #dockDelta {
+      width: 64px;
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+    #dockDelta:focus { border-color: #818cf8; }
+    .dock-delta-unit {
+      font-size: 11px;
+      color: #94a3b8;
+      min-width: 32px;
+    }
+    .dock-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      opacity: 0.8;
+      text-align: center;
+    }
+    .dock-toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 999;
+      pointer-events: none;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    }
+    .dock-toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+    .dock-toast.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .dock-toast.error { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; }
+    @media (max-width: 400px) {
+      .dock-controls { grid-template-columns: 1fr 1fr; }
+      .dock-controls .dock-btn-reset { grid-column: 1 / -1; }
+      #dockTime { font-size: 32px; }
+    }
+  </style>
+</head>
+<body class="dock-body">
+  <div class="dock">
+    <div class="dock-head">
+      <span class="dock-title"><span class="highlight-amount">TipKub</span> Timer Dock</span>
+      <span class="dock-badge" id="dockConnBadge">
+        <span class="dock-badge-dot" id="dockBadgeDot"></span>
+        <span id="dockBadgeText">กำลังเชื่อมต่อ...</span>
+      </span>
+    </div>
+
+    <div class="dock-readout">
+      <div id="dockTime">--:--</div>
+      <div id="dockRunState">-</div>
+    </div>
+
+    <div class="dock-controls">
+      <button type="button" class="dock-btn dock-btn-start" id="dockBtnStart" title="เริ่มนับเวลา"><i class="fa-solid fa-play"></i> เริ่ม</button>
+      <button type="button" class="dock-btn dock-btn-stop" id="dockBtnStop" title="หยุดนับเวลาชั่วคราว"><i class="fa-solid fa-pause"></i> หยุด</button>
+      <button type="button" class="dock-btn dock-btn-reset" id="dockBtnReset" title="รีเซทเวลากลับค่าเริ่มต้น"><i class="fa-solid fa-rotate-left"></i> รีเซท</button>
+    </div>
+
+    <div class="dock-delta">
+      <button type="button" class="dock-delta-btn" id="dockBtnSub" title="ลดเวลา"><i class="fa-solid fa-minus"></i></button>
+      <input type="number" id="dockDelta" value="30" min="1" step="1">
+      <span class="dock-delta-unit" id="dockDeltaUnit">วินาที</span>
+      <button type="button" class="dock-delta-btn" id="dockBtnAdd" title="เพิ่มเวลา"><i class="fa-solid fa-plus"></i></button>
+    </div>
+
+    <div class="dock-hint">Dock นี้ควบคุมจริงเสมอ (Live) — ไม่มีโหมดทดสอบ</div>
+  </div>
+
+  <div class="dock-toast" id="dockToast"></div>
+
+  <script>
+    (function () {
+      var DEMO = !!window.DEMO_MODE;
+      var _csrfToken = null;
+      var remaining = 600;
+      var syncTime = Date.now(); // wall-clock anchor for remaining — recompute drift-free instead of -1/tick
+      var running = false;
+      var timeUnit = 'seconds';
+      var tickInterval = null;
+      var resetArmed = false;
+      var resetTimer = null;
+      var toastTimer = null;
+
+      async function ensureCsrfToken() {
+        if (_csrfToken) return _csrfToken;
+        try {
+          var res = await fetch('/api/csrf-token');
+          if (res.ok) { var data = await res.json(); _csrfToken = data.csrfToken; }
+        } catch (e) {}
+        return _csrfToken;
+      }
+
+      async function fetchWithCsrf(url, options) {
+        options = options || {};
+        var method = (options.method || 'GET').toUpperCase();
+        if (DEMO && method !== 'GET' && !url.startsWith('/api/demo/')) {
+          toast('Demo Mode — ไม่สามารถดำเนินการนี้ได้', 'error');
+          return { ok: false, status: 403, _demoBlocked: true, json: async function () { return {}; } };
+        }
+        var token = await ensureCsrfToken();
+        var headers = Object.assign({}, options.headers || {});
+        if (token) headers['X-CSRF-Token'] = token;
+        var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+        if (res.status === 403) {
+          var body;
+          try { body = await res.json(); } catch (e) { body = null; }
+          if (body && body.code === 'CSRF_INVALID') {
+            _csrfToken = null;
+            token = await ensureCsrfToken();
+            headers['X-CSRF-Token'] = token;
+            return fetch(url, Object.assign({}, options, { headers: headers }));
+          }
+        }
+        return res;
+      }
+
+      function toast(message, type) {
+        var el = document.getElementById('dockToast');
+        if (!el) return;
+        el.textContent = message;
+        el.className = 'dock-toast show ' + (type || 'success');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          el.className = 'dock-toast ' + (type || 'success');
+        }, 2000);
+      }
+
+      function setBadge(state) {
+        var dot = document.getElementById('dockBadgeDot');
+        var text = document.getElementById('dockBadgeText');
+        if (!dot || !text) return;
+        dot.className = 'dock-badge-dot' + (state === 'online' ? ' online' : state === 'offline' ? ' offline' : '');
+        text.textContent = state === 'online' ? 'เชื่อมต่อแล้ว'
+          : state === 'offline' ? 'การเชื่อมต่อหลุด — กำลังลองใหม่'
+          : 'กำลังเชื่อมต่อ...';
+      }
+
+      function formatTime(sec) {
+        sec = Math.max(0, Math.round(sec));
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = sec % 60;
+        var mm = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+        return h > 0 ? h + ':' + mm : mm;
+      }
+      // ponytail: self-check for the branch above — fails loud in devtools console if the hour logic regresses
+      console.assert(formatTime(59) === '00:59', 'formatTime(59) expected 00:59');
+      console.assert(formatTime(3600) === '1:00:00', 'formatTime(3600) expected 1:00:00');
+      console.assert(formatTime(0) === '00:00', 'formatTime(0) expected 00:00');
+
+      function liveRemaining() {
+        if (!running) return remaining;
+        return Math.max(0, remaining - (Date.now() - syncTime) / 1000);
+      }
+
+      function render() {
+        var r = liveRemaining();
+        var timeEl = document.getElementById('dockTime');
+        var stateEl = document.getElementById('dockRunState');
+        if (timeEl) {
+          timeEl.textContent = formatTime(r);
+          timeEl.style.color = r < 60 ? '#ef4444' : '#f8fafc';
+        }
+        if (stateEl) stateEl.textContent = running ? 'กำลังนับ' : 'หยุดชั่วคราว';
+      }
+
+      function stopTick() {
+        if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+      }
+
+      function startTick() {
+        stopTick();
+        tickInterval = setInterval(function () {
+          if (!running) { stopTick(); return; }
+          render();
+          if (liveRemaining() <= 0) stopTick();
+        }, 1000);
+      }
+
+      function applyState(data) {
+        var rem = data.timer_remaining_seconds !== undefined ? data.timer_remaining_seconds : data.remaining;
+        var run = data.timer_running !== undefined ? data.timer_running : data.running;
+        if (rem !== undefined && rem !== null) remaining = Math.round(Number(rem));
+        if (run !== undefined && run !== null) running = !!run;
+        syncTime = Date.now();
+        render();
+        if (running) startTick(); else stopTick();
+      }
+
+      async function loadState() {
+        try {
+          var url = DEMO ? '/api/demo/overlay/settings' : '/api/overlay/settings';
+          var res = await fetch(url);
+          if (res.status === 401) {
+            setBadge('offline');
+            toast('เซสชันหมดอายุ — กำลังพาไปหน้าล็อกอิน', 'error');
+            setTimeout(function () { location.reload(); }, 1500);
+            return;
+          }
+          if (!res.ok) return;
+          var s = await res.json();
+          var t = {};
+          try { t = JSON.parse(s.timer_settings || '{}'); } catch (e) {}
+          timeUnit = t.time_unit === 'minutes' ? 'minutes' : 'seconds';
+          var unitEl = document.getElementById('dockDeltaUnit');
+          if (unitEl) unitEl.textContent = timeUnit === 'minutes' ? 'นาที' : 'วินาที';
+
+          var rem = Number(s.timer_remaining_seconds !== undefined && s.timer_remaining_seconds !== null ? s.timer_remaining_seconds : (t.initial_seconds || 600));
+          if (s.timer_last_update && Number(s.timer_running)) {
+            rem = Math.max(0, rem - (Date.now() - new Date(s.timer_last_update).getTime()) / 1000);
+          }
+          remaining = Math.round(rem);
+          running = !!s.timer_running;
+          syncTime = Date.now();
+          render();
+          if (running) startTick(); else stopTick();
+        } catch (e) {}
+      }
+
+      async function ctl(action, delta) {
+        var res;
+        try {
+          res = await fetchWithCsrf('/api/timer/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(delta ? { action: action, delta: delta } : { action: action })
+          });
+        } catch (e) {
+          toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจอินเทอร์เน็ตแล้วลองใหม่', 'error');
+          return false;
+        }
+        if (res._demoBlocked) return false; // toast already shown by fetchWithCsrf — don't stack a second one
+        if (res.status === 401) {
+          toast('เซสชันหมดอายุ — กำลังพาไปหน้าล็อกอิน', 'error');
+          setTimeout(function () { location.reload(); }, 1500);
+          return false;
+        }
+        var data = await res.json().catch(function () { return {}; });
+        if (data.success) { applyState(data); return data; }
+        toast(data.error || 'ทำรายการไม่สำเร็จ กรุณาลองใหม่', 'error');
+        return false;
+      }
+
+      async function withBusy(btn, fn) {
+        if (!btn) return fn();
+        btn.classList.add('busy');
+        try { return await fn(); }
+        finally { btn.classList.remove('busy'); }
+      }
+
+      function deltaSeconds() {
+        var v = parseInt(document.getElementById('dockDelta').value, 10) || 0;
+        v = Math.max(1, v);
+        return timeUnit === 'minutes' ? v * 60 : v;
+      }
+
+      function deltaLabel() {
+        var v = Math.max(1, parseInt(document.getElementById('dockDelta').value, 10) || 0);
+        return v + (timeUnit === 'minutes' ? ' นาที' : ' วินาที');
+      }
+
+      // toast the delta the server actually applied (data.applied_delta), not the delta requested —
+      // server clamps at 0/cap so a -300 request at 30s left only ever applies -30
+      function reportDelta(sign, requestedSec, reqLabel, data, zeroMsg) {
+        var applied = Math.round(Number(data.applied_delta));
+        if (applied === 0) { toast(zeroMsg, 'success'); return; }
+        var shown = Math.abs(applied) === requestedSec ? reqLabel : Math.abs(applied) + ' วินาที';
+        toast(sign + shown, 'success');
+      }
+
+      function armReset(btn) {
+        resetArmed = true;
+        btn.classList.add('confirm');
+        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> กดอีกครั้งเพื่อยืนยัน';
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(function () { disarmReset(btn); }, 3000);
+      }
+
+      function disarmReset(btn) {
+        resetArmed = false;
+        clearTimeout(resetTimer);
+        btn.classList.remove('confirm');
+        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> รีเซท';
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        // finding #3: pause .highlight-amount shine while Dock is hidden/minimized — event-driven, not per-frame
+        document.body.classList.toggle('dock-hidden', document.hidden);
+        document.addEventListener('visibilitychange', function () {
+          document.body.classList.toggle('dock-hidden', document.hidden);
+        });
+
+        var btnStart = document.getElementById('dockBtnStart');
+        var btnStop = document.getElementById('dockBtnStop');
+        var btnReset = document.getElementById('dockBtnReset');
+        var btnAdd = document.getElementById('dockBtnAdd');
+        var btnSub = document.getElementById('dockBtnSub');
+
+        btnStart.addEventListener('click', function () {
+          withBusy(btnStart, async function () {
+            if (await ctl('start')) toast('เริ่มนับแล้ว', 'success');
+          });
+        });
+        btnStop.addEventListener('click', function () {
+          withBusy(btnStop, async function () {
+            if (await ctl('stop')) toast('หยุดแล้ว', 'success');
+          });
+        });
+        btnReset.addEventListener('click', function () {
+          if (!resetArmed) { armReset(btnReset); return; }
+          disarmReset(btnReset);
+          withBusy(btnReset, async function () {
+            if (await ctl('reset')) toast('รีเซทเวลาแล้ว', 'success');
+          });
+        });
+        btnAdd.addEventListener('click', function () {
+          var reqSec = deltaSeconds(), reqLabel = deltaLabel();
+          withBusy(btnAdd, async function () {
+            var data = await ctl('add', reqSec);
+            if (data) reportDelta('+', reqSec, reqLabel, data, 'ถึงเวลาสูงสุดแล้ว เพิ่มต่อไม่ได้');
+          });
+        });
+        btnSub.addEventListener('click', function () {
+          var reqSec = deltaSeconds(), reqLabel = deltaLabel();
+          withBusy(btnSub, async function () {
+            var data = await ctl('sub', reqSec);
+            if (data) reportDelta('-', reqSec, reqLabel, data, 'เวลาเหลือ 0 แล้ว ลดต่อไม่ได้');
+          });
+        });
+
+        loadState();
+
+        var sseUrl = DEMO ? '/api/demo/alerts/stream?source=demo-timer' : '/api/alerts/stream?source=timer-dock';
+        var es = new EventSource(sseUrl);
+        es.onmessage = function (e) {
+          var data;
+          try { data = JSON.parse(e.data); } catch (err) { return; }
+          if (data.type === 'connected') {
+            setBadge('online');
+            loadState();
+          } else if (data.type === 'timer_update') {
+            applyState(data);
+          }
+        };
+        es.onerror = function () { setBadge('offline'); };
+      });
+    })();
+  </script>
+</body>
+</html>

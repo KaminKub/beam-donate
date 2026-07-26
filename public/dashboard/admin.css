@@ -4198,6 +4198,16 @@ label {
 .cap-progress { height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.15); overflow: hidden; margin-top: 6px; }
 .cap-progress-fill { height: 100%; width: 0%; border-radius: 3px; background-color: #10b981; transition: width 0.4s ease, background-color 0.4s ease; }
 .timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.timer-dock-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.timer-dock-label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.timer-dock-hint { font-size: 11px; font-weight: 400; color: var(--text-muted); opacity: .8; }
+.timer-dock-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.timer-dock-actions .btn-icon-round .fa-copy { color: #f59e0b; }
+.timer-dock-actions .btn-icon-round .fa-up-right-from-square { color: #22d3ee; }
+
+@media (max-width: 768px) {
+  .timer-dock-actions { align-items: flex-start; }
+}
 .timer-controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 .timer-controls-col { min-width: 0; }
 .timer-test-zone { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.18); border-radius: 10px; padding: 12px; }
