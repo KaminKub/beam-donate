@@ -2498,6 +2498,15 @@ btnProceedPayment.addEventListener('click', async () => {
   }
 });
 
+// Render QR locally — ห้ามส่ง payload (มีเบอร์พร้อมเพย์/pageToken) ออกไปยัง third-party
+function renderQRDataURL(text, sizePx) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const cell = Math.max(3, Math.round(sizePx / (qr.getModuleCount() + 4)));
+  return qr.createDataURL(cell, 2);
+}
+
 function generateQRImage(qrData) {
   if (!qrImage) return;
   qrLoading.style.display = 'block';
@@ -2519,8 +2528,6 @@ function generateQRImage(qrData) {
     };
   }
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
-  qrImage.src = qrUrl;
   qrImage.onload = () => {
     clearTimeout(slowTimer);
     if (qrSlowHint) qrSlowHint.style.display = 'none';
@@ -2534,6 +2541,25 @@ function generateQRImage(qrData) {
     errMsg.textContent = 'ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่';
     qrLoading.replaceChildren(errMsg);
   };
+
+  try {
+    qrImage.src = renderQRDataURL(qrData, 250);
+  } catch (e) {
+    qrImage.onerror();
+    return;
+  }
+  if (qrImage.complete) {            // data URI พร้อมทันที
+    clearTimeout(slowTimer);
+    if (qrSlowHint) qrSlowHint.style.display = 'none';
+    qrLoading.style.display = 'none';
+    qrImage.style.display = 'block';
+  }
+
+  const btnSaveQR = document.getElementById('btnSaveQR');
+  if (btnSaveQR) {
+    btnSaveQR.href = qrImage.src;
+    btnSaveQR.style.display = 'inline-flex';
+  }
 }
 
 function showQRStep(data) {
@@ -2594,6 +2620,8 @@ function showQRExpired() {
     paymentStatus.innerHTML = '<i class="fa-solid fa-clock"></i> QR Code หมดอายุแล้ว';
   }
   if (btnRetryQR) btnRetryQR.style.display = 'block';
+  const btnSaveQR = document.getElementById('btnSaveQR');
+  if (btnSaveQR) btnSaveQR.style.display = 'none';
 }
 
 function startCountdown() {
@@ -2886,7 +2914,7 @@ function openMobileSlipModal(method) {
   let mobileUrl = `${window.location.origin}/mobile-slip/?m=${encodeURIComponent(method)}&amt=${encodeURIComponent(selectedAmount)}&u=${encodeURIComponent(username)}&pt=${encodeURIComponent(pageToken)}`;
   if (currentChargeId) mobileUrl += `&ref=${encodeURIComponent(currentChargeId)}`;
 
-  mobileSlipQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}`;
+  mobileSlipQrImage.src = renderQRDataURL(mobileUrl, 200);
 
   if (method === 'promptpay') {
     mobileSlipModalStatus.className = 'status checking';
@@ -3554,8 +3582,6 @@ function generateTrueMoneyQRImage(qrData) {
   trueMoneyQrLoading.style.display = 'block';
   trueMoneyQrImage.style.display = 'none';
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
-  trueMoneyQrImage.src = qrUrl;
   trueMoneyQrImage.onload = () => {
     trueMoneyQrLoading.style.display = 'none';
     trueMoneyQrImage.style.display = 'block';
@@ -3563,6 +3589,23 @@ function generateTrueMoneyQRImage(qrData) {
   trueMoneyQrImage.onerror = () => {
     trueMoneyQrLoading.innerHTML = '<p>ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่</p>';
   };
+
+  try {
+    trueMoneyQrImage.src = renderQRDataURL(qrData, 250);
+  } catch (e) {
+    trueMoneyQrImage.onerror();
+    return;
+  }
+  if (trueMoneyQrImage.complete) {   // data URI พร้อมทันที
+    trueMoneyQrLoading.style.display = 'none';
+    trueMoneyQrImage.style.display = 'block';
+  }
+
+  const btnSaveQRTrueMoney = document.getElementById('btnSaveQRTrueMoney');
+  if (btnSaveQRTrueMoney) {
+    btnSaveQRTrueMoney.href = trueMoneyQrImage.src;
+    btnSaveQRTrueMoney.style.display = 'inline-flex';
+  }
 }
 
 function stopTrueMoneyQr() {
@@ -3608,6 +3651,8 @@ function updateTrueMoneyQrCountdown() {
       trueMoneyQrWaiting.className = 'qr-waiting-indicator expired';
       trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-clock" style="color:#ef4444;"></i><span>QR หมดอายุแล้ว กดสร้าง QR ใหม่เพื่อบริจาคต่อ</span>';
     }
+    const btnSaveQRTrueMoney = document.getElementById('btnSaveQRTrueMoney');
+    if (btnSaveQRTrueMoney) btnSaveQRTrueMoney.style.display = 'none';
     if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'none';
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   }

@@ -35,5 +35,8 @@
     "passport-oauth2": "^1.8.0",
     "passport-twitch-new": "^0.0.3",
     "promptparse": "^1.3.0"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0"
   }
 }

@@ -634,6 +634,21 @@ body {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
 }
 
+#qrImage,
+#mobileSlipQrImage,
+#trueMoneyQrImage {
+  image-rendering: pixelated;      /* ขอบโมดูลคม — สแกนติดเร็วขึ้น */
+  image-rendering: crisp-edges;    /* fallback Firefox เก่า */
+  background: #fff;                /* กัน dark mode ทำ QR อ่านไม่ออก */
+}
+
+.btn-save-qr {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
 /* Loading animations */
 .loading {
   padding: 20px;
