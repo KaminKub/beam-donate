@@ -38,7 +38,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
-const { determinePrimaryAuth } = require('./auth-helpers');
+const { determinePrimaryAuth, isSafeReturnTo, loginDest } = require('./auth-helpers');
 const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
 
 
@@ -960,7 +960,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/admin')) {
     const isAsset = /\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|otf)$/.test(req.path);
     if (!isAsset) {
-      if (!req.isAuthenticated()) return res.redirect('/login');
+      if (!req.isAuthenticated()) { saveReturnTo(req); return res.redirect('/login'); }
       // /admin เป๊ะๆ ปล่อยผ่านให้ route (~line 1452) ทำ redirect non-admin → dashboard ตัวเองตามเดิม
       if (req.path !== '/admin' && req.path !== '/admin/' &&
           (!ADMIN_TWITCH_ID || String(req.user.twitch_id) !== ADMIN_TWITCH_ID)) {
@@ -1272,6 +1272,20 @@ async function redirectIfAuthenticated(req, res, next) {
     }
   }
   next();
+}
+
+// เก็บ URL ที่ user ตั้งใจเปิดไว้ก่อนโดนเด้งไป /login (OBS dock/monitor, /admin)
+function saveReturnTo(req) {
+  if (req.method !== 'GET') return;
+  const url = (req.originalUrl || '').split('?')[0].toLowerCase();
+  if (isSafeReturnTo(url) && req.session) req.session.returnTo = url;
+}
+
+// ต้องเรียก "ก่อน" req.login() เสมอ — Passport 0.7 regenerate session ทิ้งค่าเดิม
+function popReturnTo(req) {
+  const dest = req.session && req.session.returnTo;
+  if (req.session) delete req.session.returnTo;
+  return isSafeReturnTo(dest) ? dest : null;
 }
 
 // -----------------------------------------------------------------
@@ -1756,6 +1770,7 @@ app.get('/auth/twitch/callback',
     if (req.session && req.session.linkAccountUsername) {
       req._linkAccountUsername = req.session.linkAccountUsername;
     }
+    req._returnTo = popReturnTo(req);
     next();
   },
   passport.authenticate('twitch', { failureRedirect: '/login-failed' }),
@@ -1809,7 +1824,7 @@ app.get('/auth/twitch/callback',
         }
         req.session.save((err) => {
           if (err) console.error('❌ Session save error during login:', err);
-          return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+          return res.redirect(loginDest(req._returnTo, existingUser.username));
         });
       } else {
         req.session.pendingUser = {
@@ -1900,6 +1915,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
   }
 
   delete req.session.oauthState;
+  const returnTo = popReturnTo(req);
 
   try {
     // 1. Exchange code for access_token (v1.0 uses form-encoded body)
@@ -2072,8 +2088,9 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
           return res.redirect('/login-failed');
         }
         req.session.save(() => {
-          console.log('✅ [Streamlabs] Session saved, redirecting to dashboard');
-          return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard`);
+          const dest = loginDest(returnTo, existingUser.username);
+          console.log(`✅ [Streamlabs] Session saved, redirecting to ${dest}`);
+          return res.redirect(dest);
         });
       });
     } else {
@@ -2447,6 +2464,7 @@ async function ensureUserOwner(req, res, next) {
     }
     return res.redirect('/forbidden?reason=owner');
   }
+  saveReturnTo(req);
   res.redirect('/login');
 }
 
@@ -4069,6 +4087,7 @@ function ensureAuthenticated(req, res, next) {
   if (isApiRequest) {
     return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' });
   }
+  saveReturnTo(req);
   res.redirect('/login');
 }
 
@@ -4390,11 +4409,11 @@ app.get('/:username/dashboard', ensureUserOwner, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard/index.html'));
 });
 
-app.get('/:username/dona-monitor', ensureUserOwner, (req, res) => {
+app.get('/:username/dona-monitor', adminMonitorLimiter, ensureUserOwner, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard/dona-monitor.html'));
 });
 
-app.get('/:username/timer-dock', ensureUserOwner, (req, res) => {
+app.get('/:username/timer-dock', adminMonitorLimiter, ensureUserOwner, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard/timer-dock.html'));
 });
 
