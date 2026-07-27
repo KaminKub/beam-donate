@@ -143,6 +143,30 @@
       box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
     }
     .dock-btn-gear:active { transform: translateY(0) scale(0.96); }
+    .dock-btn-tiktok {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(105, 201, 208, 0.25);
+      background: rgba(105, 201, 208, 0.08);
+      color: #69c9d0;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .dock-btn-tiktok:hover {
+      background: rgba(105, 201, 208, 0.18);
+      border-color: #69c9d0;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(105, 201, 208, 0.3);
+    }
+    .dock-btn-tiktok:active { transform: translateY(0) scale(0.96); }
     .dock-delta {
       display: flex;
       align-items: center;
@@ -248,6 +272,8 @@
       <span class="dock-delta-unit" id="dockDeltaUnit">วินาที</span>
       <button type="button" class="dock-delta-btn" id="dockBtnAdd" title="เพิ่มเวลา"><i class="fa-solid fa-plus"></i></button>
     </div>
+
+    <button type="button" class="dock-btn-tiktok" id="dockBtnTiktok" title="เปิด TikTok Bridge"><i class="fa-brands fa-tiktok"></i> เชื่อม TikTok Live</button>
 
     <div class="dock-hint">Dock นี้ควบคุมจริงเสมอ (Live) — ไม่มีโหมดทดสอบ</div>
   </div>
@@ -517,6 +543,11 @@
         var btnGear = document.getElementById('dockBtnGear');
         if (btnGear) btnGear.addEventListener('click', function () {
           window.open('/dashboard/?tab=overlay-config&subtab=timer', '_blank');
+        });
+
+        var btnTiktok = document.getElementById('dockBtnTiktok');
+        if (btnTiktok) btnTiktok.addEventListener('click', function () {
+          window.open('/tiktok-bridge/', '_blank');
         });
 
         loadState();
