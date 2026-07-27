@@ -932,12 +932,13 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  rolling: true, // ต่ออายุ cookie ทุก request — ใช้งานต่อเนื่อง = ไม่ต้องล็อกอินซ้ำจนกว่าจะกดออกเอง
   name: 'sessionId',
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days (idle timeout — rolling รีเซ็ตทุก request)
   }
 }));
 
