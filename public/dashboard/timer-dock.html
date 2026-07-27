@@ -120,6 +120,29 @@
     .dock-btn-reset.confirm { background: #ef4444; border-color: #ef4444; color: #fff; }
     .dock-btn:hover i { color: #fff; }
     .dock-btn-reset.confirm i { color: #fff; }
+    .dock-btn-gear {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    }
+    .dock-btn-gear:hover {
+      background: rgba(129, 140, 248, 0.2);
+      border-color: #818cf8;
+      color: #a5b4fc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+    }
+    .dock-btn-gear:active { transform: translateY(0) scale(0.96); }
     .dock-delta {
       display: flex;
       align-items: center;
@@ -201,6 +224,7 @@
   <div class="dock">
     <div class="dock-head">
       <span class="dock-title"><span class="highlight-amount">TipKub</span> Timer Dock</span>
+      <button type="button" class="dock-btn-gear" id="dockBtnGear" title="ตั้งค่า Timer"><i class="fa-solid fa-gear"></i></button>
       <span class="dock-badge" id="dockConnBadge">
         <span class="dock-badge-dot" id="dockBadgeDot"></span>
         <span id="dockBadgeText">กำลังเชื่อมต่อ...</span>
@@ -488,6 +512,11 @@
             var data = await ctl('sub', reqSec);
             if (data) reportDelta('-', reqSec, reqLabel, data, 'เวลาเหลือ 0 แล้ว ลดต่อไม่ได้');
           });
+        });
+
+        var btnGear = document.getElementById('dockBtnGear');
+        if (btnGear) btnGear.addEventListener('click', function () {
+          window.open('/dashboard/?tab=overlay-config&subtab=timer', '_blank');
         });
 
         loadState();

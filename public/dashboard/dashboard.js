@@ -1145,6 +1145,25 @@ async function initializeDashboard() {
     if (btnSubtabLeaderboard) btnSubtabLeaderboard.addEventListener('click', () => switchWidgetSubtab('leaderboard'));
     if (btnSubtabRecentdonate) btnSubtabRecentdonate.addEventListener('click', () => switchWidgetSubtab('recentdonate'));
 
+    // ponytail: deep-link จาก timer-dock (และหน้าอื่นในอนาคต) — ?tab=overlay-config&subtab=timer
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var tab = params.get('tab');
+      var subtab = params.get('subtab');
+      if (tab) {
+        switchTab(tab);
+        if (subtab && tab === 'overlay-config') {
+          var btn = document.querySelector('button.subtab-btn[data-widget-subtab="' + subtab + '"]');
+          if (btn) btn.click();
+        }
+        // clean URL หลัง navigate แล้ว
+        params.delete('tab');
+        params.delete('subtab');
+        var clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState({}, '', clean);
+      }
+    })();
+
     // Goal color picker <-> hex text sync
     const goalColorPicker = document.getElementById('inputGoalBarColor');
     const goalColorTxt = document.getElementById('txtGoalBarColor');
