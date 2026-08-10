@@ -46,6 +46,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+const CURRENT_LEGAL_VERSION = '2026-08-10';
 
 // ========== Cloudflare R2 (S3-compatible) ==========
 const s3Client = new S3Client({
@@ -1088,6 +1089,45 @@ async function getStreamerForUser(user) {
   return s;
 }
 
+// Server-side policy gate: UI state is not an authorization boundary.
+// Only authenticated unsafe API requests are gated; public, OAuth, registration,
+// acceptance, and logout flows remain reachable for recovery.
+async function requireCurrentLegalAcceptance(req, res, next) {
+  if (!req.isAuthenticated()
+      || !['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)
+      || !req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  const exemptPaths = new Set([
+    '/api/register/complete',
+    '/api/user/accept-legal',
+    '/api/logout'
+  ]);
+  if (exemptPaths.has(req.path)) return next();
+
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะข้อกำหนดการใช้งานได้' });
+    }
+    if (streamer.legal_version !== CURRENT_LEGAL_VERSION) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(428).json({
+        error: 'จำเป็นต้องยอมรับข้อกำหนดฉบับล่าสุดก่อนบันทึกการเปลี่ยนแปลง',
+        code: 'LEGAL_ACCEPTANCE_REQUIRED',
+        currentVersion: CURRENT_LEGAL_VERSION
+      });
+    }
+    return next();
+  } catch (err) {
+    console.error('Legal acceptance gate database error:', err.message);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะข้อกำหนดการใช้งานได้' });
+  }
+}
+
 async function getActualUsername(user) {
   if (!user) return null;
   try {
@@ -1251,6 +1291,20 @@ const tiktokStatusLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const legalAcceptanceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('Legal acceptance rate limit hit IP:', req.ip);
+    res.status(429).json({ error: 'ยอมรับข้อกำหนดบ่อยเกินไป กรุณารอสักครู่', code: 'RATE_LIMITED' });
+  }
+});
+
+// Must run after passport.session() and before the first API handler.
+app.use(requireCurrentLegalAcceptance);
 
 // In-memory bridge liveness — C1 aligned (in-memory only, ไม่แตะ DB, ไม่มี PII)
 // username(lowercase) → { at: lastSeenMs, dapi: bool }  ; VPS restart = หาย, heartbeat ถัดไปเติมใหม่
@@ -1682,6 +1736,7 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       }
     }
 
+    const registrationTimestamp = new Date().toISOString();
     const newUser = await db.saveStreamer({
       twitch_id: pending.twitchId || (pending.streamlabsPlatform === 'twitch' ? pending.streamlabsId : null),
       streamlabs_id: pending.streamlabsId || null,
@@ -1693,9 +1748,13 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       is_active: 1,
       profile_image_value: avatarUrl,
       profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null,
-      tos_accepted_at: new Date().toISOString(),
+      tos_accepted_at: registrationTimestamp,
+      legal_version: CURRENT_LEGAL_VERSION,
       primary_auth_provider: pending.streamlabsId ? 'streamlabs' : 'twitch'
     });
+
+    // Durable legal proof must exist before establishing the authenticated session.
+    await db.recordLegalAcceptance(newUser.id, CURRENT_LEGAL_VERSION, registrationTimestamp);
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
     
@@ -2896,6 +2955,7 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
     const badges = db.parseBadges(streamer.badges);
     const memberSince = streamer.tos_accepted_at || null;
 
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
       username: streamer.username,
       twitchId: streamer.twitch_id,
@@ -2909,11 +2969,50 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       profileGlowColor: streamer.profile_glow_color || '#005704',
       badges,
       memberSince,
-      badgeDisplay: db.resolveBadgeDisplay(streamer)
+      badgeDisplay: db.resolveBadgeDisplay(streamer),
+      legalAcceptance: {
+        accepted: streamer.legal_version === CURRENT_LEGAL_VERSION,
+        acceptedVersion: streamer.legal_version || null,
+        currentVersion: CURRENT_LEGAL_VERSION
+      }
     });
   } catch (err) {
     console.error('Get user info error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/user/accept-legal', ensureAuthenticated, csrfProtection, legalAcceptanceLimiter, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const version = req.body?.version;
+  if (typeof version !== 'string' || version !== CURRENT_LEGAL_VERSION) {
+    return res.status(400).json({
+      error: 'ข้อกำหนดการใช้งานฉบับนี้ไม่ถูกต้องหรือหมดอายุแล้ว',
+      code: 'LEGAL_VERSION_INVALID',
+      currentVersion: CURRENT_LEGAL_VERSION
+    });
+  }
+
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งานรายนี้ในระบบ' });
+
+    const proof = await db.recordLegalAcceptance(
+      streamer.id,
+      CURRENT_LEGAL_VERSION,
+      new Date().toISOString()
+    );
+    return res.json({
+      success: true,
+      legalAcceptance: {
+        accepted: true,
+        acceptedVersion: proof.acceptedVersion,
+        currentVersion: CURRENT_LEGAL_VERSION
+      }
+    });
+  } catch (err) {
+    console.error('Legal acceptance persistence error:', err.message);
+    return res.status(503).json({ error: 'ยังบันทึกการยอมรับไม่ได้ กรุณาลองใหม่อีกครั้ง' });
   }
 });
 
@@ -3851,7 +3950,8 @@ app.get('/api/page/:username/settings', async (req, res) => {
       soundEnabled: Number(streamer.soundEnabled) !== 0,
       soundChoice: streamer.soundChoice || 'none',
       customSoundUrl: streamer.customSoundUrl || '',
-      soundVolume: streamer.soundVolume != null ? streamer.soundVolume : 0.5
+      soundVolume: streamer.soundVolume != null ? streamer.soundVolume : 0.5,
+      ttsNotice: Number(streamer.ttsEnabled) !== 0
     });
   } catch (err) {
     console.error('Get page settings error:', err);

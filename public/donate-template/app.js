@@ -206,6 +206,16 @@ const pageSubtitle2 = document.getElementById('pageSubtitle2');
 const profileImage = document.getElementById('profileImage');
 const socialLinksContainer = document.getElementById('socialLinks');
 
+function renderTtsDonorNotice(visible) {
+  const notice = document.getElementById('ttsDonorNotice');
+  if (!notice) return;
+  const isVisible = visible === true;
+  notice.classList.toggle('is-visible', isVisible);
+  notice.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+  const link = notice.querySelector('a');
+  if (link) link.tabIndex = isVisible ? 0 : -1;
+}
+
 function isWebm(url) { return url && /\.webm(\?|$)/i.test(url); }
 
 // ⚠️ CANONICAL COLOR TABLE — duplicate byte-per-byte ใน dashboard/dashboard.js
@@ -301,6 +311,7 @@ async function loadPageContent() {
     if (response.ok) {
       const data = await response.json();
       pageSettings = data || null;
+      renderTtsDonorNotice(data.ttsNotice === true);
       
        // Update texts
       pageTitle.textContent = data.pageTitle;

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260810_1">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260810_2">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3764,8 +3764,25 @@
     </div>
   </div>
 
+  <div id="legalAcceptanceModal" class="legal-acceptance-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="legalAcceptanceTitle">
+    <div class="legal-acceptance-card" role="document">
+      <h1 id="legalAcceptanceTitle" tabindex="-1"><i class="fa-solid fa-file-contract"></i> อัปเดตข้อกำหนดการใช้งาน</h1>
+      <p class="legal-acceptance-intro">เราได้อัปเดตข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว กรุณาอ่านและยอมรับก่อนดำเนินการต่อ</p>
+      <div class="legal-document-links">
+        <a class="legal-document-link" href="/terms-of-services.html" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน</a>
+        <a class="legal-document-link" href="/privacy.html" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved"></i> อ่านนโยบายความเป็นส่วนตัว</a>
+      </div>
+      <label class="legal-acceptance-check" for="legalAcceptanceCheckbox">
+        <input id="legalAcceptanceCheckbox" type="checkbox">
+        <span>ฉันได้อ่านและยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวฉบับวันที่ 10 สิงหาคม 2569</span>
+      </label>
+      <p id="legalAcceptanceError" class="legal-acceptance-error" role="alert" tabindex="-1" aria-live="assertive"></p>
+      <button id="legalAcceptanceButton" class="btn btn-primary" type="button" disabled><i class="fa-solid fa-circle-check"></i> ยอมรับและเข้าสู่แดชบอร์ด</button>
+    </div>
+  </div>
+
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260810_5"></script>
+  <script src="/dashboard/dashboard.js?v=20260810_6"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260726_1">
+  <link rel="stylesheet" href="/assets/style.css?v=20260810_2">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -401,6 +401,14 @@
           <input type="text" id="donorName" placeholder="ระบุชื่อของคุณ (เช่น น้องเป็ดใจดี)...">
           <label for="donorMessage">ข้อความของคุณ (จะถูกอ่านออกเสียงโดย AI)</label>
           <textarea id="donorMessage" placeholder="ฝากข้อความถึงเราที่นี่..." rows="2"></textarea>
+          <aside id="ttsDonorNotice" class="tts-donor-notice" role="note" aria-hidden="true">
+            <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+            <div class="tts-donor-notice-copy">
+              <strong>ข้อความอาจถูกอ่านออกเสียงบนสตรีม</strong>
+              <span>หน้านี้เปิดใช้ระบบอ่านข้อความอัตโนมัติ ข้อความที่คุณส่งอาจถูกส่งไปยังผู้ให้บริการสร้างเสียงภายนอกเพื่ออ่านบนสตรีม</span>
+              <a href="/privacy.html" target="_blank" rel="noopener" tabindex="-1">ดูนโยบายความเป็นส่วนตัว</a>
+            </div>
+          </aside>
         </div>
 
         <div id="timerChoiceBox" class="timer-choice-box">
@@ -987,6 +995,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260727_1"></script>
+  <script src="/donate-template/app.js?v=20260810_2"></script>
 </body>
 </html>

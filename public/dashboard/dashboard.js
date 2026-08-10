@@ -110,6 +110,18 @@ async function fetchWithCsrf(url, options = {}) {
       return { ok: false, status: 403, json: async () => body, headers: res.headers };
     }
   }
+  if (res.status === 428) {
+    try {
+      const body = await res.clone().json();
+      if (body && body.code === 'LEGAL_ACCEPTANCE_REQUIRED') {
+        handleLegalAcceptanceRequired({
+          accepted: false,
+          acceptedVersion: null,
+          currentVersion: body.currentVersion
+        }, body.error);
+      }
+    } catch (e) {}
+  }
   return res;
 }
 
@@ -143,6 +155,138 @@ function showNotification(message, type = 'success') {
     notification.classList.add('fade-out');
     notification.addEventListener('animationend', () => notification.remove());
   }, 5000);
+}
+
+// ========== Legal Acceptance (L2) ==========
+let legalAcceptanceModalState = {
+  open: false,
+  busy: false,
+  status: null,
+  lastFocus: null,
+  previousBodyOverflow: ''
+};
+
+function legalAcceptanceFocusableElements() {
+  const modal = document.getElementById('legalAcceptanceModal');
+  if (!modal) return [];
+  return Array.from(modal.querySelectorAll('a[href], button, input, [tabindex]'))
+    .filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && el.tabIndex !== -1);
+}
+
+function setLegalAcceptanceModalBusy(busy) {
+  const modal = document.getElementById('legalAcceptanceModal');
+  const checkbox = document.getElementById('legalAcceptanceCheckbox');
+  const button = document.getElementById('legalAcceptanceButton');
+  if (!modal || !checkbox || !button) return;
+  legalAcceptanceModalState.busy = busy;
+  checkbox.disabled = busy;
+  button.disabled = busy || !checkbox.checked;
+  modal.querySelectorAll('.legal-document-link').forEach(link => {
+    link.setAttribute('aria-disabled', busy ? 'true' : 'false');
+    link.tabIndex = busy ? -1 : 0;
+  });
+  button.innerHTML = busy
+    ? 'กำลังบันทึกการยอมรับ...'
+    : '<i class="fa-solid fa-circle-check"></i> ยอมรับและเข้าสู่แดชบอร์ด';
+}
+
+function setLegalAcceptanceError(message, success = false) {
+  const error = document.getElementById('legalAcceptanceError');
+  if (!error) return;
+  error.textContent = message || '';
+  error.classList.toggle('is-success', success);
+}
+
+function openLegalAcceptanceModal(status, message = '') {
+  const modal = document.getElementById('legalAcceptanceModal');
+  const root = document.querySelector('.admin-wrapper');
+  if (!modal || !root || !status?.currentVersion) return;
+  if (!legalAcceptanceModalState.open) {
+    legalAcceptanceModalState.lastFocus = document.activeElement;
+    legalAcceptanceModalState.previousBodyOverflow = document.body.style.overflow;
+  }
+  legalAcceptanceModalState.open = true;
+  legalAcceptanceModalState.status = status;
+  root.inert = true;
+  root.setAttribute('inert', '');
+  root.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = 'hidden';
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden', 'false');
+  setLegalAcceptanceError(message || '', false);
+  setLegalAcceptanceModalBusy(false);
+  requestAnimationFrame(() => {
+    const firstLink = modal.querySelector('.legal-document-link');
+    (firstLink || document.getElementById('legalAcceptanceTitle'))?.focus();
+  });
+}
+
+function trapLegalAcceptanceFocus(event) {
+  if (!legalAcceptanceModalState.open || event.key !== 'Tab') return;
+  const focusable = legalAcceptanceFocusableElements();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function setupLegalAcceptanceModal() {
+  const modal = document.getElementById('legalAcceptanceModal');
+  const checkbox = document.getElementById('legalAcceptanceCheckbox');
+  const button = document.getElementById('legalAcceptanceButton');
+  if (!modal || !checkbox || !button || modal.dataset.bound === 'true') return;
+  modal.dataset.bound = 'true';
+  modal.addEventListener('keydown', trapLegalAcceptanceFocus);
+  checkbox.addEventListener('change', () => {
+    if (!legalAcceptanceModalState.busy) button.disabled = !checkbox.checked;
+  });
+  button.addEventListener('click', async () => {
+    if (legalAcceptanceModalState.busy || !checkbox.checked) return;
+    const version = legalAcceptanceModalState.status?.currentVersion;
+    if (!version) return;
+    setLegalAcceptanceModalBusy(true);
+    setLegalAcceptanceError('', false);
+    try {
+      const response = await fetchWithCsrf('/api/user/accept-legal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'ยังบันทึกการยอมรับไม่ได้');
+      setLegalAcceptanceError('บันทึกการยอมรับแล้ว กำลังเข้าสู่แดชบอร์ด...', true);
+      setTimeout(() => window.location.reload(), 450);
+    } catch (err) {
+      setLegalAcceptanceModalBusy(false);
+      setLegalAcceptanceError(err.message || 'ยังบันทึกการยอมรับไม่ได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง', false);
+      document.getElementById('legalAcceptanceError')?.focus();
+    }
+  });
+}
+
+async function initializeLegalAcceptance() {
+  if (DEMO_MODE) return;
+  setupLegalAcceptanceModal();
+  const response = await fetch('/api/user/me', {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.legalAcceptance) {
+    throw new Error('ไม่สามารถตรวจสอบข้อกำหนดการใช้งานได้');
+  }
+  if (!data.legalAcceptance.accepted) openLegalAcceptanceModal(data.legalAcceptance);
+}
+
+function handleLegalAcceptanceRequired(status, message) {
+  if (DEMO_MODE) return;
+  openLegalAcceptanceModal(status, message);
 }
 
 // ========== Copy-to-clipboard + open-in-new-tab helpers (L22/L23) ==========
@@ -293,6 +437,7 @@ async function sendDemoGoalUpdate() {
 async function initializeDashboard() {
   console.log('🚀 Starting initializeDashboard...');
   try {
+    await initializeLegalAcceptance();
     // ponytail: Widget shortcut intro — ไล่ highlight ทีละปุ่ม วน 3 รอบ, สีตาม semantic ของแต่ละ widget
     // ย้ายมาก่อน DEMO_MODE branch เพื่อให้รันทั้ง demo + real mode (เดิมอยู่หลัง `if (DEMO_MODE) return;` เลยไม่เคยรันใน demo)
     const SHORTCUT_INTRO_COLORS = {
