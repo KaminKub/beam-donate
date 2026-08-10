@@ -1456,11 +1456,14 @@
                           </button>
                         </div>
                         <small class="text-muted" id="ttsGoogleKeyStatus"></small>
+                        <small class="text-muted" style="display:block;margin-top:4px;">
+                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → APIs & Services → Credentials</a> (ต้องเปิด Cloud Text-to-Speech API ในโปรเจกต์ก่อน)
+                        </small>
                       </div>
                       <div class="form-group" id="ttsGeminiKeyGroup" style="display:none;">
-                        <label for="inputTtsGeminiKey"><i class="fa-solid fa-key" style="color:#8b5cf6;"></i> Vertex Service Account (JSON)</label>
-                        <div style="display:flex;gap:8px;align-items:flex-start;">
-                          <textarea id="inputTtsGeminiKey" name="tts_gemini_service_account" class="form-control" rows="3" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...", ...}' style="flex:1;font-family:monospace;font-size:11px;resize:vertical;"></textarea>
+                        <label for="inputTtsGeminiKey"><i class="fa-solid fa-key" style="color:#8b5cf6;"></i> Vertex API Key</label>
+                        <div style="display:flex;gap:8px;">
+                          <input type="password" id="inputTtsGeminiKey" name="tts_gemini_api_key" class="form-control" placeholder="AIza..." style="flex:1;">
                           <button type="button" id="btnConnectGemini" class="btn btn-secondary" style="flex-shrink:0;">
                             <i class="fa-solid fa-plug"></i> เชื่อมต่อ
                           </button>
@@ -1469,6 +1472,9 @@
                           </button>
                         </div>
                         <small class="text-muted" id="ttsGeminiKeyStatus"></small>
+                        <small class="text-muted" style="display:block;margin-top:4px;">
+                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/agent-platform/studio/settings/api-keys" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → Agent Platform API → Get API</a> (ต้องเปิด Agent Platform API (Vertex-TTS) ในโปรเจกต์ก่อน)
+                        </small>
                       </div>
                       <div class="tts-quota-test-group">
                         <div class="form-group tts-quota-info" id="ttsQuotaInfo"></div>
@@ -3791,7 +3797,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260811_3"></script>
+  <script src="/dashboard/dashboard.js?v=20260811_4"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

@@ -1,7 +1,6 @@
 // src/tts.js — TTS mode adapters (server-side only, keys never reach client)
 // Voice lists = versioned config — update when a provider changes its lineup.
 const https = require('https');
-const crypto = require('crypto');
 
 const MODES = {
   // Microsoft voices (เปรมวดี/นิวัฒน์ via speech.platform.bing.com) kept in the catalog on purpose —
@@ -166,63 +165,49 @@ async function googleCloud(text, voice, apiKey) {
   return { contentType: 'audio/mpeg', audio: Buffer.from(data.audioContent, 'base64') };
 }
 
-// Vertex mode — real Vertex AI (aiplatform.googleapis.com), service-account/IAM auth (R5).
-// I5 curl-verified 2026-08-10 against the user's real vertex-express service account:
-// POST .../publishers/google/models/gemini-2.5-flash-preview-tts:generateContent, location=global,
-// generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName + responseModalities:['AUDIO']
-// → 200 with candidates[0].content.parts[0].inlineData = { mimeType: 'audio/L16;codec=pcm;rate=24000', data }.
+// Vertex mode — Vertex AI in Express Mode (aiplatform.googleapis.com), plain API key auth
+// (?key=, no service account/OAuth). Curl-verified 2026-08-11 against the user's real Express
+// Mode key: bare URL (no project/location) always 404s when the key is valid — Google auto-routes
+// the key to its project + default region, then can't find the model there (it only lives in
+// `global`) — but the 404 message leaks "projects/{number}/locations/{region}/..." so the project
+// id can be parsed out of it (deterministic across calls). A truly invalid key 401s instead
+// (UNAUTHENTICATED), so the two cases are unambiguous. Once the project id is known, calling the
+// same model with an explicit projects/{id}/locations/global/... path returns 200 with real audio —
+// same request/response shape as the old service-account path (I5): generationConfig.speechConfig.
+// voiceConfig.prebuiltVoiceConfig.voiceName + responseModalities:['AUDIO'] →
+// candidates[0].content.parts[0].inlineData = { mimeType: 'audio/L16;codec=pcm;rate=24000', data }.
 // Voice ids are bare names (Kore, Aoede, ...) — no th-TH- prefix (that was the old Cloud TTS path).
-function b64url(input) {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+const VERTEX_MODEL = 'gemini-2.5-flash-preview-tts';
+const vertexProjectCache = new Map(); // apiKey -> projectId (no TTL — a project stays bound to its key)
 
-const vertexTokenCache = new Map(); // client_email -> { token, expiresAt }
-async function getVertexAccessToken(sa) {
-  const cached = vertexTokenCache.get(sa.client_email);
-  if (cached && cached.expiresAt > Date.now() + 60000) return cached.token;
-
-  const now = Math.floor(Date.now() / 1000);
-  const tokenUri = sa.token_uri || 'https://oauth2.googleapis.com/token';
-  const unsigned = `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify({
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud: tokenUri,
-    exp: now + 3600,
-    iat: now
-  }))}`;
-  const signer = crypto.createSign('RSA-SHA256');
-  signer.update(unsigned);
-  signer.end();
-  const signature = signer.sign(sa.private_key).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  const res = await fetch(tokenUri, {
+async function resolveVertexProjectId(apiKey) {
+  if (vertexProjectCache.has(apiKey)) return vertexProjectCache.get(apiKey);
+  const probeUrl = `https://aiplatform.googleapis.com/v1/publishers/google/models/${VERTEX_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(probeUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: '.' }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } }
+    }),
     signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
   });
-  if (!res.ok) throw new Error('GEMINI_KEY_INVALID'); // bad/revoked/malformed service account
-  const data = await res.json();
-  vertexTokenCache.set(sa.client_email, { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 });
-  return data.access_token;
+  if (res.status === 401) throw new Error('GEMINI_KEY_INVALID');
+  const data = await res.json().catch(() => null);
+  const match = /projects\/(\d+)\//.exec(data?.error?.message || '');
+  if (!match) throw new Error('GEMINI_KEY_INVALID'); // unexpected shape — fail safe, don't guess
+  vertexProjectCache.set(apiKey, match[1]);
+  return match[1];
 }
 
-async function vertexGemini(text, voice, serviceAccount) {
-  if (!serviceAccount?.client_email || !serviceAccount?.private_key || !serviceAccount?.project_id) {
-    throw new Error('GEMINI_KEY_INVALID');
-  }
-  let accessToken;
-  try {
-    accessToken = await getVertexAccessToken(serviceAccount);
-  } catch {
-    throw new Error('GEMINI_KEY_INVALID');
-  }
-
-  const url = `https://aiplatform.googleapis.com/v1/projects/${encodeURIComponent(serviceAccount.project_id)}/locations/global/publishers/google/models/gemini-2.5-flash-preview-tts:generateContent`;
+async function vertexGemini(text, voice, apiKey) {
+  if (!apiKey) throw new Error('GEMINI_KEY_INVALID');
+  const projectId = await resolveVertexProjectId(apiKey);
+  const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${VERTEX_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text }] }],
         generationConfig: {
@@ -232,7 +217,15 @@ async function vertexGemini(text, voice, serviceAccount) {
       }),
       signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
     });
-    if (res.status === 401 || res.status === 403) throw new Error('GEMINI_KEY_INVALID');
+    if (res.status === 401) throw new Error('GEMINI_KEY_INVALID');
+    if (res.status === 403) {
+      // Never curl-verified against a key with Vertex AI API disabled (no such key on hand) — parse
+      // defensively to answer the original R6 ask, fall back to a generic invalid-key error otherwise.
+      const body = await res.json().catch(() => null);
+      const msg = body?.error?.message || '';
+      if (/has not been used|is disabled|not enabled/i.test(msg)) throw new Error('GEMINI_API_NOT_ENABLED');
+      throw new Error('GEMINI_KEY_INVALID');
+    }
     if (res.status === 429) throw new Error('GEMINI_QUOTA_EXCEEDED');
     if (res.status === 500 && attempt < 2) { await new Promise(r => setTimeout(r, 500 * (attempt + 1))); continue; }
     if (!res.ok) throw new Error(`GEMINI_HTTP_${res.status}`);
@@ -248,7 +241,7 @@ async function vertexGemini(text, voice, serviceAccount) {
 async function synthesizeTTS({ mode, voice, text, lang, keys }) {
   switch (mode) {
     case 'google-cloud': return googleCloud(text, voice, keys.google);
-    case 'vertex': return vertexGemini(text, voice, keys.geminiServiceAccount);
+    case 'vertex': return vertexGemini(text, voice, keys.gemini);
     case 'free':
     default:
       // free mode: voice ว่าง = Google Translate; voice = Microsoft → Edge TTS
@@ -260,5 +253,5 @@ async function synthesizeTTS({ mode, voice, text, lang, keys }) {
 module.exports = {
   MODES, FREE_TIERS, DAILY_CHAR_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
   synthesizeTTS, getDailyChars, addDailyChars,
-  escapeXml, pcmToWav
+  escapeXml, pcmToWav, resolveVertexProjectId
 };

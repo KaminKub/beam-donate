@@ -3139,7 +3139,6 @@ app.get('/api/overlay/settings', async (req, res) => {
       const streamer = await db.getStreamer(username);
       settings.tts_google_key_set = !!streamer?.tts_google_api_key_encrypted;
       settings.tts_gemini_key_set = !!streamer?.tts_gemini_api_key_encrypted;
-      settings.tts_gemini_service_account_set = !!streamer?.tts_gemini_service_account_encrypted;
       settings.tts_confirm_version = streamer?.tts_confirm_version || null;
     }
     try {
@@ -3188,7 +3187,6 @@ const SECRET_STREAMER_FIELDS = [
   'bank_account_number_encrypted',
   'streamlabs_access_token', 'streamlabs_refresh_token',
   'tts_google_api_key_encrypted', 'tts_gemini_api_key_encrypted', 'tts_google_api_key', 'tts_gemini_api_key',
-  'tts_gemini_service_account_encrypted', 'tts_gemini_service_account',
   // Audit R2 M3 — full row still broadcast to every client holding an overlay token; these were missing
   'promptpay_phone', 'promptpay_name', 'bank_account_name', 'discord_webhook_url'
 ];
@@ -3215,7 +3213,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
   'tier_donate_settings', 'sound_library',
   'tts_mode', 'ttsVoice', 'tts_random_voice',
-  'tts_google_api_key', 'tts_gemini_api_key', 'tts_gemini_service_account'
+  'tts_google_api_key', 'tts_gemini_api_key'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -3247,21 +3245,12 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
     }
     // TTS key clear semantics — omitted field = unchanged; explicit *_clear flag = delete key.
     // Empty string is NOT treated as clear (placeholder inputs send '' on every unrelated save).
-    for (const f of ['tts_google_api_key', 'tts_gemini_api_key', 'tts_gemini_service_account']) {
+    for (const f of ['tts_google_api_key', 'tts_gemini_api_key']) {
       if (req.body[f + '_clear'] === true) {
         safeBody[f + '_encrypted'] = '';
         delete safeBody[f];
       } else if (safeBody[f] === '') {
         delete safeBody[f]; // blank submit without explicit clear flag → leave existing key untouched
-      }
-    }
-    // R5 — Vertex now authenticates with a service-account JSON, not a plain API key; reject
-    // malformed/incomplete JSON here so a typo'd paste fails loudly instead of silently 401ing later.
-    if (safeBody.tts_gemini_service_account !== undefined && safeBody.tts_gemini_service_account !== '') {
-      let parsedSA;
-      try { parsedSA = JSON.parse(safeBody.tts_gemini_service_account); } catch { parsedSA = null; }
-      if (!parsedSA || !parsedSA.client_email || !parsedSA.private_key || !parsedSA.project_id) {
-        return res.status(400).json({ error: 'Service Account JSON ไม่ถูกต้องหรือไม่ครบ (ต้องมี client_email, private_key, project_id)' });
       }
     }
     // TTS external-processor disclosure acceptance (R1, option B, 2026-08-11) — server stamps
@@ -4203,10 +4192,6 @@ function safeDecrypt(v) {
   try { return decrypt(v); } catch { return null; }
 }
 
-function safeDecryptServiceAccount(v) {
-  try { return JSON.parse(decrypt(v)); } catch { return null; }
-}
-
 // SEC-008: Allowlist of valid BCP-47 language codes for Google TTS
 const ALLOWED_TTS_LANGS = new Set([
   'th', 'en', 'ja', 'ko', 'zh-TW', 'zh', 'vi', 'id', 'ms', 'fr', 'de', 'es', 'ru', 'ar'
@@ -4221,6 +4206,7 @@ const TTS_TEST_ERROR_MESSAGES = {
   GOOGLE_QUOTA_EXCEEDED: 'Google โควต้าเต็ม',
   GEMINI_KEY_INVALID: 'Gemini API key ไม่ถูกต้อง',
   GEMINI_QUOTA_EXCEEDED: 'Gemini โควต้าเต็ม (free tier จำกัดมาก)',
+  GEMINI_API_NOT_ENABLED: 'ยังไม่เปิด Vertex AI API สำหรับโปรเจกต์นี้ — เปิดได้ที่ Google Cloud Console → APIs & Services → Library',
   EDGE_CONN_FAILED: 'เชื่อมต่อ Microsoft TTS ไม่ได้',
   EDGE_TIMEOUT: 'Microsoft TTS ตอบช้าเกินไป'
 };
@@ -4249,7 +4235,7 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
     }
     keys = {
       google: safeDecrypt(streamer.tts_google_api_key_encrypted),
-      geminiServiceAccount: safeDecryptServiceAccount(streamer.tts_gemini_service_account_encrypted)
+      gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
     };
     if (mode !== 'free') {
       if (tts.getDailyChars(streamer.id) + text.length > tts.DAILY_CHAR_CAP) {
@@ -4307,22 +4293,13 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
 
   const storedKeys = {
     google: safeDecrypt(streamer.tts_google_api_key_encrypted),
-    geminiServiceAccount: safeDecryptServiceAccount(streamer.tts_gemini_service_account_encrypted)
+    gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
   };
-  // R5 — vertex "key" is a pasted service-account JSON blob, not a plain API key; parse+validate
-  // it here the same way the save path does, so a bad paste fails with a clear message.
-  let transientServiceAccount = null;
-  if (mode === 'vertex' && key) {
-    try { transientServiceAccount = JSON.parse(key); } catch { transientServiceAccount = null; }
-    if (!transientServiceAccount || !transientServiceAccount.client_email || !transientServiceAccount.private_key || !transientServiceAccount.project_id) {
-      return res.status(400).json({ error: 'Service Account JSON ไม่ถูกต้องหรือไม่ครบ (ต้องมี client_email, private_key, project_id)' });
-    }
-  }
   const keys = {
     google: mode === 'google-cloud' ? (key || storedKeys.google) : storedKeys.google,
-    geminiServiceAccount: mode === 'vertex' ? (transientServiceAccount || storedKeys.geminiServiceAccount) : storedKeys.geminiServiceAccount
+    gemini: mode === 'vertex' ? (key || storedKeys.gemini) : storedKeys.gemini
   };
-  if (mode !== 'free' && !keys[mode === 'google-cloud' ? 'google' : 'geminiServiceAccount']) {
+  if (mode !== 'free' && !keys[mode === 'google-cloud' ? 'google' : 'gemini']) {
     return res.status(400).json({ error: 'กรุณากรอก API key หรือบันทึก key ก่อน' });
   }
 
@@ -4341,6 +4318,14 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
     res.set('Cache-Control', 'private, no-store');
     res.set('Referrer-Policy', 'no-referrer');
     res.set('Content-Type', result.contentType);
+    if (mode === 'vertex') {
+      // resolveVertexProjectId() hits its in-memory cache here — synthesizeTTS() above already
+      // resolved+cached this same apiKey, so no extra network call (R6: show "เชื่อมต่อกับโปรเจค X").
+      try {
+        const projectId = await tts.resolveVertexProjectId(keys.gemini);
+        res.set('X-Vertex-Project-Id', projectId);
+      } catch { /* best-effort — connect already succeeded, don't fail the response over this */ }
+    }
     res.end(result.audio);
   } catch (err) {
     const msg = TTS_TEST_ERROR_MESSAGES[err.message] || 'ไม่สามารถทดสอบเสียงได้ กรุณาตรวจสอบ key และการตั้งค่า';

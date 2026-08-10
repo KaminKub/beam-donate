@@ -5584,7 +5584,7 @@ async function loadTtsModeSettings(s) {
   // key ที่บันทึกไว้แล้ว: โชว์แค่ placeholder ห้าม prefill ค่าจริง (server ไม่ส่ง key กลับมาอยู่แล้ว)
   const keySaved = [
     ['inputTtsGoogleKey', 'btnClearGoogleKey', s.tts_google_key_set],
-    ['inputTtsGeminiKey', 'btnClearGeminiKey', s.tts_gemini_service_account_set]
+    ['inputTtsGeminiKey', 'btnClearGeminiKey', s.tts_gemini_key_set]
   ];
   keySaved.forEach(([inputId, btnId, isSet]) => {
     const el = document.getElementById(inputId);
@@ -5625,7 +5625,7 @@ function bindTtsModeUi() {
 
 async function ttsClearKey(mode) {
   const isGoogle = mode === 'google-cloud';
-  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_service_account';
+  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_api_key';
   const inputEl = document.getElementById(isGoogle ? 'inputTtsGoogleKey' : 'inputTtsGeminiKey');
   const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
   const btn = document.getElementById(isGoogle ? 'btnClearGoogleKey' : 'btnClearGeminiKey');
@@ -5665,7 +5665,9 @@ async function ttsRequest(body) {
     showNotification(data.error || 'ทดสอบเสียงไม่สำเร็จ', 'error');
     return null;
   }
-  return res.blob();
+  // R6 — vertex connect shows "เชื่อมต่อกับโปรเจค {id}" using the project id Google's Express Mode
+  // key resolves to (server sends it back as a header since the body here is the audio itself)
+  return { blob: await res.blob(), projectId: res.headers.get('X-Vertex-Project-Id') || null };
 }
 
 async function withTtsButtonBusy(btn, label, fn) {
@@ -5687,16 +5689,17 @@ async function ttsConnect(mode) {
   const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
   const inputEl = document.getElementById(isGoogle ? 'inputTtsGoogleKey' : 'inputTtsGeminiKey');
   const clearBtn = document.getElementById(isGoogle ? 'btnClearGoogleKey' : 'btnClearGeminiKey');
-  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_service_account';
+  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_api_key';
   const key = ttsKeyValue(mode);
   const voice = document.getElementById('selectTtsVoice')?.value || ttsModes?.[mode]?.voices[0]?.id || '';
 
   await withTtsButtonBusy(btn, 'กำลังเชื่อมต่อ...', async () => {
-    const blob = await ttsRequest({ mode, voice, key });
-    if (!blob) {
+    const result = await ttsRequest({ mode, voice, key });
+    if (!result) {
       if (statusEl) { statusEl.textContent = 'เชื่อมต่อไม่สำเร็จ'; statusEl.className = 'text-danger'; }
       return;
     }
+    const { blob, projectId } = result;
     // R7 — prove the voice actually works before reporting success, mirror ttsTestVoice() playback
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -5717,7 +5720,10 @@ async function ttsConnect(mode) {
     }
     if (inputEl) { inputEl.value = ''; inputEl.placeholder = '•••••••• (บันทึกแล้ว)'; }
     if (clearBtn) clearBtn.style.display = '';
-    if (statusEl) { statusEl.textContent = 'เชื่อมต่อสำเร็จ'; statusEl.className = 'text-success'; }
+    if (statusEl) {
+      statusEl.textContent = projectId ? `เชื่อมต่อกับโปรเจค ${projectId} แล้ว` : 'เชื่อมต่อสำเร็จ';
+      statusEl.className = 'text-success';
+    }
     const modeLabel = ttsModes?.[mode]?.label || mode;
     showNotification(`สลับเป็นโหมด ${modeLabel} แล้ว`);
   });
@@ -5729,8 +5735,9 @@ async function ttsTestVoice() {
   const voice = document.getElementById('selectTtsVoice')?.value || '';
 
   await withTtsButtonBusy(btn, 'กำลังทดสอบ...', async () => {
-    const blob = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
-    if (!blob) return;
+    const result = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
+    if (!result) return;
+    const { blob } = result;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.onended = () => URL.revokeObjectURL(url);
@@ -7766,7 +7773,7 @@ async function saveOverlaySettings() {
     const googleKey = ttsKeyValue('google-cloud');
     if (googleKey) payload.tts_google_api_key = googleKey;
     const geminiKey = ttsKeyValue('vertex');
-    if (geminiKey) payload.tts_gemini_service_account = geminiKey;
+    if (geminiKey) payload.tts_gemini_api_key = geminiKey;
   }
 
   try {
