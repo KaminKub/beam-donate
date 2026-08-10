@@ -990,6 +990,54 @@ body {
 }
 
 .text-muted { color: var(--text-muted); }
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+
+/* R2 — TTS quota/test group vs cost-warning group, split with spacing instead of inline style */
+.tts-quota-test-group { display: flex; flex-direction: column; gap: 10px; }
+.tts-cost-warning { margin-top: 14px; }
+
+.tts-quota-info {
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* R11 — Vertex free tier is scarce (3 RPM/15 RPD), flag it visually; static glow, no infinite animation */
+.tts-quota-info.tts-quota-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
+}
+
+.tts-cost-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+/* R1 — static red glow while unaccepted (no animation cost while idle) + a one-shot shake
+   played only when a blocked save fires "กรุณายืนยันเงื่อนไขก่อนบันทึก" (see saveOverlaySettings()) */
+#ttsConfirmPanel {
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4), 0 0 12px rgba(239, 68, 68, 0.3);
+}
+@keyframes ttsConfirmShake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+#ttsConfirmPanel.tts-confirm-shake {
+  animation: ttsConfirmShake 0.5s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  #ttsConfirmPanel.tts-confirm-shake { animation: none; }
+}
 
 /* ========== Form Helper Text (small.text-muted under inputs) ========== */
 small.text-muted {

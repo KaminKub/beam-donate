@@ -5479,6 +5479,8 @@ async function loadOverlaySettings() {
 // ========== TTS Mode (Multi-Provider) ==========
 let ttsModes = null;
 let ttsFreeTiers = null;
+let ttsConfirmVersion = null; // current disclosure-panel version from server (R1 option B)
+let ttsConfirmAccepted = false; // whether THIS streamer already accepted ttsConfirmVersion
 
 async function ensureTtsCatalog() {
   if (ttsModes) return ttsModes;
@@ -5488,6 +5490,7 @@ async function ensureTtsCatalog() {
     const data = await res.json();
     ttsModes = data.modes;
     ttsFreeTiers = data.freeTiers;
+    ttsConfirmVersion = data.confirmVersion;
   } catch (e) {
     console.error('Failed to load TTS voices:', e);
   }
@@ -5527,6 +5530,30 @@ function ttsSetBlockVisible(id, show, animate) {
   else closeSettingsPanel(id);
 }
 
+// R11 — google-cloud's free tier is char/month, not request/month; estimate alerts/month from an
+// assumed average alert length so streamers get a usable number instead of just a raw char count.
+const TTS_AVG_ALERT_CHARS = 40;
+function ttsParseFreeTierChars(freeTierLabel) {
+  const m = /([\d.]+)M/.exec(freeTierLabel || '');
+  return m ? parseFloat(m[1]) * 1e6 : null;
+}
+function updateTtsQuotaInfo(mode) {
+  const quota = document.getElementById('ttsQuotaInfo');
+  if (!quota) return;
+  quota.classList.toggle('tts-quota-danger', mode === 'vertex');
+  let text = ttsFreeTiers?.[mode] || '';
+  if (mode === 'google-cloud') {
+    const voiceId = document.getElementById('selectTtsVoice')?.value;
+    const voice = ttsModes?.[mode]?.voices.find(v => v.id === voiceId);
+    const chars = ttsParseFreeTierChars(voice?.freeTier);
+    if (chars) {
+      const alerts = Math.floor(chars / TTS_AVG_ALERT_CHARS);
+      text += ` (~${alerts.toLocaleString('th-TH')} ครั้ง/เดือน โดยประมาณ อิงข้อความเฉลี่ย ${TTS_AVG_ALERT_CHARS} ตัวอักษร)`;
+    }
+  }
+  quota.textContent = text;
+}
+
 function applyTtsMode(mode, animate) {
   document.querySelectorAll('#ttsModeButtons .tts-mode-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.mode === mode);
@@ -5534,24 +5561,30 @@ function applyTtsMode(mode, animate) {
   // free-mode Microsoft voices (เปรมวดี/นิวัฒน์) are 403'd upstream right now — hide the picker instead of
   // removing the catalog entries, so it comes back automatically once a fix lands (see src/tts.js MODES.free)
   ttsSetBlockVisible('ttsVoiceGroup', mode !== 'free', animate);
+  // R9 decision 2026-08-10 — skip random-voice feature entirely in free mode, not just limit choices
+  const randomGroup = document.getElementById('ttsRandomVoiceGroup');
+  if (randomGroup) randomGroup.style.display = mode === 'free' ? 'none' : '';
   ttsSetBlockVisible('ttsGoogleKeyGroup', mode === 'google-cloud', animate);
   ttsSetBlockVisible('ttsGeminiKeyGroup', mode === 'vertex', animate);
   ttsSetBlockVisible('ttsCostWarning', mode !== 'free', animate);
-  ttsSetBlockVisible('ttsConfirmPanel', mode !== 'free', animate);
-  const quota = document.getElementById('ttsQuotaInfo');
-  if (quota) quota.textContent = ttsFreeTiers?.[mode] || '';
+  // R1 option B (2026-08-11) — panel only shows until this streamer accepts current ttsConfirmVersion once
+  ttsSetBlockVisible('ttsConfirmPanel', mode !== 'free' && !ttsConfirmAccepted, animate);
+  updateTtsQuotaInfo(mode);
 }
 
 async function loadTtsModeSettings(s) {
   if (!await ensureTtsCatalog()) return;
   const mode = ttsModes[s.tts_mode] ? s.tts_mode : 'free';
+  ttsConfirmAccepted = !!s.tts_confirm_version && s.tts_confirm_version === ttsConfirmVersion;
   applyTtsMode(mode, false);
   renderTtsVoices(mode, s.ttsVoice || '');
+  const chkRandom = document.getElementById('chkTtsRandomVoice');
+  if (chkRandom) chkRandom.checked = mode !== 'free' && !!s.tts_random_voice;
 
   // key ที่บันทึกไว้แล้ว: โชว์แค่ placeholder ห้าม prefill ค่าจริง (server ไม่ส่ง key กลับมาอยู่แล้ว)
   const keySaved = [
     ['inputTtsGoogleKey', 'btnClearGoogleKey', s.tts_google_key_set],
-    ['inputTtsGeminiKey', 'btnClearGeminiKey', s.tts_gemini_key_set]
+    ['inputTtsGeminiKey', 'btnClearGeminiKey', s.tts_gemini_service_account_set]
   ];
   keySaved.forEach(([inputId, btnId, isSet]) => {
     const el = document.getElementById(inputId);
@@ -5560,9 +5593,9 @@ async function loadTtsModeSettings(s) {
     if (clearBtn) clearBtn.style.display = isSet ? '' : 'none';
   });
 
-  // โหมดที่บันทึกไว้แล้ว = ผู้ใช้เคยยืนยันเงื่อนไขไปแล้ว ไม่งั้นจะบันทึกอย่างอื่นไม่ได้เลย
+  // R1 option B — checkbox reflects persisted acceptance, not just "mode is currently paid"
   const confirmChk = document.getElementById('ttsConfirmCheckbox');
-  if (confirmChk) confirmChk.checked = mode !== 'free';
+  if (confirmChk) confirmChk.checked = ttsConfirmAccepted;
 
   bindTtsModeUi();
 }
@@ -5579,9 +5612,10 @@ function bindTtsModeUi() {
     applyTtsMode(mode, true);
     renderTtsVoices(mode, '');
     const confirmChk = document.getElementById('ttsConfirmCheckbox');
-    if (confirmChk) confirmChk.checked = false;
+    if (confirmChk) confirmChk.checked = ttsConfirmAccepted; // already-accepted streamer keeps it checked/hidden
   });
 
+  document.getElementById('selectTtsVoice')?.addEventListener('change', () => updateTtsQuotaInfo(getTtsMode()));
   document.getElementById('btnConnectGoogle')?.addEventListener('click', () => ttsConnect('google-cloud'));
   document.getElementById('btnConnectGemini')?.addEventListener('click', () => ttsConnect('vertex'));
   document.getElementById('btnTestTts')?.addEventListener('click', ttsTestVoice);
@@ -5591,7 +5625,7 @@ function bindTtsModeUi() {
 
 async function ttsClearKey(mode) {
   const isGoogle = mode === 'google-cloud';
-  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_api_key';
+  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_service_account';
   const inputEl = document.getElementById(isGoogle ? 'inputTtsGoogleKey' : 'inputTtsGeminiKey');
   const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
   const btn = document.getElementById(isGoogle ? 'btnClearGoogleKey' : 'btnClearGeminiKey');
@@ -5606,7 +5640,7 @@ async function ttsClearKey(mode) {
       showNotification('ลบ key ไม่สำเร็จ', 'error');
       return;
     }
-    if (inputEl) { inputEl.value = ''; inputEl.placeholder = 'AIza...'; }
+    if (inputEl) { inputEl.value = ''; inputEl.placeholder = isGoogle ? 'AIza...' : '{"type":"service_account","project_id":"...","private_key":"...","client_email":"...", ...}'; }
     if (statusEl) statusEl.textContent = '';
     if (btn) btn.style.display = 'none';
     showNotification('ลบ key แล้ว');
@@ -5651,16 +5685,41 @@ async function ttsConnect(mode) {
   const isGoogle = mode === 'google-cloud';
   const btn = document.getElementById(isGoogle ? 'btnConnectGoogle' : 'btnConnectGemini');
   const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
+  const inputEl = document.getElementById(isGoogle ? 'inputTtsGoogleKey' : 'inputTtsGeminiKey');
+  const clearBtn = document.getElementById(isGoogle ? 'btnClearGoogleKey' : 'btnClearGeminiKey');
+  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_service_account';
+  const key = ttsKeyValue(mode);
   const voice = document.getElementById('selectTtsVoice')?.value || ttsModes?.[mode]?.voices[0]?.id || '';
 
   await withTtsButtonBusy(btn, 'กำลังเชื่อมต่อ...', async () => {
-    const blob = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
+    const blob = await ttsRequest({ mode, voice, key });
     if (!blob) {
-      if (statusEl) statusEl.textContent = 'เชื่อมต่อไม่สำเร็จ';
+      if (statusEl) { statusEl.textContent = 'เชื่อมต่อไม่สำเร็จ'; statusEl.className = 'text-danger'; }
       return;
     }
-    showNotification('เชื่อมต่อสำเร็จ');
-    if (statusEl) statusEl.textContent = 'เชื่อมต่อสำเร็จ — อย่าลืมกดบันทึกเพื่อเก็บ key';
+    // R7 — prove the voice actually works before reporting success, mirror ttsTestVoice() playback
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.onerror = () => URL.revokeObjectURL(url);
+    audio.play().catch(() => URL.revokeObjectURL(url));
+
+    // R12 — connect success = save key + switch tts_mode in the same request
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: key, tts_mode: mode })
+    });
+    if (!res.ok || res._demoBlocked) {
+      if (statusEl) { statusEl.textContent = 'เชื่อมต่อสำเร็จแต่บันทึกไม่สำเร็จ'; statusEl.className = 'text-danger'; }
+      showNotification('เชื่อมต่อสำเร็จแต่บันทึก key ไม่สำเร็จ', 'error');
+      return;
+    }
+    if (inputEl) { inputEl.value = ''; inputEl.placeholder = '•••••••• (บันทึกแล้ว)'; }
+    if (clearBtn) clearBtn.style.display = '';
+    if (statusEl) { statusEl.textContent = 'เชื่อมต่อสำเร็จ'; statusEl.className = 'text-success'; }
+    const modeLabel = ttsModes?.[mode]?.label || mode;
+    showNotification(`สลับเป็นโหมด ${modeLabel} แล้ว`);
   });
 }
 
@@ -7608,6 +7667,13 @@ async function saveOverlaySettings() {
   const ttsMode = getTtsMode();
   if (ttsModes && ttsMode !== 'free' && !document.getElementById('ttsConfirmCheckbox')?.checked) {
     showNotification('กรุณายืนยันเงื่อนไขก่อนบันทึก', 'error');
+    const confirmPanel = document.getElementById('ttsConfirmPanel');
+    if (confirmPanel) {
+      confirmPanel.classList.remove('tts-confirm-shake');
+      void confirmPanel.offsetWidth; // force reflow — replays the animation on repeated blocked clicks
+      confirmPanel.classList.add('tts-confirm-shake');
+      confirmPanel.addEventListener('animationend', () => confirmPanel.classList.remove('tts-confirm-shake'), { once: true });
+    }
     return;
   }
 
@@ -7692,11 +7758,15 @@ async function saveOverlaySettings() {
   if (ttsModes) {
     payload.tts_mode = ttsMode;
     payload.ttsVoice = document.getElementById('selectTtsVoice')?.value || '';
+    payload.tts_random_voice = ttsMode !== 'free' && !!document.getElementById('chkTtsRandomVoice')?.checked;
+    // R1 option B — only fire the acceptance record on the first save after checking it, not every
+    // subsequent unrelated save (ttsConfirmAccepted flips true after this save's response reloads settings)
+    if (ttsMode !== 'free' && !ttsConfirmAccepted) payload.tts_confirm_accept = true;
     // key: ส่งเฉพาะตอนผู้ใช้พิมพ์ค่าใหม่ — ค่าว่าง = ไม่แตะ key เดิม
     const googleKey = ttsKeyValue('google-cloud');
     if (googleKey) payload.tts_google_api_key = googleKey;
     const geminiKey = ttsKeyValue('vertex');
-    if (geminiKey) payload.tts_gemini_api_key = geminiKey;
+    if (geminiKey) payload.tts_gemini_service_account = geminiKey;
   }
 
   try {
@@ -7707,6 +7777,12 @@ async function saveOverlaySettings() {
     });
     if (res.ok) {
       showNotification('บันทึกสำเร็จ!');
+      // R1 — just recorded a fresh acceptance this save → close the panel with the project's
+      // standard panel-closing animation (not abrupt display:none) instead of waiting for reload
+      if (payload.tts_confirm_accept) {
+        ttsConfirmAccepted = true;
+        ttsSetBlockVisible('ttsConfirmPanel', false, true);
+      }
     } else {
       const errData = await res.json().catch(() => ({}));
       showNotification(errData.error || 'บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');

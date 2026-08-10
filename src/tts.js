@@ -1,6 +1,7 @@
 // src/tts.js — TTS mode adapters (server-side only, keys never reach client)
 // Voice lists = versioned config — update when a provider changes its lineup.
 const https = require('https');
+const crypto = require('crypto');
 
 const MODES = {
   // Microsoft voices (เปรมวดี/นิวัฒน์ via speech.platform.bing.com) kept in the catalog on purpose —
@@ -28,31 +29,30 @@ const MODES = {
     { id: 'th-TH-Chirp3-HD-Aoede', label: 'Chirp3 HD Aoede', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' }
   ]},
   vertex: { label: 'Vertex (Gemini)', needsKey: true, voices: [
-    { id: 'Kore', label: 'Kore (Firm)' }, { id: 'Aoede', label: 'Aoede (Breezy)' },
-    { id: 'Leda', label: 'Leda (Youthful)' }, { id: 'Zephyr', label: 'Zephyr (Bright)' },
-    { id: 'Puck', label: 'Puck (Upbeat)' }, { id: 'Charon', label: 'Charon (Informative)' },
-    { id: 'Fenrir', label: 'Fenrir (Excitable)' }, { id: 'Orus', label: 'Orus (Firm)' }
+    { id: 'Kore', label: 'โคเร (มั่นคง)' }, { id: 'Aoede', label: 'อาเอเด (ร่าเริง)' },
+    { id: 'Leda', label: 'เลดา (สดใส)' }, { id: 'Zephyr', label: 'เซเฟอร์ (แจ่มใส)' },
+    { id: 'Puck', label: 'พัค (คึกคัก)' }, { id: 'Charon', label: 'คารอน (ให้ข้อมูล)' },
+    { id: 'Fenrir', label: 'เฟนเรียร์ (ตื่นเต้นง่าย)' }, { id: 'Orus', label: 'โอรัส (มั่นคง)' }
   ]}
 };
 
 const FREE_TIERS = {
-  free: 'ฟรี ไม่จำกัด (Google Translate + Microsoft)',
+  free: 'Google Translate ฟรีไม่จำกัด · Microsoft ขึ้นอยู่กับเบราว์เซอร์ผู้ชม (ไม่รับประกันว่าจะมีเสียงเสมอ)',
   'google-cloud': 'Standard 4M / Neural2 1M / Chirp3 1M ตัวอักษร/เดือน',
   vertex: 'จำกัดมาก: 3 RPM / 15 RPD (flash-preview-tts) — ไม่เหมาะ alert จริง'
 };
 
 const DAILY_CHAR_CAP = 100000;   // per streamer per day, all paid modes
-const DAILY_REQUEST_CAP = 10;    // per streamer per day — vertex/Gemini only (free quota ~10-15 RPD); google-cloud free tier is 1-4M chars/month so it relies on DAILY_CHAR_CAP alone (Audit R2 M5)
 const MAX_TEXT_LEN = 500;        // server-side cap regardless of client-sent length
 const OUTBOUND_TIMEOUT_MS = 10000;
 
 // per-streamer usage (in-memory, resets on UTC-date rollover — single VPS process)
-const usage = new Map(); // streamerId -> { date: 'YYYY-MM-DD', chars: n, requests: n }
+const usage = new Map(); // streamerId -> { date: 'YYYY-MM-DD', chars: n }
 function _usage(streamerId) {
   const today = new Date().toISOString().slice(0, 10);
   const u = usage.get(streamerId);
   if (!u || u.date !== today) {
-    const fresh = { date: today, chars: 0, requests: 0 };
+    const fresh = { date: today, chars: 0 };
     usage.set(streamerId, fresh);
     return fresh;
   }
@@ -60,8 +60,6 @@ function _usage(streamerId) {
 }
 function getDailyChars(streamerId) { return _usage(streamerId).chars; }
 function addDailyChars(streamerId, n) { _usage(streamerId).chars += n; }
-function getDailyRequests(streamerId) { return _usage(streamerId).requests; }
-function addDailyRequests(streamerId) { _usage(streamerId).requests += 1; }
 
 function escapeXml(s) {
   return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
@@ -168,34 +166,81 @@ async function googleCloud(text, voice, apiKey) {
   return { contentType: 'audio/mpeg', audio: Buffer.from(data.audioContent, 'base64') };
 }
 
-// Vertex mode — Cloud Text-to-Speech API (texttospeech.googleapis.com), same endpoint as
-// googleCloud() above. User verified this path directly (10 real calls, no billing) — NOT
-// generativelanguage.googleapis.com. Voice naming reuses the th-TH-Chirp3-HD-<Name> convention
-// already live under google-cloud mode (same 8 character names: Kore/Aoede/Leda/Zephyr/Puck/
-// Charon/Fenrir/Orus) since Cloud TTS's Gemini-backed Chirp3 HD voices are exactly those names.
-// ponytail: exact request shape for this specific voice tier was never captured from the user's
-// working request — verify against a real successful call before relying on this in production;
-// if wrong, synthesizeTTS()'s catch-and-fallback keeps the live donate path safe either way.
-async function gemini(text, voice, apiKey) {
-  const voiceName = `th-TH-Chirp3-HD-${voice}`;
+// Vertex mode — real Vertex AI (aiplatform.googleapis.com), service-account/IAM auth (R5).
+// I5 curl-verified 2026-08-10 against the user's real vertex-express service account:
+// POST .../publishers/google/models/gemini-2.5-flash-preview-tts:generateContent, location=global,
+// generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName + responseModalities:['AUDIO']
+// → 200 with candidates[0].content.parts[0].inlineData = { mimeType: 'audio/L16;codec=pcm;rate=24000', data }.
+// Voice ids are bare names (Kore, Aoede, ...) — no th-TH- prefix (that was the old Cloud TTS path).
+function b64url(input) {
+  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const vertexTokenCache = new Map(); // client_email -> { token, expiresAt }
+async function getVertexAccessToken(sa) {
+  const cached = vertexTokenCache.get(sa.client_email);
+  if (cached && cached.expiresAt > Date.now() + 60000) return cached.token;
+
+  const now = Math.floor(Date.now() / 1000);
+  const tokenUri = sa.token_uri || 'https://oauth2.googleapis.com/token';
+  const unsigned = `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify({
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: tokenUri,
+    exp: now + 3600,
+    iat: now
+  }))}`;
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(unsigned);
+  signer.end();
+  const signature = signer.sign(sa.private_key).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const res = await fetch(tokenUri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
+  });
+  if (!res.ok) throw new Error('GEMINI_KEY_INVALID'); // bad/revoked/malformed service account
+  const data = await res.json();
+  vertexTokenCache.set(sa.client_email, { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 });
+  return data.access_token;
+}
+
+async function vertexGemini(text, voice, serviceAccount) {
+  if (!serviceAccount?.client_email || !serviceAccount?.private_key || !serviceAccount?.project_id) {
+    throw new Error('GEMINI_KEY_INVALID');
+  }
+  let accessToken;
+  try {
+    accessToken = await getVertexAccessToken(serviceAccount);
+  } catch {
+    throw new Error('GEMINI_KEY_INVALID');
+  }
+
+  const url = `https://aiplatform.googleapis.com/v1/projects/${encodeURIComponent(serviceAccount.project_id)}/locations/global/publishers/google/models/gemini-2.5-flash-preview-tts:generateContent`;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
       body: JSON.stringify({
-        input: { text },
-        voice: { languageCode: 'th-TH', name: voiceName },
-        audioConfig: { audioEncoding: 'MP3' }
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
+        }
       }),
       signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
     });
-    if (res.status === 400 || res.status === 403) throw new Error('GEMINI_KEY_INVALID');
+    if (res.status === 401 || res.status === 403) throw new Error('GEMINI_KEY_INVALID');
     if (res.status === 429) throw new Error('GEMINI_QUOTA_EXCEEDED');
     if (res.status === 500 && attempt < 2) { await new Promise(r => setTimeout(r, 500 * (attempt + 1))); continue; }
     if (!res.ok) throw new Error(`GEMINI_HTTP_${res.status}`);
     const data = await res.json();
-    if (!data?.audioContent) throw new Error('GEMINI_NO_AUDIO');
-    return { contentType: 'audio/mpeg', audio: Buffer.from(data.audioContent, 'base64') };
+    const inlineData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (!inlineData?.data) throw new Error('GEMINI_NO_AUDIO');
+    const rateMatch = /rate=(\d+)/.exec(inlineData.mimeType || '');
+    return { contentType: 'audio/wav', audio: pcmToWav(inlineData.data, rateMatch ? Number(rateMatch[1]) : 24000) };
   }
   throw new Error('GEMINI_HTTP_500');
 }
@@ -203,7 +248,7 @@ async function gemini(text, voice, apiKey) {
 async function synthesizeTTS({ mode, voice, text, lang, keys }) {
   switch (mode) {
     case 'google-cloud': return googleCloud(text, voice, keys.google);
-    case 'vertex': return gemini(text, voice, keys.gemini);
+    case 'vertex': return vertexGemini(text, voice, keys.geminiServiceAccount);
     case 'free':
     default:
       // free mode: voice ว่าง = Google Translate; voice = Microsoft → Edge TTS
@@ -213,7 +258,7 @@ async function synthesizeTTS({ mode, voice, text, lang, keys }) {
 }
 
 module.exports = {
-  MODES, FREE_TIERS, DAILY_CHAR_CAP, DAILY_REQUEST_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
-  synthesizeTTS, getDailyChars, addDailyChars, getDailyRequests, addDailyRequests,
+  MODES, FREE_TIERS, DAILY_CHAR_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
+  synthesizeTTS, getDailyChars, addDailyChars,
   escapeXml, pcmToWav
 };

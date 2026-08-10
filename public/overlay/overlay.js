@@ -809,8 +809,27 @@ let currentTtsAudio = null; // module-level — lets us cancel a still-playing T
 let currentTtsAbort = null; // cancels an in-flight fetch too — a slow paid-mode request must not play after a newer alert
 let ttsRequestSeq = 0;      // guards against a fetch that resolves after being superseded (abort() isn't instant)
 function speakMessage(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voiceName = 'default') {
-  const token = new URLSearchParams(window.location.search).get('token');
   const truncatedText = text.substring(0, 180);
+
+  // R13 — Microsoft voices (เปรมวดี/นิวัฒน์) moved client-side: server Edge TTS is an unofficial
+  // endpoint that now 403s. The browser's own Web Speech API can still say them for free with zero
+  // server round-trip if the OS/browser ships the voice; if not, fall through to the fetch below,
+  // which already lands on Google Translate free mode server-side (edgeTts() throws → catch-all fallback).
+  if (voiceName && voiceName.startsWith('th-TH-') && 'speechSynthesis' in window) {
+    const match = window.speechSynthesis.getVoices().find(v => v.name === voiceName || v.voiceURI === voiceName);
+    if (match) {
+      window.speechSynthesis.cancel(); // stop whatever a previous alert queued/was speaking
+      const utter = new SpeechSynthesisUtterance(truncatedText);
+      utter.voice = match;
+      utter.lang = lang;
+      utter.volume = Number(volume) || 0.8;
+      utter.rate = Number(rate) || 1.0;
+      window.speechSynthesis.speak(utter);
+      return;
+    }
+  }
+
+  const token = new URLSearchParams(window.location.search).get('token');
   const localTtsUrl = `/api/tts?token=${encodeURIComponent(token || '')}&lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`;
   // cancel any TTS still playing AND any still in-flight from a previous alert
   // (paid-mode latency means the old request can still be pending when a new alert starts)
