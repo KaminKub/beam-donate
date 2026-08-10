@@ -126,6 +126,7 @@ async function listAllR2Objects() {
 // Setup SQLite Database (Turso Cloud)
 const db = require('./database');
 const { encrypt, decrypt, censor } = require('./encryption');
+const tts = require('./tts');
 const multer = require('multer');
 const ALLOWED_SLIP_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const upload = multer({
@@ -204,6 +205,8 @@ const defaultSettings = {
   goal_pointer_enabled: 0,
   goal_pointer_side: 'right',
   goal_pointer_content: 'both',
+  tts_mode: 'free',
+  ttsVoice: '',
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,
@@ -1298,7 +1301,7 @@ function applyDemoMask(row) {
     // Overlay alert settings
     'duration', 'particleCount', 'fontSize',
     'soundEnabled', 'soundChoice', 'soundVolume', 'alert_sound_url', 'customSoundUrl',
-    'ttsEnabled', 'ttsVolume', 'ttsRate', 'ttsLanguage', 'ttsVoice',
+    'ttsEnabled', 'ttsVolume', 'ttsRate', 'ttsLanguage', 'ttsVoice', 'tts_mode',
     'ttsReadDonor', 'ttsPrefixEnabled',
     'showDonorMessage',
     'messageTemplate', 'template_line1', 'template_line2', 'amountSuffix', 'minAmount',
@@ -3032,6 +3035,11 @@ app.get('/api/overlay/settings', async (req, res) => {
     }
  
     const settings = await db.getSettings(username, defaultSettings);
+    if (req.isAuthenticated()) {
+      const streamer = await db.getStreamer(username);
+      settings.tts_google_key_set = !!streamer?.tts_google_api_key_encrypted;
+      settings.tts_gemini_key_set = !!streamer?.tts_gemini_api_key_encrypted;
+    }
     try {
       const recent = await db.getRecentDonations(username, 1);
       settings.goal_last_donor = (recent && recent[0] && recent[0].donor) || '';
@@ -3064,6 +3072,29 @@ function filterAllowedFields(body, allowedFields) {
   return safe;
 }
 
+// saveStreamer() returns the FULL row (merged with existing DB data) regardless of which
+// fields were actually written — every route that echoes that object back to the client
+// (response JSON or SSE broadcast) must strip secrets through this, not a route-local list.
+// R1 codex review (2026-08-10) found /api/page/settings leaking tts_*_key_encrypted this way;
+// audit showed the same object also carries plaintext/encrypted payment credentials for every
+// other provider, so the list covers all of them, not just TTS.
+const SECRET_STREAMER_FIELDS = [
+  'tfp_api_key', 'tfp_api_secret',
+  'promptpay_value_encrypted', 'slipok_api_encrypted', 'slipok_api_key_encrypted',
+  'truemoney_phone_encrypted', 'truemoney_slipok_api_encrypted', 'truemoney_slipok_api_key_encrypted',
+  'truemoney_webhook_secret_encrypted', 'truemoney_promptpay_id_encrypted',
+  'bank_account_number_encrypted',
+  'streamlabs_access_token', 'streamlabs_refresh_token',
+  'tts_google_api_key_encrypted', 'tts_gemini_api_key_encrypted', 'tts_google_api_key', 'tts_gemini_api_key',
+  // Audit R2 M3 — full row still broadcast to every client holding an overlay token; these were missing
+  'promptpay_phone', 'promptpay_name', 'bank_account_name', 'discord_webhook_url'
+];
+function sanitizeStreamerForClient(streamer) {
+  const sanitized = { ...streamer };
+  for (const f of SECRET_STREAMER_FIELDS) delete sanitized[f];
+  return sanitized;
+}
+
 const OVERLAY_ALLOWED_FIELDS = [
   'theme', 'animation', 'fontFamily', 'duration', 'particleCount', 'fontSize',
   'primaryColor', 'secondaryColor', 'textColor', 'backgroundColor', 'borderColor',
@@ -3079,7 +3110,9 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness', 'goal_bar_width_auto',
   'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
-  'tier_donate_settings', 'sound_library'
+  'tier_donate_settings', 'sound_library',
+  'tts_mode', 'ttsVoice',
+  'tts_google_api_key', 'tts_gemini_api_key'
 ];
 
 const PAGE_ALLOWED_FIELDS = [
@@ -3095,6 +3128,30 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
     const actualUsername = await getActualUsername(req.user);
 
     const safeBody = filterAllowedFields(req.body, OVERLAY_ALLOWED_FIELDS);
+
+    // TTS mode/voice validation
+    if (safeBody.tts_mode !== undefined) {
+      if (!['free', 'google-cloud', 'vertex'].includes(safeBody.tts_mode)) {
+        return res.status(400).json({ error: 'tts_mode ไม่ถูกต้อง' });
+      }
+    }
+    if (safeBody.ttsVoice !== undefined && safeBody.ttsVoice !== '') {
+      const mode = safeBody.tts_mode || 'free';
+      const voices = tts.MODES[mode]?.voices || [];
+      if (voices.length && !voices.some(v => v.id === safeBody.ttsVoice)) {
+        return res.status(400).json({ error: 'เสียงไม่ถูกต้องสำหรับโหมดนี้' });
+      }
+    }
+    // TTS key clear semantics — omitted field = unchanged; explicit *_clear flag = delete key.
+    // Empty string is NOT treated as clear (placeholder inputs send '' on every unrelated save).
+    for (const f of ['tts_google_api_key', 'tts_gemini_api_key']) {
+      if (req.body[f + '_clear'] === true) {
+        safeBody[f + '_encrypted'] = '';
+        delete safeBody[f];
+      } else if (safeBody[f] === '') {
+        delete safeBody[f]; // blank submit without explicit clear flag → leave existing key untouched
+      }
+    }
 
     // SEC-002: Reject non-audio or non-http(s) customSoundUrl to prevent stored XSS
     if (safeBody.customSoundUrl !== undefined) {
@@ -3309,8 +3366,10 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       broadcastTimerCap(actualUsername, getTimerConfig(updatedStreamer), 0);
     }
 
-    broadcastAlert(actualUsername, { type: 'settings_update', settings: updatedStreamer });
-    res.json({ success: true, settings: updatedStreamer });
+    const sanitizedStreamer = sanitizeStreamerForClient(updatedStreamer);
+
+    broadcastAlert(actualUsername, { type: 'settings_update', settings: sanitizedStreamer });
+    res.json({ success: true, settings: sanitizedStreamer });
   } catch (error) {
     console.error('Save settings error:', error);
     res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าได้' });
@@ -3997,7 +4056,7 @@ app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, 
       ...safeBody
     });
 
-    res.json({ success: true, settings: updatedStreamer });
+    res.json({ success: true, settings: sanitizeStreamerForClient(updatedStreamer) });
   } catch (error) {
     console.error('Save page settings error:', error);
     res.status(500).json({ error: 'ไม่สามารถบันทึกการตั้งค่าหน้าเว็บได้' });
@@ -4010,30 +4069,150 @@ const ttsLimiter = rateLimit({
   max: 30,
   message: 'Too many TTS requests'
 });
+// Per-streamer/IP limiter — separate from the flat per-IP ttsLimiter above (paid-mode abuse guard)
+const ttsPaidLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.query.token || _rateLimit.ipKeyGenerator(req.ip || req.socket?.remoteAddress || 'unknown')
+});
+const ttsVoicesLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
+const ttsTestLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 });
+
+// decrypt() throws on malformed/tampered ciphertext or a rotated MASTER_ENCRYPTION_KEY —
+// TTS routes must fall back to free voice instead of leaving the request unhandled (Audit R2 M1)
+function safeDecrypt(v) {
+  try { return decrypt(v); } catch { return null; }
+}
 
 // SEC-008: Allowlist of valid BCP-47 language codes for Google TTS
 const ALLOWED_TTS_LANGS = new Set([
   'th', 'en', 'ja', 'ko', 'zh-TW', 'zh', 'vi', 'id', 'ms', 'fr', 'de', 'es', 'ru', 'ar'
 ]);
 
-app.get('/api/tts', ttsLimiter, (req, res) => {
+const TTS_TEST_ERROR_MESSAGES = {
+  GOOGLE_KEY_INVALID: 'Google API key ไม่ถูกต้อง',
+  GOOGLE_QUOTA_EXCEEDED: 'Google โควต้าเต็ม',
+  GEMINI_KEY_INVALID: 'Gemini API key ไม่ถูกต้อง',
+  GEMINI_QUOTA_EXCEEDED: 'Gemini โควต้าเต็ม (free tier จำกัดมาก)',
+  EDGE_CONN_FAILED: 'เชื่อมต่อ Microsoft TTS ไม่ได้',
+  EDGE_TIMEOUT: 'Microsoft TTS ตอบช้าเกินไป'
+};
+
+app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
+  const text = String(req.query.text || '').slice(0, tts.MAX_TEXT_LEN);
+  const lang = req.query.lang || 'th';
+  const token = req.query.token;
+  if (!text) return res.status(400).send('Text is required');
+  if (lang && !ALLOWED_TTS_LANGS.has(lang)) return res.status(400).send('Invalid language');
+
+  let mode = 'free', voice = '', keys = {};
+  if (token) {
+    const streamer = await db.getStreamerByToken(token);
+    if (streamer && Number(streamer.is_active) !== 0) {
+      mode = streamer.username === DEMO_STREAMER_USERNAME ? 'free' : (streamer.tts_mode || 'free');
+      voice = streamer.ttsVoice || '';
+      keys = {
+        google: safeDecrypt(streamer.tts_google_api_key_encrypted),
+        gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
+      };
+      if (mode !== 'free') {
+        // request cap models Gemini's ~10-15 RPD free quota — google-cloud's free tier is 1-4M chars/month,
+        // so it relies on the char cap below only (Audit R2 M5)
+        if (mode === 'vertex' && tts.getDailyRequests(streamer.id) >= tts.DAILY_REQUEST_CAP) {
+          return res.status(429).send('TTS daily request limit reached');
+        }
+        if (tts.getDailyChars(streamer.id) + text.length > tts.DAILY_CHAR_CAP) {
+          return res.status(429).send('TTS quota exceeded for today');
+        }
+        // only vertex reads this counter (above) — counting google-cloud requests here would
+        // eat into vertex's unrelated 10/day budget (codex R2 review)
+        if (mode === 'vertex') tts.addDailyRequests(streamer.id);
+        tts.addDailyChars(streamer.id, text.length);
+      }
+    }
+    // invalid/unknown token → fall through to free (avoids a token-validity oracle)
+  }
+
   try {
-    const text = req.query.text;
-    const lang = req.query.lang || 'th';
-    if (!text) return res.status(400).send('Text is required');
-    if (!ALLOWED_TTS_LANGS.has(lang)) return res.status(400).send('Invalid language');
-    const encodedText = encodeURIComponent(text);
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(lang)}&client=tw-ob&q=${encodedText}`;
-    const options = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' } };
-    https.get(googleTtsUrl, options, (googleRes) => {
-      if (googleRes.statusCode !== 200) return res.status(googleRes.statusCode).send('Error from cloud');
-      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=31536000' });
-      googleRes.pipe(res);
-    }).on('error', (e) => {
-      res.status(500).send('Proxy connection failed');
+    const result = await tts.synthesizeTTS({ mode, voice, text, lang, keys });
+    res.writeHead(200, {
+      'Content-Type': result.contentType,
+      'Cache-Control': mode === 'free' ? 'public, max-age=31536000' : 'private, no-store',
+      'Referrer-Policy': 'no-referrer'
     });
-  } catch (error) {
-    res.status(500).send('Internal server error');
+    res.end(result.audio);
+  } catch (err) {
+    console.warn(`[tts] ${mode} failed (${err.message}), falling back to google-free`);
+    try {
+      const fb = await tts.synthesizeTTS({ mode: 'free', voice: '', text, lang });
+      res.writeHead(200, { 'Content-Type': fb.contentType, 'Cache-Control': 'public, max-age=31536000', 'Referrer-Policy': 'no-referrer' });
+      res.end(fb.audio);
+    } catch (fbErr) {
+      res.status(500).send('TTS unavailable');
+    }
+  }
+});
+
+app.get('/api/tts/voices', ttsVoicesLimiter, (req, res) => {
+  res.json({ modes: tts.MODES, freeTiers: tts.FREE_TIERS });
+});
+
+// Authenticated "connect"/"test voice" endpoint — never falls back, reports real errors.
+// key = transient (freshly typed, not yet saved) — lets "เชื่อมต่อ" validate before save.
+app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, async (req, res) => {
+  const { mode, voice, text, key } = req.body;
+  if (!['free', 'google-cloud', 'vertex'].includes(mode)) return res.status(400).json({ error: 'mode ไม่ถูกต้อง' });
+  if (mode !== 'free' && !voice) return res.status(400).json({ error: 'กรุณาเลือกเสียง' });
+  // voice must match the mode's catalog — otherwise it reaches synthesizeTTS()/SSML unescaped as an attacker-controlled attribute (Audit R2 M2)
+  if (!tts.MODES[mode].voices.some(v => v.id === (voice || ''))) return res.status(400).json({ error: 'เสียงไม่ถูกต้องสำหรับโหมดนี้' });
+  if (text && String(text).length > tts.MAX_TEXT_LEN) return res.status(400).json({ error: 'ข้อความยาวเกินไป' });
+
+  // wrapped — an unhandled rejection here (e.g. transient Turso error) would otherwise hang the
+  // request with no response, same failure class as M1 (codex R2 review)
+  let streamer;
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    streamer = await db.getStreamer(actualUsername);
+  } catch (err) {
+    return res.status(500).json({ error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' });
+  }
+  if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+  const storedKeys = {
+    google: safeDecrypt(streamer.tts_google_api_key_encrypted),
+    gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
+  };
+  const keys = {
+    google: mode === 'google-cloud' ? (key || storedKeys.google) : storedKeys.google,
+    gemini: mode === 'vertex' ? (key || storedKeys.gemini) : storedKeys.gemini
+  };
+  if (mode !== 'free' && !keys[mode === 'google-cloud' ? 'google' : 'gemini']) {
+    return res.status(400).json({ error: 'กรุณากรอก API key หรือบันทึก key ก่อน' });
+  }
+
+  // Same daily budget as the live /api/tts path — otherwise "ทดสอบเสียง"/"เชื่อมต่อ" can burn
+  // unlimited paid-provider requests through the 10/min limiter alone (R1 codex review 2026-08-10).
+  const testText = text || 'สวัสดีครับ นี่คือเสียงทดสอบ';
+  if (mode !== 'free') {
+    if (mode === 'vertex' && tts.getDailyRequests(streamer.id) >= tts.DAILY_REQUEST_CAP) {
+      return res.status(429).json({ error: 'ใช้โควต้าทดสอบเสียงของวันนี้หมดแล้ว' });
+    }
+    if (tts.getDailyChars(streamer.id) + testText.length > tts.DAILY_CHAR_CAP) {
+      return res.status(429).json({ error: 'ใช้โควต้าตัวอักษรของวันนี้หมดแล้ว' });
+    }
+    if (mode === 'vertex') tts.addDailyRequests(streamer.id);
+    tts.addDailyChars(streamer.id, testText.length);
+  }
+
+  try {
+    const result = await tts.synthesizeTTS({ mode, voice, text: testText, lang: 'th', keys });
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Referrer-Policy', 'no-referrer');
+    res.set('Content-Type', result.contentType);
+    res.end(result.audio);
+  } catch (err) {
+    const msg = TTS_TEST_ERROR_MESSAGES[err.message] || 'ไม่สามารถทดสอบเสียงได้ กรุณาตรวจสอบ key และการตั้งค่า';
+    res.status(400).json({ error: msg });
   }
 });
 
@@ -5710,7 +5889,8 @@ app.use((err, req, res, next) => {
   if (err.status === 500 && err.message === 'stream is not readable') {
     return res.status(400).end();
   }
-  console.error(`Server Error [${req.method} ${req.originalUrl}]:`, err.message);
+  // Query string stripped — /api/tts?token=&text= etc would otherwise leak into logs
+  console.error(`Server Error [${req.method} ${(req.originalUrl || '').split('?')[0]}]:`, err.message);
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);
   }

@@ -805,31 +805,36 @@ async function playNotificationSound(soundChoice, volume) {
 }
 
 // ========== Web Speech API (TTS) Speak Engine ==========
+let currentTtsAudio = null; // module-level — lets us cancel a still-playing TTS clip when a new alert arrives
+let currentTtsAbort = null; // cancels an in-flight fetch too — a slow paid-mode request must not play after a newer alert
+let ttsRequestSeq = 0;      // guards against a fetch that resolves after being superseded (abort() isn't instant)
 function speakMessage(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voiceName = 'default') {
-  try {
-    // Force Google Cloud TTS via Local Server Proxy
-    const shortLang = lang.split('-')[0] || 'th';
-    const truncatedText = text.substring(0, 180);
-    const encodedText = encodeURIComponent(truncatedText);
-    const localTtsUrl = `/api/tts?lang=${shortLang}&text=${encodedText}`;
-    
-    console.log(`📣 Forcing Google Cloud TTS via proxy (${shortLang}):`, truncatedText);
-    
-    const audio = new Audio(localTtsUrl);
-    audio.volume = Number(volume) || 0.8;
-    audio.defaultPlaybackRate = Number(rate) || 1.0;
-    audio.playbackRate = Number(rate) || 1.0;
-    
-    audio.play()
-      .then(() => {
-        console.log('🗣️ Google Cloud TTS playing successfully:', truncatedText);
-      })
-      .catch(err => {
-        console.warn('⚠️ TTS Proxy autoplay blocked or failed:', err.message);
-      });
-  } catch (err) {
-    console.error('⚠️ TTS Engine critical error:', err);
-  }
+  const token = new URLSearchParams(window.location.search).get('token');
+  const truncatedText = text.substring(0, 180);
+  const localTtsUrl = `/api/tts?token=${encodeURIComponent(token || '')}&lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`;
+  // cancel any TTS still playing AND any still in-flight from a previous alert
+  // (paid-mode latency means the old request can still be pending when a new alert starts)
+  if (currentTtsAudio) { currentTtsAudio.pause(); if (currentTtsAudio._objUrl) URL.revokeObjectURL(currentTtsAudio._objUrl); currentTtsAudio.src = ''; currentTtsAudio = null; }
+  if (currentTtsAbort) { currentTtsAbort.abort(); currentTtsAbort = null; }
+  const mySeq = ++ttsRequestSeq;
+  const abortCtrl = new AbortController();
+  currentTtsAbort = abortCtrl;
+  // fetch as blob (not <audio src=...> directly) so we control lifecycle/cancellation
+  fetch(localTtsUrl, { signal: abortCtrl.signal })
+    .then(r => { if (!r.ok) throw new Error('TTS ' + r.status); return r.blob(); })
+    .then(blob => {
+      if (mySeq !== ttsRequestSeq) return; // superseded by a newer alert while this was in flight
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio._objUrl = url; // so a cancel from the next speakMessage() call can revoke it (Codex R2 L2)
+      audio.volume = Number(volume) || 0.8;
+      audio.playbackRate = Number(rate) || 1.0;
+      currentTtsAudio = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); if (currentTtsAudio === audio) currentTtsAudio = null; };
+      audio.onerror = () => { URL.revokeObjectURL(url); if (currentTtsAudio === audio) currentTtsAudio = null; };
+      audio.play().catch(() => { URL.revokeObjectURL(url); });
+    })
+    .catch(err => { if (err.name !== 'AbortError') console.warn('⚠️ TTS failed:', err.message); }); // never log the URL/token/text itself, message only
 }
 
 

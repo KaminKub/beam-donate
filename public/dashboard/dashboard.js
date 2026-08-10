@@ -5320,6 +5320,8 @@ async function loadOverlaySettings() {
        toggleTtsSubSettings(s.ttsEnabled);
        toggleAudioSettingsRow(s.soundEnabled);
        toggleProfanitySubSettings(s.profanityFilterEnabled);
+
+       loadTtsModeSettings(s);
     }
   } catch (err) {
     console.error('Failed to load overlay settings:', err);
@@ -5327,6 +5329,210 @@ async function loadOverlaySettings() {
   } finally {
     hideTabLoading('overlay-config');
   }
+}
+
+// ========== TTS Mode (Multi-Provider) ==========
+let ttsModes = null;
+let ttsFreeTiers = null;
+
+async function ensureTtsCatalog() {
+  if (ttsModes) return ttsModes;
+  try {
+    const res = await fetch('/api/tts/voices');
+    if (!res.ok) return null;
+    const data = await res.json();
+    ttsModes = data.modes;
+    ttsFreeTiers = data.freeTiers;
+  } catch (e) {
+    console.error('Failed to load TTS voices:', e);
+  }
+  return ttsModes;
+}
+
+function getTtsMode() {
+  return document.querySelector('#ttsModeButtons .tts-mode-btn.active')?.dataset.mode || 'free';
+}
+
+// options เปลี่ยนทั้งชุดตอนสลับโหมด → ต้อง rebuild CustomSelect wrapper ไม่งั้น dropdown ยังโชว์เสียงของโหมดเก่า
+function renderTtsVoices(mode, selected) {
+  const sel = document.getElementById('selectTtsVoice');
+  if (!sel) return;
+  const voices = ttsModes?.[mode]?.voices || [];
+  sel.replaceChildren();
+  voices.forEach(v => sel.add(new Option(v.label, v.id)));
+  sel.value = voices.some(v => v.id === selected) ? selected : (voices[0]?.id || '');
+
+  CustomDropdown.removeBySelect(sel);
+  const oldWrapper = sel.previousElementSibling;
+  if (oldWrapper && oldWrapper.classList.contains('cs-wrapper')) oldWrapper.remove();
+  delete sel.dataset.customSelect;
+  CustomDropdown.wrapEl(sel);
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// animate=false ตอนโหลดหน้า (กันกระพริบ), true ตอน user กดสลับโหมดเอง
+function ttsSetBlockVisible(id, show, animate) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!animate) {
+    el.style.display = show ? 'block' : 'none';
+    return;
+  }
+  if (show) openSettingsPanel(id);
+  else closeSettingsPanel(id);
+}
+
+function applyTtsMode(mode, animate) {
+  document.querySelectorAll('#ttsModeButtons .tts-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  // free-mode Microsoft voices (เปรมวดี/นิวัฒน์) are 403'd upstream right now — hide the picker instead of
+  // removing the catalog entries, so it comes back automatically once a fix lands (see src/tts.js MODES.free)
+  ttsSetBlockVisible('ttsVoiceGroup', mode !== 'free', animate);
+  ttsSetBlockVisible('ttsGoogleKeyGroup', mode === 'google-cloud', animate);
+  ttsSetBlockVisible('ttsGeminiKeyGroup', mode === 'vertex', animate);
+  ttsSetBlockVisible('ttsCostWarning', mode !== 'free', animate);
+  ttsSetBlockVisible('ttsConfirmPanel', mode !== 'free', animate);
+  const quota = document.getElementById('ttsQuotaInfo');
+  if (quota) quota.textContent = ttsFreeTiers?.[mode] || '';
+}
+
+async function loadTtsModeSettings(s) {
+  if (!await ensureTtsCatalog()) return;
+  const mode = ttsModes[s.tts_mode] ? s.tts_mode : 'free';
+  applyTtsMode(mode, false);
+  renderTtsVoices(mode, s.ttsVoice || '');
+
+  // key ที่บันทึกไว้แล้ว: โชว์แค่ placeholder ห้าม prefill ค่าจริง (server ไม่ส่ง key กลับมาอยู่แล้ว)
+  const keySaved = [
+    ['inputTtsGoogleKey', 'btnClearGoogleKey', s.tts_google_key_set],
+    ['inputTtsGeminiKey', 'btnClearGeminiKey', s.tts_gemini_key_set]
+  ];
+  keySaved.forEach(([inputId, btnId, isSet]) => {
+    const el = document.getElementById(inputId);
+    if (el && isSet) el.placeholder = '•••••••• (บันทึกแล้ว)';
+    const clearBtn = document.getElementById(btnId);
+    if (clearBtn) clearBtn.style.display = isSet ? '' : 'none';
+  });
+
+  // โหมดที่บันทึกไว้แล้ว = ผู้ใช้เคยยืนยันเงื่อนไขไปแล้ว ไม่งั้นจะบันทึกอย่างอื่นไม่ได้เลย
+  const confirmChk = document.getElementById('ttsConfirmCheckbox');
+  if (confirmChk) confirmChk.checked = mode !== 'free';
+
+  bindTtsModeUi();
+}
+
+function bindTtsModeUi() {
+  const container = document.getElementById('ttsModeButtons');
+  if (!container || container._ttsBound) return;
+  container._ttsBound = true;
+
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tts-mode-btn');
+    if (!btn || btn.classList.contains('active')) return;
+    const mode = btn.dataset.mode;
+    applyTtsMode(mode, true);
+    renderTtsVoices(mode, '');
+    const confirmChk = document.getElementById('ttsConfirmCheckbox');
+    if (confirmChk) confirmChk.checked = false;
+  });
+
+  document.getElementById('btnConnectGoogle')?.addEventListener('click', () => ttsConnect('google-cloud'));
+  document.getElementById('btnConnectGemini')?.addEventListener('click', () => ttsConnect('vertex'));
+  document.getElementById('btnTestTts')?.addEventListener('click', ttsTestVoice);
+  document.getElementById('btnClearGoogleKey')?.addEventListener('click', () => ttsClearKey('google-cloud'));
+  document.getElementById('btnClearGeminiKey')?.addEventListener('click', () => ttsClearKey('vertex'));
+}
+
+async function ttsClearKey(mode) {
+  const isGoogle = mode === 'google-cloud';
+  const field = isGoogle ? 'tts_google_api_key' : 'tts_gemini_api_key';
+  const inputEl = document.getElementById(isGoogle ? 'inputTtsGoogleKey' : 'inputTtsGeminiKey');
+  const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
+  const btn = document.getElementById(isGoogle ? 'btnClearGoogleKey' : 'btnClearGeminiKey');
+
+  await withTtsButtonBusy(btn, 'กำลังลบ...', async () => {
+    const res = await fetchWithCsrf('/api/overlay/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [`${field}_clear`]: true })
+    });
+    if (!res.ok || res._demoBlocked) {
+      showNotification('ลบ key ไม่สำเร็จ', 'error');
+      return;
+    }
+    if (inputEl) { inputEl.value = ''; inputEl.placeholder = 'AIza...'; }
+    if (statusEl) statusEl.textContent = '';
+    if (btn) btn.style.display = 'none';
+    showNotification('ลบ key แล้ว');
+  });
+}
+
+function ttsKeyValue(mode) {
+  const id = mode === 'google-cloud' ? 'inputTtsGoogleKey' : mode === 'vertex' ? 'inputTtsGeminiKey' : null;
+  return id ? (document.getElementById(id)?.value.trim() || '') : '';
+}
+
+// คืน audio blob เมื่อสำเร็จ, null เมื่อ error (แจ้ง error เองแล้ว)
+async function ttsRequest(body) {
+  const res = await fetchWithCsrf('/api/tts/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (res._demoBlocked) return null;
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    showNotification(data.error || 'ทดสอบเสียงไม่สำเร็จ', 'error');
+    return null;
+  }
+  return res.blob();
+}
+
+async function withTtsButtonBusy(btn, label, fn) {
+  if (!btn) return fn();
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${label}`;
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+async function ttsConnect(mode) {
+  const isGoogle = mode === 'google-cloud';
+  const btn = document.getElementById(isGoogle ? 'btnConnectGoogle' : 'btnConnectGemini');
+  const statusEl = document.getElementById(isGoogle ? 'ttsGoogleKeyStatus' : 'ttsGeminiKeyStatus');
+  const voice = document.getElementById('selectTtsVoice')?.value || ttsModes?.[mode]?.voices[0]?.id || '';
+
+  await withTtsButtonBusy(btn, 'กำลังเชื่อมต่อ...', async () => {
+    const blob = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
+    if (!blob) {
+      if (statusEl) statusEl.textContent = 'เชื่อมต่อไม่สำเร็จ';
+      return;
+    }
+    showNotification('เชื่อมต่อสำเร็จ');
+    if (statusEl) statusEl.textContent = 'เชื่อมต่อสำเร็จ — อย่าลืมกดบันทึกเพื่อเก็บ key';
+  });
+}
+
+async function ttsTestVoice() {
+  const mode = getTtsMode();
+  const btn = document.getElementById('btnTestTts');
+  const voice = document.getElementById('selectTtsVoice')?.value || '';
+
+  await withTtsButtonBusy(btn, 'กำลังทดสอบ...', async () => {
+    const blob = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.onerror = () => URL.revokeObjectURL(url);
+    audio.play().catch(() => { URL.revokeObjectURL(url); showNotification('เบราว์เซอร์บล็อกการเล่นเสียง กรุณาคลิกที่หน้าเว็บก่อน', 'error'); });
+  });
 }
 
 async function loadGoalSettings() {
@@ -7254,6 +7460,12 @@ async function saveOverlaySettings() {
     return;
   }
 
+  const ttsMode = getTtsMode();
+  if (ttsModes && ttsMode !== 'free' && !document.getElementById('ttsConfirmCheckbox')?.checked) {
+    showNotification('กรุณายืนยันเงื่อนไขก่อนบันทึก', 'error');
+    return;
+  }
+
   const theme = document.getElementById('themeSelect').value;
   const txtDonor = document.getElementById('txtDonor').value || '#fde047';
   const txtAmount = document.getElementById('txtAmount').value || '#4ade80';
@@ -7330,7 +7542,18 @@ async function saveOverlaySettings() {
 
     tier_donate_settings: JSON.stringify(tierResult.settings)
   };
- 
+
+  // TTS mode: ส่งเมื่อ catalog โหลดสำเร็จเท่านั้น (ไม่งั้น UI ยังเป็นค่า default → เขียนทับของที่บันทึกไว้)
+  if (ttsModes) {
+    payload.tts_mode = ttsMode;
+    payload.ttsVoice = document.getElementById('selectTtsVoice')?.value || '';
+    // key: ส่งเฉพาะตอนผู้ใช้พิมพ์ค่าใหม่ — ค่าว่าง = ไม่แตะ key เดิม
+    const googleKey = ttsKeyValue('google-cloud');
+    if (googleKey) payload.tts_google_api_key = googleKey;
+    const geminiKey = ttsKeyValue('vertex');
+    if (geminiKey) payload.tts_gemini_api_key = geminiKey;
+  }
+
   try {
     const res = await fetchWithCsrf('/api/overlay/settings', {
       method: 'POST',

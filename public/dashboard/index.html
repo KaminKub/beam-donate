@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260726_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260810_1">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1416,6 +1416,68 @@
                           <label for="sliderTtsRate"><i class="fa-solid fa-gauge-high" style="color:#f59e0b;"></i> ความเร็วในการพูด (<span id="lblTtsRate">1.0</span>x)</label>
                           <input type="range" id="sliderTtsRate" name="ttsRate" class="form-range" min="0.5" max="2" step="0.1" value="1.3">
                         </div>
+                      </div>
+
+                      <h5 class="section-divider">โหมดเสียงอ่านข้อความ (TTS Mode)</h5>
+                      <div class="tts-mode-buttons" id="ttsModeButtons">
+                        <button type="button" class="tts-mode-btn active" data-mode="free">
+                          <i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> เสียงฟรี
+                          <small>Google Translate + เสียงระบบ Microsoft (เปรมวดี/นิวัฒน์)</small>
+                        </button>
+                        <button type="button" class="tts-mode-btn" data-mode="google-cloud">
+                          <i class="fa-solid fa-cloud" style="color:#3b82f6;"></i> Google Cloud
+                          <small>เสียง AI TTS ดั้งเดิม (Standard/Neural2/Chirp3)</small>
+                        </button>
+                        <button type="button" class="tts-mode-btn" data-mode="vertex">
+                          <i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6;"></i> Vertex
+                          <small>เสียงมีอารมณ์ของ Gemini ทั้ง 8 เสียง</small>
+                        </button>
+                      </div>
+                      <div class="form-group" id="ttsVoiceGroup" style="display:none;">
+                        <label for="selectTtsVoice"><i class="fa-solid fa-microphone" style="color:#3b82f6;"></i> เลือกเสียง</label>
+                        <select id="selectTtsVoice" name="ttsVoice" class="form-select"></select>
+                      </div>
+                      <div class="form-group" id="ttsGoogleKeyGroup" style="display:none;">
+                        <label for="inputTtsGoogleKey"><i class="fa-solid fa-key" style="color:#22c55e;"></i> Google Cloud API Key</label>
+                        <div style="display:flex;gap:8px;">
+                          <input type="password" id="inputTtsGoogleKey" name="tts_google_api_key" class="form-control" placeholder="AIza..." style="flex:1;">
+                          <button type="button" id="btnConnectGoogle" class="btn btn-secondary" style="flex-shrink:0;">
+                            <i class="fa-solid fa-plug"></i> เชื่อมต่อ
+                          </button>
+                          <button type="button" id="btnClearGoogleKey" class="btn btn-secondary" style="flex-shrink:0;display:none;">
+                            <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
+                          </button>
+                        </div>
+                        <small class="text-muted" id="ttsGoogleKeyStatus"></small>
+                      </div>
+                      <div class="form-group" id="ttsGeminiKeyGroup" style="display:none;">
+                        <label for="inputTtsGeminiKey"><i class="fa-solid fa-key" style="color:#8b5cf6;"></i> Gemini API Key</label>
+                        <div style="display:flex;gap:8px;">
+                          <input type="password" id="inputTtsGeminiKey" name="tts_gemini_api_key" class="form-control" placeholder="AIza..." style="flex:1;">
+                          <button type="button" id="btnConnectGemini" class="btn btn-secondary" style="flex-shrink:0;">
+                            <i class="fa-solid fa-plug"></i> เชื่อมต่อ
+                          </button>
+                          <button type="button" id="btnClearGeminiKey" class="btn btn-secondary" style="flex-shrink:0;display:none;">
+                            <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
+                          </button>
+                        </div>
+                        <small class="text-muted" id="ttsGeminiKeyStatus"></small>
+                      </div>
+                      <div class="form-group" id="ttsQuotaInfo" style="background:rgba(102,126,234,0.08);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text-muted);"></div>
+                      <div class="form-group">
+                        <button type="button" id="btnTestTts" class="btn btn-secondary" style="width:100%;">
+                          <i class="fa-solid fa-volume-high"></i> ทดสอบเสียง
+                        </button>
+                      </div>
+                      <div class="form-group" id="ttsCostWarning" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;font-size:12px;color:#f59e0b;">
+                        ⚠️ หากเกินโควต้าฟรี ผู้ให้บริการจะคิดค่าใช้จ่ายจากบัญชี API ของคุณโดยตรง — TipKub ไม่มีส่วนเกี่ยวข้อง
+                      </div>
+                      <div class="form-group" id="ttsConfirmPanel" style="display:none;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;padding:10px 12px;font-size:13px;">
+                        <strong>ยืนยันการเปิดใช้ TTS จากผู้ให้บริการภายนอก</strong>
+                        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;">
+                          <input type="checkbox" id="ttsConfirmCheckbox">
+                          <span>ฉันเข้าใจและยอมรับค่าใช้จ่ายและเงื่อนไขการประมวลผลข้อมูลข้างต้น</span>
+                        </label>
                       </div>
                     </div>
                     </div><!-- /card-body-panel panelSoundTts -->
@@ -3703,7 +3765,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260726_2"></script>
+  <script src="/dashboard/dashboard.js?v=20260810_5"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

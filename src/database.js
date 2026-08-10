@@ -253,7 +253,10 @@ async function migrateDB() {
         recentdonate_settings TEXT DEFAULT NULL,
         goal_text_settings TEXT DEFAULT NULL,
         tier_donate_settings TEXT DEFAULT NULL,
-        sound_library TEXT DEFAULT NULL
+        sound_library TEXT DEFAULT NULL,
+        tts_mode TEXT DEFAULT 'free',
+        tts_google_api_key_encrypted TEXT,
+        tts_gemini_api_key_encrypted TEXT
       )
     `);
 
@@ -499,7 +502,10 @@ async function migrateDB() {
       { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'goal_text_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'tier_donate_settings', type: 'TEXT DEFAULT NULL' },
-      { name: 'sound_library', type: 'TEXT DEFAULT NULL' }
+      { name: 'sound_library', type: 'TEXT DEFAULT NULL' },
+      { name: 'tts_mode', type: "TEXT DEFAULT 'free'" },
+      { name: 'tts_google_api_key_encrypted', type: 'TEXT' },
+      { name: 'tts_gemini_api_key_encrypted', type: 'TEXT' }
     ];
 
     for (const col of requiredCols) {
@@ -1016,7 +1022,8 @@ const PAYMENT_ENCRYPT_FIELDS = [
   'promptpay_value', 'slipok_api', 'slipok_api_key',
   'truemoney_phone', 'truemoney_slipok_api', 'truemoney_slipok_api_key',
   'truemoney_webhook_secret', 'truemoney_promptpay_id',
-  'bank_account_number'
+  'bank_account_number',
+  'tts_google_api_key', 'tts_gemini_api_key'
 ];
 
 function isEncrypted(text) {
@@ -1073,6 +1080,7 @@ async function saveStreamer(data) {
      } else if (data[field]?.length && !isEncrypted(data[field])) {
        try { data[`${field}_encrypted`] = encrypt(data[field]); }
        catch (e) { console.warn(`Failed to encrypt ${field}:`, e.message); }
+       delete data[field];   // strip plaintext — else it survives into finalData and leaks via response/broadcast
      }
    }
    // In-place encrypt — overwrite same column (no _encrypted suffix).
@@ -1236,7 +1244,10 @@ async function saveStreamer(data) {
                recentdonate_settings = COALESCE(?, streamers.recentdonate_settings),
                goal_text_settings = COALESCE(?, streamers.goal_text_settings),
                tier_donate_settings = COALESCE(?, streamers.tier_donate_settings),
-               sound_library = COALESCE(?, streamers.sound_library)
+               sound_library = COALESCE(?, streamers.sound_library),
+               tts_mode = COALESCE(?, streamers.tts_mode),
+               tts_google_api_key_encrypted = COALESCE(?, streamers.tts_google_api_key_encrypted),
+               tts_gemini_api_key_encrypted = COALESCE(?, streamers.tts_gemini_api_key_encrypted)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1372,6 +1383,9 @@ async function saveStreamer(data) {
           finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
           finalData.tier_donate_settings !== undefined ? finalData.tier_donate_settings : null,
           finalData.sound_library !== undefined ? finalData.sound_library : null,
+          finalData.tts_mode !== undefined ? finalData.tts_mode : null,
+          finalData.tts_google_api_key_encrypted !== undefined ? finalData.tts_google_api_key_encrypted : null,
+          finalData.tts_gemini_api_key_encrypted !== undefined ? finalData.tts_gemini_api_key_encrypted : null,
           existing.id
         ]
       });
@@ -1393,8 +1407,9 @@ async function saveStreamer(data) {
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
+              tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1530,7 +1545,10 @@ async function saveStreamer(data) {
         finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
         finalData.tier_donate_settings !== undefined ? finalData.tier_donate_settings : null,
         finalData.sound_library !== undefined ? finalData.sound_library : null,
-        finalData.goal_bar_width_auto !== undefined ? (finalData.goal_bar_width_auto ? 1 : 0) : 0
+        finalData.goal_bar_width_auto !== undefined ? (finalData.goal_bar_width_auto ? 1 : 0) : 0,
+        finalData.tts_mode || 'free',
+        finalData.tts_google_api_key_encrypted || null,
+        finalData.tts_gemini_api_key_encrypted || null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;

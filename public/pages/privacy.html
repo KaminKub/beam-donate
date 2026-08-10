@@ -176,7 +176,7 @@
   <div class="policy-container">
     <h1>นโยบายความเป็นส่วนตัว</h1>
     <div class="subtitle">Privacy Policy</div>
-    <p style="text-align:center;color:#64748b;font-size:0.9rem;margin-top:-1rem;margin-bottom:2rem;">อัปเดตล่าสุด: 14 กรกฎาคม 2569</p>
+    <p style="text-align:center;color:#64748b;font-size:0.9rem;margin-top:-1rem;margin-bottom:2rem;">อัปเดตล่าสุด: 10 สิงหาคม 2569</p>
 
     <div class="ai-summary-box">
       <div class="ai-summary-header">
@@ -205,7 +205,7 @@
         </div>
         <div class="summary-item">
           <span class="summary-icon">🤝</span>
-          <span>ส่งข้อมูลไปยัง: Twitch, Streamlabs, SlipOK, Cloudflare R2, Turso Cloud และ Google TTS (เฉพาะเมื่อเปิดใช้งาน) — ไม่ขายข้อมูล</span>
+          <span>ส่งข้อมูลไปยัง: Twitch, Streamlabs, SlipOK, Cloudflare R2, Turso Cloud และผู้ให้บริการ TTS (Google Translate, Microsoft Edge TTS, Google Cloud TTS, Gemini API — เฉพาะเมื่อเปิดใช้งาน) — ไม่ขายข้อมูล</span>
         </div>
         <div class="summary-item">
           <span class="summary-icon">📄</span>
@@ -228,6 +228,7 @@
       <li><strong>ช่องทางติดต่อ:</strong> <a href="mailto:contact@tipkub.me" style="color:var(--primary);text-decoration:none;">contact@tipkub.me</a></li>
       <li><strong>เว็บไซต์:</strong> tipkub.me</li>
     </ul>
+    <p>สำหรับ<strong>ข้อมูลโดเนท</strong> (ชื่อผู้บริจาค ข้อความ และรายการบริจาค) <strong>สตรีมเมอร์เป็นผู้ควบคุมข้อมูลส่วนบุคคล (Controller)</strong> และ <strong>TipKub เป็นผู้ประมวลผลข้อมูลส่วนบุคคล (Processor)</strong> ซึ่งประมวลผลข้อมูลดังกล่าวตามคำสั่งและการตั้งค่าของสตรีมเมอร์</p>
 
     <h2>1. ข้อมูลที่เราเก็บรวบรวม</h2>
     <p>เพื่อการใช้งานแพลตฟอร์ม TipKub เรามีการเก็บรวบรวมข้อมูลที่จำเป็นดังนี้:</p>
@@ -237,6 +238,7 @@
       <li><strong>ข้อมูลการตั้งค่า:</strong> ข้อมูลการปรับแต่งหน้าโดเนทที่คุณกำหนดเองใน Dashboard จะถูกบันทึกไว้ในฐานข้อมูลของเรา</li>
       <li><strong>ข้อมูลการรับเงิน:</strong> ข้อมูลที่จำเป็นสำหรับการรับเงิน เช่น เบอร์โทรศัพท์, หมายเลขบัตรประจำตัวประชาชน, รหัสรับเงินพร้อมเพย์, เลขบัญชีธนาคาร และชื่อเจ้าของบัญชีธนาคาร (ชื่อ-นามสกุลจริง) จะถูกเก็บไว้ในฐานข้อมูล <strong>โดยจะถูกเข้ารหัสด้วย AES-256-GCM ก่อนจัดเก็บเสมอ</strong> (ยกเว้นชื่อธนาคาร ซึ่งเป็นข้อมูลทั่วไปที่ไม่ระบุตัวบุคคล)</li>
       <li><strong>ข้อมูล API ของบุคคลที่สาม:</strong> ข้อมูล API ของ SlipOK ที่ผู้ใช้งานกรอกเองจะถูกเข้ารหัสก่อนจัดเก็บเช่นกัน (TipKub <strong>ไม่ใช่พันธมิตรอย่างเป็นทางการ</strong>ของ SlipOK)</li>
+      <li><strong>ข้อมูล API ของผู้ให้บริการ TTS:</strong> ข้อมูล API ของผู้ให้บริการ Text-to-Speech (Google Cloud / Gemini) ที่สตรีมเมอร์กรอกเอง จะถูก<strong>เข้ารหัสด้วย AES-256-GCM ก่อนจัดเก็บ</strong> และไม่มีการส่งกลับไปแสดงผลฝั่งผู้ใช้งาน (TipKub <strong>ไม่ใช่พันธมิตรอย่างเป็นทางการ</strong>ของผู้ให้บริการดังกล่าว)</li>
       <li><strong>ข้อมูลจาก TrueMoney Webhook (เฉพาะเมื่อเปิดใช้งาน):</strong> เมื่อสตรีมเมอร์เปิดใช้งานระบบ Webhook ของ TrueMoney TipKub จะได้รับการแจ้งเตือน (JWT Notification) จาก TrueMoney เมื่อมีการโอนเงินเข้า Wallet สิ่งที่ TipKub บันทึก ได้แก่ ยอดเงิน เลขอ้างอิงธุรกรรม และ<strong>เบอร์โทรศัพท์ผู้โอนในรูปแบบ mask</strong> (เช่น 0812345678 → 08xxxx5678) — ไม่เก็บเบอร์เต็ม TipKub <strong>ไม่แตะเงิน ไม่รับ ไม่โอน ไม่ถือ float</strong> — เงินโอนตรงจาก donor ไปยัง TrueMoney Wallet ของสตรีมเมอร์ผ่าน TrueMoney โดยตรง <strong>TrueMoney (Ascend Money) เป็น Controller ของข้อมูลผู้ส่งฝั่งต้นทาง</strong></li>
     </ul>
 
@@ -313,9 +315,19 @@
           <td>ฐานข้อมูลหลัก (SQLite Cloud)</td>
         </tr>
         <tr>
-          <td><strong>Google Translate (TTS)</strong></td>
+          <td><strong>Google Translate (TTS) และ Microsoft Edge TTS</strong> (เสียงระดับฟรี)</td>
           <td>ข้อความของผู้บริจาค (donor message) ที่เปิด Text-to-Speech</td>
           <td>แปลงข้อความเป็นเสียงสำหรับ OBS alert</td>
+        </tr>
+        <tr>
+          <td><strong>Google Cloud TTS</strong></td>
+          <td>ข้อความโดเนท (ชื่อผู้บริจาค + ข้อความ)</td>
+          <td>สังเคราะห์เสียง TTS (เฉพาะเมื่อสตรีมเมอร์เปิดใช้)</td>
+        </tr>
+        <tr>
+          <td><strong>Gemini API</strong></td>
+          <td>ข้อความโดเนท (ชื่อผู้บริจาค + ข้อความ)</td>
+          <td>สังเคราะห์เสียง TTS (เฉพาะเมื่อสตรีมเมอร์เปิดใช้)</td>
         </tr>
         <tr>
           <td><strong>TrueMoney (Ascend Money)</strong></td>
@@ -324,7 +336,10 @@
         </tr>
       </tbody>
     </table>
-    <p>⚠️ <strong>หมายเหตุ Google TTS:</strong> ข้อความ donor message ทุกชิ้นที่เปิดฟีเจอร์ TTS จะถูกส่งไปยัง <code>translate.google.com</code> เพื่อแปลงเป็นเสียง ซึ่งอาจรวมถึงชื่อผู้บริจาค กรุณาระมัดระวังข้อมูลส่วนบุคคลในข้อความ</p>
+    <p>⚠️ <strong>หมายเหตุผู้ให้บริการ TTS:</strong> ข้อความ donor message ทุกชิ้นที่เปิดฟีเจอร์ TTS จะถูกส่งไปยังผู้ให้บริการสังเคราะห์เสียงที่สตรีมเมอร์เลือกใช้ (Google Translate, Microsoft Edge TTS, Google Cloud TTS หรือ Gemini API) เพื่อแปลงเป็นเสียง ซึ่งอาจรวมถึงชื่อผู้บริจาค กรุณาระมัดระวังข้อมูลส่วนบุคคลในข้อความ</p>
+    <p><strong>ข้อความโดเนทเป็นข้อมูลส่วนบุคคล</strong> และอาจถูกส่งไปยังผู้ให้บริการ TTS ตามการตั้งค่าของสตรีมเมอร์</p>
+    <p>⚠️ <strong>ข้อมูลอ่อนไหว:</strong> ข้อความโดเนทอาจมีข้อมูลอ่อนไหว (เช่น ข้อมูลสุขภาพหรือศาสนา) ซึ่ง TipKub <strong>คัดกรองไม่ได้</strong></p>
+    <p><strong>การส่งข้อมูลไปต่างประเทศ (PDPA มาตรา 28):</strong> เมื่อสตรีมเมอร์เปิดใช้ฟีเจอร์ TTS ข้อความโดเนทอาจถูกส่งไปประมวลผลที่เซิร์ฟเวอร์ของ Google หรือ Microsoft ซึ่งตั้งอยู่<strong>นอกราชอาณาจักรไทย</strong> การส่งข้อมูลดังกล่าวอาศัยข้อสัญญาการประมวลผลข้อมูล (DPA) และข้อสัญญามาตรฐาน (SCC) ของผู้ให้บริการแต่ละรายตามเงื่อนไขทางการค้ามาตรฐานของผู้ให้บริการนั้นเอง โดย TipKub <strong>ไม่ได้เป็นผู้รับรองหรือตรวจสอบมาตรฐานดังกล่าวแยกต่างหาก</strong></p>
 
     <h2>3.2 การจัดเก็บรูปภาพใน Cloudflare R2</h2>
     <ul>
@@ -355,6 +370,11 @@
           <td>ข้อมูล Streamer (account)</td>
           <td>จนกว่าจะลบบัญชี</td>
           <td>ลบได้โดยติดต่อ <a href="mailto:contact@tipkub.me" style="color:var(--primary);text-decoration:none;">contact@tipkub.me</a></td>
+        </tr>
+        <tr>
+          <td>TTS API Key (Google Cloud / Gemini)</td>
+          <td>เก็บจนกว่าสตรีมเมอร์ลบ key หรือปิดบัญชี</td>
+          <td>เข้ารหัส AES-256-GCM ก่อนจัดเก็บ</td>
         </tr>
         <tr>
           <td>รูปภาพ (Cloudflare R2)</td>
@@ -423,6 +443,10 @@
         <tr>
           <td>Donor message (TTS)</td>
           <td>ประโยชน์โดยชอบธรรม (Legitimate Interest) — ฟีเจอร์ alert สตรีม</td>
+        </tr>
+        <tr>
+          <td>TTS API Key (Google Cloud / Gemini)</td>
+          <td>การปฏิบัติตามสัญญา (Contract) — จำเป็นสำหรับการเรียกใช้บริการ TTS ตามที่สตรีมเมอร์เลือกเปิดใช้งาน</td>
         </tr>
         <tr>
           <td>รูปภาพโปรไฟล์ (R2)</td>

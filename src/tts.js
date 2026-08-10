@@ -1,0 +1,219 @@
+// src/tts.js — TTS mode adapters (server-side only, keys never reach client)
+// Voice lists = versioned config — update when a provider changes its lineup.
+const https = require('https');
+
+const MODES = {
+  // Microsoft voices (เปรมวดี/นิวัฒน์ via speech.platform.bing.com) kept in the catalog on purpose —
+  // live-verified the endpoint currently returns 403 (bot-detection tightened beyond the static
+  // TrustedClientToken this adapter uses), so the voice picker is hidden in free mode for now
+  // (public/dashboard/dashboard.js applyTtsMode()) rather than removing the option outright.
+  // edgeTts() below is fully hardened (SSRF/SSML/timeout/size-cap/binaryType) — re-enable by unhiding
+  // the picker once a workaround (Sec-MS-GEC token, or the official Azure Speech SDK free tier) lands.
+  // See SECURITY_AUDIT_2026-08-10.md § codex R2 gate.
+  free: { label: 'เสียงฟรี', needsKey: false, voices: [
+    { id: '', label: 'Google Translate (เสียงระบบ)' },
+    { id: 'th-TH-PremwadeeNeural', label: 'เปรมวดี (Microsoft)' },
+    { id: 'th-TH-NiwatNeural', label: 'นิวัฒน์ (Microsoft)' }
+  ]},
+  'google-cloud': { label: 'Google Cloud', needsKey: true, voices: [
+    { id: 'th-TH-Standard-A', label: 'Standard A (ผู้หญิง)', freeTier: 'ฟรี 4M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Neural2-C', label: 'Neural2 C (ผู้หญิง)', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Kore', label: 'Chirp3 HD Kore', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Zephyr', label: 'Chirp3 HD Zephyr', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Puck', label: 'Chirp3 HD Puck', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Charon', label: 'Chirp3 HD Charon', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Fenrir', label: 'Chirp3 HD Fenrir', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Leda', label: 'Chirp3 HD Leda', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Orus', label: 'Chirp3 HD Orus', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Aoede', label: 'Chirp3 HD Aoede', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' }
+  ]},
+  vertex: { label: 'Vertex (Gemini)', needsKey: true, voices: [
+    { id: 'Kore', label: 'Kore (Firm)' }, { id: 'Aoede', label: 'Aoede (Breezy)' },
+    { id: 'Leda', label: 'Leda (Youthful)' }, { id: 'Zephyr', label: 'Zephyr (Bright)' },
+    { id: 'Puck', label: 'Puck (Upbeat)' }, { id: 'Charon', label: 'Charon (Informative)' },
+    { id: 'Fenrir', label: 'Fenrir (Excitable)' }, { id: 'Orus', label: 'Orus (Firm)' }
+  ]}
+};
+
+const FREE_TIERS = {
+  free: 'ฟรี ไม่จำกัด (Google Translate + Microsoft)',
+  'google-cloud': 'Standard 4M / Neural2 1M / Chirp3 1M ตัวอักษร/เดือน',
+  vertex: 'จำกัดมาก: 3 RPM / 15 RPD (flash-preview-tts) — ไม่เหมาะ alert จริง'
+};
+
+const DAILY_CHAR_CAP = 100000;   // per streamer per day, all paid modes
+const DAILY_REQUEST_CAP = 10;    // per streamer per day — vertex/Gemini only (free quota ~10-15 RPD); google-cloud free tier is 1-4M chars/month so it relies on DAILY_CHAR_CAP alone (Audit R2 M5)
+const MAX_TEXT_LEN = 500;        // server-side cap regardless of client-sent length
+const OUTBOUND_TIMEOUT_MS = 10000;
+
+// per-streamer usage (in-memory, resets on UTC-date rollover — single VPS process)
+const usage = new Map(); // streamerId -> { date: 'YYYY-MM-DD', chars: n, requests: n }
+function _usage(streamerId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const u = usage.get(streamerId);
+  if (!u || u.date !== today) {
+    const fresh = { date: today, chars: 0, requests: 0 };
+    usage.set(streamerId, fresh);
+    return fresh;
+  }
+  return u;
+}
+function getDailyChars(streamerId) { return _usage(streamerId).chars; }
+function addDailyChars(streamerId, n) { _usage(streamerId).chars += n; }
+function getDailyRequests(streamerId) { return _usage(streamerId).requests; }
+function addDailyRequests(streamerId) { _usage(streamerId).requests += 1; }
+
+function escapeXml(s) {
+  return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+}
+
+function pcmToWav(pcmBase64, sampleRate = 24000) {
+  const pcm = Buffer.from(pcmBase64, 'base64');
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0); header.writeUInt32LE(36 + pcm.length, 4); header.write('WAVE', 8);
+  header.write('fmt ', 12); header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22); header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28); header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
+  header.write('data', 36); header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+// Google Translate TTS proxy — same request shape as the legacy /api/tts handler
+// it replaces (server.js:4019-4038), just buffered instead of piped.
+function googleFree(text, lang) {
+  return new Promise((resolve, reject) => {
+    const encodedText = encodeURIComponent(text);
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(lang)}&client=tw-ob&q=${encodedText}`;
+    const options = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' } };
+    const req = https.get(url, options, (res) => {
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error(`GOOGLE_FREE_HTTP_${res.statusCode}`)); }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve({ contentType: 'audio/mpeg', audio: Buffer.concat(chunks) }));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(OUTBOUND_TIMEOUT_MS, () => req.destroy(new Error('GOOGLE_FREE_TIMEOUT')));
+  });
+}
+
+// Edge TTS (ฟรี Microsoft เปรมวดี/นิวัฒน์) — unofficial WebSocket service (speech.platform.bing.com).
+// Max buffered audio capped at 5MB to bound memory; every reject path closes the socket + clears the timer.
+const EDGE_MAX_BYTES = 5 * 1024 * 1024;
+async function edgeTts(text, voice) {
+  const { randomUUID } = require('crypto');
+  const connId = randomUUID().replace(/-/g, '');
+  const ws = new WebSocket(
+    `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&ConnectionId=${connId}`
+  );
+  // Node's global WebSocket defaults binaryType to 'blob' (WHATWG default) — the message handler below
+  // expects ArrayBuffer, so without this every binary frame is silently dropped and audio comes back empty
+  // (codex R2 review)
+  ws.binaryType = 'arraybuffer';
+  const chunks = [];
+  let totalBytes = 0;
+  const audio = await new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (err, result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { ws.close(); } catch {}
+      if (err) reject(err); else resolve(result);
+    };
+    const timer = setTimeout(() => finish(new Error('EDGE_TIMEOUT')), OUTBOUND_TIMEOUT_MS);
+    ws.onopen = () => {
+      const ts = new Date().toISOString();
+      ws.send(`Path: speech.config\r\nX-RequestId: ${connId}\r\nX-Timestamp: ${ts}\r\nContent-Type: application/json\r\n\r\n` +
+        `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`);
+      ws.send(`Path: ssml\r\nX-RequestId: ${connId}\r\nX-Timestamp: ${ts}\r\nContent-Type: application/ssml+xml\r\n\r\n` +
+        `<speak version='1.0' xml:lang='th-TH'><voice name='${escapeXml(voice)}'>${escapeXml(text)}</voice></speak>`);
+    };
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === 'string') {
+        if (ev.data.includes('turn.end')) finish(null, Buffer.concat(chunks));
+      } else if (ev.data instanceof ArrayBuffer) {
+        const buf = Buffer.from(ev.data);
+        const idx = buf.indexOf(Buffer.from('\r\n\r\n'));
+        if (idx !== -1) {
+          totalBytes += buf.length - (idx + 4);
+          if (totalBytes > EDGE_MAX_BYTES) return finish(new Error('EDGE_TOO_LARGE'));
+          chunks.push(buf.subarray(idx + 4));
+        }
+      }
+    };
+    ws.onerror = () => finish(new Error('EDGE_CONN_FAILED'));
+    ws.onclose = () => finish(new Error('EDGE_CONN_CLOSED'));
+  });
+  if (!audio.length) throw new Error('EDGE_NO_AUDIO');
+  return { contentType: 'audio/mpeg', audio };
+}
+
+async function googleCloud(text, voice, apiKey) {
+  const res = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey },
+    body: JSON.stringify({
+      input: { text },
+      voice: { languageCode: (voice || 'th-TH').split('-').slice(0, 2).join('-'), name: voice },
+      audioConfig: { audioEncoding: 'MP3' }
+    }),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
+  });
+  if (res.status === 403) throw new Error('GOOGLE_KEY_INVALID');
+  if (res.status === 429) throw new Error('GOOGLE_QUOTA_EXCEEDED');
+  if (!res.ok) throw new Error(`GOOGLE_HTTP_${res.status}`);
+  const data = await res.json();
+  if (!data?.audioContent) throw new Error('GOOGLE_NO_AUDIO');
+  return { contentType: 'audio/mpeg', audio: Buffer.from(data.audioContent, 'base64') };
+}
+
+// Vertex mode — Cloud Text-to-Speech API (texttospeech.googleapis.com), same endpoint as
+// googleCloud() above. User verified this path directly (10 real calls, no billing) — NOT
+// generativelanguage.googleapis.com. Voice naming reuses the th-TH-Chirp3-HD-<Name> convention
+// already live under google-cloud mode (same 8 character names: Kore/Aoede/Leda/Zephyr/Puck/
+// Charon/Fenrir/Orus) since Cloud TTS's Gemini-backed Chirp3 HD voices are exactly those names.
+// ponytail: exact request shape for this specific voice tier was never captured from the user's
+// working request — verify against a real successful call before relying on this in production;
+// if wrong, synthesizeTTS()'s catch-and-fallback keeps the live donate path safe either way.
+async function gemini(text, voice, apiKey) {
+  const voiceName = `th-TH-Chirp3-HD-${voice}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey },
+      body: JSON.stringify({
+        input: { text },
+        voice: { languageCode: 'th-TH', name: voiceName },
+        audioConfig: { audioEncoding: 'MP3' }
+      }),
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
+    });
+    if (res.status === 400 || res.status === 403) throw new Error('GEMINI_KEY_INVALID');
+    if (res.status === 429) throw new Error('GEMINI_QUOTA_EXCEEDED');
+    if (res.status === 500 && attempt < 2) { await new Promise(r => setTimeout(r, 500 * (attempt + 1))); continue; }
+    if (!res.ok) throw new Error(`GEMINI_HTTP_${res.status}`);
+    const data = await res.json();
+    if (!data?.audioContent) throw new Error('GEMINI_NO_AUDIO');
+    return { contentType: 'audio/mpeg', audio: Buffer.from(data.audioContent, 'base64') };
+  }
+  throw new Error('GEMINI_HTTP_500');
+}
+
+async function synthesizeTTS({ mode, voice, text, lang, keys }) {
+  switch (mode) {
+    case 'google-cloud': return googleCloud(text, voice, keys.google);
+    case 'vertex': return gemini(text, voice, keys.gemini);
+    case 'free':
+    default:
+      // free mode: voice ว่าง = Google Translate; voice = Microsoft → Edge TTS
+      if (voice && voice.startsWith('th-TH-')) return edgeTts(text, voice);
+      return googleFree(text, (lang || 'th').split('-')[0] || 'th');
+  }
+}
+
+module.exports = {
+  MODES, FREE_TIERS, DAILY_CHAR_CAP, DAILY_REQUEST_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
+  synthesizeTTS, getDailyChars, addDailyChars, getDailyRequests, addDailyRequests,
+  escapeXml, pcmToWav
+};
