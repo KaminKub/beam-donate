@@ -4271,7 +4271,16 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
       google: safeDecrypt(streamer.tts_google_api_key_encrypted),
       gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
     };
-    if (mode !== 'free') {
+    // codex adversarial-review round 5 2026-08-11: a missing key was previously discovered only
+    // after quota had already been reserved (synthesizeTTS() throws downstream, caught, falls back
+    // to free) — a misconfigured streamer (mode picked but key never saved/cleared/decrypt-fails)
+    // could burn the whole day's scarce Vertex DAILY_REQUEST_CAP on requests that never reach
+    // Google at all. Check key presence first so quota is only ever touched for a request that can
+    // actually attempt a real provider call.
+    const paidKeyMissing = mode === 'google-cloud' ? !keys.google : mode === 'vertex' ? !keys.gemini : false;
+    if (paidKeyMissing) {
+      mode = 'free'; voice = '';
+    } else if (mode !== 'free') {
       // explicit nullish check — Number(null) is 0, which would read as "guard off" for legacy rows
       const guardOn = streamer.tts_quota_guard_enabled == null ? true : Number(streamer.tts_quota_guard_enabled) !== 0;
       if (guardOn) {
@@ -4317,7 +4326,15 @@ app.get('/api/tts/voices', ttsVoicesLimiter, (req, res) => {
 // Authenticated "connect"/"test voice" endpoint — never falls back, reports real errors.
 // key = transient (freshly typed, not yet saved) — lets "เชื่อมต่อ" validate before save.
 app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, async (req, res) => {
-  const { mode, voice, text, key } = req.body;
+  const { mode, voice, key } = req.body;
+  // codex adversarial-review round 5 2026-08-11: `text` came straight from the JSON body typed as
+  // whatever the client sent (number/object/etc all pass the old `text && ...` truthy check) —
+  // `testText.length` on a non-string is `undefined`, which poisons the shared quota counter
+  // (tts.js tryConsumeFreeQuota: chars + undefined = NaN, and every later `> DAILY_CHAR_CAP` check
+  // against NaN is false forever) for the rest of the UTC day, on both this endpoint and the live
+  // donor-facing GET /api/tts that shares the same in-memory counter. Coerce here, same as the
+  // live path already does (`String(req.query.text || '')`), so the counter can never see non-numbers.
+  const text = typeof req.body.text === 'string' ? req.body.text : '';
   // R14: 'connect' (validating a not-yet-saved key) must never report success on a fallback voice —
   // that would save a broken key as working. 'test' (the manual "ทดสอบเสียง" button) may fall back.
   const purpose = ['connect', 'test'].includes(req.body.purpose) ? req.body.purpose : 'test';
@@ -4325,7 +4342,7 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
   if (mode !== 'free' && !voice) return res.status(400).json({ error: 'กรุณาเลือกเสียง' });
   // voice must match the mode's catalog — otherwise it reaches synthesizeTTS()/SSML unescaped as an attacker-controlled attribute (Audit R2 M2)
   if (!tts.MODES[mode].voices.some(v => v.id === (voice || ''))) return res.status(400).json({ error: 'เสียงไม่ถูกต้องสำหรับโหมดนี้' });
-  if (text && String(text).length > tts.MAX_TEXT_LEN) return res.status(400).json({ error: 'ข้อความยาวเกินไป' });
+  if (text.length > tts.MAX_TEXT_LEN) return res.status(400).json({ error: 'ข้อความยาวเกินไป' });
 
   // wrapped — an unhandled rejection here (e.g. transient Turso error) would otherwise hang the
   // request with no response, same failure class as M1 (codex R2 review)

@@ -705,13 +705,23 @@ function playYoutubeTierSound(videoId, startSec, endSec, volume) {
         events: {
           onReady: (e) => {
             clearTimeout(constructTimeout);
-            e.target.setVolume(Math.round((Number(volume) || 0.5) * 100));
-            e.target.seekTo(startSec, true);
-            e.target.playVideo();
-            iv = setInterval(() => {
-              if (e.target.getCurrentTime() >= endSec) { finish(e.target); }
-            }, 100);
-            setTimeout(() => { finish(e.target); }, (endSec - startSec) * 1000 + 1500);
+            // codex adversarial-review round 5 2026-08-11: clearing constructTimeout leaves no
+            // watchdog covering setVolume/seekTo/playVideo until the setInterval/setTimeout below
+            // are reached — a synchronous throw from any of them (bad/destroyed player state) would
+            // otherwise leave finish() never scheduled, deadlocking the queue exactly like the gaps
+            // rounds 1-4 closed elsewhere in this file.
+            try {
+              e.target.setVolume(Math.round((Number(volume) || 0.5) * 100));
+              e.target.seekTo(startSec, true);
+              e.target.playVideo();
+              iv = setInterval(() => {
+                if (e.target.getCurrentTime() >= endSec) { finish(e.target); }
+              }, 100);
+              setTimeout(() => { finish(e.target); }, (endSec - startSec) * 1000 + 1500);
+            } catch (err) {
+              console.warn('[YT overlay] onReady error', err);
+              finish(e.target);
+            }
           },
           onError: (e) => { console.warn('[YT overlay] error', e.data); finish(e.target); }
         }
