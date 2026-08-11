@@ -120,6 +120,13 @@ async function fetchWithCsrf(url, options = {}) {
           currentVersion: body.currentVersion
         }, body.error);
       }
+      if (body && body.code === 'PAYMENT_ELIGIBILITY_REQUIRED') {
+        handlePaymentEligibilityRequired({
+          accepted: false,
+          acceptedVersion: null,
+          currentVersion: body.currentVersion
+        }, body.error);
+      }
     } catch (e) {}
   }
   return res;
@@ -273,6 +280,7 @@ function setupLegalAcceptanceModal() {
 async function initializeLegalAcceptance() {
   if (DEMO_MODE) return;
   setupLegalAcceptanceModal();
+  setupPaymentEligibilityModal();
   const response = await fetch('/api/user/me', {
     cache: 'no-store',
     headers: { Accept: 'application/json' }
@@ -281,12 +289,157 @@ async function initializeLegalAcceptance() {
   if (!response.ok || !data.legalAcceptance) {
     throw new Error('ไม่สามารถตรวจสอบข้อกำหนดการใช้งานได้');
   }
+  if (data.paymentEligibility) paymentEligibilityState.status = data.paymentEligibility;
   if (!data.legalAcceptance.accepted) openLegalAcceptanceModal(data.legalAcceptance);
 }
 
 function handleLegalAcceptanceRequired(status, message) {
   if (DEMO_MODE) return;
   openLegalAcceptanceModal(status, message);
+}
+
+// ========== Payment Eligibility Attestation (L8) ==========
+let paymentEligibilityModalState = {
+  open: false,
+  busy: false,
+  status: null,
+  lastFocus: null,
+  previousBodyOverflow: ''
+};
+// Cached result of the last /api/user/me check — used to gate opening the payment tab
+// without an extra round-trip; the server-side requirePaymentEligibility middleware
+// remains the real authorization boundary regardless of this cache's state.
+let paymentEligibilityState = { status: null };
+
+function paymentEligibilityFocusableElements() {
+  const modal = document.getElementById('paymentEligibilityModal');
+  if (!modal) return [];
+  return Array.from(modal.querySelectorAll('a[href], button, input, [tabindex]'))
+    .filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && el.tabIndex !== -1);
+}
+
+function setPaymentEligibilityModalBusy(busy) {
+  const modal = document.getElementById('paymentEligibilityModal');
+  const checkbox = document.getElementById('paymentEligibilityCheckbox');
+  const button = document.getElementById('paymentEligibilityButton');
+  if (!modal || !checkbox || !button) return;
+  paymentEligibilityModalState.busy = busy;
+  checkbox.disabled = busy;
+  button.disabled = busy || !checkbox.checked;
+  modal.querySelectorAll('.legal-document-link').forEach(link => {
+    link.setAttribute('aria-disabled', busy ? 'true' : 'false');
+    link.tabIndex = busy ? -1 : 0;
+  });
+  button.innerHTML = busy
+    ? 'กำลังบันทึกการยืนยัน...'
+    : '<i class="fa-solid fa-circle-check"></i> ยืนยันและเปิดใช้ระบบรับเงิน';
+}
+
+function setPaymentEligibilityError(message, success = false) {
+  const error = document.getElementById('paymentEligibilityError');
+  if (!error) return;
+  error.textContent = message || '';
+  error.classList.toggle('is-success', success);
+}
+
+function openPaymentEligibilityModal(status, message = '') {
+  const modal = document.getElementById('paymentEligibilityModal');
+  const root = document.querySelector('.admin-wrapper');
+  if (!modal || !root || !status?.currentVersion) return;
+  if (!paymentEligibilityModalState.open) {
+    paymentEligibilityModalState.lastFocus = document.activeElement;
+    paymentEligibilityModalState.previousBodyOverflow = document.body.style.overflow;
+  }
+  paymentEligibilityModalState.open = true;
+  paymentEligibilityModalState.status = status;
+  root.inert = true;
+  root.setAttribute('inert', '');
+  root.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = 'hidden';
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden', 'false');
+  setPaymentEligibilityError(message || '', false);
+  setPaymentEligibilityModalBusy(false);
+  const checkbox = document.getElementById('paymentEligibilityCheckbox');
+  if (checkbox) checkbox.checked = false;
+  requestAnimationFrame(() => {
+    const firstLink = modal.querySelector('.legal-document-link');
+    (firstLink || document.getElementById('paymentEligibilityTitle'))?.focus();
+  });
+}
+
+function closePaymentEligibilityModal() {
+  const modal = document.getElementById('paymentEligibilityModal');
+  const root = document.querySelector('.admin-wrapper');
+  if (!modal || !root) return;
+  paymentEligibilityModalState.open = false;
+  root.inert = false;
+  root.removeAttribute('inert');
+  root.removeAttribute('aria-hidden');
+  document.body.style.overflow = paymentEligibilityModalState.previousBodyOverflow || '';
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden', 'true');
+  paymentEligibilityModalState.lastFocus?.focus?.();
+}
+
+function trapPaymentEligibilityFocus(event) {
+  if (!paymentEligibilityModalState.open || event.key !== 'Tab') return;
+  const focusable = paymentEligibilityFocusableElements();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function setupPaymentEligibilityModal() {
+  const modal = document.getElementById('paymentEligibilityModal');
+  const checkbox = document.getElementById('paymentEligibilityCheckbox');
+  const button = document.getElementById('paymentEligibilityButton');
+  const cancelButton = document.getElementById('paymentEligibilityCancelButton');
+  if (!modal || !checkbox || !button || !cancelButton || modal.dataset.bound === 'true') return;
+  modal.dataset.bound = 'true';
+  modal.addEventListener('keydown', trapPaymentEligibilityFocus);
+  checkbox.addEventListener('change', () => {
+    if (!paymentEligibilityModalState.busy) button.disabled = !checkbox.checked;
+  });
+  cancelButton.addEventListener('click', () => {
+    if (paymentEligibilityModalState.busy) return;
+    closePaymentEligibilityModal();
+  });
+  button.addEventListener('click', async () => {
+    if (paymentEligibilityModalState.busy || !checkbox.checked) return;
+    const version = paymentEligibilityModalState.status?.currentVersion;
+    if (!version) return;
+    setPaymentEligibilityModalBusy(true);
+    setPaymentEligibilityError('', false);
+    try {
+      const response = await fetchWithCsrf('/api/user/accept-payment-eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'ยังบันทึกการยืนยันไม่ได้');
+      paymentEligibilityState.status = data.paymentEligibility || { accepted: true, acceptedVersion: version, currentVersion: version };
+      setPaymentEligibilityError('ยืนยันคุณสมบัติเรียบร้อย', true);
+      setTimeout(closePaymentEligibilityModal, 450);
+    } catch (err) {
+      setPaymentEligibilityModalBusy(false);
+      setPaymentEligibilityError(err.message || 'ยังบันทึกการยืนยันไม่ได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง', false);
+      document.getElementById('paymentEligibilityError')?.focus();
+    }
+  });
+}
+
+function handlePaymentEligibilityRequired(status, message) {
+  if (DEMO_MODE) return;
+  openPaymentEligibilityModal(status, message);
 }
 
 // ========== Copy-to-clipboard + open-in-new-tab helpers (L22/L23) ==========
@@ -2912,6 +3065,9 @@ function switchTab(tabId) {
     }
   }
   if (tabId === 'payment-setup') {
+    if (!DEMO_MODE && paymentEligibilityState.status && !paymentEligibilityState.status.accepted) {
+      openPaymentEligibilityModal(paymentEligibilityState.status);
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const imgs = document.querySelectorAll('#tab-payment-setup .card-icon img');

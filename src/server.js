@@ -46,7 +46,8 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-const CURRENT_LEGAL_VERSION = '2026-08-10';
+const CURRENT_LEGAL_VERSION = '2026-08-11';  // L8: age/payment role separation
+const PAYMENT_ELIGIBILITY_VERSION = 'v1';
 
 // ========== Cloudflare R2 (S3-compatible) ==========
 const s3Client = new S3Client({
@@ -1128,6 +1129,35 @@ async function requireCurrentLegalAcceptance(req, res, next) {
     console.error('Legal acceptance gate database error:', err.message);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะข้อกำหนดการใช้งานได้' });
+  }
+}
+
+// Gate payment-connector routes: user must attest they are of legal age
+// and using their own payment credentials. Self-attestation only — not KYC.
+async function requirePaymentEligibility(req, res, next) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
+  }
+
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) {
+      return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+    }
+
+    if (streamer.payment_eligibility_version !== PAYMENT_ELIGIBILITY_VERSION) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(428).json({
+        error: 'จำเป็นต้องยืนยันคุณสมบัติผู้เชื่อมต่อระบบรับเงินก่อน',
+        code: 'PAYMENT_ELIGIBILITY_REQUIRED',
+        currentVersion: PAYMENT_ELIGIBILITY_VERSION
+      });
+    }
+
+    return next();
+  } catch (err) {
+    console.error('❌ Payment eligibility check failed:', err.message);
+    return res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะได้ในขณะนี้' });
   }
 }
 
@@ -3006,6 +3036,11 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
         accepted: streamer.legal_version === CURRENT_LEGAL_VERSION,
         acceptedVersion: streamer.legal_version || null,
         currentVersion: CURRENT_LEGAL_VERSION
+      },
+      paymentEligibility: {
+        accepted: streamer.payment_eligibility_version === PAYMENT_ELIGIBILITY_VERSION,
+        acceptedVersion: streamer.payment_eligibility_version || null,
+        currentVersion: PAYMENT_ELIGIBILITY_VERSION
       }
     });
   } catch (err) {
@@ -3045,6 +3080,40 @@ app.post('/api/user/accept-legal', ensureAuthenticated, csrfProtection, legalAcc
   } catch (err) {
     console.error('Legal acceptance persistence error:', err.message);
     return res.status(503).json({ error: 'ยังบันทึกการยอมรับไม่ได้ กรุณาลองใหม่อีกครั้ง' });
+  }
+});
+
+app.post('/api/user/accept-payment-eligibility', ensureAuthenticated, csrfProtection, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const version = req.body?.version;
+  if (typeof version !== 'string' || version !== PAYMENT_ELIGIBILITY_VERSION) {
+    return res.status(400).json({
+      error: 'เวอร์ชันไม่ถูกต้องหรือหมดอายุแล้ว',
+      code: 'ELIGIBILITY_VERSION_INVALID',
+      currentVersion: PAYMENT_ELIGIBILITY_VERSION
+    });
+  }
+
+  try {
+    const streamer = await getStreamerForUser(req.user);
+    if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งานรายนี้ในระบบ' });
+
+    const proof = await db.recordPaymentEligibilityAcceptance(
+      streamer.id,
+      PAYMENT_ELIGIBILITY_VERSION,
+      new Date().toISOString()
+    );
+    return res.json({
+      success: true,
+      paymentEligibility: {
+        accepted: true,
+        acceptedVersion: proof.acceptedVersion,
+        currentVersion: PAYMENT_ELIGIBILITY_VERSION
+      }
+    });
+  } catch (err) {
+    console.error('Payment eligibility acceptance persistence error:', err.message);
+    return res.status(503).json({ error: 'ยังบันทึกการยืนยันไม่ได้ กรุณาลองใหม่อีกครั้ง' });
   }
 });
 
@@ -4969,7 +5038,7 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
 });
 
 // POST /api/payment/settings - Save payment settings
-app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePaymentEligibility, async (req, res) => {
   try {
     const actualUsername = await getActualUsername(req.user);
     const streamer = await db.getStreamer(actualUsername);
@@ -5120,7 +5189,7 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
 }
 
 // POST /api/payment/test-tfp - Test TFP API connection
-app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requirePaymentEligibility, async (req, res) => {
   try {
     const { slipok_api, slipok_api_key, method, promptpay_type, promptpay_value, truemoney_phone } = req.body;
     if (!slipok_api || !slipok_api_key) {
@@ -5593,7 +5662,7 @@ function parseTrueMoneyToken(raw) {
 }
 
 // POST /api/truemoney/setup-webhook - Enable/disable TrueMoney webhook (authenticated)
-app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
+app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticated, csrfProtection, requirePaymentEligibility, async (req, res) => {
   try {
     const { action, token, methods, promptpayId, consented } = req.body;
     const streamer = await getStreamerForUser(req.user);

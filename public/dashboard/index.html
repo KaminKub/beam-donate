@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_6">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_7">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3823,15 +3823,37 @@
       </div>
       <label class="legal-acceptance-check" for="legalAcceptanceCheckbox">
         <input id="legalAcceptanceCheckbox" type="checkbox">
-        <span>ฉันได้อ่านและยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวฉบับวันที่ 10 สิงหาคม 2569</span>
+        <span>ฉันได้อ่านและยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวฉบับวันที่ 11 สิงหาคม 2569</span>
       </label>
       <p id="legalAcceptanceError" class="legal-acceptance-error" role="alert" tabindex="-1" aria-live="assertive"></p>
       <button id="legalAcceptanceButton" class="btn btn-primary" type="button" disabled><i class="fa-solid fa-circle-check"></i> ยอมรับและเข้าสู่แดชบอร์ด</button>
     </div>
   </div>
 
+  <div id="paymentEligibilityModal" class="legal-acceptance-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="paymentEligibilityTitle">
+    <div class="legal-acceptance-card" role="document">
+      <h1 id="paymentEligibilityTitle" tabindex="-1"><i class="fa-solid fa-shield-halved"></i> ยืนยันคุณสมบัติผู้เชื่อมต่อระบบรับเงิน</h1>
+      <p class="legal-acceptance-intro">ก่อนเปิดใช้ช่องทางรับเงิน คุณต้องยืนยันว่า:</p>
+      <ul class="payment-eligibility-list">
+        <li>ท่าน<strong>บรรลุนิติภาวะตามกฎหมาย</strong> หรือผ่านเกณฑ์คุณสมบัติของผู้ให้บริการช่องทางรับเงินที่ท่านเลือก</li>
+        <li>บัญชีธนาคาร, เบอร์พร้อมเพย์, เบอร์ทรูมันนี่, API Key และ Credential ทั้งหมดที่ท่านกรอกเป็น<strong>ของท่านเอง</strong> ไม่ใช่ของผู้อื่น</li>
+        <li>ท่านเข้าใจว่า TipKub <strong>ไม่ได้รับรองหรือตรวจสอบ</strong> อายุหรือความเป็นเจ้าของ Credential และท่านรับผิดชอบความถูกต้องของข้อมูลเอง</li>
+      </ul>
+      <div class="legal-document-links">
+        <a class="legal-document-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน §1.1 และ §2.1</a>
+      </div>
+      <label class="legal-acceptance-check" for="paymentEligibilityCheckbox">
+        <input id="paymentEligibilityCheckbox" type="checkbox">
+        <span>ข้าพเจ้ายืนยันว่ามีคุณสมบัติครบถ้วนตามข้อกำหนดข้างต้น และรับทราบว่าการแจ้งข้อมูลอันเป็นเท็จอาจนำไปสู่การระงับการเชื่อมต่อระบบรับเงิน</span>
+      </label>
+      <p id="paymentEligibilityError" class="legal-acceptance-error" role="alert" tabindex="-1" aria-live="assertive"></p>
+      <button id="paymentEligibilityButton" class="btn btn-primary" type="button" disabled><i class="fa-solid fa-circle-check"></i> ยืนยันและเปิดใช้ระบบรับเงิน</button>
+      <button id="paymentEligibilityCancelButton" class="btn btn-secondary" type="button">ยกเลิก</button>
+    </div>
+  </div>
+
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260811_9"></script>
+  <script src="/dashboard/dashboard.js?v=20260811_10"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

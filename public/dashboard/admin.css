@@ -1786,6 +1786,37 @@ label {
   .legal-acceptance-card { transition: none; }
 }
 
+/* ========== Payment Eligibility Modal (L8) — reuses .legal-acceptance-* base ========== */
+.payment-eligibility-list {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.payment-eligibility-list li { margin-bottom: 0.4rem; }
+.payment-eligibility-list strong { color: var(--text-main, #f3f4f6); }
+
+#paymentEligibilityButton,
+#paymentEligibilityCancelButton {
+  width: 100%;
+  min-height: 44px;
+}
+
+#paymentEligibilityButton { margin-top: 0.25rem; }
+#paymentEligibilityCancelButton { margin-top: 0.6rem; }
+
+#paymentEligibilityButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 768px) {
+  #paymentEligibilityButton,
+  #paymentEligibilityCancelButton { min-height: 48px; }
+}
+
 /* ========== Settings Grid Layout (Settings Tab) ========== */
 .settings-grid {
   display: grid;

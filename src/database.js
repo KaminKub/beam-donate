@@ -235,6 +235,8 @@ async function migrateDB() {
         goal_pointer_content TEXT DEFAULT 'both',
          tos_accepted_at TEXT DEFAULT NULL,
          legal_version TEXT DEFAULT NULL,
+         payment_eligibility_version TEXT DEFAULT NULL,
+         payment_eligibility_accepted_at TEXT DEFAULT NULL,
          primary_auth_provider TEXT DEFAULT NULL,
         timer_settings TEXT DEFAULT NULL,
         timer_remaining_seconds INTEGER DEFAULT 600,
@@ -498,6 +500,8 @@ async function migrateDB() {
       { name: 'goal_pointer_content', type: "TEXT DEFAULT 'both'" },
       { name: 'tos_accepted_at', type: 'TEXT DEFAULT NULL' },
       { name: 'legal_version', type: 'TEXT DEFAULT NULL' },
+      { name: 'payment_eligibility_version', type: 'TEXT DEFAULT NULL' },
+      { name: 'payment_eligibility_accepted_at', type: 'TEXT DEFAULT NULL' },
       { name: 'primary_auth_provider', type: 'TEXT' },
       { name: 'timer_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'timer_remaining_seconds', type: 'INTEGER DEFAULT 600' },
@@ -1261,6 +1265,8 @@ async function saveStreamer(data) {
                goal_pointer_content = COALESCE(?, streamers.goal_pointer_content),
                 tos_accepted_at = COALESCE(?, streamers.tos_accepted_at),
                 legal_version = COALESCE(?, streamers.legal_version),
+                payment_eligibility_version = COALESCE(?, streamers.payment_eligibility_version),
+                payment_eligibility_accepted_at = COALESCE(?, streamers.payment_eligibility_accepted_at),
                 primary_auth_provider = COALESCE(?, streamers.primary_auth_provider),
                timer_settings = COALESCE(?, streamers.timer_settings),
                truemoney_webhook_secret_encrypted = COALESCE(?, streamers.truemoney_webhook_secret_encrypted),
@@ -1404,6 +1410,8 @@ async function saveStreamer(data) {
           finalData.goal_pointer_content !== undefined ? finalData.goal_pointer_content : null,
            finalData.tos_accepted_at !== undefined ? finalData.tos_accepted_at : null,
            finalData.legal_version !== undefined ? finalData.legal_version : null,
+           finalData.payment_eligibility_version !== undefined ? finalData.payment_eligibility_version : null,
+           finalData.payment_eligibility_accepted_at !== undefined ? finalData.payment_eligibility_accepted_at : null,
            finalData.primary_auth_provider !== undefined ? finalData.primary_auth_provider : null,
           finalData.timer_settings !== undefined ? finalData.timer_settings : null,
           finalData.truemoney_webhook_secret_encrypted !== undefined ? finalData.truemoney_webhook_secret_encrypted : null,
@@ -1446,10 +1454,10 @@ async function saveStreamer(data) {
               truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check,
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
-               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, primary_auth_provider, timer_settings,
+               header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, payment_eligibility_version, payment_eligibility_accepted_at, primary_auth_provider, timer_settings,
               truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
               tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1571,6 +1579,8 @@ async function saveStreamer(data) {
         finalData.goal_pointer_content || 'both',
          finalData.tos_accepted_at || null,
          finalData.legal_version || null,
+         finalData.payment_eligibility_version || null,
+         finalData.payment_eligibility_accepted_at || null,
          finalData.primary_auth_provider || null,
         finalData.timer_settings !== undefined ? finalData.timer_settings : null,
         finalData.truemoney_webhook_secret_encrypted || null,
@@ -2594,6 +2604,67 @@ async function recordLegalAcceptance(streamerId, legalVersion, acceptedAt) {
   };
 }
 
+/**
+ * Record payment-connector eligibility self-attestation. Reuses legal_acceptances
+ * with a namespaced version string so it can't collide with CURRENT_LEGAL_VERSION rows.
+ */
+async function recordPaymentEligibilityAcceptance(streamerId, eligibilityVersion, acceptedAt) {
+  await ensureConnected();
+  if (isFallback || !db) throw new Error('Database unavailable');
+
+  const id = Number(streamerId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid streamer id');
+  if (typeof eligibilityVersion !== 'string' || !eligibilityVersion.trim()) throw new Error('Invalid eligibility version');
+  if (typeof acceptedAt !== 'string' || Number.isNaN(Date.parse(acceptedAt))) throw new Error('Invalid acceptance timestamp');
+
+  const streamerResult = await db.execute({
+    sql: 'SELECT id FROM streamers WHERE id = ?',
+    args: [id]
+  });
+  if (!streamerResult.rows[0]) throw new Error('Streamer not found');
+
+  const namespacedVersion = `PAYMENT_ELIGIBILITY_${eligibilityVersion}`;
+
+  const statements = [
+    {
+      sql: `INSERT OR IGNORE INTO legal_acceptances (streamer_id, legal_version, accepted_at)
+            VALUES (?, ?, ?)`,
+      args: [id, namespacedVersion, acceptedAt]
+    },
+    {
+      sql: 'UPDATE streamers SET payment_eligibility_version = ?, payment_eligibility_accepted_at = ? WHERE id = ?',
+      args: [eligibilityVersion, acceptedAt, id]
+    }
+  ];
+
+  if (typeof db.batch === 'function') {
+    await db.batch(statements, 'write');
+  } else {
+    await db.execute('BEGIN');
+    try {
+      for (const statement of statements) await db.execute(statement);
+      await db.execute('COMMIT');
+    } catch (err) {
+      try { await db.execute('ROLLBACK'); } catch (_) {}
+      throw err;
+    }
+  }
+
+  const acceptanceResult = await db.execute({
+    sql: `SELECT accepted_at
+          FROM legal_acceptances
+          WHERE streamer_id = ? AND legal_version = ?`,
+    args: [id, namespacedVersion]
+  });
+  const acceptance = acceptanceResult.rows[0];
+  if (!acceptance) throw new Error('Payment eligibility acceptance proof was not persisted');
+
+  return {
+    acceptedVersion: eligibilityVersion,
+    acceptedAt: acceptance.accepted_at
+  };
+}
+
 let memoryProcessedWebhooks = [];
 
 module.exports = {
@@ -2652,4 +2723,5 @@ module.exports = {
   countMonthlyWebhookTx,
   cleanupProcessedWebhooks,
   recordLegalAcceptance,
+  recordPaymentEligibilityAcceptance,
 };
