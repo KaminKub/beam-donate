@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test:money-path-live": "node test-money-path.js",
     "migrate": "node scripts/migrate.js",
     "build": "esbuild public/dashboard/dashboard.js --minify --outfile=public/dashboard/dashboard.min.js && esbuild public/dashboard/admin.css --minify --outfile=public/dashboard/admin.min.css"
   },

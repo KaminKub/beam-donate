@@ -1,68 +1,136 @@
-// Live money-path test — TrueMoney webhook fixes Q1 (race) / Q2 (satang) / idempotency.
-// Runs the REAL db module against Turso dev. Uses an existing streamer (FK), cleans up its own rows.
-// ponytail: single-file smoke check, no framework.
-require('dotenv').config();
-const db = require('./src/database');
+'use strict';
 
-const STREAMER = process.env.MPT_STREAMER || 'aricano66'; // must exist (FK transactions.streamer_username)
+// Live money-path smoke test for TrueMoney webhook race/satang/idempotency.
+// Node's default discovery executes this file, so it must remain inert unless
+// an operator explicitly opts in to a disposable Turso database.
+
+const LIVE_OPT_IN = 'RUN_LIVE_MONEY_TEST';
+const DISPOSABLE_DB = 'MPT_DISPOSABLE_DB_URL';
+const DISPOSABLE_HOST = /(?:^|[-.])(dev|test|sandbox)(?:[-.]|$)/i;
+
+function getLiveTestConfig(env = process.env) {
+  if (env[LIVE_OPT_IN] !== '1') {
+    throw new Error(`${LIVE_OPT_IN}=1 is required`);
+  }
+
+  const databaseUrl = env.TURSO_DATABASE_URL;
+  const declaredDisposableUrl = env[DISPOSABLE_DB];
+  if (!databaseUrl || !declaredDisposableUrl || databaseUrl !== declaredDisposableUrl) {
+    throw new Error(`${DISPOSABLE_DB} must exactly match TURSO_DATABASE_URL`);
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(databaseUrl);
+  } catch {
+    throw new Error('TURSO_DATABASE_URL must be a valid libsql or https URL');
+  }
+  if (!['libsql:', 'https:'].includes(parsed.protocol) || !DISPOSABLE_HOST.test(parsed.hostname)) {
+    throw new Error('TURSO_DATABASE_URL must target a disposable dev, test, or sandbox database');
+  }
+  if (!env.MPT_STREAMER) {
+    throw new Error('MPT_STREAMER is required for the disposable test database');
+  }
+
+  return { streamer: env.MPT_STREAMER };
+}
+
 let failures = 0;
 const madeTxIds = [];
 const madeHashes = [];
-function check(cond, msg) { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) failures++; }
+const check = (condition, message) => {
+  console.log((condition ? 'PASS ' : 'FAIL ') + message);
+  if (!condition) failures++;
+};
 const iso = () => new Date().toISOString();
 
-async function mkPending(id, amount) {
-  madeTxIds.push(id);
-  await db.saveTransaction({
-    id, amount, donor: 'MPT', message: '', status: 'pending',
-    streamer_username: STREAMER, payment_method: 'truemoney_webhook', createdAt: iso()
-  });
+async function cleanup(raw) {
+  if (!raw) return;
+
+  let cleanupFailed = false;
+  for (const id of madeTxIds) {
+    try {
+      await raw.execute({ sql: 'DELETE FROM transactions WHERE id = ?', args: [id] });
+    } catch {
+      cleanupFailed = true;
+    }
+  }
+  for (const hash of madeHashes) {
+    try {
+      await raw.execute({ sql: 'DELETE FROM processed_webhooks WHERE event_hash = ?', args: [hash] });
+    } catch {
+      cleanupFailed = true;
+    }
+  }
+  console.log(`Cleanup attempted for ${madeTxIds.length} transaction(s) and ${madeHashes.length} webhook row(s).`);
+  if (cleanupFailed) throw new Error('Targeted cleanup failed');
 }
 
 async function main() {
-  await db.ensureConnected();
+  // dotenv and the database module are intentionally loaded only after opt-in.
+  require('dotenv').config();
+  const { streamer } = getLiveTestConfig();
+  const db = require('./src/database');
+  let raw;
 
-  // --- Q1: cross-path double-confirm race ---------------------------------
-  // webhook + slip + manual read pending then confirm concurrently.
-  // Atomic CAS (confirmTransactionPaid ... WHERE status='pending') must let ONE win.
-  const raceId = 'donate-' + Date.now() + '-race';
-  await mkPending(raceId, 55);
-  const N = 8;
-  const results = await Promise.all(
-    Array.from({ length: N }, () => db.confirmTransactionPaid({ id: raceId, paidAt: iso() }))
-  );
-  const wins = results.filter(r => (r && r.rowsAffected) > 0).length;
-  check(wins === 1, `Q1 race: exactly 1 confirm wins out of ${N} concurrent (got ${wins})`);
-  const finalTx = await db.getTransactionById(raceId);
-  check(finalTx && finalTx.status === 'successful', 'Q1 race: final tx status = successful');
+  try {
+    await db.ensureConnected();
+    raw = db.getDB();
+    const mkPending = async (id, amount) => {
+      madeTxIds.push(id);
+      await db.saveTransaction({
+        id, amount, donor: 'MPT', message: '', status: 'pending',
+        streamer_username: streamer, payment_method: 'truemoney_webhook', createdAt: iso()
+      });
+    };
 
-  // --- Q2: PROMPTPAY_IN integer-satang match (no float-equality miss) -------
-  const traps = [0.10, 0.29, 0.37, 0.57, 0.83, 0.99];
-  let q2ok = true;
-  for (const frac of traps) {
-    const amt = 100 + frac;                       // stored baht, e.g. 100.37
-    const tid = 'donate-' + Date.now() + '-q2-' + Math.round(frac * 100);
-    await mkPending(tid, amt);
-    const found = await db.getPendingWebhookTxByAmount(STREAMER, Math.round(amt * 100)); // decoded.amount satang
-    if (!found.some(t => t.id === tid)) { q2ok = false; console.log('   miss at frac', frac); }
+    // Q1: concurrent confirmations must allow exactly one pending -> successful CAS.
+    const raceId = 'donate-' + Date.now() + '-race';
+    await mkPending(raceId, 55);
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => db.confirmTransactionPaid({ id: raceId, paidAt: iso() }))
+    );
+    const wins = results.filter(result => result && result.rowsAffected > 0).length;
+    check(wins === 1, `Q1 race: exactly 1 confirm wins (got ${wins})`);
+    const finalTx = await db.getTransactionById(raceId);
+    check(finalTx && finalTx.status === 'successful', 'Q1 race: final transaction status is successful');
+
+    // Q2: integer-satang lookup must survive decimal floating-point traps.
+    const traps = [0.10, 0.29, 0.37, 0.57, 0.83, 0.99];
+    let q2ok = true;
+    for (const fraction of traps) {
+      const amount = 100 + fraction;
+      const id = 'donate-' + Date.now() + '-q2-' + Math.round(fraction * 100);
+      await mkPending(id, amount);
+      const found = await db.getPendingWebhookTxByAmount(streamer, Math.round(amount * 100));
+      if (!found.some(transaction => transaction.id === id)) q2ok = false;
+    }
+    check(q2ok, `Q2 satang: all ${traps.length} decimal-trap amounts matched`);
+
+    // Idempotency: a duplicate event hash must be reported rather than inserted twice.
+    const hash = 'mpt-hash-' + Date.now();
+    madeHashes.push(hash);
+    const first = await db.insertProcessedWebhook({ streamer_username: streamer, event_hash: hash, amount_satang: 10037, event_type: 'PROMPTPAY_IN', received_time: 't', matched: 0 });
+    const replay = await db.insertProcessedWebhook({ streamer_username: streamer, event_hash: hash, amount_satang: 10037, event_type: 'PROMPTPAY_IN', received_time: 't', matched: 0 });
+    check(first && !first.duplicate, 'Idempotency: first insert accepted');
+    check(replay && replay.duplicate === true, 'Idempotency: replay is rejected as duplicate');
+
+    if (failures) throw new Error(`${failures} money-path check(s) failed`);
+  } finally {
+    await cleanup(raw);
   }
-  check(q2ok, `Q2 satang: all ${traps.length} float-trap amounts matched by integer satang`);
-
-  // --- Idempotency: replay same event_hash → duplicate:true ----------------
-  const hash = 'mpt-hash-' + Date.now();
-  madeHashes.push(hash);
-  const r1 = await db.insertProcessedWebhook({ streamer_username: STREAMER, event_hash: hash, amount_satang: 10037, event_type: 'PROMPTPAY_IN', received_time: 't', matched: 0 });
-  const r2 = await db.insertProcessedWebhook({ streamer_username: STREAMER, event_hash: hash, amount_satang: 10037, event_type: 'PROMPTPAY_IN', received_time: 't', matched: 0 });
-  check(r1 && !r1.duplicate, 'Idempotency: first insert accepted');
-  check(r2 && r2.duplicate === true, 'Idempotency: replay returns duplicate:true');
-
-  // --- cleanup (only rows this test created) -------------------------------
-  const raw = db.getDB();
-  for (const id of madeTxIds) await raw.execute({ sql: 'DELETE FROM transactions WHERE id = ?', args: [id] });
-  for (const h of madeHashes) await raw.execute({ sql: 'DELETE FROM processed_webhooks WHERE event_hash = ?', args: [h] });
-  console.log(`\ncleaned ${madeTxIds.length} tx + ${madeHashes.length} webhook rows`);
-  console.log(failures ? `❌ ${failures} check(s) FAILED` : '✅ all money-path checks passed');
-  process.exitCode = failures ? 1 : 0;
 }
 
-main().catch(e => { console.error('test crashed:', e); process.exitCode = 1; });
+if (require.main === module) {
+  if (process.env[LIVE_OPT_IN] !== '1') {
+    console.log(`SKIP live money-path test; set ${LIVE_OPT_IN}=1 with a disposable database to run it.`);
+  } else {
+    main().catch(() => {
+      // Do not print raw database errors or URLs from a live-test command.
+      console.error('Live money-path test failed. Verify the disposable test configuration and local logs.');
+      process.exitCode = 1;
+    });
+  }
+}
+
+module.exports = { getLiveTestConfig };
