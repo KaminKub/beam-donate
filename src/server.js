@@ -1889,14 +1889,13 @@ app.get('/auth/twitch/callback',
         if (linkUser) {
           const twitchOwner = await db.getStreamerByTwitchId(twitchId);
           if (twitchOwner && twitchOwner.id !== linkUser.id) {
-            console.warn(`⚠️ [Twitch Link] Collision: hasTwitchId=true, linkUser=${linkUser.username}, conflict=true`);
+            console.warn(`⚠️ [Twitch Link] Collision: hasTwitchId=true, conflict=true`);
             // Restore original session (passport.authenticate already swapped session to Twitch user)
             return req.login(linkUser, (loginErr) => {
               if (loginErr) console.error('❌ [Twitch Link] Session restore error:', loginErr);
               req.session.save(() => res.redirect(`/${linkUser.username}/dashboard?twitch_conflict=1`));
             });
           }
-          console.log(`🔗 [Twitch Link] Linking Twitch platform to account: ${linkUser.username}`);
           console.log(`[AUDIT] Twitch platform linked: hasTwitchId=${!!twitchId}, timestamp=${new Date().toISOString()}`);
           await db.saveStreamer({ ...linkUser, twitch_id: twitchId });
           const updatedUser = await db.getStreamer(linkUser.username);
