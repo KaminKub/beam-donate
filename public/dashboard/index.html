@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_2">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_3">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1455,6 +1455,16 @@
                             <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
                           </button>
                         </div>
+                        <div class="tts-quota-guard switch-group">
+                          <label class="switch">
+                            <input type="checkbox" id="chkTtsQuotaGuardGoogle" name="tts_quota_guard_enabled" checked>
+                            <span class="slider-switch"></span>
+                          </label>
+                          <div class="tts-quota-guard__copy">
+                            <span class="switch-label"><i class="fa-solid fa-shield-halved" style="color:#22c55e;"></i> โหมดฟรี (ป้องกันเกินโควต้า)</span>
+                            <small class="text-muted">เมื่อครบโควต้าที่ TipKub กำหนด ระบบจะใช้ Google Translate ฟรีแทน</small>
+                          </div>
+                        </div>
                         <small class="text-muted" id="ttsGoogleKeyStatus"></small>
                         <small class="text-muted" style="display:block;margin-top:4px;">
                           สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → APIs & Services → Credentials</a> (ต้องเปิด Cloud Text-to-Speech API ในโปรเจกต์ก่อน)
@@ -1470,6 +1480,16 @@
                           <button type="button" id="btnClearGeminiKey" class="btn btn-secondary" style="flex-shrink:0;display:none;">
                             <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
                           </button>
+                        </div>
+                        <div class="tts-quota-guard switch-group">
+                          <label class="switch">
+                            <input type="checkbox" id="chkTtsQuotaGuardVertex" name="tts_quota_guard_enabled" checked>
+                            <span class="slider-switch"></span>
+                          </label>
+                          <div class="tts-quota-guard__copy">
+                            <span class="switch-label"><i class="fa-solid fa-shield-halved" style="color:#22c55e;"></i> โหมดฟรี (ป้องกันเกินโควต้า)</span>
+                            <small class="text-muted">เมื่อครบโควต้าที่ TipKub กำหนด ระบบจะใช้ Google Translate ฟรีแทน</small>
+                          </div>
                         </div>
                         <small class="text-muted" id="ttsGeminiKeyStatus"></small>
                         <small class="text-muted" style="display:block;margin-top:4px;">
@@ -3797,7 +3817,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260811_4"></script>
+  <script src="/dashboard/dashboard.js?v=20260811_6"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

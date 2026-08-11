@@ -209,6 +209,7 @@ const defaultSettings = {
   tts_mode: 'free',
   ttsVoice: '',
   tts_random_voice: 0,
+  tts_quota_guard_enabled: 1,
   // Timer widget — keys must exist here or SEC-004 filter in getSettings() strips them
   timer_settings: '',
   timer_remaining_seconds: 600,
@@ -3212,7 +3213,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
   'tier_donate_settings', 'sound_library',
-  'tts_mode', 'ttsVoice', 'tts_random_voice',
+  'tts_mode', 'ttsVoice', 'tts_random_voice', 'tts_quota_guard_enabled',
   'tts_google_api_key', 'tts_gemini_api_key'
 ];
 
@@ -3242,6 +3243,15 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       if (voices.length && !voices.some(v => v.id === safeBody.ttsVoice)) {
         return res.status(400).json({ error: 'เสียงไม่ถูกต้องสำหรับโหมดนี้' });
       }
+    }
+    // R14: quota guard boolean — reject anything but true/false/0/1/'0'/'1' so a stray
+    // string 'false' (truthy in JS) can't silently flip the guard back on.
+    if (safeBody.tts_quota_guard_enabled !== undefined) {
+      const raw = safeBody.tts_quota_guard_enabled;
+      if (![true, false, 0, 1, '0', '1'].includes(raw)) {
+        return res.status(400).json({ error: 'tts_quota_guard_enabled ไม่ถูกต้อง' });
+      }
+      safeBody.tts_quota_guard_enabled = (raw === true || raw === 1 || raw === '1') ? 1 : 0;
     }
     // TTS key clear semantics — omitted field = unchanged; explicit *_clear flag = delete key.
     // Empty string is NOT treated as clear (placeholder inputs send '' on every unrelated save).
@@ -4220,14 +4230,22 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
 
   let mode = 'free', voice = '', keys = {};
   let streamer = null;
-  if (req.isAuthenticated && req.isAuthenticated()) {
+  const isSessionAuth = !!(req.isAuthenticated && req.isAuthenticated());
+  if (isSessionAuth) {
     // dashboard preview iframe (same-origin cookie, no token in src — see isDashboardPreview())
     streamer = await getStreamerForUser(req.user);
   } else if (token) {
     streamer = await db.getStreamerByToken(token);
   }
   if (streamer && Number(streamer.is_active) !== 0) {
-    mode = streamer.username === DEMO_STREAMER_USERNAME ? 'free' : (streamer.tts_mode || 'free');
+    // R8 root cause (2026-08-11): DEMO_STREAMER_USERNAME ('kaminkub') is both the public demo
+    // overlay account AND the developer's own real account — forcing free mode for *every* request
+    // that resolves to this row (as the old unconditional check did) also forced free mode on the
+    // owner's own authenticated Quick Alert/preview tests, silently overriding their real tts_mode.
+    // Only force free for the public/token path (protects the real paid key from anonymous demo
+    // visitors) — an authenticated session testing their own account gets their real configured mode.
+    const forceDemoFree = streamer.username === DEMO_STREAMER_USERNAME && !isSessionAuth;
+    mode = forceDemoFree ? 'free' : (streamer.tts_mode || 'free');
     voice = streamer.ttsVoice || '';
     if (mode !== 'free' && streamer.tts_random_voice) {
       const voices = tts.MODES[mode]?.voices || [];
@@ -4238,13 +4256,23 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
       gemini: safeDecrypt(streamer.tts_gemini_api_key_encrypted)
     };
     if (mode !== 'free') {
-      if (tts.getDailyChars(streamer.id) + text.length > tts.DAILY_CHAR_CAP) {
-        return res.status(429).send('TTS quota exceeded for today');
+      // explicit nullish check — Number(null) is 0, which would read as "guard off" for legacy rows
+      const guardOn = streamer.tts_quota_guard_enabled == null ? true : Number(streamer.tts_quota_guard_enabled) !== 0;
+      if (guardOn) {
+        const quota = tts.tryConsumeFreeQuota(streamer.id, mode, text.length);
+        if (!quota.allowed) { mode = 'free'; voice = ''; }
       }
-      tts.addDailyChars(streamer.id, text.length);
     }
   }
   // invalid/unknown token / not authenticated → fall through to free (avoids a token-validity oracle)
+
+  if (process.env.TTS_DEBUG === '1') {
+    console.log('[tts-debug]', JSON.stringify({
+      source: isSessionAuth ? 'session' : (token ? 'token' : 'anonymous'),
+      resolved: !!streamer, mode, voiceFamily: mode === 'free' ? (voice ? 'microsoft' : 'translate') : mode,
+      keySet: mode === 'google-cloud' ? !!keys.google : (mode === 'vertex' ? !!keys.gemini : null)
+    }));
+  }
 
   try {
     const result = await tts.synthesizeTTS({ mode, voice, text, lang, keys });
@@ -4274,6 +4302,9 @@ app.get('/api/tts/voices', ttsVoicesLimiter, (req, res) => {
 // key = transient (freshly typed, not yet saved) — lets "เชื่อมต่อ" validate before save.
 app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, async (req, res) => {
   const { mode, voice, text, key } = req.body;
+  // R14: 'connect' (validating a not-yet-saved key) must never report success on a fallback voice —
+  // that would save a broken key as working. 'test' (the manual "ทดสอบเสียง" button) may fall back.
+  const purpose = ['connect', 'test'].includes(req.body.purpose) ? req.body.purpose : 'test';
   if (!['free', 'google-cloud', 'vertex'].includes(mode)) return res.status(400).json({ error: 'mode ไม่ถูกต้อง' });
   if (mode !== 'free' && !voice) return res.status(400).json({ error: 'กรุณาเลือกเสียง' });
   // voice must match the mode's catalog — otherwise it reaches synthesizeTTS()/SSML unescaped as an attacker-controlled attribute (Audit R2 M2)
@@ -4303,22 +4334,31 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
     return res.status(400).json({ error: 'กรุณากรอก API key หรือบันทึก key ก่อน' });
   }
 
-  // Same daily budget as the live /api/tts path — otherwise "ทดสอบเสียง"/"เชื่อมต่อ" can burn
-  // unlimited paid-provider requests through the 10/min limiter alone (R1 codex review 2026-08-10).
+  // Same daily budget as the live /api/tts path (shared counter, tts.js) — otherwise "ทดสอบเสียง"/
+  // "เชื่อมต่อ" can burn unlimited paid-provider requests through the 10/min limiter alone (R1 codex
+  // review 2026-08-10). R14: pre-check is skipped entirely when the guard is off.
   const testText = text || 'สวัสดีครับ นี่คือเสียงทดสอบ';
+  let effectiveMode = mode, effectiveVoice = voice, fallbackReason = null;
   if (mode !== 'free') {
-    if (tts.getDailyChars(streamer.id) + testText.length > tts.DAILY_CHAR_CAP) {
-      return res.status(429).json({ error: 'ใช้โควต้าตัวอักษรของวันนี้หมดแล้ว' });
+    const guardOn = streamer.tts_quota_guard_enabled == null ? true : Number(streamer.tts_quota_guard_enabled) !== 0;
+    if (guardOn) {
+      const quota = tts.tryConsumeFreeQuota(streamer.id, mode, testText.length);
+      if (!quota.allowed) {
+        if (purpose === 'connect') {
+          return res.status(429).json({ error: 'โควต้าโหมดฟรี (ป้องกันเกินโควต้า) ของวันนี้เต็มแล้ว — ปิดโหมดฟรีในหน้าตั้งค่าถ้าต้องการเชื่อมต่อ/ทดสอบเสียงจริงตอนนี้' });
+        }
+        effectiveMode = 'free'; effectiveVoice = ''; fallbackReason = 'quota-guard';
+      }
     }
-    tts.addDailyChars(streamer.id, testText.length);
   }
 
   try {
-    const result = await tts.synthesizeTTS({ mode, voice, text: testText, lang: 'th', keys });
+    const result = await tts.synthesizeTTS({ mode: effectiveMode, voice: effectiveVoice, text: testText, lang: 'th', keys });
     res.set('Cache-Control', 'private, no-store');
     res.set('Referrer-Policy', 'no-referrer');
     res.set('Content-Type', result.contentType);
-    if (mode === 'vertex') {
+    if (fallbackReason) res.set('X-TTS-Fallback', fallbackReason);
+    if (effectiveMode === 'vertex') {
       // resolveVertexProjectId() hits its in-memory cache here — synthesizeTTS() above already
       // resolved+cached this same apiKey, so no extra network call (R6: show "เชื่อมต่อกับโปรเจค X").
       try {
@@ -4328,6 +4368,18 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
     }
     res.end(result.audio);
   } catch (err) {
+    // purpose=connect must never fall back — a fallback-success would save a broken key as working.
+    const isProviderQuotaErr = err.message === 'GOOGLE_QUOTA_EXCEEDED' || err.message === 'GEMINI_QUOTA_EXCEEDED';
+    if (purpose === 'test' && isProviderQuotaErr) {
+      try {
+        const fb = await tts.synthesizeTTS({ mode: 'free', voice: '', text: testText, lang: 'th' });
+        res.set('Cache-Control', 'private, no-store');
+        res.set('Referrer-Policy', 'no-referrer');
+        res.set('Content-Type', fb.contentType);
+        res.set('X-TTS-Fallback', 'provider-quota');
+        return res.end(fb.audio);
+      } catch { /* fall through to the error response below */ }
+    }
     const msg = TTS_TEST_ERROR_MESSAGES[err.message] || 'ไม่สามารถทดสอบเสียงได้ กรุณาตรวจสอบ key และการตั้งค่า';
     res.status(400).json({ error: msg });
   }

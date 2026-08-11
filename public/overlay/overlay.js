@@ -253,12 +253,64 @@ function connectSSE() {
 }
 
 // ========== Queue Processor ==========
-function processQueue() {
+// R15 — TTS is prepared (network fetch + audio decode-ready, or a Web Speech artifact) *before*
+// the alert renders, so there's no dead-air gap after the notification sound while a slow
+// provider (Vertex) is still synthesizing. isShowing is set before the await so a 'donation'
+// event arriving mid-prepare can't dequeue a second alert concurrently.
+async function processQueue() {
   if (isShowing || alertQueue.length === 0) return;
 
   isShowing = true;
   const alertData = alertQueue.shift();
-  showAlert(alertData);
+  // codex adversarial-review 2026-08-11: cancel the previous alert's TTS the moment this one is
+  // dequeued, not later when this one starts playing (playSpeech() previously only cancelled the
+  // artifact it was about to replace, and that call happens after the next alert has already
+  // appended + played its notification sound) — a long previous utterance could speak over the
+  // next alert's visuals/notification audio in the gap between those two points.
+  cancelCurrentSpeech();
+  const ttsArtifact = await prepareAlertTts(alertData); // never throws — resolves null on any failure
+  showAlert(alertData, ttsArtifact);
+}
+
+function cancelCurrentSpeech() {
+  if (currentTtsAudio) { currentTtsAudio.pause(); if (currentTtsAudio._objUrl) URL.revokeObjectURL(currentTtsAudio._objUrl); currentTtsAudio.src = ''; currentTtsAudio = null; }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (currentTtsAbort) { currentTtsAbort.abort(); currentTtsAbort = null; }
+}
+
+// Same template-rendering logic showAlert() uses for the on-screen header, minus the DOM —
+// extracted so the speech text can be computed (and its audio prepared) before the alert box
+// exists at all (R15).
+function buildAlertSpeechText(data) {
+  const amountFormatted = Number(data.amount).toLocaleString('th-TH', { minimumFractionDigits: 0 });
+  const filteredMessage = filterProfanity(data.message || '');
+  const donorSpan = `<span class="highlight-donor">${escapeForHtml(filterProfanity(data.donor || 'Anonymous'))}</span>`;
+  const amountSpan = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
+  const suffixSpan = `<span class="highlight-suffix shine-effect">${escapeForHtml((overlaySettings.amountSuffix || 'บาท').trim())}</span>`;
+  const line1 = (overlaySettings.template_line1 || overlaySettings.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ')
+    .replace(/\{ผู้โดเนท\}|\{donor\}/g, () => donorSpan)
+    .replace(/\{จำนวนเงิน\}|\{amount\}/g, () => amountSpan)
+    .replace(/\{สกุลเงิน\}/g, () => suffixSpan);
+
+  if (overlaySettings.ttsReadDonor) {
+    const cleanHeader = line1.replace(/<[^>]*>/g, '');
+    const ttsSuffix = (overlaySettings.amountSuffix || 'บาท').trim();
+    const headerPrefix = cleanHeader.split(amountFormatted)[0];
+    return `${headerPrefix}${amountFormatted} ${ttsSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
+  }
+  return filteredMessage;
+}
+
+async function prepareAlertTts(data) {
+  if (!overlaySettings.ttsEnabled) return null;
+  const speakText = buildAlertSpeechText(data).trim();
+  if (!speakText) return null;
+  try {
+    return await prepareSpeech(speakText, overlaySettings.ttsLanguage, overlaySettings.ttsVolume, overlaySettings.ttsRate, overlaySettings.ttsVoice);
+  } catch (err) {
+    console.error('TTS prepare error:', err);
+    return null; // terminal silent outcome — never let a prepare failure hang the queue
+  }
 }
 
 // ========== Static Preview (frozen idle state) ==========
@@ -400,7 +452,9 @@ function filterProfanity(text) {
   return censoredText;
 }
 
-async function showAlert(data) {
+// R15 — ttsArtifact is prepared by processQueue() before this function is even called; showAlert()
+// only plays it, never fetches/synthesizes TTS itself.
+async function showAlert(data, ttsArtifact = null) {
   if (staticPreviewEl) {
     const el = staticPreviewEl;
     staticPreviewEl = null;
@@ -538,26 +592,13 @@ async function showAlert(data) {
     }
   }
 
-    // Play Speech Synthesis (TTS) after a small delay
+    // Play Speech Synthesis (TTS) — already prepared/ready by processQueue() before this alert
+    // was even rendered (R15); playSpeech() is a no-op when ttsArtifact is null (TTS off, empty
+    // text, or a terminal silent outcome where neither the provider nor its fallback loaded).
     try {
-      if (overlaySettings.ttsEnabled) {
-        let speakText = '';
-        if (overlaySettings.ttsReadDonor) {
-          const cleanHeader = line1.replace(/<[^>]*>/g, '');
-          const ttsSuffix = (overlaySettings.amountSuffix || 'บาท').trim();
-          const headerPrefix = cleanHeader.split(amountFormatted)[0];
-          speakText = `${headerPrefix}${amountFormatted} ${ttsSuffix}${data.message ? (overlaySettings.ttsPrefixEnabled ? `. ฝากข้อความว่า ${filteredMessage}` : `. ${filteredMessage}`) : ''}`;
-        } else {
-          speakText = filteredMessage;
-        }
-        if (speakText && speakText.trim() !== '') {
-          setTimeout(() => {
-            speakMessage(speakText, overlaySettings.ttsLanguage, overlaySettings.ttsVolume, overlaySettings.ttsRate, overlaySettings.ttsVoice);
-          }, 200);
-        }
-      }
+      playSpeech(ttsArtifact);
     } catch (err) {
-      console.error('TTS error:', err);
+      console.error('TTS play error:', err);
     }
 
   // Set progress bar now (after sound await) so it ends exactly when the alert is removed.
@@ -804,56 +845,112 @@ async function playNotificationSound(soundChoice, volume) {
   }
 }
 
-// ========== Web Speech API (TTS) Speak Engine ==========
+// ========== Web Speech API (TTS) Prepare/Play Engine ==========
+// R15 — split into prepare (resolve a ready-to-play artifact, or null on a terminal silent
+// outcome) and play, so the queue can await readiness *before* the alert box renders instead of
+// firing the request after render and leaving a silent gap while it synthesizes (Vertex latency).
 let currentTtsAudio = null; // module-level — lets us cancel a still-playing TTS clip when a new alert arrives
 let currentTtsAbort = null; // cancels an in-flight fetch too — a slow paid-mode request must not play after a newer alert
 let ttsRequestSeq = 0;      // guards against a fetch that resolves after being superseded (abort() isn't instant)
-function speakMessage(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voiceName = 'default') {
+
+// Never throws / never rejects — always resolves to an artifact or null, so the queue can never
+// hang waiting on a promise that doesn't settle. null = nothing to play (TTS off, empty text, or
+// both the requested voice and the server's own provider+Google-Translate fallback failed to
+// produce playable audio — a "terminal silent outcome" per R15, not an error to surface further).
+async function prepareSpeech(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voiceName = 'default') {
   const truncatedText = text.substring(0, 180);
 
   // R13 — Microsoft voices (เปรมวดี/นิวัฒน์) moved client-side: server Edge TTS is an unofficial
   // endpoint that now 403s. The browser's own Web Speech API can still say them for free with zero
   // server round-trip if the OS/browser ships the voice; if not, fall through to the fetch below,
   // which already lands on Google Translate free mode server-side (edgeTts() throws → catch-all fallback).
+  // Readiness here is synchronous (no network) — the utterance object itself is the artifact.
   if (voiceName && voiceName.startsWith('th-TH-') && 'speechSynthesis' in window) {
     const match = window.speechSynthesis.getVoices().find(v => v.name === voiceName || v.voiceURI === voiceName);
     if (match) {
-      window.speechSynthesis.cancel(); // stop whatever a previous alert queued/was speaking
       const utter = new SpeechSynthesisUtterance(truncatedText);
       utter.voice = match;
       utter.lang = lang;
       utter.volume = Number(volume) || 0.8;
       utter.rate = Number(rate) || 1.0;
-      window.speechSynthesis.speak(utter);
-      return;
+      return { type: 'webspeech', utter };
     }
   }
 
   const token = new URLSearchParams(window.location.search).get('token');
   const localTtsUrl = `/api/tts?token=${encodeURIComponent(token || '')}&lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`;
-  // cancel any TTS still playing AND any still in-flight from a previous alert
-  // (paid-mode latency means the old request can still be pending when a new alert starts)
-  if (currentTtsAudio) { currentTtsAudio.pause(); if (currentTtsAudio._objUrl) URL.revokeObjectURL(currentTtsAudio._objUrl); currentTtsAudio.src = ''; currentTtsAudio = null; }
+  // cancel any fetch still in-flight from a previous alert (superseded — its artifact would never be played)
   if (currentTtsAbort) { currentTtsAbort.abort(); currentTtsAbort = null; }
   const mySeq = ++ttsRequestSeq;
   const abortCtrl = new AbortController();
   currentTtsAbort = abortCtrl;
-  // fetch as blob (not <audio src=...> directly) so we control lifecycle/cancellation
-  fetch(localTtsUrl, { signal: abortCtrl.signal })
-    .then(r => { if (!r.ok) throw new Error('TTS ' + r.status); return r.blob(); })
-    .then(blob => {
-      if (mySeq !== ttsRequestSeq) return; // superseded by a newer alert while this was in flight
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio._objUrl = url; // so a cancel from the next speakMessage() call can revoke it (Codex R2 L2)
-      audio.volume = Number(volume) || 0.8;
-      audio.playbackRate = Number(rate) || 1.0;
-      currentTtsAudio = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); if (currentTtsAudio === audio) currentTtsAudio = null; };
-      audio.onerror = () => { URL.revokeObjectURL(url); if (currentTtsAudio === audio) currentTtsAudio = null; };
-      audio.play().catch(() => { URL.revokeObjectURL(url); });
-    })
-    .catch(err => { if (err.name !== 'AbortError') console.warn('⚠️ TTS failed:', err.message); }); // never log the URL/token/text itself, message only
+  // codex adversarial-review 2026-08-11: a fetch with no deadline of its own can hang forever —
+  // isShowing stays true the whole time, so no later alert can ever start a prepare that would
+  // abort this one, deadlocking the queue permanently. Give it the same outbound deadline the
+  // server enforces on itself (src/tts.js OUTBOUND_TIMEOUT_MS) plus slack for the response body.
+  const TTS_FETCH_TIMEOUT_MS = 12000;
+  const timeoutId = setTimeout(() => abortCtrl.abort(), TTS_FETCH_TIMEOUT_MS);
+  try {
+    // fetch as blob (not <audio src=...> directly) so we control lifecycle/cancellation
+    const res = await fetch(localTtsUrl, { signal: abortCtrl.signal });
+    if (mySeq !== ttsRequestSeq) return null; // superseded by a newer alert while this was in flight
+    if (!res.ok) throw new Error('TTS ' + res.status);
+    const blob = await res.blob();
+    if (mySeq !== ttsRequestSeq) return null;
+    const objUrl = URL.createObjectURL(blob);
+    const audio = new Audio();
+    audio._objUrl = objUrl;
+    audio.volume = Number(volume) || 0.8;
+    audio.playbackRate = Number(rate) || 1.0;
+    // a resolved fetch isn't "ready" — wait for the browser to confirm it can actually play the
+    // blob before treating it as prepared. codex adversarial-review 2026-08-11: the wait cap must
+    // resolve false (terminal silent), not true — resolving true here would render the alert and
+    // call play() on audio the browser never proved playable, exactly the "call it and assume
+    // ready" bug R15 exists to eliminate.
+    const ready = await new Promise((resolve) => {
+      let settled = false;
+      const onReady = () => done(true);
+      const onError = () => done(false);
+      const done = (ok) => {
+        if (settled) return;
+        settled = true;
+        audio.removeEventListener('canplaythrough', onReady);
+        audio.removeEventListener('loadeddata', onReady);
+        audio.removeEventListener('error', onError);
+        resolve(ok);
+      };
+      audio.addEventListener('canplaythrough', onReady, { once: true });
+      audio.addEventListener('loadeddata', onReady, { once: true });
+      audio.addEventListener('error', onError, { once: true });
+      setTimeout(() => done(false), 4000);
+      audio.src = objUrl;
+      audio.load();
+    });
+    if (mySeq !== ttsRequestSeq) { URL.revokeObjectURL(objUrl); return null; }
+    if (!ready) { URL.revokeObjectURL(objUrl); return null; } // terminal silent outcome
+    return { type: 'audio', audio };
+  } catch (err) {
+    if (err.name !== 'AbortError') console.warn('⚠️ TTS prepare failed:', err.message); // never log the URL/token/text itself, message only
+    return null; // terminal silent outcome
+  } finally {
+    clearTimeout(timeoutId);
+    if (currentTtsAbort === abortCtrl) currentTtsAbort = null;
+  }
+}
+
+function playSpeech(artifact) {
+  if (!artifact) return;
+  if (currentTtsAudio) { currentTtsAudio.pause(); if (currentTtsAudio._objUrl) URL.revokeObjectURL(currentTtsAudio._objUrl); currentTtsAudio.src = ''; currentTtsAudio = null; }
+  if (artifact.type === 'webspeech') {
+    window.speechSynthesis.cancel(); // stop whatever a previous alert queued/was speaking
+    window.speechSynthesis.speak(artifact.utter);
+    return;
+  }
+  const audio = artifact.audio;
+  currentTtsAudio = audio;
+  audio.onended = () => { URL.revokeObjectURL(audio._objUrl); if (currentTtsAudio === audio) currentTtsAudio = null; };
+  audio.onerror = () => { URL.revokeObjectURL(audio._objUrl); if (currentTtsAudio === audio) currentTtsAudio = null; };
+  audio.play().catch(() => { URL.revokeObjectURL(audio._objUrl); });
 }
 
 

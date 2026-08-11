@@ -528,29 +528,21 @@ body {
 
 .tts-donor-notice {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
   max-height: 0;
   margin: 0;
-  padding: 0;
   overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: rgba(59, 130, 246, 0.08);
-  color: rgba(219, 234, 254, 0.9);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: max-height 220ms ease, opacity 200ms ease, margin 220ms ease,
-              padding 220ms ease, border-color 220ms ease;
+  transition: max-height 220ms ease, opacity 200ms ease, margin 220ms ease;
 }
 
 .tts-donor-notice.is-visible {
-  max-height: 180px;
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  border-color: rgba(59, 130, 246, 0.3);
+  max-height: 70px;
+  margin: 6px 0 0;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -558,27 +550,22 @@ body {
 
 .tts-donor-notice > .fa-volume-high {
   flex: 0 0 auto;
-  margin-top: 2px;
   color: #3b82f6;
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .tts-donor-notice-copy {
-  display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.8125rem;
-  line-height: 1.5;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(148, 163, 184, 0.85);
+  overflow-wrap: anywhere;
 }
 
-.tts-donor-notice-copy strong { color: #dbeafe; font-weight: 700; }
-.tts-donor-notice-copy span { min-width: 0; overflow-wrap: anywhere; }
 .tts-donor-notice-copy a {
-  width: fit-content;
   color: #93c5fd;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: 2px;
 }
 .tts-donor-notice-copy a:hover,
 .tts-donor-notice-copy a:focus-visible { color: #fff; }

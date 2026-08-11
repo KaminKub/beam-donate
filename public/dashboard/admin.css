@@ -1007,8 +1007,14 @@ body {
 /* R11 — Vertex free tier is scarce (3 RPM/15 RPD), flag it visually; static glow, no infinite animation */
 .tts-quota-info.tts-quota-danger {
   background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+  color: hsl(0, 100%, 77%);
   box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
+}
+/* status-dot ใน quota text — inline (base .status-dot เป็น flex item) */
+.tts-quota-info .status-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 .tts-cost-warning {
@@ -1565,7 +1571,8 @@ label {
 #ttsGoogleKeyGroup.panel-opening,
 #ttsGeminiKeyGroup.panel-opening,
 #ttsCostWarning.panel-opening,
-#ttsConfirmPanel.panel-opening {
+#ttsConfirmPanel.panel-opening,
+#ttsQuotaInfo.panel-opening {
   overflow: hidden;
   animation: panelSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1573,9 +1580,48 @@ label {
 #ttsGoogleKeyGroup.panel-closing,
 #ttsGeminiKeyGroup.panel-closing,
 #ttsCostWarning.panel-closing,
-#ttsConfirmPanel.panel-closing {
+#ttsConfirmPanel.panel-closing,
+#ttsQuotaInfo.panel-closing {
   overflow: hidden;
   animation: panelSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ===== TTS Quota Guard switch (R14) ===== */
+.tts-quota-guard.switch-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tts-quota-guard__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tts-quota-guard__copy .switch-label i {
+  margin-right: 4px;
+}
+
+.tts-quota-guard__copy small {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted, #94a3b8);
+}
+
+.tts-quota-guard .switch input:focus-visible + .slider-switch {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ttsQuotaInfo.panel-opening,
+  #ttsQuotaInfo.panel-closing {
+    animation: none;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1588,6 +1634,15 @@ label {
   #ttsGoogleKeyGroup > div,
   #ttsGeminiKeyGroup > div {
     flex-direction: column;
+  }
+  .tts-quota-guard.switch-group {
+    width: 100%;
+  }
+  .tts-quota-guard .switch {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
   }
 }
 
@@ -2553,6 +2608,14 @@ label {
 
 .notification.error i {
   color: #ef4444;
+}
+
+.notification.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.notification.warning i {
+  color: #f59e0b;
 }
 
 @keyframes notifyFadeIn {

@@ -141,7 +141,7 @@ function showNotification(message, type = 'success') {
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
 
-  const iconClass = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
+  const iconClass = type === 'success' ? 'fa-solid fa-circle-check' : type === 'warning' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-xmark';
   const iconSpan = document.createElement('span');
   iconSpan.innerHTML = `<i class="${iconClass}"></i>`;
   const msgSpan = document.createElement('span');
@@ -5507,7 +5507,7 @@ function renderTtsVoices(mode, selected) {
   if (!sel) return;
   const voices = ttsModes?.[mode]?.voices || [];
   sel.replaceChildren();
-  voices.forEach(v => sel.add(new Option(v.label, v.id)));
+  voices.forEach(v => sel.add(new Option(v.freeTier ? `${v.label} (${v.freeTier})` : v.label, v.id)));
   sel.value = voices.some(v => v.id === selected) ? selected : (voices[0]?.id || '');
 
   CustomDropdown.removeBySelect(sel);
@@ -5528,6 +5528,20 @@ function ttsSetBlockVisible(id, show, animate) {
   }
   if (show) openSettingsPanel(id);
   else closeSettingsPanel(id);
+}
+
+// R14 — two DOM checkboxes (one per provider key group) control the same tts_quota_guard_enabled
+// field; explicit id list, not prefix-matching, per Dynamic Element IDs rule (CLAUDE.md).
+const TTS_QUOTA_GUARD_IDS = ['chkTtsQuotaGuardGoogle', 'chkTtsQuotaGuardVertex'];
+function getTtsQuotaGuard() {
+  const el = document.getElementById(TTS_QUOTA_GUARD_IDS[0]);
+  return el ? el.checked : true;
+}
+function setTtsQuotaGuard(enabled) {
+  TTS_QUOTA_GUARD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = enabled;
+  });
 }
 
 // R11 — google-cloud's free tier is char/month, not request/month; estimate alerts/month from an
@@ -5551,7 +5565,8 @@ function updateTtsQuotaInfo(mode) {
       text += ` (~${alerts.toLocaleString('th-TH')} ครั้ง/เดือน โดยประมาณ อิงข้อความเฉลี่ย ${TTS_AVG_ALERT_CHARS} ตัวอักษร)`;
     }
   }
-  quota.textContent = text;
+  // innerHTML safe: freeTiers/voice labels เป็น server-hardcoded const (src/tts.js) ไม่มี user input
+  quota.innerHTML = text;
 }
 
 function applyTtsMode(mode, animate) {
@@ -5570,12 +5585,17 @@ function applyTtsMode(mode, animate) {
   // R1 option B (2026-08-11) — panel only shows until this streamer accepts current ttsConfirmVersion once
   ttsSetBlockVisible('ttsConfirmPanel', mode !== 'free' && !ttsConfirmAccepted, animate);
   updateTtsQuotaInfo(mode);
+  // R14 — quota card stays hidden while the guard is on (fallback makes the cost moot); free mode
+  // keeps its old always-shown behavior since the guard doesn't apply there.
+  ttsSetBlockVisible('ttsQuotaInfo', mode === 'free' || !getTtsQuotaGuard(), animate);
 }
 
 async function loadTtsModeSettings(s) {
   if (!await ensureTtsCatalog()) return;
   const mode = ttsModes[s.tts_mode] ? s.tts_mode : 'free';
   ttsConfirmAccepted = !!s.tts_confirm_version && s.tts_confirm_version === ttsConfirmVersion;
+  // R14 — default true for legacy rows / undefined (field omitted from a partial settings blob)
+  setTtsQuotaGuard(s.tts_quota_guard_enabled === undefined || s.tts_quota_guard_enabled === null ? true : !!Number(s.tts_quota_guard_enabled));
   applyTtsMode(mode, false);
   renderTtsVoices(mode, s.ttsVoice || '');
   const chkRandom = document.getElementById('chkTtsRandomVoice');
@@ -5621,6 +5641,15 @@ function bindTtsModeUi() {
   document.getElementById('btnTestTts')?.addEventListener('click', ttsTestVoice);
   document.getElementById('btnClearGoogleKey')?.addEventListener('click', () => ttsClearKey('google-cloud'));
   document.getElementById('btnClearGeminiKey')?.addEventListener('click', () => ttsClearKey('vertex'));
+
+  // R14 — either switch flips both (same underlying field) and the quota card reacts immediately,
+  // no Save needed (blueprint §6 F2).
+  TTS_QUOTA_GUARD_IDS.forEach(id => {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      setTtsQuotaGuard(e.target.checked);
+      ttsSetBlockVisible('ttsQuotaInfo', getTtsMode() === 'free' || !getTtsQuotaGuard(), true);
+    });
+  });
 }
 
 async function ttsClearKey(mode) {
@@ -5667,7 +5696,13 @@ async function ttsRequest(body) {
   }
   // R6 — vertex connect shows "เชื่อมต่อกับโปรเจค {id}" using the project id Google's Express Mode
   // key resolves to (server sends it back as a header since the body here is the audio itself)
-  return { blob: await res.blob(), projectId: res.headers.get('X-Vertex-Project-Id') || null };
+  // R14 — X-TTS-Fallback set when the server substituted Google Translate for the requested
+  // provider (quota-guard cap or upstream provider quota); purpose=connect never sees this header.
+  return {
+    blob: await res.blob(),
+    projectId: res.headers.get('X-Vertex-Project-Id') || null,
+    fallbackReason: res.headers.get('X-TTS-Fallback') || null
+  };
 }
 
 async function withTtsButtonBusy(btn, label, fn) {
@@ -5694,7 +5729,7 @@ async function ttsConnect(mode) {
   const voice = document.getElementById('selectTtsVoice')?.value || ttsModes?.[mode]?.voices[0]?.id || '';
 
   await withTtsButtonBusy(btn, 'กำลังเชื่อมต่อ...', async () => {
-    const result = await ttsRequest({ mode, voice, key });
+    const result = await ttsRequest({ mode, voice, key, purpose: 'connect' });
     if (!result) {
       if (statusEl) { statusEl.textContent = 'เชื่อมต่อไม่สำเร็จ'; statusEl.className = 'text-danger'; }
       return;
@@ -5708,10 +5743,13 @@ async function ttsConnect(mode) {
     audio.play().catch(() => URL.revokeObjectURL(url));
 
     // R12 — connect success = save key + switch tts_mode in the same request
+    // R14 — must include the current guard value too: otherwise a user who flipped the switch off
+    // (UI only, not yet saved) sees it "on" again in DB after this auto-save overwrites nothing
+    // (omitted field keeps the old DB value, not the UI's unsaved one).
     const res = await fetchWithCsrf('/api/overlay/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: key, tts_mode: mode })
+      body: JSON.stringify({ [field]: key, tts_mode: mode, tts_quota_guard_enabled: getTtsQuotaGuard() })
     });
     if (!res.ok || res._demoBlocked) {
       if (statusEl) { statusEl.textContent = 'เชื่อมต่อสำเร็จแต่บันทึกไม่สำเร็จ'; statusEl.className = 'text-danger'; }
@@ -5735,14 +5773,16 @@ async function ttsTestVoice() {
   const voice = document.getElementById('selectTtsVoice')?.value || '';
 
   await withTtsButtonBusy(btn, 'กำลังทดสอบ...', async () => {
-    const result = await ttsRequest({ mode, voice, key: ttsKeyValue(mode) });
+    const result = await ttsRequest({ mode, voice, key: ttsKeyValue(mode), purpose: 'test' });
     if (!result) return;
-    const { blob } = result;
+    const { blob, fallbackReason } = result;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.onended = () => URL.revokeObjectURL(url);
     audio.onerror = () => URL.revokeObjectURL(url);
     audio.play().catch(() => { URL.revokeObjectURL(url); showNotification('เบราว์เซอร์บล็อกการเล่นเสียง กรุณาคลิกที่หน้าเว็บก่อน', 'error'); });
+    // R14 — server substituted Google Translate (quota-guard cap or upstream provider quota)
+    if (fallbackReason) showNotification('โควต้าโหมดฟรีครบแล้ว กำลังใช้เสียง Google Translate แทน', 'warning');
   });
 }
 
@@ -7766,6 +7806,7 @@ async function saveOverlaySettings() {
     payload.tts_mode = ttsMode;
     payload.ttsVoice = document.getElementById('selectTtsVoice')?.value || '';
     payload.tts_random_voice = ttsMode !== 'free' && !!document.getElementById('chkTtsRandomVoice')?.checked;
+    payload.tts_quota_guard_enabled = getTtsQuotaGuard();
     // R1 option B — only fire the acceptance record on the first save after checking it, not every
     // subsequent unrelated save (ttsConfirmAccepted flips true after this save's response reloads settings)
     if (ttsMode !== 'free' && !ttsConfirmAccepted) payload.tts_confirm_accept = true;

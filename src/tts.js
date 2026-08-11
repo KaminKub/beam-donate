@@ -16,42 +16,43 @@ const MODES = {
     { id: 'th-TH-NiwatNeural', label: 'นิวัฒน์ (Microsoft)' }
   ]},
   'google-cloud': { label: 'Google Cloud', needsKey: true, voices: [
-    { id: 'th-TH-Standard-A', label: 'Standard A (ผู้หญิง)', freeTier: 'ฟรี 4M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Neural2-C', label: 'Neural2 C (ผู้หญิง)', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Kore', label: 'Chirp3 HD Kore', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Zephyr', label: 'Chirp3 HD Zephyr', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Puck', label: 'Chirp3 HD Puck', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Charon', label: 'Chirp3 HD Charon', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Fenrir', label: 'Chirp3 HD Fenrir', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Leda', label: 'Chirp3 HD Leda', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Orus', label: 'Chirp3 HD Orus', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' },
-    { id: 'th-TH-Chirp3-HD-Aoede', label: 'Chirp3 HD Aoede', freeTier: 'ฟรี 1M ตัวอักษร/เดือน' }
+    { id: 'th-TH-Standard-A', label: 'Standard A (ผู้หญิง)', freeTier: 'ฟรี 4M อักษร/เดือน' },
+    { id: 'th-TH-Neural2-C', label: 'Neural2 C (ผู้หญิง)', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Kore', label: 'Chirp3 HD Kore', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Zephyr', label: 'Chirp3 HD Zephyr', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Puck', label: 'Chirp3 HD Puck', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Charon', label: 'Chirp3 HD Charon', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Fenrir', label: 'Chirp3 HD Fenrir', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Leda', label: 'Chirp3 HD Leda', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Orus', label: 'Chirp3 HD Orus', freeTier: 'ฟรี 1M อักษร/เดือน' },
+    { id: 'th-TH-Chirp3-HD-Aoede', label: 'Chirp3 HD Aoede', freeTier: 'ฟรี 1M อักษร/เดือน' }
   ]},
   vertex: { label: 'Vertex (Gemini)', needsKey: true, voices: [
-    { id: 'Kore', label: 'โคเร (มั่นคง)' }, { id: 'Aoede', label: 'อาเอเด (ร่าเริง)' },
-    { id: 'Leda', label: 'เลดา (สดใส)' }, { id: 'Zephyr', label: 'เซเฟอร์ (แจ่มใส)' },
-    { id: 'Puck', label: 'พัค (คึกคัก)' }, { id: 'Charon', label: 'คารอน (ให้ข้อมูล)' },
-    { id: 'Fenrir', label: 'เฟนเรียร์ (ตื่นเต้นง่าย)' }, { id: 'Orus', label: 'โอรัส (มั่นคง)' }
+    { id: 'Kore', label: 'Kore (มั่นคง)' }, { id: 'Aoede', label: 'Aoede (ร่าเริง)' },
+    { id: 'Leda', label: 'Leda (สดใส)' }, { id: 'Zephyr', label: 'Zephyr (แจ่มใส)' },
+    { id: 'Puck', label: 'Puck (คึกคัก)' }, { id: 'Charon', label: 'Charon (ให้ข้อมูล)' },
+    { id: 'Fenrir', label: 'Fenrir (ตื่นเต้นง่าย)' }, { id: 'Orus', label: 'Orus (มั่นคง)' }
   ]}
 };
 
 const FREE_TIERS = {
   free: 'Google Translate ฟรีไม่จำกัด · Microsoft ขึ้นอยู่กับเบราว์เซอร์ผู้ชม (ไม่รับประกันว่าจะมีเสียงเสมอ)',
   'google-cloud': 'Standard 4M / Neural2 1M / Chirp3 1M ตัวอักษร/เดือน',
-  vertex: 'จำกัดมาก: 3 RPM / 15 RPD (flash-preview-tts) — ไม่เหมาะ alert จริง'
+  vertex: '<span class="status-dot error"></span> ระวัง: ฟรีแค่ [3 ครั้ง/นาที | 15 ครั้ง/วัน] หากเกินกำหนดนี้ Google จะคิดราคาแพงกว่า TTS ปกติ โปรดใช้อย่างระมัดระวัง'
 };
 
 const DAILY_CHAR_CAP = 100000;   // per streamer per day, all paid modes
+const DAILY_REQUEST_CAP = 10;    // per streamer per day, vertex only (R14)
 const MAX_TEXT_LEN = 500;        // server-side cap regardless of client-sent length
 const OUTBOUND_TIMEOUT_MS = 10000;
 
 // per-streamer usage (in-memory, resets on UTC-date rollover — single VPS process)
-const usage = new Map(); // streamerId -> { date: 'YYYY-MM-DD', chars: n }
+const usage = new Map(); // streamerId -> { date: 'YYYY-MM-DD', chars: n, requests: n }
 function _usage(streamerId) {
   const today = new Date().toISOString().slice(0, 10);
   const u = usage.get(streamerId);
   if (!u || u.date !== today) {
-    const fresh = { date: today, chars: 0 };
+    const fresh = { date: today, chars: 0, requests: 0 };
     usage.set(streamerId, fresh);
     return fresh;
   }
@@ -59,6 +60,20 @@ function _usage(streamerId) {
 }
 function getDailyChars(streamerId) { return _usage(streamerId).chars; }
 function addDailyChars(streamerId, n) { _usage(streamerId).chars += n; }
+
+// R14 quota-guard consume helper — synchronous check+reserve (no await between check and mutate,
+// so two concurrent requests can't both pass the check before either reserves). Only call when the
+// streamer's tts_quota_guard_enabled is on; mode must already be a paid mode (caller gates on that).
+// Vertex checks both chars and requests before mutating either, to avoid a partial reservation
+// (chars incremented but then rejected on requests).
+function tryConsumeFreeQuota(streamerId, mode, charCount) {
+  const u = _usage(streamerId);
+  if (u.chars + charCount > DAILY_CHAR_CAP) return { allowed: false, reason: 'chars' };
+  if (mode === 'vertex' && u.requests >= DAILY_REQUEST_CAP) return { allowed: false, reason: 'requests' };
+  u.chars += charCount;
+  if (mode === 'vertex') u.requests += 1;
+  return { allowed: true };
+}
 
 function escapeXml(s) {
   return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
@@ -251,7 +266,7 @@ async function synthesizeTTS({ mode, voice, text, lang, keys }) {
 }
 
 module.exports = {
-  MODES, FREE_TIERS, DAILY_CHAR_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
-  synthesizeTTS, getDailyChars, addDailyChars,
+  MODES, FREE_TIERS, DAILY_CHAR_CAP, DAILY_REQUEST_CAP, MAX_TEXT_LEN, OUTBOUND_TIMEOUT_MS,
+  synthesizeTTS, getDailyChars, addDailyChars, tryConsumeFreeQuota,
   escapeXml, pcmToWav, resolveVertexProjectId
 };
