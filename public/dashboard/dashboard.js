@@ -1501,7 +1501,7 @@ async function initializeDashboard() {
     if (chkGoalEndDate) {
       chkGoalEndDate.addEventListener('change', () => {
         const section = document.getElementById('goalEndDateSection');
-        if (section) section.style.display = chkGoalEndDate.checked ? '' : 'none';
+        setSwitchVisibility(section, chkGoalEndDate.checked);
 
         if (!chkGoalEndDate.checked) return;
 
@@ -1853,15 +1853,15 @@ function loadDemoGoalSettingsFromData(data) {
   if (volLbl) volLbl.textContent = Math.round(goalAnimVol * 100);
   if (chkAnimEnabled) {
     chkAnimEnabled.checked = data.goal_anim_enabled !== 0 && data.goal_anim_enabled !== false;
-    const syncSoundVis = () => {
+    const syncSoundVis = (animate = false) => {
       const soundGroup = chkSound && chkSound.closest('.form-group');
       const volGroup = document.getElementById('goalAnimVolumeGroup');
-      if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
-      if (volGroup) volGroup.style.display = (chkAnimEnabled.checked && chkSound && chkSound.checked) ? '' : 'none';
+      setSwitchVisibility(soundGroup, chkAnimEnabled.checked, { animate });
+      setSwitchVisibility(volGroup, chkAnimEnabled.checked && chkSound && chkSound.checked, { animate });
     };
-    chkAnimEnabled.onchange = syncSoundVis;
-    if (chkSound) chkSound.onchange = syncSoundVis;
-    syncSoundVis();
+    chkAnimEnabled.onchange = () => syncSoundVis(true);
+    if (chkSound) chkSound.onchange = () => syncSoundVis(true);
+    syncSoundVis(false);
   }
   const chkShowOnDonate = document.getElementById('chkGoalShowOnDonate');
   if (chkShowOnDonate) chkShowOnDonate.checked = !!data.goal_show_on_donate;
@@ -2051,15 +2051,15 @@ function loadDemoTimerSettings(data) {
   if (chkAnimSound) chkAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
   if (chkAnim) {
     chkAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
-    const syncAnimTestVis = () => {
+    const syncAnimTestVis = (animate = false) => {
       const soundGroup = document.getElementById('timerAnimSoundGroup');
       const volGroup = document.getElementById('timerAnimVolumeGroup');
-      if (soundGroup) soundGroup.style.display = chkAnim.checked ? '' : 'none';
-      if (volGroup) volGroup.style.display = (chkAnim.checked && chkAnimSound && chkAnimSound.checked) ? '' : 'none';
+      setSwitchVisibility(soundGroup, chkAnim.checked, { animate });
+      setSwitchVisibility(volGroup, chkAnim.checked && chkAnimSound && chkAnimSound.checked, { animate });
     };
-    chkAnim.onchange = syncAnimTestVis;
-    if (chkAnimSound) chkAnimSound.onchange = syncAnimTestVis;
-    syncAnimTestVis();
+    chkAnim.onchange = () => syncAnimTestVis(true);
+    if (chkAnimSound) chkAnimSound.onchange = () => syncAnimTestVis(true);
+    syncAnimTestVis(false);
   }
 
   // Timeout effect
@@ -2500,10 +2500,10 @@ function loadOverlaySettingsFromData(data) {
   setSelectValue('selectOutlineMessage', outline.message ?? 1);
 
   // Sound/TTS/Profanity sub-section visibility (mirrors loadOverlaySettings logic)
-  if (typeof toggleCustomSoundUrlContainer === 'function') toggleCustomSoundUrlContainer(data.soundChoice);
-  if (typeof toggleTtsSubSettings === 'function') toggleTtsSubSettings(data.ttsEnabled);
-  if (typeof toggleAudioSettingsRow === 'function') toggleAudioSettingsRow(data.soundEnabled);
-  if (typeof toggleProfanitySubSettings === 'function') toggleProfanitySubSettings(data.profanityFilterEnabled);
+  if (typeof toggleCustomSoundUrlContainer === 'function') toggleCustomSoundUrlContainer(data.soundChoice, false);
+  if (typeof toggleTtsSubSettings === 'function') toggleTtsSubSettings(data.ttsEnabled, false);
+  if (typeof toggleAudioSettingsRow === 'function') toggleAudioSettingsRow(data.soundEnabled, false);
+  if (typeof toggleProfanitySubSettings === 'function') toggleProfanitySubSettings(data.profanityFilterEnabled, false);
 
   // Custom image/sound display
   const imgMode = data.customImageMode === 'url' ? 'upload' : (data.customImageMode || 'emoji');
@@ -4679,23 +4679,59 @@ async function simulateCustomAlert(donor, amount, message) {
 }
 
 // ========== Overlay Settings Logic ==========
-function toggleTtsSubSettings(enabled) {
+// Match widget-settings-body/tier-row behavior: reveal before sliding in, and keep
+// the element mounted until its close animation has completed.
+function setSwitchVisibility(target, show, { animate = true, display = '' } = {}) {
+  const elements = target instanceof Element ? [target] : Array.from(target || []);
+  elements.forEach((element) => {
+    clearTimeout(element._switchVisibilityTimer);
+    element.classList.add('switch-visibility');
+    element.classList.remove('switch-visibility-opening', 'switch-visibility-closing');
+
+    if (show) {
+      element.classList.remove('switch-visibility-hidden');
+      element.style.display = display;
+      if (animate) {
+        void element.offsetWidth;
+        element.classList.add('switch-visibility-opening');
+        element._switchVisibilityTimer = setTimeout(() => {
+          element.classList.remove('switch-visibility-opening');
+        }, 400);
+      }
+      return;
+    }
+
+    if (!animate || element.classList.contains('switch-visibility-hidden')) {
+      element.classList.add('switch-visibility-hidden');
+      element.style.display = 'none';
+      return;
+    }
+
+    element.classList.add('switch-visibility-closing');
+    element._switchVisibilityTimer = setTimeout(() => {
+      if (!element.classList.contains('switch-visibility-closing')) return;
+      element.classList.remove('switch-visibility-closing');
+      element.classList.add('switch-visibility-hidden');
+      element.style.display = 'none';
+    }, 300);
+  });
+}
+
+function toggleTtsSubSettings(enabled, animate = true) {
   const container = document.getElementById('ttsSubSettingsContainer');
-  if (!container) return;
-  container.style.display = enabled ? 'block' : 'none';
+  setSwitchVisibility(container, enabled, { animate, display: 'block' });
 }
 
-function toggleAudioSettingsRow(enabled) {
+function toggleAudioSettingsRow(enabled, animate = true) {
   const row = document.getElementById('soundVolumeSettingsRow');
-  if (!row) return;
-  row.style.display = enabled ? 'grid' : 'none';
+  setSwitchVisibility(row, enabled, { animate, display: 'grid' });
 }
 
-function toggleCustomSoundUrlContainer(choice) {
+function toggleCustomSoundUrlContainer(choice, animate = true) {
   const urlContainer = document.getElementById('customSoundUrlContainer');
   const uploadContainer = document.getElementById('uploadSoundContainer');
-  if (urlContainer) urlContainer.style.display = choice === 'custom_url' ? 'block' : 'none';
-  if (uploadContainer) uploadContainer.style.display = choice === 'upload_sound' ? 'block' : 'none';
+  setSwitchVisibility(urlContainer, choice === 'custom_url', { animate, display: 'block' });
+  setSwitchVisibility(uploadContainer, choice === 'upload_sound', { animate, display: 'block' });
 }
 
 function toggleCustomImageUI(mode, currentValue) {
@@ -5327,10 +5363,9 @@ function clearTimerUploadSound() {
   if (status) status.textContent = '';
 }
 
-function toggleProfanitySubSettings(enabled) {
+function toggleProfanitySubSettings(enabled, animate = true) {
   const container = document.getElementById('profanitySubSettingsContainer');
-  if (!container) return;
-  container.style.display = enabled ? 'block' : 'none';
+  setSwitchVisibility(container, enabled, { animate, display: 'block' });
 }
 
 function parseJsonField(value, fallback = null) {
@@ -5458,7 +5493,7 @@ async function loadOverlaySettings() {
        // Audio Checkboxes
        document.getElementById('chkSoundEnabled').checked = s.soundEnabled;
        document.getElementById('soundChoiceSelect').value = s.soundChoice;
-       toggleCustomSoundUrlContainer(s.soundChoice);
+       toggleCustomSoundUrlContainer(s.soundChoice, false);
        document.getElementById('sliderSoundVolume').value = s.soundVolume;
        document.getElementById('lblSoundVolume').textContent = Math.round(s.soundVolume * 100);
 
@@ -5517,9 +5552,9 @@ async function loadOverlaySettings() {
        });
 
        // Handle custom fields toggle on startup
-       toggleTtsSubSettings(s.ttsEnabled);
-       toggleAudioSettingsRow(s.soundEnabled);
-       toggleProfanitySubSettings(s.profanityFilterEnabled);
+       toggleTtsSubSettings(s.ttsEnabled, false);
+       toggleAudioSettingsRow(s.soundEnabled, false);
+       toggleProfanitySubSettings(s.profanityFilterEnabled, false);
 
        loadTtsModeSettings(s);
     }
@@ -5864,15 +5899,15 @@ async function loadGoalSettings() {
     const goalAnimVol = data.goal_anim_sound_volume !== undefined && data.goal_anim_sound_volume !== null ? data.goal_anim_sound_volume : 1;
     if (volSlider) volSlider.value = goalAnimVol;
     if (volLbl) volLbl.textContent = Math.round(goalAnimVol * 100);
-    const syncSoundVis = () => {
+    const syncSoundVis = (animate = false) => {
       const soundGroup = chkSound.closest('.form-group');
       const volGroup = document.getElementById('goalAnimVolumeGroup');
-      if (soundGroup) soundGroup.style.display = chkAnimEnabled.checked ? '' : 'none';
-      if (volGroup) volGroup.style.display = (chkAnimEnabled.checked && chkSound.checked) ? '' : 'none';
+      setSwitchVisibility(soundGroup, chkAnimEnabled.checked, { animate });
+      setSwitchVisibility(volGroup, chkAnimEnabled.checked && chkSound.checked, { animate });
     };
-    chkAnimEnabled.onchange = syncSoundVis;
-    chkSound.onchange = syncSoundVis;
-    syncSoundVis();
+    chkAnimEnabled.onchange = () => syncSoundVis(true);
+    chkSound.onchange = () => syncSoundVis(true);
+    syncSoundVis(false);
     document.getElementById('chkGoalShowOnDonate').checked = !!data.goal_show_on_donate;
     const posEl = document.getElementById('selectGoalBarPosition');
     if (posEl) {
@@ -5938,7 +5973,7 @@ async function loadGoalSettings() {
     const endDateSection = document.getElementById('goalEndDateSection');
     const endDateInput = document.getElementById('inputGoalEndDate');
     if (chkEndDate) chkEndDate.checked = hasEndDate;
-    if (endDateSection) endDateSection.style.display = hasEndDate ? '' : 'none';
+    setSwitchVisibility(endDateSection, hasEndDate, { animate: false });
     if (endDateInput && data.goal_end_date) {
       // datetime-local needs format YYYY-MM-DDTHH:MM
       endDateInput.value = data.goal_end_date.slice(0, 16);
@@ -6357,8 +6392,8 @@ function renderTimerCapStatus(t, capCurrent) {
   const capStatusText = document.getElementById('timerCapStatusText');
   const capStatusRow = document.getElementById('timerCapStatusRow');
   if (!capStatusRow) return;
-  if (!t.cap_type) { capStatusRow.style.display = 'none'; return; }
-  capStatusRow.style.display = '';
+  if (!t.cap_type) { setSwitchVisibility(capStatusRow, false, { animate: false }); return; }
+  setSwitchVisibility(capStatusRow, true, { animate: false });
 
   capCurrent = Number(capCurrent) || 0; // ค่าใน template เป็นตัวเลขเสมอ — กัน XSS ผ่าน innerHTML
   t = { ...t, cap_value: Number(t.cap_value) || 0 };
@@ -6561,15 +6596,15 @@ async function loadTimerSettings() {
     if (chkTimerAnimSound) chkTimerAnimSound.checked = t.timer_anim_sound_enabled !== 0 && t.timer_anim_sound_enabled !== false;
     if (chkTimerAnim) {
       chkTimerAnim.checked = t.timer_anim_enabled !== 0 && t.timer_anim_enabled !== false;
-      const syncAnimTestVis = () => {
+      const syncAnimTestVis = (animate = false) => {
         const soundGroup = document.getElementById('timerAnimSoundGroup');
         const volGroup = document.getElementById('timerAnimVolumeGroup');
-        if (soundGroup) soundGroup.style.display = chkTimerAnim.checked ? '' : 'none';
-        if (volGroup) volGroup.style.display = (chkTimerAnim.checked && chkTimerAnimSound && chkTimerAnimSound.checked) ? '' : 'none';
+        setSwitchVisibility(soundGroup, chkTimerAnim.checked, { animate });
+        setSwitchVisibility(volGroup, chkTimerAnim.checked && chkTimerAnimSound && chkTimerAnimSound.checked, { animate });
       };
-      syncAnimTestVis();
-      chkTimerAnim.addEventListener('change', syncAnimTestVis);
-      if (chkTimerAnimSound) chkTimerAnimSound.addEventListener('change', syncAnimTestVis);
+      syncAnimTestVis(false);
+      chkTimerAnim.addEventListener('change', () => syncAnimTestVis(true));
+      if (chkTimerAnimSound) chkTimerAnimSound.addEventListener('change', () => syncAnimTestVis(true));
     }
 
     // TikTok card
@@ -6752,9 +6787,9 @@ function initTimerSettingsUI() {
   const chkShowRules = document.getElementById('chkTimerShowRules');
   const tmplRow = document.getElementById('timerRulesTemplateRow');
   if (chkShowRules && tmplRow) {
-    const syncTmplRow = () => { tmplRow.style.display = chkShowRules.checked ? '' : 'none'; };
-    chkShowRules.addEventListener('change', syncTmplRow);
-    syncTmplRow();
+    const syncTmplRow = (animate = false) => setSwitchVisibility(tmplRow, chkShowRules.checked, { animate });
+    chkShowRules.addEventListener('change', () => syncTmplRow(true));
+    syncTmplRow(false);
   }
 
   // Cap type toggle
@@ -6771,8 +6806,8 @@ function initTimerSettingsUI() {
       const hasCap = !!capTypeEl.value;
       const capValGroup = document.getElementById('timerCapValueGroup');
       const capStatusRow = document.getElementById('timerCapStatusRow');
-      if (capValGroup) capValGroup.style.display = hasCap ? '' : 'none';
-      if (capStatusRow) capStatusRow.style.display = hasCap ? '' : 'none';
+      setSwitchVisibility(capValGroup, hasCap);
+      setSwitchVisibility(capStatusRow, hasCap);
       syncCapUnit();
     });
   }
@@ -6782,7 +6817,7 @@ function initTimerSettingsUI() {
   if (chkTimerSound) {
     chkTimerSound.addEventListener('change', () => {
       const row = document.getElementById('timerSoundSettingsRow');
-      if (row) row.style.display = chkTimerSound.checked ? '' : 'none';
+      setSwitchVisibility(row, chkTimerSound.checked);
     });
   }
 
@@ -6793,8 +6828,8 @@ function initTimerSettingsUI() {
       const v = soundChoiceEl.value;
       const urlCont = document.getElementById('timerCustomSoundUrlContainer');
       const uploadCont = document.getElementById('timerUploadSoundContainer');
-      if (urlCont) urlCont.style.display = v === 'url' ? '' : 'none';
-      if (uploadCont) uploadCont.style.display = v === 'upload' ? '' : 'none';
+      setSwitchVisibility(urlCont, v === 'url');
+      setSwitchVisibility(uploadCont, v === 'upload');
     });
   }
   const btnBrowseTimer = document.getElementById('btnBrowseTimerSounds');
@@ -6814,7 +6849,7 @@ function initTimerSettingsUI() {
   if (effectTypeEl) {
     effectTypeEl.addEventListener('change', () => {
       const emojiRow = document.getElementById('timerEffectEmojiRow');
-      if (emojiRow) emojiRow.style.display = effectTypeEl.value === 'emoji' ? '' : 'none';
+      setSwitchVisibility(emojiRow, effectTypeEl.value === 'emoji');
     });
   }
   const btnTestEffect = document.getElementById('btnTestTimerEffect');

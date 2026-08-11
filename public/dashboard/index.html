@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_5">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_6">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1903,7 +1903,7 @@
                     <!-- Card 2.5: Text & Style Customization -->
                     <div class="dashboard-card settings-card">
                       <div class="settings-card-header" data-target="panelGoalTextCustom">
-                        <h4><i class="fa-solid fa-font" style="color:#a855f7"></i> ปรับแต่งตัวอักษร (Text & Style)</h4>
+                        <h4><i class="fa-solid fa-font" style="color:#a855f7"></i> ปรับแต่งสไตล์ (รูปแบบ & ตัวอักษร)</h4>
                         <i class="fa-solid fa-chevron-down card-chevron"></i>
                       </div>
                       <div class="card-body-panel" id="panelGoalTextCustom">
@@ -3210,8 +3210,10 @@
                     <button class="btn btn-secondary" id="btnOpenObsUrlPreview" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></button>
                   </div>
                   <div class="preview-controls">
-                    <button class="btn-reload-preview" id="btnReloadPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                    <button type="button" class="btn-reload-preview" id="btnTestAlert"><i class="fa-solid fa-paper-plane" style="color:#8b5cf6;"></i> ทดสอบ Alert</button>
+                    <div class="preview-control-actions">
+                      <button class="btn-reload-preview" id="btnReloadPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                      <button type="button" class="btn-reload-preview preview-test-action" id="btnTestAlert"><i class="fa-solid fa-paper-plane" style="color:#8b5cf6;"></i> ทดสอบ Alert</button>
+                    </div>
                     <span class="preview-recommendation"><i class="fa-solid fa-lightbulb"></i> แนะนำ: ขนาด 800×600px, background transparent</span>
                   </div>
                 </div>
@@ -3235,8 +3237,10 @@
                     เพิ่ม <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;bottom</code> หรือ <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;">&amp;top</code> ต่อท้าย URL เพื่อให้หลอดโดเนทอยู่ล่างสุดหรือบนสุดของจอ
                   </p>
                   <div class="preview-controls">
-                    <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
-                    <button type="button" class="btn-reload-preview" id="btnTestGoalAnimation"><i class="fa-solid fa-shuffle" style="color:#f59e0b;"></i> ทดสอบ Animation</button>
+                    <div class="preview-control-actions">
+                      <button class="btn-reload-preview" id="btnReloadGoalPreview"><i class="fa-solid fa-rotate"></i> โหลดตัวอย่างใหม่</button>
+                      <button type="button" class="btn-reload-preview preview-test-action" id="btnTestGoalAnimation"><i class="fa-solid fa-shuffle" style="color:#f59e0b;"></i> ทดสอบ Animation</button>
+                    </div>
                     <span class="preview-recommendation" id="goalPreviewRecommendation"><i class="fa-solid fa-lightbulb"></i> <span id="goalPreviewRecommendationText">แนะนำ: ขนาด 600×350px, background transparent</span></span>
                   </div>
                 </div>
@@ -3827,7 +3831,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260811_8"></script>
+  <script src="/dashboard/dashboard.js?v=20260811_9"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

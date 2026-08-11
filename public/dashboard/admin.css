@@ -3480,6 +3480,22 @@ label {
   transform: rotate(180deg);
 }
 
+.preview-control-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.preview-control-actions .btn-reload-preview {
+  min-width: 180px;
+  justify-content: center;
+}
+
+.preview-control-actions .preview-test-action:hover i {
+  transform: scale(0.9);
+}
+
 .btn-reload-preview.spinning {
   pointer-events: none;
   opacity: 0.8;
@@ -3928,6 +3944,23 @@ label {
 }
 
 .widget-settings-body.panel-closing {
+  animation: panelSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Switch-controlled Overlay Config rows use the same reveal/hide rhythm as widget settings. */
+.switch-visibility {
+  overflow: hidden;
+}
+
+.switch-visibility.switch-visibility-hidden {
+  display: none;
+}
+
+.switch-visibility.switch-visibility-opening {
+  animation: panelSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.switch-visibility.switch-visibility-closing {
   animation: panelSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
@@ -4534,6 +4567,8 @@ label {
 /* D1-D4 Dashboard Final Round */
 @media (max-width: 400px) {
   .preview-controls { flex-direction: column; align-items: stretch; }
+  .preview-control-actions { align-items: stretch; }
+  .preview-control-actions .btn-reload-preview { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
