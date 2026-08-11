@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_3">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_4">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -1441,7 +1441,7 @@
                             <input type="checkbox" id="chkTtsRandomVoice" name="tts_random_voice">
                             <span class="slider-switch"></span>
                           </label>
-                          <span class="switch-label">สุ่มเสียงทุกครั้งที่มีแจ้งเตือน</span>
+                          <span class="switch-label"><i class="fa-solid fa-shuffle" style="color:#f65ca9;"></i> สุ่มเสียงทุกครั้งที่มีแจ้งเตือน</span>
                         </div>
                       </div>
                       <div class="form-group" id="ttsGoogleKeyGroup" style="display:none;">
@@ -1455,6 +1455,10 @@
                             <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
                           </button>
                         </div>
+                        <small class="text-muted" id="ttsGoogleKeyStatus"></small>
+                        <small class="text-muted" style="display:block;margin-top:4px;">
+                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → APIs & Services → Credentials</a> (ต้องเปิด Cloud Text-to-Speech API ในโปรเจกต์ก่อน)
+                        </small>
                         <div class="tts-quota-guard switch-group">
                           <label class="switch">
                             <input type="checkbox" id="chkTtsQuotaGuardGoogle" name="tts_quota_guard_enabled" checked>
@@ -1465,10 +1469,6 @@
                             <small class="text-muted">เมื่อครบโควต้าที่ TipKub กำหนด ระบบจะหยุดเรียก API ที่เสียเงินและใช้ Google Translate ฟรีแทน — ป้องกันโดนหักเงินสูงเกิดไป</small>
                           </div>
                         </div>
-                        <small class="text-muted" id="ttsGoogleKeyStatus"></small>
-                        <small class="text-muted" style="display:block;margin-top:4px;">
-                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → APIs & Services → Credentials</a> (ต้องเปิด Cloud Text-to-Speech API ในโปรเจกต์ก่อน)
-                        </small>
                       </div>
                       <div class="form-group" id="ttsGeminiKeyGroup" style="display:none;">
                         <label for="inputTtsGeminiKey"><i class="fa-solid fa-key" style="color:#8b5cf6;"></i> Vertex API Key</label>
@@ -1481,6 +1481,10 @@
                             <i class="fa-solid fa-trash" style="color:#ef4444;"></i> ลบ key
                           </button>
                         </div>
+                        <small class="text-muted" id="ttsGeminiKeyStatus"></small>
+                        <small class="text-muted" style="display:block;margin-top:4px;">
+                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/agent-platform/studio/settings/api-keys" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → Agent Platform API → Get API</a> (ต้องเปิด Enable APIs "Agent Platform API" ในโปรเจกต์ก่อน)
+                        </small>
                         <div class="tts-quota-guard switch-group">
                           <label class="switch">
                             <input type="checkbox" id="chkTtsQuotaGuardVertex" name="tts_quota_guard_enabled" checked>
@@ -1491,9 +1495,8 @@
                             <small class="text-muted">เมื่อครบโควต้าที่ TipKub กำหนด ระบบจะหยุดเรียก API ที่เสียเงินและใช้ Google Translate ฟรีแทน — ป้องกันโดนหักเงินเกิน</small>
                           </div>
                         </div>
-                        <small class="text-muted" id="ttsGeminiKeyStatus"></small>
                         <small class="text-muted" style="display:block;margin-top:4px;">
-                          สร้าง API Key ได้ที่ <a href="https://console.cloud.google.com/agent-platform/studio/settings/api-keys" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">Google Cloud Console → Agent Platform API → Get API</a> (ต้องเปิด Enable APIs "Agent Platform API" ในโปรเจกต์ก่อน)
+                          <i class="fa-solid fa-clock" style="color:#f6e75c;"></i> Alert จะรอเสียง Vertex สังเคราะห์เสร็จก่อนขึ้นจอ (~10 วิ ขึ้นกับข้อความ) — หากเกินเวลาจำกัด ระบบจะใช้เสียงสำรองแทน
                         </small>
                       </div>
                       <div class="tts-quota-test-group">
@@ -1509,9 +1512,15 @@
                       </div>
                       <div class="form-group" id="ttsConfirmPanel" style="display:none;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;padding:10px 12px;font-size:13px;margin-top: 10px;">
                         <strong>ยืนยันการเปิดใช้ TTS จากผู้ให้บริการภายนอก</strong>
+                        <ul style="margin:8px 0 0;padding-left:18px;line-height:1.6;">
+                          <li>ข้อความโดเนทของคุณจะถูกส่งไปยังผู้ให้บริการ TTS ที่เลือก</li>
+                          <li>ผู้ให้บริการอาจตั้งอยู่นอกประเทศไทย</li>
+                          <li>คุณในฐานะสตรีมเมอร์เป็นผู้ควบคุมข้อมูล (Controller) มีหน้าที่แจ้งผู้บริจาคให้ทราบ</li>
+                        </ul>
+                        <p style="margin:6px 0 0;">อ่านรายละเอียดที่ <a href="/terms-of-services.html#tts-section" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">เงื่อนไขการให้บริการ §5.1</a> และ <a href="/privacy.html#third-party-tts" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">นโยบายความเป็นส่วนตัว §3.1</a></p>
                         <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;">
                           <input type="checkbox" id="ttsConfirmCheckbox">
-                          <span>ฉันเข้าใจและยอมรับค่าใช้จ่ายและเงื่อนไขการประมวลผลข้อมูลข้างต้น</span>
+                          <span>ฉันเข้าใจและยอมรับค่าใช้จ่าย เงื่อนไขการใช้ TTS และนโยบายความเป็นส่วนตัวข้างต้น</span>
                         </label>
                       </div>
                     </div>

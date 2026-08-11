@@ -205,7 +205,7 @@
         </div>
         <div class="summary-item">
           <span class="summary-icon">🤝</span>
-          <span>ส่งข้อมูลไปยัง: Twitch, Streamlabs, SlipOK, Cloudflare R2, Turso Cloud และผู้ให้บริการ TTS (Google Translate, Microsoft Edge TTS, Google Cloud TTS, Gemini API — เฉพาะเมื่อเปิดใช้งาน) — ไม่ขายข้อมูล</span>
+          <span>ส่งข้อมูลไปยัง: Twitch, Streamlabs, SlipOK, Cloudflare R2, Turso Cloud และผู้ให้บริการ TTS (Google Translate, Google Cloud TTS, Vertex AI (Gemini) — เฉพาะเมื่อเปิดใช้งาน; Microsoft ผ่าน Edge TTS แบบไม่เป็นทางการยังอยู่ในระบบแต่ปัจจุบันใช้งานไม่ได้) — ไม่ขายข้อมูล</span>
         </div>
         <div class="summary-item">
           <span class="summary-icon">📄</span>
@@ -272,7 +272,7 @@
       <li>กุญแจถอดรหัส (Encryption Key) จะถูกเก็บรักษาโดยผู้ให้บริการเท่านั้น ไม่มีการเปิดเผยต่อบุคคลที่สาม</li>
     </ul>
 
-    <h2>3.1 ผู้ให้บริการภายนอก (Third-Party Processors)</h2>
+    <h2 id="third-party-tts">3.1 ผู้ให้บริการภายนอก (Third-Party Processors)</h2>
     <p>TipKub ส่งข้อมูลไปยังผู้ให้บริการภายนอกดังต่อไปนี้เพื่อวัตถุประสงค์ที่ระบุ:</p>
     <style>
       .tp-table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.95rem; }
@@ -315,9 +315,14 @@
           <td>ฐานข้อมูลหลัก (SQLite Cloud)</td>
         </tr>
         <tr>
-          <td><strong>Google Translate (TTS) และ Microsoft Edge TTS</strong> (เสียงระดับฟรี)</td>
+          <td><strong>Google Translate (TTS)</strong> (เสียงระดับฟรี)</td>
           <td>ข้อความของผู้บริจาค (donor message) ที่เปิด Text-to-Speech</td>
-          <td>แปลงข้อความเป็นเสียงสำหรับ OBS alert</td>
+          <td>แปลงข้อความเป็นเสียงสำหรับ Alert Overlay</td>
+        </tr>
+        <tr>
+          <td><strong>Microsoft</strong> (ผ่าน Edge TTS แบบไม่เป็นทางการ)</td>
+          <td>ข้อความของผู้บริจาค (donor message) ที่เปิด Text-to-Speech และเลือกเสียงเปรมวดี/นิวัฒน์</td>
+          <td>แปลงข้อความเป็นเสียงสำหรับ Alert Overlay — <strong>หมายเหตุ: ไม่ใช่บริการทางการของ Microsoft ปัจจุบัน endpoint ปฏิเสธการเชื่อมต่อ (ใช้งานไม่ได้จริง) TipKub ไม่รับรองความพร้อมใช้งาน</strong></td>
         </tr>
         <tr>
           <td><strong>Google Cloud TTS</strong></td>
@@ -325,9 +330,9 @@
           <td>สังเคราะห์เสียง TTS (เฉพาะเมื่อสตรีมเมอร์เปิดใช้)</td>
         </tr>
         <tr>
-          <td><strong>Gemini API</strong></td>
+          <td><strong>Vertex AI (Gemini)</strong></td>
           <td>ข้อความโดเนท (ชื่อผู้บริจาค + ข้อความ)</td>
-          <td>สังเคราะห์เสียง TTS (เฉพาะเมื่อสตรีมเมอร์เปิดใช้)</td>
+          <td>สังเคราะห์เสียง TTS ผ่านผลิตภัณฑ์ Google Cloud คนละตัวกับ Google Cloud TTS ด้านบน (เฉพาะเมื่อสตรีมเมอร์เปิดใช้)</td>
         </tr>
         <tr>
           <td><strong>TrueMoney (Ascend Money)</strong></td>
@@ -336,10 +341,10 @@
         </tr>
       </tbody>
     </table>
-    <p>⚠️ <strong>หมายเหตุผู้ให้บริการ TTS:</strong> ข้อความ donor message ทุกชิ้นที่เปิดฟีเจอร์ TTS จะถูกส่งไปยังผู้ให้บริการสังเคราะห์เสียงที่สตรีมเมอร์เลือกใช้ (Google Translate, Microsoft Edge TTS, Google Cloud TTS หรือ Gemini API) เพื่อแปลงเป็นเสียง ซึ่งอาจรวมถึงชื่อผู้บริจาค กรุณาระมัดระวังข้อมูลส่วนบุคคลในข้อความ</p>
+    <p>⚠️ <strong>หมายเหตุผู้ให้บริการ TTS:</strong> ข้อความ donor message ทุกชิ้นที่เปิดฟีเจอร์ TTS จะถูกส่งไปยังผู้ให้บริการสังเคราะห์เสียงที่สตรีมเมอร์เลือกใช้ (Google Translate, Google Cloud TTS, Vertex AI (Gemini) หรือ Microsoft ผ่าน Edge TTS แบบไม่เป็นทางการ) เพื่อแปลงเป็นเสียง ซึ่งอาจรวมถึงชื่อผู้บริจาค กรุณาระมัดระวังข้อมูลส่วนบุคคลในข้อความ Edge TTS ไม่ใช่บริการทางการของ Microsoft และปัจจุบัน endpoint ใช้งานไม่ได้จริง (TipKub ไม่รับรองหรือรับประกันความพร้อมใช้งาน)</p>
     <p><strong>ข้อความโดเนทเป็นข้อมูลส่วนบุคคล</strong> และอาจถูกส่งไปยังผู้ให้บริการ TTS ตามการตั้งค่าของสตรีมเมอร์</p>
     <p>⚠️ <strong>ข้อมูลอ่อนไหว:</strong> ข้อความโดเนทอาจมีข้อมูลอ่อนไหว (เช่น ข้อมูลสุขภาพหรือศาสนา) ซึ่ง TipKub <strong>คัดกรองไม่ได้</strong></p>
-    <p><strong>การส่งข้อมูลไปต่างประเทศ (PDPA มาตรา 28):</strong> เมื่อสตรีมเมอร์เปิดใช้ฟีเจอร์ TTS ข้อความโดเนทอาจถูกส่งไปประมวลผลที่เซิร์ฟเวอร์ของ Google หรือ Microsoft ซึ่งตั้งอยู่<strong>นอกราชอาณาจักรไทย</strong> การส่งข้อมูลดังกล่าวอาศัยข้อสัญญาการประมวลผลข้อมูล (DPA) และข้อสัญญามาตรฐาน (SCC) ของผู้ให้บริการแต่ละรายตามเงื่อนไขทางการค้ามาตรฐานของผู้ให้บริการนั้นเอง โดย TipKub <strong>ไม่ได้เป็นผู้รับรองหรือตรวจสอบมาตรฐานดังกล่าวแยกต่างหาก</strong></p>
+    <p><strong>การส่งข้อมูลไปต่างประเทศ (PDPA มาตรา 28/29):</strong> เมื่อสตรีมเมอร์เปิดใช้ฟีเจอร์ TTS ข้อความโดเนทอาจถูกส่งไปประมวลผลที่เซิร์ฟเวอร์ของ Google หรือ (กรณีเลือกเสียง Microsoft ผ่าน Edge TTS แบบไม่เป็นทางการ) Microsoft ซึ่งตั้งอยู่<strong>นอกราชอาณาจักรไทย</strong> สำหรับข้อความโดเนท สตรีมเมอร์ในฐานะ<strong>ผู้ควบคุมข้อมูลส่วนบุคคล (Controller)</strong> เป็นผู้รับผิดเรื่องมาตรการส่งข้อมูลข้ามพรมแดนตาม PDPA มาตรา 28/29 อันเนื่องจากการเปิดใช้ TTS ที่ตนเลือก; TipKub ในฐานะ<strong>ผู้ประมวลผลข้อมูล (Processor)</strong> ปฏิบัติตามคำสั่งของสตรีมเมอร์ และ<strong>ไม่ได้เป็นคู่สัญญาใน DPA/SCC ระหว่างสตรีมเมอร์กับผู้ให้บริการ TTS</strong> — สำหรับ Edge TTS ซึ่งเป็นบริการแบบไม่เป็นทางการของ Microsoft <strong>ไม่มี DPA/SCC ทางการรองรับ</strong> และปัจจุบัน endpoint ใช้งานไม่ได้จริง</p>
 
     <h2>3.2 การจัดเก็บรูปภาพใน Cloudflare R2</h2>
     <ul>

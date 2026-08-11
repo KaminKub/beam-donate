@@ -1644,6 +1644,12 @@ label {
     display: flex;
     align-items: center;
   }
+  .tts-quota-guard .switch .slider-switch {
+    inset: auto 0 auto 0;
+    top: 50%;
+    height: 24px;
+    transform: translateY(-50%);
+  }
 }
 
 /* ========== Legal Acceptance Modal ========== */

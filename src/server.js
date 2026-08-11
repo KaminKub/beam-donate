@@ -845,7 +845,8 @@ async function logTransaction(data) {
 const ALLOWED_ORIGINS = [
   'https://tipkub.me',
   'https://www.tipkub.me',
-  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : [])
+
+  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000', 'http://127.0.0.1:3000'] : [])
 ];
 app.use(cors({
   origin: (origin, callback) => {
@@ -4224,7 +4225,7 @@ const ALLOWED_TTS_LANGS = new Set([
 
 // Bump when the TTS external-processor disclosure panel's content changes — forces
 // re-acceptance only from streamers who already accepted an older version (R1, decision 2026-08-11).
-const TTS_CONFIRM_VERSION = 'v1';
+const TTS_CONFIRM_VERSION = 'v2'; // bumped 2026-08-11 — confirmation panel copy changed (L1/L3/L4/L6/L7), legacy v1 acceptances must re-accept
 
 const TTS_TEST_ERROR_MESSAGES = {
   GOOGLE_KEY_INVALID: 'Google API key ไม่ถูกต้อง',
@@ -6109,6 +6110,10 @@ app.use((err, req, res, next) => {
   // This is a client-side abort, not a server error — return 400 silently.
   if (err.status === 500 && err.message === 'stream is not readable') {
     return res.status(400).end();
+  }
+  // CORS rejection (thrown by cors() origin callback) — 403, not generic 500.
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'Origin not allowed' });
   }
   // Query string stripped — /api/tts?token=&text= etc would otherwise leak into logs
   console.error(`Server Error [${req.method} ${(req.originalUrl || '').split('?')[0]}]:`, err.message);
