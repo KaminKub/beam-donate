@@ -684,19 +684,27 @@ function playYoutubeTierSound(videoId, startSec, endSec, volume) {
       document.body.appendChild(hiddenDiv);
       let done = false;
       let iv;
+      let playerRef = null;
       const finish = (player) => {
         if (done) return;
         done = true;
+        clearTimeout(constructTimeout);
         clearInterval(iv);
-        try { player?.destroy(); } catch {}
+        try { (player || playerRef)?.destroy(); } catch {}
         hiddenDiv.remove();
         resolve();
       };
-      const player = new YT.Player(hiddenDiv, {
+      // codex adversarial-review round 4 2026-08-11: onReady/onError aren't guaranteed to fire if
+      // player construction/iframe loading itself stalls (network blip, blocked iframe) — the
+      // per-playback watchdog below only exists *inside* onReady, so that gap had no timeout at
+      // all. Cover construction-through-ready with its own bound, cleared once onReady fires.
+      const constructTimeout = setTimeout(() => finish(playerRef), 10000);
+      playerRef = new YT.Player(hiddenDiv, {
         videoId,
         playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, origin: window.location.origin },
         events: {
           onReady: (e) => {
+            clearTimeout(constructTimeout);
             e.target.setVolume(Math.round((Number(volume) || 0.5) * 100));
             e.target.seekTo(startSec, true);
             e.target.playVideo();
@@ -724,10 +732,17 @@ function playAudioUrlOnce(url, volume, timeoutMs = 15000) {
     const audio = new Audio(url);
     audio.volume = Number(volume) || 0.5;
     const timer = setTimeout(done, timeoutMs);
+    // codex adversarial-review round 4 2026-08-11: the timeout path used to just resolve without
+    // stopping the element — a stalled clip could keep buffering/playing and then audibly resume
+    // (or emit ended/error late) after the queue had already moved on to later alerts. Stop it on
+    // every settle path, not just onended, so a late event can never affect a subsequent alert.
     function done() {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      audio.onended = null;
+      audio.onerror = null;
+      try { audio.pause(); audio.src = ''; } catch {}
       resolve();
     }
     audio.onended = done;
