@@ -1897,7 +1897,7 @@ app.get('/auth/twitch/callback',
             });
           }
           console.log(`🔗 [Twitch Link] Linking Twitch platform to account: ${linkUser.username}`);
-          console.log(`[AUDIT] twitch_id linked: username=${linkUser.username}, twitch_id=${twitchId.substring(0,8)}..., timestamp=${new Date().toISOString()}`);
+          console.log(`[AUDIT] Twitch platform linked: hasTwitchId=${!!twitchId}, timestamp=${new Date().toISOString()}`);
           await db.saveStreamer({ ...linkUser, twitch_id: twitchId });
           const updatedUser = await db.getStreamer(linkUser.username);
           return req.login(updatedUser, (loginErr) => {
