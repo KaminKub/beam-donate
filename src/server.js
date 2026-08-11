@@ -1897,6 +1897,7 @@ app.get('/auth/twitch/callback',
             });
           }
           console.log(`🔗 [Twitch Link] Linking Twitch platform to account: ${linkUser.username}`);
+          console.log(`[AUDIT] twitch_id linked: username=${linkUser.username}, twitch_id=${twitchId.substring(0,8)}..., timestamp=${new Date().toISOString()}`);
           await db.saveStreamer({ ...linkUser, twitch_id: twitchId });
           const updatedUser = await db.getStreamer(linkUser.username);
           return req.login(updatedUser, (loginErr) => {
@@ -1907,17 +1908,10 @@ app.get('/auth/twitch/callback',
       }
 
       // === LOGIN FLOW ===
-      // 1. Try finding by Twitch ID first
+      // Find by Twitch ID only — no username-based auto-link.
+      // Users with existing accounts must log in via their original provider,
+      // then use "เชื่อมต่อบัญชี" (CONNECT INTENT) to add Twitch.
       let existingUser = await db.getStreamerByTwitchId(twitchId);
-
-      // 2. If not found by ID, try finding by Username (existing accounts without twitch_id stored)
-      if (!existingUser) {
-        existingUser = await db.getStreamer(twitchName);
-        if (existingUser) {
-          console.log(`🔗 Linking existing account for ${twitchName}`);
-          await db.saveStreamer({ ...existingUser, twitch_id: twitchId });
-        }
-      }
 
       if (existingUser) {
         if (Number(existingUser.is_active) === 0) {
