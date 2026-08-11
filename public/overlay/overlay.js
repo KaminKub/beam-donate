@@ -268,8 +268,17 @@ async function processQueue() {
   // appended + played its notification sound) — a long previous utterance could speak over the
   // next alert's visuals/notification audio in the gap between those two points.
   cancelCurrentSpeech();
-  const ttsArtifact = await prepareAlertTts(alertData); // never throws — resolves null on any failure
-  showAlert(alertData, ttsArtifact);
+  try {
+    const ttsArtifact = await prepareAlertTts(alertData); // never throws — resolves null on any failure
+    await showAlert(alertData, ttsArtifact);
+  } catch (err) {
+    // defense in depth (codex adversarial-review round 2 2026-08-11) — prepareAlertTts() itself
+    // never throws, but an unexpected showAlert() failure must not leave isShowing stuck true
+    // forever; every later alert would stay queued until reload.
+    console.error('Alert render error:', err);
+    isShowing = false;
+    processQueue();
+  }
 }
 
 function cancelCurrentSpeech() {
@@ -303,9 +312,14 @@ function buildAlertSpeechText(data) {
 
 async function prepareAlertTts(data) {
   if (!overlaySettings.ttsEnabled) return null;
-  const speakText = buildAlertSpeechText(data).trim();
-  if (!speakText) return null;
+  // codex adversarial-review round 2 2026-08-11: buildAlertSpeechText() was previously called
+  // *outside* this try — a malformed alert (e.g. a non-string `message`, which /api/alerts/test
+  // doesn't coerce) throws there, and since processQueue() sets isShowing=true before awaiting
+  // this function and never catches its rejection, that exception would deadlock the queue
+  // permanently (every later alert stays queued forever). Now every step is guarded.
   try {
+    const speakText = buildAlertSpeechText(data).trim();
+    if (!speakText) return null;
     return await prepareSpeech(speakText, overlaySettings.ttsLanguage, overlaySettings.ttsVolume, overlaySettings.ttsRate, overlaySettings.ttsVoice);
   } catch (err) {
     console.error('TTS prepare error:', err);
@@ -877,8 +891,14 @@ async function prepareSpeech(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voi
     }
   }
 
+  // R8 codex adversarial-review round 2 — the demo page (window.DEMO_MODE) calls a fully isolated
+  // free-only endpoint, same convention as loadInitialSettings()/connectSSE() above, instead of
+  // relying on server-side session/token guessing that couldn't tell the demo account's own real
+  // OBS overlay apart from a public demo visitor (they're the same request shape).
   const token = new URLSearchParams(window.location.search).get('token');
-  const localTtsUrl = `/api/tts?token=${encodeURIComponent(token || '')}&lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`;
+  const localTtsUrl = DEMO_MODE_OVERLAY
+    ? `/api/demo/tts?lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`
+    : `/api/tts?token=${encodeURIComponent(token || '')}&lang=${lang.split('-')[0]}&text=${encodeURIComponent(truncatedText)}`;
   // cancel any fetch still in-flight from a previous alert (superseded — its artifact would never be played)
   if (currentTtsAbort) { currentTtsAbort.abort(); currentTtsAbort = null; }
   const mySeq = ++ttsRequestSeq;

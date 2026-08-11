@@ -4221,6 +4221,29 @@ const TTS_TEST_ERROR_MESSAGES = {
   EDGE_TIMEOUT: 'Microsoft TTS ตอบช้าเกินไป'
 };
 
+// R8 codex adversarial-review 2026-08-11 (round 2): the real OBS Browser Source and a leaked/
+// replayed overlay token are the exact same request shape (token, no session) — session-vs-token
+// can't distinguish "owner's real production overlay" from "public demo visitor" because the demo
+// account IS the owner's own account. The rest of the codebase already solves this the correct way
+// for settings (/api/demo/overlay/settings) and alerts (/api/demo/alerts/stream): a dedicated route
+// the demo page (window.DEMO_MODE) calls instead, fully isolated from real streamer resolution.
+// This mirrors that — /api/demo/tts never looks up a streamer/key/quota at all, so /api/tts no
+// longer needs (or has) any DEMO_STREAMER_USERNAME special case, and the real token-based OBS path
+// for that account gets its actual configured tts_mode like every other streamer's does.
+app.get('/api/demo/tts', ttsLimiter, demoRateLimiter, async (req, res) => {
+  const text = String(req.query.text || '').slice(0, tts.MAX_TEXT_LEN);
+  const lang = req.query.lang || 'th';
+  if (!text) return res.status(400).send('Text is required');
+  if (lang && !ALLOWED_TTS_LANGS.has(lang)) return res.status(400).send('Invalid language');
+  try {
+    const result = await tts.synthesizeTTS({ mode: 'free', voice: '', text, lang });
+    res.writeHead(200, { 'Content-Type': result.contentType, 'Cache-Control': 'public, max-age=31536000', 'Referrer-Policy': 'no-referrer' });
+    res.end(result.audio);
+  } catch {
+    res.status(500).send('TTS unavailable');
+  }
+});
+
 app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
   const text = String(req.query.text || '').slice(0, tts.MAX_TEXT_LEN);
   const lang = req.query.lang || 'th';
@@ -4238,14 +4261,7 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
     streamer = await db.getStreamerByToken(token);
   }
   if (streamer && Number(streamer.is_active) !== 0) {
-    // R8 root cause (2026-08-11): DEMO_STREAMER_USERNAME ('kaminkub') is both the public demo
-    // overlay account AND the developer's own real account — forcing free mode for *every* request
-    // that resolves to this row (as the old unconditional check did) also forced free mode on the
-    // owner's own authenticated Quick Alert/preview tests, silently overriding their real tts_mode.
-    // Only force free for the public/token path (protects the real paid key from anonymous demo
-    // visitors) — an authenticated session testing their own account gets their real configured mode.
-    const forceDemoFree = streamer.username === DEMO_STREAMER_USERNAME && !isSessionAuth;
-    mode = forceDemoFree ? 'free' : (streamer.tts_mode || 'free');
+    mode = streamer.tts_mode || 'free';
     voice = streamer.ttsVoice || '';
     if (mode !== 'free' && streamer.tts_random_voice) {
       const voices = tts.MODES[mode]?.voices || [];
