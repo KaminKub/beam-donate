@@ -4520,14 +4520,24 @@ label {
 .cap-progress-fill { height: 100%; width: 0%; border-radius: 3px; background-color: #10b981; transition: width 0.4s ease, background-color 0.4s ease; }
 .timer-live-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
 .timer-dock-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.timer-dock-label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.timer-dock-label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .timer-dock-hint { font-size: 11px; font-weight: 400; color: var(--text-muted); opacity: .8; }
-.timer-dock-btns { display: flex; gap: 8px; flex-shrink: 0; }
 .timer-dock-actions .btn-icon-round .fa-copy { color: #f59e0b; }
 .timer-dock-actions .btn-icon-round .fa-up-right-from-square { color: #22d3ee; }
+.timer-dock-actions .btn-icon-round { min-width: 44px; min-height: 44px; }
 
 @media (max-width: 768px) {
   .timer-dock-actions { align-items: flex-start; }
+  .timer-dock-label { gap: 6px; }
+}
+
+/* D1-D4 Dashboard Final Round */
+@media (max-width: 400px) {
+  .preview-controls { flex-direction: column; align-items: stretch; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-spin { animation-duration: 2s; }
 }
 .timer-controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 .timer-controls-col { min-width: 0; }

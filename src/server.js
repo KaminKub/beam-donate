@@ -1206,6 +1206,22 @@ const goalPublicLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const testWidgetLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ส่งทดสอบบ่อยเกินไป กรุณารอสักครู่' }
+});
+
+const demoGoalTestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'ส่งทดสอบบ่อยเกินไป กรุณารอสักครู่' }
+});
+
 // § 2.3 TIER_DONATE_BLUEPRINT.md
 const tierSettingsLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -1603,6 +1619,11 @@ app.post('/api/demo/goal/test', demoRateLimiter, demoGoalLimiter, (req, res) => 
     last_amount: recent.amount || 0
   };
   broadcastDemoGoalBar(DEMO_STREAMER_USERNAME, goalData);
+  res.json({ success: true });
+});
+
+app.post('/api/demo/widget/goal/test', demoRateLimiter, demoGoalTestLimiter, (req, res) => {
+  broadcastDemoAlert(DEMO_STREAMER_USERNAME, { type: 'goal_test', amount: 100, timestamp: new Date().toISOString() });
   res.json({ success: true });
 });
 
@@ -3619,6 +3640,17 @@ app.post('/api/widget/recentdonate/test', ensureAuthenticated, csrfProtection, a
 });
 
 // POST /api/badges/display — user เลือก badge ที่จะโชว์บนหน้าโดเนท
+app.post('/api/widget/goal/test', testWidgetLimiter, ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    broadcastAlert(actualUsername, { type: 'goal_test', amount: 100, timestamp: new Date().toISOString() });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Goal animation test error:', err);
+    res.status(500).json({ error: 'ไม่สามารถส่ง Goal Animation ทดสอบได้' });
+  }
+});
+
 app.post('/api/badges/display', ensureAuthenticated, csrfProtection, async (req, res) => {
   try {
     const streamer = await getStreamerForUser(req.user);

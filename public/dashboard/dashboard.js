@@ -946,6 +946,9 @@ async function initializeDashboard() {
       };
     }
 
+    const btnTestAlert = document.getElementById('btnTestAlert');
+    if (btnTestAlert) btnTestAlert.onclick = triggerAlertPreviewTest;
+
     // Slider Real-time Updates
     const sliders = [
       { id: 'sliderDuration', lbl: 'lblDuration', fn: v => v },
@@ -1557,6 +1560,9 @@ async function initializeDashboard() {
         setTimeout(() => btnReloadGoalPreview.classList.remove('spinning'), 1200);
       });
     }
+
+    const btnTestGoalAnimation = document.getElementById('btnTestGoalAnimation');
+    if (btnTestGoalAnimation) btnTestGoalAnimation.onclick = triggerGoalAnimationTest;
 
     initTimerSettingsUI();
     initLeaderboardSettingsUI();
@@ -4591,6 +4597,21 @@ function openDonationPopup() {
     ',resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no');
 }
 
+function setButtonBusy(btn, busy) {
+  if (!btn) return;
+  const icon = btn.querySelector('i');
+  if (busy) {
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    if (icon && !icon.dataset.origClass) icon.dataset.origClass = icon.className;
+    if (icon) icon.className = 'fa-solid fa-spinner fa-spin';
+  } else {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    if (icon && icon.dataset.origClass) icon.className = icon.dataset.origClass;
+  }
+}
+
 async function triggerRandomTestAlert() {
   const names = ['สมศักดิ์ รักเรียน', 'แม่ค้าออนไลน์สายลุย', 'น้องเป็ดก้าบๆ 🐤', 'สุดหล่อคีย์บอร์ดเรืองแสง', 'SuraGaming 🎮', 'นินจานักพัฒนา', 'ผู้สนับสนุนลึกลับ'];
   const messages = ['สู้ๆ นะครับพี่! เป็นกำลังใจให้ทุกไลฟ์เลย 💪', 'ขอเพลงสากลชิลๆ เพลงนึงค่าา 🎵', 'ระบบใหม่เฟี้ยวเงาะมากครับ! ✨', 'บริจาคค่าน้ำเก๊กฮวยเย็นๆ ครับผม 🍺', 'พัฒนาต่อไปครับ ชอบเว็บนี้มาก 🚀', '', 'สุดจัดปลัดบอก ขนาดปลัดลาออกยังต้องบอกว่าสุดจัด!'];
@@ -4600,7 +4621,41 @@ async function triggerRandomTestAlert() {
   const message = messages[Math.floor(Math.random() * messages.length)];
   const amount = amounts[Math.floor(Math.random() * amounts.length)];
 
-  simulateCustomAlert(donor, amount, message);
+  return simulateCustomAlert(donor, amount, message);
+}
+
+async function triggerAlertPreviewTest() {
+  const btn = document.getElementById('btnTestAlert');
+  setButtonBusy(btn, true);
+  try {
+    await triggerRandomTestAlert();
+  } finally {
+    setButtonBusy(btn, false);
+  }
+}
+
+async function triggerGoalAnimationTest() {
+  const btn = document.getElementById('btnTestGoalAnimation');
+  setButtonBusy(btn, true);
+  try {
+    const url = DEMO_MODE ? '/api/demo/widget/goal/test' : '/api/widget/goal/test';
+    const res = await fetchWithCsrf(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (res.ok) {
+      showNotification('ส่ง Goal Animation ทดสอบแล้ว!', 'success');
+    } else if (res.status === 429) {
+      showNotification('ส่งทดสอบบ่อยเกินไป กรุณารอสักครู่', 'error');
+    } else {
+      showNotification('ส่ง Goal Animation ไม่สำเร็จ', 'error');
+    }
+  } catch (err) {
+    showNotification('ส่ง Goal Animation ไม่สำเร็จ', 'error');
+  } finally {
+    setButtonBusy(btn, false);
+  }
 }
 
 async function simulateCustomAlert(donor, amount, message) {
@@ -7179,7 +7234,7 @@ async function triggerLeaderboardTest() {
   const donor = names[Math.floor(Math.random() * names.length)];
   const amount = amounts[Math.floor(Math.random() * amounts.length)];
   const btn = document.getElementById('btnTestLeaderboard');
-  if (btn) { btn.disabled = true; btn.querySelector('i').className = 'fa-solid fa-spinner fa-spin'; }
+  setButtonBusy(btn, true);
   try {
     const res = await fetchWithCsrf('/api/widget/leaderboard/test', {
       method: 'POST',
@@ -7196,7 +7251,7 @@ async function triggerLeaderboardTest() {
   } catch (err) {
     showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.querySelector('i').className = 'fa-solid fa-shuffle'; }
+    setButtonBusy(btn, false);
   }
 }
 
@@ -7512,7 +7567,7 @@ async function triggerRecentdonateTest() {
   const donor = names[Math.floor(Math.random() * names.length)];
   const amount = amounts[Math.floor(Math.random() * amounts.length)];
   const btn = document.getElementById('btnTestRecentdonate');
-  if (btn) { btn.disabled = true; btn.querySelector('i').className = 'fa-solid fa-spinner fa-spin'; }
+  setButtonBusy(btn, true);
   try {
     const res = await fetchWithCsrf('/api/widget/recentdonate/test', {
       method: 'POST',
@@ -7529,7 +7584,7 @@ async function triggerRecentdonateTest() {
   } catch (err) {
     showNotification('ส่งทดสอบไม่สำเร็จ', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.querySelector('i').className = 'fa-solid fa-shuffle'; }
+    setButtonBusy(btn, false);
   }
 }
 

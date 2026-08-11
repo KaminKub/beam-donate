@@ -378,6 +378,11 @@
             }
           }
         }
+        if (data.type === 'goal_test') {
+          if (typeof window.triggerDonationAnimation === 'function') {
+            window.triggerDonationAnimation(data.amount || 100);
+          }
+        }
         if (data.type === 'settings_update' && data.settings) {
           const s = data.settings;
           if (s.fontFamily) {
