@@ -37,8 +37,8 @@ const MODES = {
 
 const FREE_TIERS = {
   free: 'Google Translate ฟรีไม่จำกัด · Microsoft ขึ้นอยู่กับเบราว์เซอร์ผู้ชม (ไม่รับประกันว่าจะมีเสียงเสมอ)',
-  'google-cloud': 'Standard 4M / Neural2 1M / Chirp3 1M ตัวอักษร/เดือน',
-  vertex: '<span class="status-dot error"></span> ระวัง: ฟรีแค่ [3 ครั้ง/นาที | 15 ครั้ง/วัน] หากเกินกำหนดนี้ Google จะคิดราคาแพงกว่า TTS ปกติ โปรดใช้อย่างระมัดระวัง'
+  'google-cloud': 'Standard 4M / Neural2 1M / Chirp3 1M ตัวอักษร/เดือน (เกินแล้ว: $4 / $16 / $30 ต่อ 1M ตัวอักษร)',
+  vertex: '<span class="status-dot error"></span> ระวัง: ไม่มีโควต้าฟรี — คิดเงินทุกครั้ง (Pay-As-You-Go) ~$10/1M output tokens (แพงกว่า TTS ปกติ) โปรดใช้อย่างระมัดระวัง'
 };
 
 const DAILY_CHAR_CAP = 100000;   // per streamer per day, all paid modes
@@ -219,38 +219,38 @@ async function vertexGemini(text, voice, apiKey) {
   if (!apiKey) throw new Error('GEMINI_KEY_INVALID');
   const projectId = await resolveVertexProjectId(apiKey);
   const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${VERTEX_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
-        }
-      }),
-      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
-    });
-    if (res.status === 401) throw new Error('GEMINI_KEY_INVALID');
-    if (res.status === 403) {
-      // Never curl-verified against a key with Vertex AI API disabled (no such key on hand) — parse
-      // defensively to answer the original R6 ask, fall back to a generic invalid-key error otherwise.
-      const body = await res.json().catch(() => null);
-      const msg = body?.error?.message || '';
-      if (/has not been used|is disabled|not enabled/i.test(msg)) throw new Error('GEMINI_API_NOT_ENABLED');
-      throw new Error('GEMINI_KEY_INVALID');
-    }
-    if (res.status === 429) throw new Error('GEMINI_QUOTA_EXCEEDED');
-    if (res.status === 500 && attempt < 2) { await new Promise(r => setTimeout(r, 500 * (attempt + 1))); continue; }
-    if (!res.ok) throw new Error(`GEMINI_HTTP_${res.status}`);
-    const data = await res.json();
-    const inlineData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-    if (!inlineData?.data) throw new Error('GEMINI_NO_AUDIO');
-    const rateMatch = /rate=(\d+)/.exec(inlineData.mimeType || '');
-    return { contentType: 'audio/wav', audio: pcmToWav(inlineData.data, rateMatch ? Number(rateMatch[1]) : 24000) };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
+      }
+    }),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS)
+  });
+  if (res.status === 401) throw new Error('GEMINI_KEY_INVALID');
+  if (res.status === 403) {
+    // Never curl-verified against a key with Vertex AI API disabled (no such key on hand) — parse
+    // defensively to answer the original R6 ask, fall back to a generic invalid-key error otherwise.
+    const body = await res.json().catch(() => null);
+    const msg = body?.error?.message || '';
+    if (/has not been used|is disabled|not enabled/i.test(msg)) throw new Error('GEMINI_API_NOT_ENABLED');
+    throw new Error('GEMINI_KEY_INVALID');
   }
-  throw new Error('GEMINI_HTTP_500');
+  if (res.status === 429) throw new Error('GEMINI_QUOTA_EXCEEDED');
+  // codex rescue round 2 (2026-08-11): a live donation alert can't afford 3 attempts × 10s each
+  // (up to ~51.5s worst case with the uncached-project probe) — a transient 500 now falls straight
+  // through to the free-voice fallback instead of retrying, keeping the whole request bounded well
+  // under the client's 30s abort deadline (overlay.js prepareSpeech()).
+  if (!res.ok) throw new Error(`GEMINI_HTTP_${res.status}`);
+  const data = await res.json();
+  const inlineData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+  if (!inlineData?.data) throw new Error('GEMINI_NO_AUDIO');
+  const rateMatch = /rate=(\d+)/.exec(inlineData.mimeType || '');
+  return { contentType: 'audio/wav', audio: pcmToWav(inlineData.data, rateMatch ? Number(rateMatch[1]) : 24000) };
 }
 
 async function synthesizeTTS({ mode, voice, text, lang, keys }) {

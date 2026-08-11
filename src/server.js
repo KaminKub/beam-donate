@@ -4230,7 +4230,7 @@ const TTS_TEST_ERROR_MESSAGES = {
   GOOGLE_KEY_INVALID: 'Google API key ไม่ถูกต้อง',
   GOOGLE_QUOTA_EXCEEDED: 'Google โควต้าเต็ม',
   GEMINI_KEY_INVALID: 'Gemini API key ไม่ถูกต้อง',
-  GEMINI_QUOTA_EXCEEDED: 'Gemini โควต้าเต็ม (free tier จำกัดมาก)',
+  GEMINI_QUOTA_EXCEEDED: 'Gemini โควต้าเต็ม',
   GEMINI_API_NOT_ENABLED: 'ยังไม่เปิด Vertex AI API สำหรับโปรเจกต์นี้ — เปิดได้ที่ Google Cloud Console → APIs & Services → Library',
   EDGE_CONN_FAILED: 'เชื่อมต่อ Microsoft TTS ไม่ได้',
   EDGE_TIMEOUT: 'Microsoft TTS ตอบช้าเกินไป'
@@ -4318,7 +4318,11 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
     const result = await tts.synthesizeTTS({ mode, voice, text, lang, keys });
     res.writeHead(200, {
       'Content-Type': result.contentType,
-      'Cache-Control': mode === 'free' ? 'public, max-age=31536000' : 'private, no-store',
+      // ponytail: same donor text can be replayed (Quick Alert/Transaction "ยิง Alert ซ้ำ") after the
+      // streamer switches tts_mode — a URL keyed only on text/lang must never be cached across mode
+      // changes, so no mode gets long-lived public caching (previously free-mode responses cached
+      // 1 year, silently freezing that exact text to free voice forever even after switching to paid)
+      'Cache-Control': 'private, no-store',
       'Referrer-Policy': 'no-referrer'
     });
     res.end(result.audio);
@@ -4326,7 +4330,7 @@ app.get('/api/tts', ttsLimiter, ttsPaidLimiter, async (req, res) => {
     console.warn(`[tts] ${mode} failed (${err.message}), falling back to google-free`);
     try {
       const fb = await tts.synthesizeTTS({ mode: 'free', voice: '', text, lang });
-      res.writeHead(200, { 'Content-Type': fb.contentType, 'Cache-Control': 'public, max-age=31536000', 'Referrer-Policy': 'no-referrer' });
+      res.writeHead(200, { 'Content-Type': fb.contentType, 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' });
       res.end(fb.audio);
     } catch (fbErr) {
       res.status(500).send('TTS unavailable');
@@ -4393,7 +4397,7 @@ app.post('/api/tts/test', ensureAuthenticated, csrfProtection, ttsTestLimiter, a
       const quota = tts.tryConsumeFreeQuota(streamer.id, mode, testText.length);
       if (!quota.allowed) {
         if (purpose === 'connect') {
-          return res.status(429).json({ error: 'โควต้าโหมดฟรี (ป้องกันเกินโควต้า) ของวันนี้เต็มแล้ว — ปิดโหมดฟรีในหน้าตั้งค่าถ้าต้องการเชื่อมต่อ/ทดสอบเสียงจริงตอนนี้' });
+          return res.status(429).json({ error: 'โควต้าโหมดประหยัด (ป้องกันโดนหักเงินสูง) ของวันนี้เต็มแล้ว — ปิดโหมดประหยัดในหน้าตั้งค่าถ้าต้องการเชื่อมต่อ/ทดสอบเสียงจริงตอนนี้' });
         }
         effectiveMode = 'free'; effectiveVoice = ''; fallbackReason = 'quota-guard';
       }

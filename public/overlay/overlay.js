@@ -931,13 +931,18 @@ async function prepareSpeech(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voi
   currentTtsAbort = abortCtrl;
   // codex adversarial-review 2026-08-11: a fetch with no deadline of its own can hang forever —
   // isShowing stays true the whole time, so no later alert can ever start a prepare that would
-  // abort this one, deadlocking the queue permanently. Give it the same outbound deadline the
-  // server enforces on itself (src/tts.js OUTBOUND_TIMEOUT_MS) plus slack for the response body.
-  const TTS_FETCH_TIMEOUT_MS = 12000;
+  // abort this one, deadlocking the queue permanently. The server's 10s provider deadline is not
+  // the whole request: a paid-provider failure can spend another 10s in the Google-free fallback
+  // (and paid providers may perform setup/retry work). Keep a bounded client deadline, but leave
+  // enough time for the uncached live request to complete before treating it as terminal silence.
+  const TTS_FETCH_TIMEOUT_MS = 30000;
   const timeoutId = setTimeout(() => abortCtrl.abort(), TTS_FETCH_TIMEOUT_MS);
   try {
     // fetch as blob (not <audio src=...> directly) so we control lifecycle/cancellation
-    const res = await fetch(localTtsUrl, { signal: abortCtrl.signal });
+    // cache: 'no-store' — a browser/OBS session left open since before the server's Cache-Control
+    // fix (server.js /api/tts) may still hold a year-long-cached response for this exact URL; the
+    // server header alone can't invalidate what's already sitting in the HTTP cache.
+    const res = await fetch(localTtsUrl, { signal: abortCtrl.signal, cache: 'no-store' });
     if (mySeq !== ttsRequestSeq) return null; // superseded by a newer alert while this was in flight
     if (!res.ok) throw new Error('TTS ' + res.status);
     const blob = await res.blob();
@@ -945,8 +950,9 @@ async function prepareSpeech(text, lang = 'th-TH', volume = 0.8, rate = 1.0, voi
     const objUrl = URL.createObjectURL(blob);
     const audio = new Audio();
     audio._objUrl = objUrl;
+    audio._targetRate = Number(rate) || 1.0; // Chromium resets playbackRate when load() assigns a new resource — reapply right before play() in playSpeech()
     audio.volume = Number(volume) || 0.8;
-    audio.playbackRate = Number(rate) || 1.0;
+    audio.playbackRate = audio._targetRate;
     // a resolved fetch isn't "ready" — wait for the browser to confirm it can actually play the
     // blob before treating it as prepared. codex adversarial-review 2026-08-11: the wait cap must
     // resolve false (terminal silent), not true — resolving true here would render the alert and
@@ -995,6 +1001,7 @@ function playSpeech(artifact) {
   currentTtsAudio = audio;
   audio.onended = () => { URL.revokeObjectURL(audio._objUrl); if (currentTtsAudio === audio) currentTtsAudio = null; };
   audio.onerror = () => { URL.revokeObjectURL(audio._objUrl); if (currentTtsAudio === audio) currentTtsAudio = null; };
+  if (audio._targetRate) audio.playbackRate = audio._targetRate; // reassert — load() may have silently reset it
   audio.play().catch(() => { URL.revokeObjectURL(audio._objUrl); });
 }
 
