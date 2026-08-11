@@ -1782,9 +1782,12 @@ app.get('/auth/twitch', authLimiter, (req, res, next) => {
   if (req.isAuthenticated() && req.user && req.user.username) {
     req.session.linkAccountUsername = req.user.username;
   }
+  // OAuth CSRF state — per-flow random value, stored BEFORE Passport regenerates the session on login.
+  const twitchOauthState = crypto.randomBytes(16).toString('hex');
+  req.session.twitchOauthState = twitchOauthState;
   req.session.save((err) => {
     if (err) console.error('Session save error before Twitch OAuth:', err);
-    passport.authenticate('twitch')(req, res, next);
+    passport.authenticate('twitch', { state: twitchOauthState })(req, res, next);
   });
 });
 
@@ -1835,6 +1838,18 @@ app.get('/auth/twitch/callback',
       req._linkAccountUsername = req.session.linkAccountUsername;
     }
     req._returnTo = popReturnTo(req);
+    next();
+  },
+  // OAuth CSRF state check — compare BEFORE Passport regenerates the session (req.logIn → req.session.regenerate()).
+  // Missing/mismatch/replay all share one path: clear state, redirect /login-failed, no session change.
+  (req, res, next) => {
+    const expected = req.session && req.session.twitchOauthState;
+    if (!expected || !req.query.state || req.query.state !== expected) {
+      delete req.session.twitchOauthState;
+      console.error('❌ Twitch CSRF state missing/mismatch');
+      return res.redirect('/login-failed');
+    }
+    delete req.session.twitchOauthState;
     next();
   },
   passport.authenticate('twitch', { failureRedirect: '/login-failed' }),
@@ -2393,7 +2408,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API: สร้าง Donation (Payment Link)
-app.post('/api/create-charge', loadShedGuard(1), createChargeLimiter, async (req, res) => {
+app.post('/api/create-charge', loadShedGuard(1), sameOriginCheck, createChargeLimiter, async (req, res) => {
   try {
     const { amount, name, message, username, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
@@ -5360,7 +5375,7 @@ const setupWebhookLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.post('/api/create-promptpay-qr', loadShedGuard(1), promptPayQrLimiter, async (req, res) => {
+app.post('/api/create-promptpay-qr', loadShedGuard(1), sameOriginCheck, promptPayQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { username, amount, name, message, timerAction, tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd } = req.body;
@@ -5620,7 +5635,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
 });
 
 // POST /api/truemoney/create-qr - Create TrueMoney P2P or PromptPay QR (public)
-app.post('/api/truemoney/create-qr', loadShedGuard(1), truemoneyQrLimiter, async (req, res) => {
+app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemoneyQrLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
 
@@ -5902,7 +5917,7 @@ app.post('/api/verify-slip', loadShedGuard(1), sameOriginCheck, uploadSlipLimite
   }
 });
 
-app.post('/api/verify-promptpay-slip', loadShedGuard(2), pollSlipLimiter, async (req, res) => {
+app.post('/api/verify-promptpay-slip', loadShedGuard(2), sameOriginCheck, pollSlipLimiter, async (req, res) => {
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
     const { referenceId } = req.body;
