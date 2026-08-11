@@ -1004,7 +1004,7 @@ body {
   font-size: 12px;
   color: var(--text-muted);
 }
-/* R11 — Vertex free tier is scarce (3 RPM/15 RPD), flag it visually; static glow, no infinite animation */
+/* R11 — Vertex has NO free tier (charges every request, Pay-As-You-Go), flag it visually; static glow, no infinite animation */
 .tts-quota-info.tts-quota-danger {
   background: rgba(239, 68, 68, 0.12);
   color: hsl(0, 100%, 77%);

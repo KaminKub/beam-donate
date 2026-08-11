@@ -3237,7 +3237,7 @@ function saveBadgeDisplay() {
         el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
       });
       renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', currentBadgeDisplay); // re-sync เผื่อ server clamp ต่างจาก optimistic update
-      showNotification('บันทึกการแสดง badge แล้ว ✅', 'success');
+      showNotification('บันทึกการแสดง badge แล้ว', 'success');
     } catch (e) {
       if (seq !== badgeSaveSeq) return; // stale error — ignore
       showNotification('บันทึก badge ไม่สำเร็จ กรุณาลองใหม่', 'error');
@@ -5784,7 +5784,7 @@ async function ttsTestVoice() {
     audio.onerror = () => URL.revokeObjectURL(url);
     audio.play().catch(() => { URL.revokeObjectURL(url); showNotification('เบราว์เซอร์บล็อกการเล่นเสียง กรุณาคลิกที่หน้าเว็บก่อน', 'error'); });
     // R14 — server substituted Google Translate (quota-guard cap or upstream provider quota)
-    if (fallbackReason) showNotification('โควต้าโหมดฟรีครบแล้ว กำลังใช้เสียง Google Translate แทน', 'warning');
+    if (fallbackReason) showNotification('โควต้าโหมดประหยัดครบแล้ว กำลังใช้เสียง Google Translate แทน', 'warning');
   });
 }
 
@@ -8898,7 +8898,7 @@ function initTrueMoneyWebhookModal() {
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            showNotification('เชื่อมต่อ TrueMoney สำเร็จ! ✅ รับเงินอัตโนมัติได้เลย ไม่ต้องใช้สลิป', 'success');
+            showNotification('เชื่อมต่อ TrueMoney สำเร็จ! รับเงินอัตโนมัติได้เลย ไม่ต้องใช้สลิป', 'success');
             if (data.promptpaySlipokDisabled) {
               showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
             }
