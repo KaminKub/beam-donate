@@ -592,15 +592,7 @@ async function showAlert(data, ttsArtifact = null) {
     if (data.tierYoutubeId) {
       await playYoutubeTierSound(data.tierYoutubeId, data.tierYoutubeStart, data.tierYoutubeEnd, overlaySettings.soundVolume);
     } else if (data.tierSoundUrl) {
-      await new Promise((resolve) => {
-        const audio = new Audio(data.tierSoundUrl);
-        audio.volume = Number(overlaySettings.soundVolume) || 0.5;
-        audio.onended = resolve;
-        audio.play().catch(err => {
-          console.warn('Tier sound playback failed:', err);
-          resolve();
-        });
-      });
+      await playAudioUrlOnce(data.tierSoundUrl, overlaySettings.soundVolume);
     } else {
       await playNotificationSound(overlaySettings.soundChoice, overlaySettings.soundVolume);
     }
@@ -720,6 +712,30 @@ function playYoutubeTierSound(videoId, startSec, endSec, volume) {
   });
 }
 
+// codex adversarial-review round 3 2026-08-11: an `onended`-only promise never settles if
+// playback starts successfully (play() resolves) but then stalls or errors mid-stream (dropped
+// network, corrupt file) — no onerror handler and no timeout meant showAlert()'s await could hang
+// forever, permanently deadlocking the queue exactly like the R15 fetch-deadline bug did. Shared
+// by every raw-URL playback path (tier sound, custom sound, custom sound URL) so the fix lives in
+// one place instead of three copies that could drift.
+function playAudioUrlOnce(url, volume, timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const audio = new Audio(url);
+    audio.volume = Number(volume) || 0.5;
+    const timer = setTimeout(done, timeoutMs);
+    function done() {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    }
+    audio.onended = done;
+    audio.onerror = () => { console.warn('Audio playback failed'); done(); };
+    audio.play().catch(err => { console.warn('Audio play() rejected:', err.message); done(); });
+  });
+}
+
 async function playNotificationSound(soundChoice, volume) {
   try {
     if (soundChoice === 'none') return Promise.resolve();
@@ -736,30 +752,14 @@ async function playNotificationSound(soundChoice, volume) {
     masterGain.connect(audioCtx.destination);
 
     if (soundChoice === 'custom') {
-      return new Promise((resolve) => {
-        const audio = new Audio('/assets/audio/my-sound.mp3');
-        audio.volume = Number(volume) || 0.5;
-        audio.onended = resolve;
-        audio.play().catch(err => {
-          console.warn('Custom sound playback failed:', err);
-          resolve();
-        });
-      });
-    } 
+      return playAudioUrlOnce('/assets/audio/my-sound.mp3', volume);
+    }
     else if (soundChoice === 'custom_url' || soundChoice === 'upload_sound') {
-      return new Promise((resolve) => {
-        if (!overlaySettings.customSoundUrl) {
-          console.warn('Custom sound URL is empty');
-          return resolve();
-        }
-        const audio = new Audio(overlaySettings.customSoundUrl);
-        audio.volume = Number(volume) || 0.5;
-        audio.onended = resolve;
-        audio.play().catch(err => {
-          console.warn('Custom sound playback failed:', err);
-          resolve();
-        });
-      });
+      if (!overlaySettings.customSoundUrl) {
+        console.warn('Custom sound URL is empty');
+        return Promise.resolve();
+      }
+      return playAudioUrlOnce(overlaySettings.customSoundUrl, volume);
     }
     
     if (soundChoice === 'chime') {
