@@ -2071,7 +2071,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
       if (existingUser) {
         const slOwner = await db.getStreamerByStreamlabsId(streamlabsId);
         if (slOwner && slOwner.id !== existingUser.id) {
-          console.warn(`⚠️ [Streamlabs] Collision: hasStreamlabsId=true, existingUser=${existingUser.username}, conflict=true`);
+          console.warn(`⚠️ [Streamlabs] Collision: hasStreamlabsId=true, conflict=true`);
           const isPopup = req.session.slOauthMode === 'popup';
           delete req.session.slOauthMode;
           if (isPopup) {
@@ -2087,7 +2087,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
         if (!existingUser.twitch_id && streamlabsPlatform === 'twitch') {
           const twOwner = await db.getStreamerByTwitchId(streamlabsId);
           if (twOwner && twOwner.id !== existingUser.id) {
-            console.warn(`⚠️ [Streamlabs] twitch_id collision on link: existingUser=${existingUser.username}, conflict=true`);
+            console.warn(`⚠️ [Streamlabs] twitch_id collision on link: hasTwitchId=true, conflict=true`);
             const isPopup = req.session.slOauthMode === 'popup';
             delete req.session.slOauthMode;
             if (isPopup) {
@@ -2099,7 +2099,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
             return res.redirect(`/${existingUser.username.toLowerCase()}/dashboard?sl_conflict=1`);
           }
         }
-        console.log(`🔗 [Streamlabs] Linking platform=${streamlabsPlatform} to user ${existingUser.username}`);
+        console.log(`🔗 [Streamlabs] platform=${streamlabsPlatform}, authorized=true`);
         const linkedUser = await db.saveStreamer({
           ...existingUser,
           twitch_id: existingUser.twitch_id || (streamlabsPlatform === 'twitch' ? streamlabsId : null),
@@ -2139,7 +2139,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
     }
 
     if (existingUser) {
-      console.log(`✅ [Streamlabs] Returning user ${existingUser.username}. Updating tokens...`);
+      console.log(`✅ [Streamlabs] found=true, updatingTokens=true`);
       await db.saveStreamer({
         ...existingUser,
         streamlabs_access_token: accessToken,
@@ -2166,7 +2166,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
             const r2Url = await uploadBufferToR2(Buffer.from(resp.data), `avatars/twitch_${stableId}.${ext}`, ct);
             if (r2Url) {
               await db.saveStreamer({ ...existingUser, profile_image_value: r2Url, profile_image_source: streamlabsPlatform });
-              console.log(`📸 [Streamlabs] Avatar re-cached to R2 for ${existingUser.username}: ${r2Url}`);
+              console.log(`📸 [Streamlabs] avatarRecacheSuccess=true`);
             }
           } catch (err) { console.error('❌ [Streamlabs] R2 avatar re-cache failed:', err.message); }
         })();
@@ -2183,7 +2183,7 @@ app.get('/auth/streamlabs/callback', async (req, res) => {
         }
         req.session.save(() => {
           const dest = loginDest(returnTo, existingUser.username);
-          console.log(`✅ [Streamlabs] Session saved, redirecting to ${dest}`);
+          console.log(`✅ [Streamlabs] sessionSaved=true, redirecting=true`);
           return res.redirect(dest);
         });
       });
