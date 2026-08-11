@@ -5738,6 +5738,7 @@ async function ttsConnect(mode) {
     // R7 — prove the voice actually works before reporting success, mirror ttsTestVoice() playback
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
+    audio.playbackRate = Number(document.getElementById('sliderTtsRate')?.value) || 1.3;
     audio.onended = () => URL.revokeObjectURL(url);
     audio.onerror = () => URL.revokeObjectURL(url);
     audio.play().catch(() => URL.revokeObjectURL(url));
@@ -5778,6 +5779,7 @@ async function ttsTestVoice() {
     const { blob, fallbackReason } = result;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
+    audio.playbackRate = Number(document.getElementById('sliderTtsRate')?.value) || 1.3;
     audio.onended = () => URL.revokeObjectURL(url);
     audio.onerror = () => URL.revokeObjectURL(url);
     audio.play().catch(() => { URL.revokeObjectURL(url); showNotification('เบราว์เซอร์บล็อกการเล่นเสียง กรุณาคลิกที่หน้าเว็บก่อน', 'error'); });

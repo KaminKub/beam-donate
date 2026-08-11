@@ -616,10 +616,17 @@ async function migrateDB() {
       console.warn('⚠️ Streamlabs token encryption migration skipped:', e.message);
     }
 
-    // M2 — Bump ttsRate 1.0 → 1.3 (display offset baseline change)
+    // M2 — Bump ttsRate 1.0 → 1.3 (display offset baseline change), one-time only.
+    // Guarded so re-running `npm run migrate` on every deploy doesn't keep overwriting
+    // a user's deliberately-chosen ttsRate=1.0 back to 1.3.
     try {
-      const r = await db.execute({ sql: 'UPDATE streamers SET ttsRate = 1.3 WHERE ttsRate = 1.0 OR ttsRate IS NULL' });
-      if (r.rowsAffected > 0) console.log(`🔊 ttsRate bumped to 1.3 for ${r.rowsAffected} streamer(s).`);
+      await db.execute('CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
+      const done = await db.execute({ sql: 'SELECT 1 FROM app_migrations WHERE name = ?', args: ['ttsRate_1.0_to_1.3_bump'] });
+      if (done.rows.length === 0) {
+        const r = await db.execute({ sql: 'UPDATE streamers SET ttsRate = 1.3 WHERE ttsRate = 1.0 OR ttsRate IS NULL' });
+        await db.execute({ sql: 'INSERT INTO app_migrations (name) VALUES (?)', args: ['ttsRate_1.0_to_1.3_bump'] });
+        if (r.rowsAffected > 0) console.log(`🔊 ttsRate bumped to 1.3 for ${r.rowsAffected} streamer(s).`);
+      }
     } catch (e) {
       console.warn('⚠️ ttsRate migration skipped:', e.message);
     }
