@@ -661,6 +661,30 @@ body {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
+.btn-secondary.qr-fallback-btn {
+  margin-top: 0;
+  max-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-6px);
+  overflow: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease, max-height 0.2s ease, margin-top 0.2s ease;
+}
+
+.btn-secondary.qr-fallback-btn.visible {
+  margin-top: 12px;
+  max-height: 80px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.qr-fallback-btn > i {
+  color: #f59e0b;
+}
+
 /* ========== PromptPay QR Code screen custom styling ========== */
 .qr-container {
   text-align: center;
@@ -791,6 +815,7 @@ body {
   font-size: 13.5px;
   font-weight: 600;
   border: 1px solid transparent;
+  margin-top: 10px;
 }
 
 .status.checking {

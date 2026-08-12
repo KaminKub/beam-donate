@@ -122,8 +122,18 @@ function getCookie(name) {
 // ========== Pending QR Cache (localStorage) ==========
 
 const PENDING_HISTORY_STATE_KEY = 'tipkubPendingPayments';
+const PENDING_CLEAR_MARKER_PREFIX = 'tipkubPendingCleared:';
 const EXPIRED_QR_GRACE_MS = 10 * 60 * 1000;
 const MANUAL_PAYMENT_TTL_MS = 30 * 60 * 1000;
+const pendingClearMarkers = new Set();
+const HISTORY_PENDING_FIELDS = Object.freeze([
+  // Core fields needed to restore the payment step.
+  'method', 'amount', 'referenceId', 'expiresAt',
+  // Non-PII renderer/expiry fields needed when localStorage is unavailable.
+  'qrData', 'recipientName', 'displayAmount', 'savedAt', 'timerAction', 'backedOutAt',
+  'tierImageUrl', 'tierSoundUrl', 'tierSoundIsTemp', 'tierSoundMode',
+  'tierYoutubeId', 'tierYoutubeStart', 'tierYoutubeEnd'
+]);
 
 function isPendingRestorable(pending, now = Date.now(), graceMs = EXPIRED_QR_GRACE_MS) {
   if (!pending || pending.backedOutAt) return false;
@@ -137,11 +147,48 @@ function isManualPaymentStepFresh(pending, now = Date.now(), ttlMs = MANUAL_PAYM
   return age >= 0 && age < ttlMs;
 }
 
+function getHistoryPendingState(value) {
+  const safeValue = {};
+  if (!value || typeof value !== 'object') return safeValue;
+  HISTORY_PENDING_FIELDS.forEach(field => {
+    if (Object.prototype.hasOwnProperty.call(value, field)) safeValue[field] = value[field];
+  });
+  return safeValue;
+}
+
+function getHistoryPendingStates(value) {
+  const safeStates = {};
+  if (!value || typeof value !== 'object') return safeStates;
+  Object.keys(value).forEach(key => {
+    const safeValue = getHistoryPendingState(value[key]);
+    if (Object.keys(safeValue).length > 0) safeStates[key] = safeValue;
+  });
+  return safeStates;
+}
+
+function getPendingClearMarkerKey(key) {
+  return `${PENDING_CLEAR_MARKER_PREFIX}${key}`;
+}
+
+function markPendingStateCleared(key) {
+  pendingClearMarkers.add(key);
+  try { sessionStorage.setItem(getPendingClearMarkerKey(key), '1'); } catch (e) { /* Storage unavailable */ }
+}
+
+function clearPendingStateMarker(key) {
+  pendingClearMarkers.delete(key);
+  try { sessionStorage.removeItem(getPendingClearMarkerKey(key)); } catch (e) { /* Storage unavailable */ }
+}
+
+function isPendingStateCleared(key) {
+  if (pendingClearMarkers.has(key)) return true;
+  try { return sessionStorage.getItem(getPendingClearMarkerKey(key)) === '1'; } catch (e) { return false; }
+}
+
 function writePendingState(key, value) {
-  let saved = false;
+  clearPendingStateMarker(key);
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    saved = true;
   } catch (e) { /* localStorage full or disabled */ }
 
   try {
@@ -149,31 +196,35 @@ function writePendingState(key, value) {
     const pendingStates = historyState[PENDING_HISTORY_STATE_KEY] && typeof historyState[PENDING_HISTORY_STATE_KEY] === 'object'
       ? historyState[PENDING_HISTORY_STATE_KEY]
       : {};
+    const safePendingStates = getHistoryPendingStates(pendingStates);
+    const safeValue = getHistoryPendingState(value);
+    if (Object.keys(safeValue).length > 0) safePendingStates[key] = safeValue;
     history.replaceState({
       ...historyState,
-      [PENDING_HISTORY_STATE_KEY]: { ...pendingStates, [key]: value }
+      [PENDING_HISTORY_STATE_KEY]: safePendingStates
     }, document.title);
-    saved = true;
   } catch (e) { /* History API unavailable */ }
-
-  return saved;
 }
 
 function readPendingState(key) {
+  if (isPendingStateCleared(key)) return null;
+
   try {
     const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
+    return raw ? JSON.parse(raw) : null;
   } catch (e) { /* Try history.state fallback */ }
 
   try {
     const pendingStates = history.state?.[PENDING_HISTORY_STATE_KEY];
-    return pendingStates && typeof pendingStates === 'object' ? pendingStates[key] || null : null;
+    const pending = pendingStates && typeof pendingStates === 'object' ? pendingStates[key] : null;
+    return pending ? getHistoryPendingState(pending) : null;
   } catch (e) {
     return null;
   }
 }
 
 function clearPendingState(key) {
+  markPendingStateCleared(key);
   try { localStorage.removeItem(key); } catch (e) {}
 
   try {
@@ -311,6 +362,7 @@ const qrReference = document.getElementById('qrReference');
 // Current user's minimum amount (loaded from API)
 let userMinAmount = 1;
 let streamerPaymentMethods = {};
+let paymentMethodsLoadPromise = null;
 
 // Dynamic Page Elements
 const pageTitle = document.getElementById('pageTitle');
@@ -3241,6 +3293,13 @@ const btnTrueMoneyQrSlipFallback = document.getElementById('btnTrueMoneyQrSlipFa
 const btnBackTrueMoneyQr = document.getElementById('btnBackTrueMoneyQr');
 const btnRetryTrueMoneyQr = document.getElementById('btnRetryTrueMoneyQr');
 
+function setTrueMoneyQrSlipFallbackVisible(visible) {
+  if (!btnTrueMoneyQrSlipFallback) return;
+  btnTrueMoneyQrSlipFallback.classList.toggle('visible', visible);
+  btnTrueMoneyQrSlipFallback.setAttribute('aria-hidden', String(!visible));
+  btnTrueMoneyQrSlipFallback.tabIndex = visible ? 0 : -1;
+}
+
 // Copy phone number button
 if (btnCopyTrueMoneyPhone) {
   btnCopyTrueMoneyPhone.addEventListener('click', () => {
@@ -3816,15 +3875,21 @@ function updateTrueMoneyQrCountdown() {
     }
     const btnSaveQRTrueMoney = document.getElementById('btnSaveQRTrueMoney');
     if (btnSaveQRTrueMoney) btnSaveQRTrueMoney.style.display = 'none';
-    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
+    setTrueMoneyQrSlipFallbackVisible(true);
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   }
 }
 
 function startTrueMoneyQrCountdown(expiresAt) {
+  if (trueMoneyQrCountdownInterval) {
+    clearInterval(trueMoneyQrCountdownInterval);
+    trueMoneyQrCountdownInterval = null;
+  }
   trueMoneyQrExpiresAt = new Date(expiresAt).getTime();
   updateTrueMoneyQrCountdown();
-  trueMoneyQrCountdownInterval = setInterval(updateTrueMoneyQrCountdown, 1000);
+  if (trueMoneyQrExpiresAt > Date.now()) {
+    trueMoneyQrCountdownInterval = setInterval(updateTrueMoneyQrCountdown, 1000);
+  }
 }
 
 function handleTrueMoneyConfirmed() {
@@ -3981,7 +4046,7 @@ function showTrueMoneyQrStep(data) {
     trueMoneyQrWaiting.className = 'qr-waiting-indicator';
     trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:#3b82f6;"></i><span>รอการยืนยันอัตโนมัติ... โอนแล้วระบบจะขึ้นสำเร็จเองใน 1 นาที</span>';
   }
-  if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'none';
+  setTrueMoneyQrSlipFallbackVisible(false);
   if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'none';
 
   startTrueMoneyStatusStream(data.referenceId);
@@ -3989,7 +4054,7 @@ function showTrueMoneyQrStep(data) {
 
   trueMoneyQrFallbackTimer = setTimeout(() => {
     if (btnTrueMoneyQrSlipFallback) {
-      btnTrueMoneyQrSlipFallback.style.display = 'block';
+      setTrueMoneyQrSlipFallbackVisible(true);
     }
   }, 90000);
 }
@@ -4031,10 +4096,10 @@ function restoreTrueMoneyQrStep(pending) {
   const createdMs = expiresMs - 30 * 60 * 1000;
   const elapsed = Date.now() - createdMs;
   if (elapsed >= 90000) {
-    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
+    setTrueMoneyQrSlipFallbackVisible(true);
   } else {
     trueMoneyQrFallbackTimer = setTimeout(() => {
-      if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
+      setTrueMoneyQrSlipFallbackVisible(true);
     }, 90000 - elapsed);
   }
 }
@@ -4231,17 +4296,24 @@ function restorePendingDonorDetails(pending) {
 
 async function ensureStreamerPaymentMethodsLoaded() {
   if (streamerPaymentMethods && Object.keys(streamerPaymentMethods).length > 0) return true;
+  if (paymentMethodsLoadPromise) return paymentMethodsLoadPromise;
   const username = window.location.pathname.split('/')[1];
   if (!username) return false;
 
-  try {
-    const response = await fetch(`/api/page/${username}/payment-methods`);
-    if (!response.ok) return false;
-    streamerPaymentMethods = await response.json();
-    return true;
-  } catch (e) {
-    return false;
-  }
+  paymentMethodsLoadPromise = (async () => {
+    try {
+      const response = await fetch(`/api/page/${username}/payment-methods`);
+      if (!response.ok) return false;
+      streamerPaymentMethods = await response.json();
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      paymentMethodsLoadPromise = null;
+    }
+  })();
+
+  return paymentMethodsLoadPromise;
 }
 
 async function hydratePaymentMethodsForRestore() {
@@ -4251,19 +4323,22 @@ async function hydratePaymentMethodsForRestore() {
 }
 
 function applyManualPaymentDetails(method) {
+  const methodsLoaded = streamerPaymentMethods && Object.keys(streamerPaymentMethods).length > 0;
+  const loadingText = 'กำลังโหลดข้อมูลผู้รับ...';
+
   if (method === 'truemoney') {
     if (trueMoneyAmount) trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
     if (trueMoneyPhoneDisplay) {
-      trueMoneyPhoneDisplay.textContent = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
+      trueMoneyPhoneDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.truemoney_phone || loadingText) : loadingText;
     }
     updateSlipOkWarning('truemoney');
     return;
   }
 
   if (bankAmount) bankAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
-  if (bankNameDisplay) bankNameDisplay.textContent = streamerPaymentMethods.bank_name || '';
-  if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = streamerPaymentMethods.bank_account_number || '';
-  if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = streamerPaymentMethods.bank_account_name || '';
+  if (bankNameDisplay) bankNameDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_name || loadingText) : loadingText;
+  if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_account_number || loadingText) : loadingText;
+  if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_account_name || loadingText) : loadingText;
   updateSlipOkWarning('bank');
 }
 

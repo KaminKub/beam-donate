@@ -29,13 +29,20 @@ function loadPureFunctions(names) {
   return vm.runInNewContext(`${source}; ({ ${names.join(', ')} });`, {
     Date,
     EXPIRED_QR_GRACE_MS: 10 * 60 * 1000,
-    MANUAL_PAYMENT_TTL_MS: 30 * 60 * 1000
+    MANUAL_PAYMENT_TTL_MS: 30 * 60 * 1000,
+    HISTORY_PENDING_FIELDS: [
+      'method', 'amount', 'referenceId', 'expiresAt',
+      'qrData', 'recipientName', 'displayAmount', 'savedAt', 'timerAction', 'backedOutAt',
+      'tierImageUrl', 'tierSoundUrl', 'tierSoundIsTemp', 'tierSoundMode',
+      'tierYoutubeId', 'tierYoutubeStart', 'tierYoutubeEnd'
+    ]
   });
 }
 
-const { isPendingRestorable, isManualPaymentStepFresh } = loadPureFunctions([
+const { isPendingRestorable, isManualPaymentStepFresh, getHistoryPendingState } = loadPureFunctions([
   'isPendingRestorable',
-  'isManualPaymentStepFresh'
+  'isManualPaymentStepFresh',
+  'getHistoryPendingState'
 ]);
 
 test('reload restore activates exactly one payment step', () => {
@@ -126,6 +133,29 @@ test('pending state has a history fallback when localStorage is unavailable', ()
   assert.match(appSource, /function readPendingState\(/);
 });
 
+test('history fallback keeps restore fields but strips donor PII', () => {
+  const safe = getHistoryPendingState({
+    donorName: 'Donor PII',
+    message: 'Private message',
+    method: 'bank',
+    amount: 500,
+    referenceId: 'ref-123',
+    expiresAt: '2026-08-12T12:05:00Z',
+    qrData: 'qr-payload'
+  });
+  assert.deepEqual({ ...safe }, {
+    method: 'bank',
+    amount: 500,
+    referenceId: 'ref-123',
+    expiresAt: '2026-08-12T12:05:00Z',
+    qrData: 'qr-payload'
+  });
+  assert.doesNotMatch(JSON.stringify(safe), /Donor PII|Private message/);
+  const read = sourceBetween('function readPendingState(', 'function clearPendingState(');
+  assert.match(read, /isPendingStateCleared\(key\)/);
+  assert.match(read, /return raw \? JSON\.parse\(raw\) : null/);
+});
+
 test('startup restores payment state before waiting for page content', () => {
   const startup = sourceBetween("document.addEventListener('DOMContentLoaded'", 'function showOnlyPaymentStep(');
   assert.match(startup, /restorePendingPaymentStep\(\);[\s\S]*await loadPageContent\(\);/);
@@ -139,4 +169,35 @@ test('saving one payment path clears stale state from the others', () => {
   const trueMoneySave = sourceBetween('function saveTrueMoneyPendingQR(', 'function getTrueMoneyPendingQR(');
   assert.match(trueMoneySave, /clearManualPaymentStep\(\)/);
   assert.match(trueMoneySave, /clearPendingQR\(\)/);
+});
+
+test('manual restore shows a neutral loading placeholder before payment methods arrive', () => {
+  const manualDetails = sourceBetween('function applyManualPaymentDetails(', 'function restoreManualPaymentStep(');
+  assert.match(manualDetails, /กำลังโหลดข้อมูลผู้รับ/);
+  assert.doesNotMatch(manualDetails, /ไม่พบเบอร์โทรศัพท์/);
+});
+
+test('expired TrueMoney restore does not leave a countdown interval behind', () => {
+  const countdown = sourceBetween('function startTrueMoneyQrCountdown(', 'function handleTrueMoneyConfirmed(');
+  assert.match(countdown, /clearInterval\(trueMoneyQrCountdownInterval\)/);
+  assert.match(countdown, /trueMoneyQrExpiresAt > Date\.now\(\)/);
+});
+
+test('TrueMoney slip fallback uses the project icon and class-based transition', () => {
+  assert.match(htmlSource, /class="btn-secondary qr-fallback-btn"/);
+  assert.match(htmlSource, /fa-solid fa-cloud-arrow-up/);
+  assert.doesNotMatch(htmlSource, /id="btnTrueMoneyQrSlipFallback"[^>]*style=/);
+  assert.match(appSource, /function setTrueMoneyQrSlipFallbackVisible\(/);
+  assert.match(appSource, /classList\.toggle\('visible'/);
+  assert.doesNotMatch(appSource, /btnTrueMoneyQrSlipFallback\.style\.display/);
+});
+
+test('payment-method loading requests are deduplicated in flight', () => {
+  assert.match(appSource, /let paymentMethodsLoadPromise = null/);
+  const loader = sourceBetween('async function ensureStreamerPaymentMethodsLoaded(', 'async function hydratePaymentMethodsForRestore(');
+  assert.match(loader, /if \(paymentMethodsLoadPromise\) return paymentMethodsLoadPromise/);
+  assert.match(loader, /paymentMethodsLoadPromise = \(async \(\) =>/);
+  assert.match(loader, /finally \{/);
+  const writer = sourceBetween('function writePendingState(', 'function readPendingState(');
+  assert.doesNotMatch(writer, /return saved/);
 });
