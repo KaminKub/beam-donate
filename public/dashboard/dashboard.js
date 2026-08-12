@@ -1936,6 +1936,8 @@ async function initializeDashboard() {
     }
 
     initCardPanels();
+    updateSettingsHeaderOffset();
+    initStickyCardHeaderWatchers();
 
     // Widget enable-collapse: register toggles so only the on/off switch shows when disabled
     registerWidgetVisibility('chkGoalEnabled', '#goalSettingsBody, [data-body-for="goal"]');
@@ -9001,6 +9003,53 @@ function handleSoundScroll(el) {
 }
 
 // ========== Expandable Settings Cards ==========
+
+// วัดความสูงจริงของ header คงที่ ≤1200px เพื่อกัน sticky card header โดนบัง (ห้ามเดา top offset)
+function updateSettingsHeaderOffset() {
+  const headerGroup = document.querySelector('.header-sticky-group');
+  if (!headerGroup) return;
+  const offset = Math.ceil(headerGroup.getBoundingClientRect().bottom);
+  document.documentElement.style.setProperty('--settings-header-offset', offset + 'px');
+}
+
+// เติม background/blur ให้ header เฉพาะตอน "ค้าง" อยู่บนสุดจริง (IntersectionObserver, ไม่ใช้ scroll listener)
+function initStickyCardHeaderWatchers() {
+  document.querySelectorAll('.settings-card-header').forEach(header => {
+    const root = header.closest('.settings-panel-scroll');
+    if (!root) return;
+    let sentinel = header.previousElementSibling;
+    if (!sentinel || !sentinel.classList.contains('card-header-sentinel')) {
+      sentinel = document.createElement('div');
+      sentinel.className = 'card-header-sentinel';
+      header.parentElement.insertBefore(sentinel, header);
+    }
+    if (header._stickyObserver) header._stickyObserver.disconnect();
+    const topPx = parseFloat(getComputedStyle(header).top) || 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => header.classList.toggle('card-header-stuck', entry.intersectionRatio < 1),
+      { root, threshold: [1], rootMargin: `-${topPx + 1}px 0px 0px 0px` }
+    );
+    observer.observe(sentinel);
+    header._stickyObserver = observer;
+  });
+}
+
+// เรียกเอง แยกจาก initializeDashboard() เพราะ init chain นั้นค้างไม่ถึงจุดเรียกเดิมใน demo mode (await ค้างก่อนหน้า ไม่ throw)
+document.addEventListener('DOMContentLoaded', () => {
+  updateSettingsHeaderOffset();
+  initStickyCardHeaderWatchers();
+});
+
+let settingsHeaderOffsetRaf = null;
+window.addEventListener('resize', () => {
+  if (settingsHeaderOffsetRaf) return;
+  settingsHeaderOffsetRaf = requestAnimationFrame(() => {
+    settingsHeaderOffsetRaf = null;
+    updateSettingsHeaderOffset();
+    initStickyCardHeaderWatchers();
+  });
+});
+window.addEventListener('orientationchange', updateSettingsHeaderOffset);
 
 function toggleCardPanel(card, panelId) {
   const panel = document.getElementById(panelId);
