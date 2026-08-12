@@ -66,7 +66,8 @@ const UPLOAD_ALLOWED_TYPES = {
   pagebg:  ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
   sound:   ['audio/mpeg', 'audio/ogg', 'audio/mp3'],
   video:   ['video/mp4', 'video/webm'],
-  tierAlert: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm']
+  tierAlert: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
+  goalbar: ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 };
 const UPLOAD_EXT_MAP = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
@@ -75,7 +76,7 @@ const UPLOAD_EXT_MAP = {
 };
 const UPLOAD_FOLDER_MAP = {
   avatar: 'avatars', profile: 'profiles', header: 'headers', pagebg: 'pagebg',
-  sound: 'sounds', video: 'videos', tierAlert: 'tier-alert'
+  sound: 'sounds', video: 'videos', tierAlert: 'tier-alert', goalbar: 'goalbar'
 };
 
 async function uploadBufferToR2(buffer, key, contentType) {
@@ -207,6 +208,7 @@ const defaultSettings = {
   goal_pointer_enabled: 0,
   goal_pointer_side: 'right',
   goal_pointer_content: 'both',
+  goal_bg_settings: '',
   tts_mode: 'free',
   ttsVoice: '',
   tts_random_voice: 0,
@@ -3311,7 +3313,7 @@ const OVERLAY_ALLOWED_FIELDS = [
   'goal_anim_sound', 'goal_anim_enabled', 'goal_anim_sound_volume', 'goal_bar_position', 'goal_bar_width', 'goal_bar_layout', 'goal_bar_thickness', 'goal_bar_width_auto',
   'goal_pointer_enabled', 'goal_pointer_side', 'goal_pointer_content',
   'timer_settings', 'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
-  'tier_donate_settings', 'sound_library',
+  'tier_donate_settings', 'sound_library', 'goal_bg_settings',
   'tts_mode', 'ttsVoice', 'tts_random_voice', 'tts_quota_guard_enabled',
   'tts_google_api_key', 'tts_gemini_api_key'
 ];
@@ -3547,8 +3549,8 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
       }
     }
 
-    // § 2.1 TIER_DONATE_BLUEPRINT.md — tier_donate_settings/sound_library ต้องรู้ streamer.id ก่อน validate ownership ของ URL
-    if (safeBody.tier_donate_settings !== undefined || safeBody.sound_library !== undefined) {
+    // § 2.1 TIER_DONATE_BLUEPRINT.md — tier_donate_settings/sound_library/goal_bg_settings ต้องรู้ streamer.id ก่อน validate ownership ของ URL
+    if (safeBody.tier_donate_settings !== undefined || safeBody.sound_library !== undefined || safeBody.goal_bg_settings !== undefined) {
       const tierStreamer = await getStreamerForUser(req.user);
       if (!tierStreamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
 
@@ -3566,6 +3568,15 @@ app.post('/api/overlay/settings', ensureAuthenticated, csrfProtection, async (re
         const check = validateSoundLibrary(parsed, tierStreamer.id);
         if (!check.valid) return res.status(400).json({ error: check.message });
         safeBody.sound_library = JSON.stringify(parsed);
+      }
+
+      // '' = ล้างภาพ (เก็บเป็น empty string ตรง header_bg_url convention — ห้าม JSON.stringify(null) เป็น "null" string ที่ truthy)
+      if (safeBody.goal_bg_settings !== undefined && safeBody.goal_bg_settings !== '') {
+        let parsed;
+        try { parsed = JSON.parse(safeBody.goal_bg_settings); } catch { parsed = null; }
+        const check = validateGoalBgSettings(parsed, tierStreamer.id);
+        if (!check.valid) return res.status(400).json({ error: check.message });
+        safeBody.goal_bg_settings = JSON.stringify(parsed);
       }
     }
 
@@ -4206,6 +4217,23 @@ function validateSoundLibrary(arr, streamerId) {
     if (!audioCheck.valid) return audioCheck;
     if (!isOwnedR2Url(s.url, 'sounds', streamerId)) return { valid: false, message: 'sound_library.url ไม่ถูกต้อง' };
   }
+  return { valid: true };
+}
+
+// goal_bg_settings JSON blob — validate ownership ของ url + range ของ x/y/zoom/opacity
+function validateGoalBgSettings(obj, streamerId) {
+  if (obj === null) return { valid: true };
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { valid: false, message: 'goal_bg_settings ไม่ถูกต้อง' };
+  if (!isOwnedR2Url(obj.url, 'goalbar', streamerId)) return { valid: false, message: 'goal_bg_settings.url ไม่ถูกต้อง' };
+  if (!['track', 'fill'].includes(obj.mode)) return { valid: false, message: 'goal_bg_settings.mode ไม่ถูกต้อง' };
+  for (const f of ['x', 'y']) {
+    const n = Number(obj[f]);
+    if (!Number.isFinite(n) || n < 0 || n > 100) return { valid: false, message: `goal_bg_settings.${f} ต้องอยู่ระหว่าง 0-100` };
+  }
+  const zoom = Number(obj.zoom);
+  if (!Number.isFinite(zoom) || zoom < 100 || zoom > 300) return { valid: false, message: 'goal_bg_settings.zoom ต้องอยู่ระหว่าง 100-300' };
+  const opacity = Number(obj.opacity);
+  if (!Number.isFinite(opacity) || opacity < 0 || opacity > 100) return { valid: false, message: 'goal_bg_settings.opacity ต้องอยู่ระหว่าง 0-100' };
   return { valid: true };
 }
 
@@ -6103,7 +6131,8 @@ const UPLOAD_MAX_SIZES = {
   pagebg: 5 * 1024 * 1024,
   sound: 1024 * 1024,
   video: 5 * 1024 * 1024,
-  tierAlert: 5 * 1024 * 1024
+  tierAlert: 5 * 1024 * 1024,
+  goalbar: 5 * 1024 * 1024
 };
 
 // POST /api/upload/presign — generate Cloudflare R2 presigned upload URL

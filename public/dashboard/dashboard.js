@@ -1178,6 +1178,8 @@ async function initializeDashboard() {
     const btnClearPageBgEl = document.getElementById('btnClearPageBg');
     if (btnClearPageBgEl) btnClearPageBgEl.onclick = clearPageBg;
 
+    initGoalBgPositionModal();
+
     const btnClearCustomImgEl = document.getElementById('btnClearCustomImage');
     if (btnClearCustomImgEl) btnClearCustomImgEl.onclick = clearCustomImage;
 
@@ -1501,6 +1503,11 @@ async function initializeDashboard() {
         }
       };
     }
+    const goalColorOpacity = document.getElementById('inputGoalBarColorOpacity');
+    const goalColorOpacityTxt = document.getElementById('txtGoalBarColorOpacity');
+    if (goalColorOpacity && goalColorOpacityTxt) {
+      goalColorOpacity.oninput = () => { goalColorOpacityTxt.textContent = goalColorOpacity.value; };
+    }
 
     // Goal text customization color pickers <-> hex text sync
     [
@@ -1634,7 +1641,12 @@ async function initializeDashboard() {
           goal_pointer_content: document.getElementById('selectGoalPointerContent').value || 'both',
           goal_label: document.getElementById('inputGoalLabel').value.trim(),
           goal_amount: parseFloat(document.getElementById('inputGoalAmount').value) || 5000,
-          goal_bar_color: document.getElementById('inputGoalBarColor').value,
+          goal_bar_color: (() => {
+            const hex6 = document.getElementById('inputGoalBarColor').value || '#4ade80';
+            const opacityPct = parseInt(document.getElementById('inputGoalBarColorOpacity')?.value, 10);
+            const alphaHex = Math.round((Number.isFinite(opacityPct) ? opacityPct : 100) / 100 * 255).toString(16).padStart(2, '0');
+            return hex6 + alphaHex;
+          })(),
           goal_bar_text: (document.getElementById('inputGoalBarText') || {}).value ?? '{เปอร์เซนต์}',
           goal_subtitle1: (document.getElementById('inputGoalSubtitle1') || {}).value ?? '{ยอดปัจจุบัน}/{ยอดเป้าหมาย}฿',
           goal_subtitle2: (document.getElementById('inputGoalSubtitle2') || {}).value ?? '',
@@ -1654,6 +1666,18 @@ async function initializeDashboard() {
             outline_width: parseInt(document.getElementById('selectGoalOutlineWidth')?.value) || 2,
             outline_color: document.getElementById('inputGoalOutlineColor')?.value || '#000000'
           }),
+          goal_bg_settings: (() => {
+            const url = document.getElementById('goalBgUrl')?.value || '';
+            if (!url) return '';
+            return JSON.stringify({
+              url,
+              mode: document.getElementById('goalBgMode')?.value || 'track',
+              x: parseInt(document.getElementById('goalBgX')?.value, 10) || 50,
+              y: parseInt(document.getElementById('goalBgY')?.value, 10) || 50,
+              zoom: parseInt(document.getElementById('goalBgZoom')?.value, 10) || 100,
+              opacity: parseInt(document.getElementById('goalBgOpacity')?.value, 10) || 100
+            });
+          })(),
         };
         const res = await fetchWithCsrf('/api/overlay/settings', {
           method: 'POST',
@@ -2060,10 +2084,17 @@ function loadDemoGoalSettingsFromData(data) {
   if (labelEl) labelEl.value = data.goal_label !== undefined ? data.goal_label : 'ค่ากาแฟ';
   const amountEl = document.getElementById('inputGoalAmount');
   if (amountEl) amountEl.value = data.goal_amount || 5000;
+  const rawColor2 = data.goal_bar_color || '#4ade80';
+  const color6 = rawColor2.length === 9 ? rawColor2.slice(0, 7) : rawColor2;
+  const colorOpacityPct2 = rawColor2.length === 9 ? Math.round(parseInt(rawColor2.slice(7, 9), 16) / 255 * 100) : 100;
   const colorEl = document.getElementById('inputGoalBarColor');
-  if (colorEl) colorEl.value = data.goal_bar_color || '#4ade80';
+  if (colorEl) colorEl.value = color6;
   const txtColor = document.getElementById('txtGoalBarColor');
-  if (txtColor) txtColor.value = data.goal_bar_color || '#4ade80';
+  if (txtColor) txtColor.value = color6;
+  const colorOpacityEl2 = document.getElementById('inputGoalBarColorOpacity');
+  const colorOpacityTxtEl2 = document.getElementById('txtGoalBarColorOpacity');
+  if (colorOpacityEl2) colorOpacityEl2.value = colorOpacityPct2;
+  if (colorOpacityTxtEl2) colorOpacityTxtEl2.textContent = colorOpacityPct2;
   const gAutoW = data.goal_bar_width_auto == 1 || data.goal_bar_width_auto === true;
   const widthEl = document.getElementById('inputGoalBarWidth');
   if (widthEl) {
@@ -6067,7 +6098,14 @@ async function loadGoalSettings() {
     ]);
     if (!settingsRes.ok) return;
     const data = await settingsRes.json();
-    const color = data.goal_bar_color || '#4ade80';
+    const rawColor = data.goal_bar_color || '#4ade80';
+    // goal_bar_color เก็บ opacity ผ่าน 8-digit hex (#rrggbbaa) แทนการเพิ่ม column ใหม่ — แยกกลับเป็น 6-digit + opacity% ตอนโหลด
+    const color = rawColor.length === 9 ? rawColor.slice(0, 7) : rawColor;
+    const colorOpacityPct = rawColor.length === 9 ? Math.round(parseInt(rawColor.slice(7, 9), 16) / 255 * 100) : 100;
+    const colorOpacityEl = document.getElementById('inputGoalBarColorOpacity');
+    const colorOpacityTxtEl = document.getElementById('txtGoalBarColorOpacity');
+    if (colorOpacityEl) colorOpacityEl.value = colorOpacityPct;
+    if (colorOpacityTxtEl) colorOpacityTxtEl.textContent = colorOpacityPct;
 
     document.getElementById('chkGoalEnabled').checked = !!data.goal_enabled;
     updateWidgetBodyVisibility('chkGoalEnabled');
@@ -6161,6 +6199,7 @@ async function loadGoalSettings() {
     }
 
     updateGoalPreview(data.goal_current || 0, data.goal_amount || 5000);
+    loadGoalBgSettings(data.goal_bg_settings);
 
     if (tokenRes.ok) {
       const { token } = await tokenRes.json();
@@ -6178,6 +6217,206 @@ function updateGoalPreview(current, amount) {
   const amtEl = document.getElementById('spanGoalAmount');
   if (curEl) curEl.textContent = (current || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
   if (amtEl) amtEl.textContent = (amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
+}
+
+// ========== Goal-Bar Background Image ==========
+
+function loadGoalBgSettings(raw) {
+  let bg = null;
+  if (raw) { try { bg = JSON.parse(raw); } catch (e) { bg = null; } }
+  const urlInput = document.getElementById('goalBgUrl');
+  const actions = document.getElementById('goalBgActions');
+  if (!urlInput) return;
+  urlInput.value = (bg && bg.url) ? bg.url : '';
+  document.getElementById('goalBgMode').value = (bg && bg.mode) || 'track';
+  document.getElementById('goalBgX').value = (bg && bg.x !== undefined) ? bg.x : 50;
+  document.getElementById('goalBgY').value = (bg && bg.y !== undefined) ? bg.y : 50;
+  document.getElementById('goalBgZoom').value = (bg && bg.zoom !== undefined) ? bg.zoom : 100;
+  document.getElementById('goalBgOpacity').value = (bg && bg.opacity !== undefined) ? bg.opacity : 100;
+  if (actions) actions.style.display = (bg && bg.url) ? 'flex' : 'none';
+}
+
+async function handleGoalBgSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('goalBgStatus');
+  const setStatus = (msg, color) => { if (status) { status.textContent = msg; status.style.color = color || 'var(--text-muted)'; } };
+  try {
+    const urlToDelete = document.getElementById('goalBgUrl')?.value || null;
+    const fileUrl = await uploadImageToR2(file, 'goalbar', 0.5, 1920, setStatus);
+    deleteOldR2File(urlToDelete, 'goalbar');
+    document.getElementById('goalBgUrl').value = fileUrl;
+    document.getElementById('goalBgMode').value = 'track';
+    document.getElementById('goalBgX').value = 50;
+    document.getElementById('goalBgY').value = 50;
+    document.getElementById('goalBgZoom').value = 100;
+    document.getElementById('goalBgOpacity').value = 100;
+    document.getElementById('goalBgActions').style.display = 'flex';
+    setStatus('อัปโหลดสำเร็จ!', '#22c55e');
+    showNotification('อัปโหลดภาพพื้นหลัง Goal-Bar สำเร็จ');
+    fetchWithCsrf('/api/overlay/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ goal_bg_settings: JSON.stringify({ url: fileUrl, mode: 'track', x: 50, y: 50, zoom: 100, opacity: 100 }) }) })
+      .catch(e => console.warn('Auto-save goalBg failed:', e.message));
+    openGoalBgPositionModal();
+  } catch (err) {
+    console.error('Goal BG upload error:', err);
+    setStatus('เกิดข้อผิดพลาด: ' + err.message, '#ef4444');
+    showNotification('อัปโหลดไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function clearGoalBg() {
+  document.getElementById('goalBgUrl').value = '';
+  document.getElementById('goalBgFile').value = '';
+  document.getElementById('goalBgActions').style.display = 'none';
+  const status = document.getElementById('goalBgStatus');
+  if (status) status.textContent = '';
+}
+
+function applyGoalBgReplica() {
+  const trackImg = document.getElementById('goalBgReplicaTrackImg');
+  const fill = document.getElementById('goalBgReplicaFill');
+  const fillImg = document.getElementById('goalBgReplicaFillImg');
+  if (!trackImg || !fill || !fillImg) return;
+  const url = document.getElementById('goalBgUrl')?.value || '';
+  const mode = document.getElementById('goalBgModeSelect')?.value || 'track';
+  const x = document.getElementById('goalBgX')?.value || 50;
+  const y = document.getElementById('goalBgY')?.value || 50;
+  const zoom = document.getElementById('goalBgZoomSlider')?.value || 100;
+  const opacity = document.getElementById('goalBgOpacitySlider')?.value || 100;
+  const bgImg = url ? `url("${url.replace(/"/g, '%22')}")` : 'none';
+  const pos = `${x}% ${y}%`;
+  const scale = `scale(${zoom / 100})`;
+  const op = opacity / 100;
+  fill.style.background = '#4ade80'; // สีพื้นฐานคงอยู่เสมอ — opacity ปรับแค่ภาพซ้อนด้านบน ไม่ปรับทั้งก้อน fill
+  if (mode === 'fill') {
+    trackImg.style.backgroundImage = 'none';
+    fillImg.style.backgroundImage = bgImg;
+    fillImg.style.backgroundPosition = pos;
+    fillImg.style.backgroundSize = 'cover';
+    fillImg.style.transform = scale;
+    fillImg.style.opacity = op;
+  } else {
+    fillImg.style.backgroundImage = 'none';
+    trackImg.style.backgroundImage = bgImg;
+    trackImg.style.backgroundPosition = pos;
+    trackImg.style.backgroundSize = 'cover';
+    trackImg.style.transform = scale;
+    trackImg.style.opacity = op;
+  }
+}
+
+function syncReplicaLayout() {
+  const track = document.getElementById('goalBgReplicaTrack');
+  const fill = document.getElementById('goalBgReplicaFill');
+  if (!track || !fill) return;
+  const isVertical = (document.getElementById('selectGoalBarLayout')?.value || 'horizontal') === 'vertical';
+  const thicknessRaw = parseInt(document.getElementById('inputGoalBarThickness')?.value, 10);
+  const thickness = (thicknessRaw >= 20 && thicknessRaw <= 140) ? thicknessRaw : 45;
+
+  const cur = parseFloat((document.getElementById('spanGoalCurrent')?.textContent || '0').replace(/,/g, '')) || 0;
+  const amt = parseFloat((document.getElementById('spanGoalAmount')?.textContent || '0').replace(/,/g, '')) || 0;
+  const pct = amt > 0 ? Math.min(100, Math.max(0, (cur / amt) * 100)) : 55;
+
+  if (isVertical) {
+    // เลียน goal-bar.css layout-vertical: track แคบ-สูง, fill โต flex column-reverse จากล่างขึ้นบน — ตำแหน่งจริงเหมือน widget
+    track.style.width = thickness + 'px';
+    track.style.maxWidth = 'none';
+    track.style.height = '320px';
+    track.style.margin = '0 auto';
+    track.style.borderRadius = (thickness / 2) + 'px';
+    track.style.display = 'flex';
+    track.style.flexDirection = 'column-reverse';
+    fill.style.width = '100%';
+    fill.style.height = pct + '%';
+    fill.style.borderRadius = (thickness / 2 - 2) + 'px';
+  } else {
+    track.style.width = '100%';
+    track.style.maxWidth = '340px';
+    track.style.height = thickness + 'px';
+    track.style.margin = '';
+    track.style.borderRadius = (thickness / 2) + 'px';
+    track.style.display = 'block';
+    track.style.flexDirection = '';
+    fill.style.height = '100%';
+    fill.style.width = pct + '%';
+    fill.style.borderRadius = (thickness / 2 - 2) + 'px';
+  }
+}
+
+function openGoalBgPositionModal() {
+  const modal = document.getElementById('goalBgPositionModal');
+  if (!modal) return;
+  syncReplicaLayout();
+  const modeSelectEl = document.getElementById('goalBgModeSelect');
+  modeSelectEl.value = document.getElementById('goalBgMode').value || 'track';
+  modeSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+  document.getElementById('goalBgZoomSlider').value = document.getElementById('goalBgZoom').value || 100;
+  document.getElementById('goalBgOpacitySlider').value = document.getElementById('goalBgOpacity').value || 100;
+  document.getElementById('goalBgZoomDisplay').textContent = document.getElementById('goalBgZoomSlider').value;
+  document.getElementById('goalBgOpacityDisplay').textContent = document.getElementById('goalBgOpacitySlider').value;
+  applyGoalBgReplica();
+  modal.classList.add('active');
+}
+function closeGoalBgPositionModal() {
+  document.getElementById('goalBgPositionModal')?.classList.remove('active');
+}
+
+function initGoalBgPositionModal() {
+  const track = document.getElementById('goalBgReplicaTrack');
+  const modeSelect = document.getElementById('goalBgModeSelect');
+  const zoomSlider = document.getElementById('goalBgZoomSlider');
+  const opacitySlider = document.getElementById('goalBgOpacitySlider');
+  const btnEdit = document.getElementById('btnEditGoalBgPosition');
+  const btnClear = document.getElementById('btnClearGoalBg');
+  const btnClose = document.getElementById('btnCloseGoalBgModal');
+  const btnCancel = document.getElementById('btnCancelGoalBgPosition');
+  const btnSave = document.getElementById('btnSaveGoalBgPosition');
+  const goalBgFile = document.getElementById('goalBgFile');
+
+  if (goalBgFile) goalBgFile.addEventListener('change', handleGoalBgSelect);
+  if (btnClear) btnClear.onclick = clearGoalBg;
+  if (btnEdit) btnEdit.onclick = openGoalBgPositionModal;
+  if (btnClose) btnClose.onclick = closeGoalBgPositionModal;
+  if (btnCancel) btnCancel.onclick = closeGoalBgPositionModal;
+  const modal = document.getElementById('goalBgPositionModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeGoalBgPositionModal(); });
+
+  if (modeSelect) modeSelect.addEventListener('change', applyGoalBgReplica);
+  if (zoomSlider) zoomSlider.addEventListener('input', () => {
+    document.getElementById('goalBgZoomDisplay').textContent = zoomSlider.value;
+    applyGoalBgReplica();
+  });
+  if (opacitySlider) opacitySlider.addEventListener('input', () => {
+    document.getElementById('goalBgOpacityDisplay').textContent = opacitySlider.value;
+    applyGoalBgReplica();
+  });
+
+  if (btnSave) btnSave.onclick = () => {
+    document.getElementById('goalBgMode').value = modeSelect.value;
+    document.getElementById('goalBgZoom').value = zoomSlider.value;
+    document.getElementById('goalBgOpacity').value = opacitySlider.value;
+    closeGoalBgPositionModal();
+  };
+
+  // Drag X+Y on replica track
+  if (track) {
+    let dragging = false;
+    function setFromEvent(clientX, clientY) {
+      const rect = track.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+      document.getElementById('goalBgX').value = Math.round(x);
+      document.getElementById('goalBgY').value = Math.round(y);
+      applyGoalBgReplica();
+    }
+    track.addEventListener('mousedown', (e) => { dragging = true; track.style.cursor = 'grabbing'; setFromEvent(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', (e) => { if (dragging) setFromEvent(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => { dragging = false; track.style.cursor = 'grab'; });
+    track.addEventListener('touchstart', (e) => { dragging = true; const t = e.touches[0]; setFromEvent(t.clientX, t.clientY); }, { passive: true });
+    window.addEventListener('touchmove', (e) => { if (dragging) { const t = e.touches[0]; setFromEvent(t.clientX, t.clientY); } }, { passive: true });
+    window.addEventListener('touchend', () => { dragging = false; });
+  }
 }
 
 // ========== Timer Settings ==========

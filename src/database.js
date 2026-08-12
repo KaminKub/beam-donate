@@ -233,6 +233,7 @@ async function migrateDB() {
         goal_bar_width_auto INTEGER DEFAULT 0,
         goal_pointer_side TEXT DEFAULT 'right',
         goal_pointer_content TEXT DEFAULT 'both',
+        goal_bg_settings TEXT DEFAULT NULL,
          tos_accepted_at TEXT DEFAULT NULL,
          legal_version TEXT DEFAULT NULL,
          payment_eligibility_version TEXT DEFAULT NULL,
@@ -532,7 +533,8 @@ async function migrateDB() {
       { name: 'tts_random_voice', type: 'INTEGER DEFAULT 0' },
       { name: 'tts_confirm_accepted_at', type: 'TEXT' },
       { name: 'tts_confirm_version', type: 'TEXT' },
-      { name: 'tts_quota_guard_enabled', type: 'INTEGER DEFAULT 1' }
+      { name: 'tts_quota_guard_enabled', type: 'INTEGER DEFAULT 1' },
+      { name: 'goal_bg_settings', type: 'TEXT DEFAULT NULL' }
     ];
 
     for (const col of requiredCols) {
@@ -1288,7 +1290,8 @@ async function saveStreamer(data) {
                tts_random_voice = COALESCE(?, streamers.tts_random_voice),
                tts_confirm_accepted_at = COALESCE(?, streamers.tts_confirm_accepted_at),
                tts_confirm_version = COALESCE(?, streamers.tts_confirm_version),
-               tts_quota_guard_enabled = COALESCE(?, streamers.tts_quota_guard_enabled)
+               tts_quota_guard_enabled = COALESCE(?, streamers.tts_quota_guard_enabled),
+               goal_bg_settings = COALESCE(?, streamers.goal_bg_settings)
                WHERE id = ?`,
        args: [
          finalData.twitch_id || null,
@@ -1434,6 +1437,7 @@ async function saveStreamer(data) {
           finalData.tts_confirm_accepted_at !== undefined ? finalData.tts_confirm_accepted_at : null,
           finalData.tts_confirm_version !== undefined ? finalData.tts_confirm_version : null,
           finalData.tts_quota_guard_enabled !== undefined ? (finalData.tts_quota_guard_enabled ? 1 : 0) : null,
+          finalData.goal_bg_settings !== undefined ? finalData.goal_bg_settings : null,
           existing.id
         ]
       });
@@ -1456,8 +1460,8 @@ async function saveStreamer(data) {
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
                header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, payment_eligibility_version, payment_eligibility_accepted_at, primary_auth_provider, timer_settings,
               truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
-              tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled, goal_bg_settings)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1603,7 +1607,8 @@ async function saveStreamer(data) {
         finalData.tts_random_voice !== undefined ? (finalData.tts_random_voice ? 1 : 0) : 0,
         finalData.tts_confirm_accepted_at || null,
         finalData.tts_confirm_version || null,
-        finalData.tts_quota_guard_enabled !== undefined ? (finalData.tts_quota_guard_enabled ? 1 : 0) : 1
+        finalData.tts_quota_guard_enabled !== undefined ? (finalData.tts_quota_guard_enabled ? 1 : 0) : 1,
+        finalData.goal_bg_settings !== undefined ? finalData.goal_bg_settings : null
       ]
     });
     savedId = _insertResult.lastInsertRowid ? Number(_insertResult.lastInsertRowid) : undefined;
@@ -2050,7 +2055,8 @@ async function getAllR2Refs(r2PublicUrl) {
       page_bg_url,
       timer_settings,
       tier_donate_settings,
-      sound_library
+      sound_library,
+      goal_bg_settings
     FROM streamers`
   );
   const refs = new Set();
@@ -2061,7 +2067,7 @@ async function getAllR2Refs(r2PublicUrl) {
   };
   for (const row of result.rows) {
     for (const [col, val] of Object.entries(row)) {
-      if (col === 'timer_settings' || col === 'tier_donate_settings' || col === 'sound_library') continue; // JSON blobs, handled below
+      if (col === 'timer_settings' || col === 'tier_donate_settings' || col === 'sound_library' || col === 'goal_bg_settings') continue; // JSON blobs, handled below
       addRef(val);
     }
     // timer_settings is a JSON blob; R2 URLs hidden inside (e.g. sound_url)
@@ -2083,6 +2089,12 @@ async function getAllR2Refs(r2PublicUrl) {
       try {
         const lib = JSON.parse(row.sound_library);
         (Array.isArray(lib) ? lib : []).forEach(s => { if (s?.url) addRef(s.url); });
+      } catch { /* malformed blob → skip */ }
+    }
+    if (typeof row.goal_bg_settings === 'string') {
+      try {
+        const gb = JSON.parse(row.goal_bg_settings);
+        if (gb.url) addRef(gb.url);
       } catch { /* malformed blob → skip */ }
     }
   }

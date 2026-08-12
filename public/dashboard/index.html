@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260812_1">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260812_3">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -66,7 +66,7 @@
         <div class="sidebar-footer">
          <span class="status-pill online">Server Online</span>
          <span class="status-pill offline" id="overlayStatusPill">Overlay Offline</span>
-         <span class="version">v1.1.0 (Live Stream alert)</span>
+         <span class="version">© 2026 TipKub สงวนลิขสิทธิ์</span>
        </div>
 
     </aside>
@@ -1839,6 +1839,33 @@
                           </div>
                         </div>
 
+                        <h5 class="section-divider">พื้นหลัง Goal-Bar</h5>
+                        <div class="form-row">
+                          <div class="form-group full-width">
+                            <label><i class="fa-solid fa-image" style="color:#a855f7"></i> ภาพพื้นหลัง Goal-Bar <small style="color:var(--text-muted)">(สูงสุด 5MB | ภาพเคลื่อนไหว 2MB)</small></label>
+                            <input type="hidden" id="goalBgUrl">
+                            <input type="hidden" id="goalBgMode" value="track">
+                            <input type="hidden" id="goalBgX" value="50">
+                            <input type="hidden" id="goalBgY" value="50">
+                            <input type="hidden" id="goalBgZoom" value="100">
+                            <input type="hidden" id="goalBgOpacity" value="100">
+                            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+                              <label for="goalBgFile" class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-upload"></i> อัพโหลดภาพพื้นหลัง
+                              </label>
+                              <input type="file" id="goalBgFile" accept="image/*" style="display:none;">
+                              <span id="goalBgStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                              <div id="goalBgActions" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <button type="button" id="btnEditGoalBgPosition" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;"><i class="fa-solid fa-arrows-up-down-left-right"></i> จัดตำแหน่งภาพ</button>
+                                <button type="button" id="btnClearGoalBg" class="btn-clear-upload" title="ลบภาพพื้นหลัง"><i class="fa-solid fa-xmark"></i></button>
+                              </div>
+                            </div>
+                            <small class="text-muted" style="display:block;margin-top:4px;">
+                              ขนาดแนะนำ — แนวนอน: กว้าง≥800px สูง≥250px | แนวตั้ง: กว้าง≥250px สูง≥800px | รองรับ PNG, JPG, WebP, GIF (ภาพเคลื่อนไหว) — ไม่รองรับวิดีโอ
+                            </small>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
 
@@ -1916,6 +1943,8 @@
                               <input type="color" id="inputGoalBarColor" value="#4ade80">
                               <input type="text" id="txtGoalBarColor" class="hex-text" value="#4ade80">
                             </div>
+                            <label for="inputGoalBarColorOpacity" style="margin-top:8px;"><i class="fa-solid fa-droplet" style="color:#60a5fa;"></i> ความโปร่งใสสีแถบ <span id="txtGoalBarColorOpacity">100</span>%</label>
+                            <input type="range" id="inputGoalBarColorOpacity" min="0" max="100" step="5" value="100">
                           </div>
                         </div>
 
@@ -3542,6 +3571,46 @@
     </div>
   </div>
 
+  <!-- Goal Bar: Background Image Position Modal -->
+  <div id="goalBgPositionModal" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-arrows-up-down-left-right" style="color:#a855f7"></i> จัดตำแหน่งภาพพื้นหลัง Goal-Bar</h3>
+        <button type="button" class="modal-close" id="btnCloseGoalBgModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="width:100%;padding:24px 12px;display:flex;justify-content:center;">
+          <div id="goalBgReplicaTrack" style="position:relative;width:100%;max-width:340px;height:45px;border-radius:22.5px;background:rgba(255,255,255,0.15);border:2px solid #000;overflow:visible;cursor:grab;user-select:none;">
+            <div id="goalBgReplicaTrackImg" style="position:absolute;inset:0;border-radius:inherit;background-repeat:no-repeat;pointer-events:none;"></div>
+            <div id="goalBgReplicaFill" style="height:100%;width:55%;border-radius:20.5px;background:#4ade80;position:relative;overflow:hidden;">
+              <div id="goalBgReplicaFillImg" style="position:absolute;inset:0;border-radius:inherit;background-repeat:no-repeat;pointer-events:none;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-layer-group" style="color:#06b6d4"></i> โหมดแสดงภาพ</label>
+          <select id="goalBgModeSelect" class="form-select">
+            <option value="track">พื้นหลังหลอด (Track)</option>
+            <option value="fill">พื้นหลังส่วนเติม (Fill)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-magnifying-glass-plus" style="color:#f59e0b"></i> ซูม <span id="goalBgZoomDisplay">100</span>%</label>
+          <input type="range" id="goalBgZoomSlider" min="100" max="300" step="5" value="100">
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-droplet" style="color:#60a5fa"></i> ความโปร่งใส <span id="goalBgOpacityDisplay">100</span>%</label>
+          <input type="range" id="goalBgOpacitySlider" min="0" max="100" step="5" value="100">
+        </div>
+        <small class="text-muted" style="display:block;">ลากบนแถบด้านบนเพื่อปรับตำแหน่งภาพ X/Y</small>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+        <button type="button" class="btn btn-secondary" id="btnCancelGoalBgPosition">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="btnSaveGoalBgPosition">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Tier Donate: Sound Library Modal -->
   <div id="soundLibraryModal" class="modal">
     <div class="modal-content" style="max-width: 480px;">
@@ -3873,7 +3942,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260812_1"></script>
+  <script src="/dashboard/dashboard.js?v=20260812_5"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

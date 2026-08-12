@@ -1239,7 +1239,7 @@ small.text-muted {
 
 .cs-panel {
   position: fixed;
-  z-index: 9000;
+  z-index: 10050;
   background: #12172e;
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-top: none;
@@ -2148,6 +2148,11 @@ label {
 
 .pointer-panel.disabled .pointer-options {
   pointer-events: none;
+}
+
+.pointer-panel.disabled .pointer-header {
+  opacity: 1;
+  filter: none;
 }
 
 .pointer-options {

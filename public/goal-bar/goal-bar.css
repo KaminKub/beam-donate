@@ -93,15 +93,15 @@ body.position-bottom #animStage {
 
 #goalFill {
   height: 100%;
-  border-radius: inherit;
+  border-radius: calc(var(--bar-thickness, 45px) / 2 - 2px);
   background: var(--bar-color, #7c3aed);
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
   position: relative;
+  z-index: 1;
   overflow: hidden;
   transform: translateZ(0);
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 #goalFill::after {
@@ -119,6 +119,39 @@ body.position-bottom #animStage {
   transform: translateX(-100%);
   animation: goalShine 4s ease-out infinite;
   will-change: transform;
+}
+
+/* Background image: mode=track — ภาพอยู่หลัง goalFill */
+#goalTrack::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--track-bg-url, none);
+  background-size: cover; /* base = เต็มกรอบเสมอ ไม่ว่า track จะแคบ/สูงแค่ไหน — zoom ใช้ transform:scale ต่อยอด (background-size:<percent> เดียวไม่ครอบคลุมทุกสัดส่วน) */
+  background-position: var(--track-bg-pos, center);
+  background-repeat: no-repeat;
+  opacity: var(--track-bg-opacity, 1);
+  transform: scale(var(--track-bg-zoom, 1));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Background image: mode=fill — ภาพซ้อนบนสี goalFill เดิม (ไม่ล้างสีทิ้ง)
+   เพื่อให้ปรับ opacity แล้วเห็นแค่ "ภาพ" จางลง ไม่ใช่ทั้งก้อน fill โปร่งใสหายไปเลย */
+#goalFill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--fill-bg-url, none);
+  background-size: cover;
+  background-position: var(--fill-bg-pos, center);
+  background-repeat: no-repeat;
+  opacity: var(--fill-bg-opacity, 1);
+  transform: scale(var(--fill-bg-zoom, 1));
+  pointer-events: none;
+  z-index: 0;
 }
 
 @keyframes goalShine {

@@ -44,6 +44,7 @@
   const wrapper = document.getElementById('goalBarWrapper');
   const labelEl = document.getElementById('goalLabel');
   const fillEl = document.getElementById('goalFill');
+  const trackEl = document.getElementById('goalTrack');
   const barTextEl = document.getElementById('goalBarText');
   const sub1El = document.getElementById('goalSub1');
   const sub2El = document.getElementById('goalSub2');
@@ -235,6 +236,35 @@
     updatePointer(pointerEnabled, pointerSide, pointerContent, lastDonor, lastAmount, fillPct);
   }
 
+  function parseGoalBg(raw) {
+    if (!raw) return null;
+    try {
+      const bg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return (bg && bg.url) ? bg : null;
+    } catch (e) { return null; }
+  }
+
+  function applyGoalBg(bg) {
+    trackEl.style.removeProperty('--track-bg-url');
+    fillEl.style.removeProperty('--fill-bg-url');
+    if (!bg) return;
+    const { url, mode, x, y, zoom, opacity } = bg;
+    const pos = `${x ?? 50}% ${y ?? 50}%`;
+    const zoomScale = (zoom ?? 100) / 100;
+    const op = (opacity ?? 100) / 100;
+    if (mode === 'fill') {
+      fillEl.style.setProperty('--fill-bg-url', `url("${url}")`);
+      fillEl.style.setProperty('--fill-bg-pos', pos);
+      fillEl.style.setProperty('--fill-bg-zoom', zoomScale);
+      fillEl.style.setProperty('--fill-bg-opacity', op);
+    } else {
+      trackEl.style.setProperty('--track-bg-url', `url("${url}")`);
+      trackEl.style.setProperty('--track-bg-pos', pos);
+      trackEl.style.setProperty('--track-bg-zoom', zoomScale);
+      trackEl.style.setProperty('--track-bg-opacity', op);
+    }
+  }
+
   function applyBarPosition(pos) {
     const isBottom = pos === 'bottom';
     wrapper.classList.toggle('position-bottom', isBottom);
@@ -318,6 +348,7 @@
 
       applyBarPosition(urlPosition || data.goal_bar_position || 'top');
       applyBarLayout(data.goal_bar_layout || 'horizontal');
+      applyGoalBg(parseGoalBg(data.goal_bg_settings));
       if (data.goal_text_settings) {
         let gtc = {};
         try { gtc = JSON.parse(data.goal_text_settings); } catch (e) {}
@@ -390,6 +421,7 @@
           }
           applyBarPosition(urlPosition || s.goal_bar_position || 'top');
           applyBarLayout(s.goal_bar_layout || 'horizontal');
+          if (s.goal_bg_settings !== undefined) applyGoalBg(parseGoalBg(s.goal_bg_settings));
           if (s.goal_pointer_enabled !== undefined) {
             pointerEnabled = s.goal_pointer_enabled !== 0 && s.goal_pointer_enabled !== false;
           }
