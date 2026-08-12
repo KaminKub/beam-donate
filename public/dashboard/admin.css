@@ -639,7 +639,7 @@ body {
 
 .action-buttons-grid {
   display: grid;
-  grid-template-columns: 110px 110px 110px;
+  grid-template-columns: 110px 110px 110px 34px;
   gap: 6px;
   width: 100%;
 }
@@ -647,6 +647,25 @@ body {
 .action-buttons-grid .btn-sm {
   width: 110px;
   white-space: nowrap;
+}
+
+/* Pin-Alert button (Transaction List row — ALERT_CONTROL_UI_UX_BLUEPRINT.md): icon-only, narrow column */
+.action-buttons-grid .btn-pin-alert {
+  width: 34px;
+  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-pin-alert.active {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4);
+}
+.btn-pin-alert.active .fa-thumbtack {
+  transform: rotate(45deg);
+  display: inline-block;
 }
 
 /* ========== Stat Cards Row ========== */
@@ -2072,6 +2091,41 @@ label {
   margin-top: -180px;
   margin-left: -240px;
   pointer-events: none; /* Let clicks pass or disable interactive elements inside preview */
+}
+
+/* Skip-Alert control — sits above the preview iframe, not inside it (ALERT_CONTROL_UI_UX_BLUEPRINT.md) */
+.btn-skip-alert-preview {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 15, 29, 0.85);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.btn-skip-alert-preview:hover {
+  background: rgba(102, 126, 234, 0.25);
+  transform: translateY(-1px);
+}
+.btn-skip-alert-preview:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+.btn-skip-alert-preview:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .preview-controls {

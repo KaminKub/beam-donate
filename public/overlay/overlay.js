@@ -51,6 +51,24 @@ let isShowing = false;
 let staticPreviewEl = null;
 let currentStickyAlertBox = null;
 
+// ========== Skip/Pin State ==========
+// currentAlertBox/currentAlertTimeoutId/currentAlertToken track only the non-sticky (real
+// donation) alert box, so Skip can force-dismiss it without touching the unrelated sticky
+// test-preview box. currentAlertToken is a per-alert cancellation flag: Skip can arrive while
+// showAlert() is still awaiting sound/TTS (before any timer exists to clearTimeout), so the
+// paused continuation checks token.cancelled before it touches shared state — otherwise it would
+// resurrect a timer for an alert Skip already removed, or corrupt whichever alert is showing next.
+let currentAlertBox = null;
+let currentAlertTimeoutId = null;
+let currentAlertToken = null;
+// Pin ("ตรึง") holds an alert on screen indefinitely AND stops the queue: later alerts wait until
+// Skip or unpin, they never slide in behind/over a pinned alert. pendingPin is a pin waiting for
+// the alert currently playing to finish — Pin queues, it never interrupts.
+let isPinned = false;
+let pendingPin = null;
+// Set by whichever audio path is currently playing so Skip can cut it mid-playback ("ตัดจบทุกอย่าง").
+let stopActiveAlertAudio = null;
+
 // ========== SSE Connection ==========
 let eventSource = null;
 let reconnectAttempts = 0;
@@ -237,6 +255,21 @@ function connectSSE() {
           }, 550);
         }
       }
+
+      // Skip = cut everything now (visuals + any playing sound/TTS), release any pin, and let the
+      // next queued alert in immediately. Does NOT touch currentStickyAlertBox (test-preview).
+      if (data.type === 'skip_alert') {
+        forceSkipCurrentAlert();
+      }
+
+      // Pin ("ตรึง") = hold this donation's alert on screen and stop the queue behind it.
+      if (data.type === 'pin_alert') {
+        applyPinAlert(data);
+      }
+
+      if (data.type === 'clear_pin') {
+        releasePinnedAlert();
+      }
     } catch (err) {
       console.error('Error parsing SSE data:', err);
     }
@@ -258,7 +291,19 @@ function connectSSE() {
 // provider (Vertex) is still synthesizing. isShowing is set before the await so a 'donation'
 // event arriving mid-prepare can't dequeue a second alert concurrently.
 async function processQueue() {
-  if (isShowing || alertQueue.length === 0) return;
+  // isPinned holds the queue: a pinned alert stays alone on screen until Skip or unpin.
+  if (isShowing || isPinned) return;
+
+  // A pin that was requested while an alert was playing takes the next slot — it was asked for
+  // before anything still sitting in alertQueue, and it never cuts into an alert mid-play.
+  if (pendingPin) {
+    const pinData = pendingPin;
+    pendingPin = null;
+    displayPinnedAlert(pinData);
+    return;
+  }
+
+  if (alertQueue.length === 0) return;
 
   isShowing = true;
   const alertData = alertQueue.shift();
@@ -268,14 +313,23 @@ async function processQueue() {
   // appended + played its notification sound) — a long previous utterance could speak over the
   // next alert's visuals/notification audio in the gap between those two points.
   cancelCurrentSpeech();
+  // Skip-cancellation token, created here rather than inside showAlert() so it already covers the
+  // TTS-prepare await below: a Skip landing during prepare must abort this alert before it ever
+  // renders, otherwise showAlert() would resume and paint an alert the user already skipped.
+  const alertToken = alertData.sticky ? null : { cancelled: false };
+  if (alertToken) currentAlertToken = alertToken;
   try {
     const ttsArtifact = await prepareAlertTts(alertData); // never throws — resolves null on any failure
-    await showAlert(alertData, ttsArtifact);
+    if (alertToken && alertToken.cancelled) return; // skipped while its TTS was still being prepared
+    await showAlert(alertData, ttsArtifact, alertToken);
   } catch (err) {
     // defense in depth (codex adversarial-review round 2 2026-08-11) — prepareAlertTts() itself
     // never throws, but an unexpected showAlert() failure must not leave isShowing stuck true
     // forever; every later alert would stay queued until reload.
     console.error('Alert render error:', err);
+    // A cancelled alert has already had isShowing reset and the queue advanced by Skip — recovering
+    // here too would dequeue a second alert on top of the one Skip just started.
+    if (alertToken && alertToken.cancelled) return;
     isShowing = false;
     processQueue();
   }
@@ -466,9 +520,96 @@ function filterProfanity(text) {
   return censoredText;
 }
 
+// Fills an already-cloned .alert-box with donor/amount/message/icon content. Shared by showAlert()
+// (live queue) and displayPinnedAlert() (held alert) so both render identically.
+function renderAlertVisual(alertBox, data) {
+  // Format amount and escape values for template rendering
+  const amountFormatted = Number(data.amount).toLocaleString('th-TH', { minimumFractionDigits: 0 });
+  const filteredDonor = escapeForHtml(filterProfanity(data.donor || 'Anonymous'));
+  const filteredMessage = filterProfanity(data.message || '');
+  const suffixSafe = escapeForHtml((overlaySettings.amountSuffix || 'บาท').trim());
+
+  const donorSpan = `<span class="highlight-donor">${filteredDonor}</span>`;
+  const amountSpan = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
+  const suffixSpan = `<span class="highlight-suffix shine-effect">${suffixSafe}</span>`;
+
+  function renderTemplate(tpl) {
+    return tpl
+      .replace(/\{ผู้โดเนท\}|\{donor\}/g, () => donorSpan)
+      .replace(/\{จำนวนเงิน\}|\{amount\}/g, () => amountSpan)
+      .replace(/\{สกุลเงิน\}/g, () => suffixSpan);
+  }
+
+  const line1 = renderTemplate(overlaySettings.template_line1 || overlaySettings.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ');
+  const line2 = renderTemplate(overlaySettings.template_line2 || '');
+
+  // Set content
+  const donorNameEl = alertBox.querySelector('.donor-name');
+  donorNameEl.innerHTML = line1;
+  // Handle Custom Icon/Image
+  const iconEmojiEl = alertBox.querySelector('.icon-emoji');
+  const iconContainer = alertBox.querySelector('.alert-icon');
+  const isTextOnly = alertBox.classList.contains('theme-text-only');
+
+  // TIER_DONATE_BLUEPRINT.md § 5.1 — donor's tier image pick overrides the streamer's default alert image/emoji entirely
+  const tierImageUrl = data.tierImageUrl || null;
+
+  if (iconEmojiEl && iconContainer) {
+    iconEmojiEl.textContent = '';
+    if (tierImageUrl) {
+      const el = /\.webm(\?|$)/i.test(tierImageUrl) ? document.createElement('video') : document.createElement('img');
+      if (el.tagName === 'VIDEO') { el.autoplay = true; el.loop = true; el.muted = true; el.playsInline = true; }
+      el.src = tierImageUrl;
+      el.className = 'custom-alert-img';
+      iconEmojiEl.appendChild(el);
+      iconContainer.style.display = 'flex';
+    } else if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
+      const img = document.createElement('img');
+      img.src = overlaySettings.customImageValue;
+      img.className = 'custom-alert-img';
+      iconEmojiEl.appendChild(img);
+      iconContainer.style.display = 'flex';
+    } else if (overlaySettings.customImageMode === 'emoji') {
+      if (overlaySettings.customImageValue) {
+        iconEmojiEl.textContent = overlaySettings.customImageValue;
+      } else {
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-heart';
+        iconEmojiEl.appendChild(icon);
+      }
+      // In Text Only theme, emojis/text icons are hidden
+      iconContainer.style.display = isTextOnly ? 'none' : 'flex';
+    } else {
+      iconContainer.style.display = 'none';
+    }
+
+    // Special case: hide if URL is empty but mode is url/upload (only when no tier override is active)
+    if (!tierImageUrl && (overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
+      iconContainer.style.display = 'none';
+    }
+  }
+
+  const amountEl2 = alertBox.querySelector('.alert-amount');
+  if (line2) {
+    amountEl2.innerHTML = line2;
+    amountEl2.style.display = '';
+  } else {
+    amountEl2.innerHTML = '';
+    amountEl2.style.display = 'none';
+  }
+
+  // User private message
+  const messageElement = alertBox.querySelector('.alert-message');
+  if (overlaySettings.showDonorMessage && data.message) {
+    messageElement.textContent = filteredMessage;
+  } else {
+    messageElement.textContent = '';
+  }
+}
+
 // R15 — ttsArtifact is prepared by processQueue() before this function is even called; showAlert()
 // only plays it, never fetches/synthesizes TTS itself.
-async function showAlert(data, ttsArtifact = null) {
+async function showAlert(data, ttsArtifact = null, alertToken = null) {
   if (staticPreviewEl) {
     const el = staticPreviewEl;
     staticPreviewEl = null;
@@ -487,92 +628,18 @@ async function showAlert(data, ttsArtifact = null) {
   const clone = template.content.cloneNode(true);
   const alertBox = clone.querySelector('.alert-box');
 
-
   // Apply Theme and Animation classes
   alertBox.classList.add(`theme-${overlaySettings.theme}`);
   alertBox.classList.add(`anim-${overlaySettings.animation}`);
 
-    // Format amount and escape values for template rendering
-    const amountFormatted = Number(data.amount).toLocaleString('th-TH', { minimumFractionDigits: 0 });
-    const filteredDonor = escapeForHtml(filterProfanity(data.donor || 'Anonymous'));
-    const filteredMessage = filterProfanity(data.message || '');
-    const suffixSafe = escapeForHtml((overlaySettings.amountSuffix || 'บาท').trim());
+  renderAlertVisual(alertBox, data);
 
-    const donorSpan = `<span class="highlight-donor">${filteredDonor}</span>`;
-    const amountSpan = `<span class="highlight-amount shine-effect">${escapeForHtml(amountFormatted)}</span>`;
-    const suffixSpan = `<span class="highlight-suffix shine-effect">${suffixSafe}</span>`;
-
-    function renderTemplate(tpl) {
-      return tpl
-        .replace(/\{ผู้โดเนท\}|\{donor\}/g, () => donorSpan)
-        .replace(/\{จำนวนเงิน\}|\{amount\}/g, () => amountSpan)
-        .replace(/\{สกุลเงิน\}/g, () => suffixSpan);
-    }
-
-    const line1 = renderTemplate(overlaySettings.template_line1 || overlaySettings.messageTemplate || '{ผู้โดเนท} ได้เลี้ยงกาแฟ');
-    const line2 = renderTemplate(overlaySettings.template_line2 || '');
-
-    // Set content
-    const donorNameEl = alertBox.querySelector('.donor-name');
-    donorNameEl.innerHTML = line1;
-    // Handle Custom Icon/Image
-    const iconEmojiEl = alertBox.querySelector('.icon-emoji');
-    const iconContainer = alertBox.querySelector('.alert-icon');
-    const isTextOnly = alertBox.classList.contains('theme-text-only');
-
-    // TIER_DONATE_BLUEPRINT.md § 5.1 — donor's tier image pick overrides the streamer's default alert image/emoji entirely
-    const tierImageUrl = data.tierImageUrl || null;
-
-    if (iconEmojiEl && iconContainer) {
-      iconEmojiEl.textContent = '';
-      if (tierImageUrl) {
-        const el = /\.webm(\?|$)/i.test(tierImageUrl) ? document.createElement('video') : document.createElement('img');
-        if (el.tagName === 'VIDEO') { el.autoplay = true; el.loop = true; el.muted = true; el.playsInline = true; }
-        el.src = tierImageUrl;
-        el.className = 'custom-alert-img';
-        iconEmojiEl.appendChild(el);
-        iconContainer.style.display = 'flex';
-      } else if ((overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && overlaySettings.customImageValue) {
-        const img = document.createElement('img');
-        img.src = overlaySettings.customImageValue;
-        img.className = 'custom-alert-img';
-        iconEmojiEl.appendChild(img);
-        iconContainer.style.display = 'flex';
-      } else if (overlaySettings.customImageMode === 'emoji') {
-        if (overlaySettings.customImageValue) {
-          iconEmojiEl.textContent = overlaySettings.customImageValue;
-        } else {
-          const icon = document.createElement('i');
-          icon.className = 'fa-solid fa-heart';
-          iconEmojiEl.appendChild(icon);
-        }
-        // In Text Only theme, emojis/text icons are hidden
-        iconContainer.style.display = isTextOnly ? 'none' : 'flex';
-      } else {
-        iconContainer.style.display = 'none';
-      }
-
-      // Special case: hide if URL is empty but mode is url/upload (only when no tier override is active)
-      if (!tierImageUrl && (overlaySettings.customImageMode === 'url' || overlaySettings.customImageMode === 'upload') && !overlaySettings.customImageValue) {
-        iconContainer.style.display = 'none';
-      }
-    }
-    
-  const amountEl2 = alertBox.querySelector('.alert-amount');
-  if (line2) {
-    amountEl2.innerHTML = line2;
-    amountEl2.style.display = '';
-  } else {
-    amountEl2.innerHTML = '';
-    amountEl2.style.display = 'none';
-  }
-
-  // User private message
-  const messageElement = alertBox.querySelector('.alert-message');
-  if (overlaySettings.showDonorMessage && data.message) {
-    messageElement.textContent = filteredMessage;
-  } else {
-    messageElement.textContent = '';
+  // Register as the current alert before the sound/TTS awaits below, so a Skip arriving mid-await
+  // (before any timer exists to clearTimeout) can still find and remove this box. alertToken was
+  // created by processQueue(); every continuation after an await re-checks alertToken.cancelled
+  // before touching shared state or starting anything new.
+  if (alertToken) {
+    currentAlertBox = alertBox;
   }
 
   const alertDurationMs = (Number(overlaySettings.duration) || 8) * 1000;
@@ -597,6 +664,12 @@ async function showAlert(data, ttsArtifact = null) {
       await playNotificationSound(overlaySettings.soundChoice, overlaySettings.soundVolume);
     }
   }
+
+    // Skip landed while the notification sound above was still playing: stopAllAlertAudio() cut
+    // that sound, which *resolves* the await and resumes us right here — so without this check we
+    // would start speaking an alert the user already skipped, and it would keep talking until a
+    // second Skip. One Skip must end the whole alert, TTS included.
+    if (alertToken && alertToken.cancelled) return;
 
     // Play Speech Synthesis (TTS) — already prepared/ready by processQueue() before this alert
     // was even rendered (R15); playSpeech() is a no-op when ttsArtifact is null (TTS off, empty
@@ -628,19 +701,144 @@ async function showAlert(data, ttsArtifact = null) {
       processQueue();
     }, entranceMs);
   } else {
-    // Auto remove alert after duration
-    setTimeout(() => {
+    // Skip already force-removed this alert while showAlert() was still awaiting sound/TTS above
+    // (no timer existed yet for forceSkipCurrentAlert() to clearTimeout) — bail out instead of
+    // scheduling a timer for a box that's already gone, or stomping on whichever alert is next.
+    if (alertToken.cancelled) return;
+    currentAlertTimeoutId = setTimeout(() => {
+      if (alertToken.cancelled) return;
       alertBox.classList.add('exit');
 
-      setTimeout(() => {
+      // Reassign (not a second, untracked timer) so a Skip landing during this exit animation
+      // still clears the correct pending timer via forceSkipCurrentAlert()'s clearTimeout.
+      currentAlertTimeoutId = setTimeout(() => {
+        if (alertToken.cancelled) return;
         alertBox.remove();
         isShowing = false;
-        processQueue();
+        currentAlertBox = null;
+        currentAlertToken = null;
+        currentAlertTimeoutId = null;
+        processQueue(); // a pin requested mid-alert gets its turn here, before the rest of the queue
         if (alertQueue.length === 0) {
           setTimeout(showStaticPreview, 700);
         }
       }, 550);
     }, alertDurationMs);
+  }
+}
+
+// ========== Skip/Pin (ALERT_CONTROL_CONTRACT_BLUEPRINT.md — Senior-approved contract) ==========
+
+// Cuts every sound path an alert can be playing: TTS (fetched clip or Web Speech) plus whatever
+// tier/custom audio playAudioUrlOnce()/playYoutubeTierSound() currently owns. Skip must silence
+// the alert it removes, not leave it audible over the next one.
+function stopAllAlertAudio() {
+  cancelCurrentSpeech();
+  if (stopActiveAlertAudio) {
+    try { stopActiveAlertAudio(); } catch {}
+    stopActiveAlertAudio = null;
+  }
+}
+
+// Tears down whatever alert is on screen (live or pinned) without advancing the queue.
+// Returns true if there was something to tear down.
+function teardownCurrentAlert() {
+  if (currentAlertToken) {
+    currentAlertToken.cancelled = true;
+    currentAlertToken = null;
+  }
+  if (currentAlertTimeoutId) {
+    clearTimeout(currentAlertTimeoutId);
+    currentAlertTimeoutId = null;
+  }
+  const el = currentAlertBox;
+  currentAlertBox = null;
+  if (!el) return false;
+  el.classList.add('exit');
+  setTimeout(() => el.remove(), 550);
+  return true;
+}
+
+// Skip = ตัดจบทุกอย่าง then release the queue immediately: kill audio, drop the alert (live or
+// pinned), clear the pin, and let the next queued alert run as a normal alert would.
+function forceSkipCurrentAlert() {
+  stopAllAlertAudio();
+  const had = teardownCurrentAlert();
+  isPinned = false;
+  pendingPin = null; // Skip drops a pin waiting its turn too — the server clears its pin state as well
+  if (!had && !isShowing) return; // nothing was on screen — queue is already free
+  isShowing = false;
+  processQueue();
+  if (alertQueue.length === 0) {
+    setTimeout(showStaticPreview, 700);
+  }
+}
+
+// Pin ("ตรึง") never cuts in front of an alert that is already playing — it waits its turn like a
+// queued alert, then displays and holds until unpinned or skipped. Pressing Pin only *requests*
+// it; processQueue() is what actually puts it on screen, ahead of the alerts queued after it.
+//
+//   Alert 2 playing → Pin Alert 1 → (Alert 2 finishes) → Alert 1 held → unpin/skip → Alert 3
+//   Alert 1 playing → Pin Alert 1 → (Alert 1 finishes) → Alert 1 held → unpin/skip → Alert 2
+//
+// Pinning the alert that is currently playing is not a special case: it still plays out normally
+// first, then comes back as a held display.
+function applyPinAlert(data) {
+  // Latest-wins. A pin already on screen is static, so swapping it is not an interruption.
+  if (isPinned) {
+    teardownCurrentAlert();
+    isPinned = false;
+    displayPinnedAlert(data);
+    return;
+  }
+  pendingPin = data; // replaces any earlier pin still waiting for its turn
+  if (!isShowing) processQueue(); // nothing playing — its turn is now
+}
+
+// Shows the held alert: visuals only. No notification sound, and no TTS synthesis at all — the
+// artifact is never prepared, so this is silent by construction rather than muted.
+function displayPinnedAlert(data) {
+  if (staticPreviewEl) {
+    const el = staticPreviewEl;
+    staticPreviewEl = null;
+    el.style.transition = 'opacity 0.25s ease';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 280);
+  }
+
+  const template = document.getElementById('alertTemplate');
+  const clone = template.content.cloneNode(true);
+  const alertBox = clone.querySelector('.alert-box');
+  alertBox.classList.add(`theme-${overlaySettings.theme}`);
+  alertBox.classList.add(`anim-${overlaySettings.animation}`);
+  alertBox.classList.add('pinned-alert');
+  renderAlertVisual(alertBox, data);
+
+  const progressBar = alertBox.querySelector('.alert-progress-bar');
+  if (progressBar) progressBar.style.display = 'none'; // nothing is counting down — no bar to show
+
+  document.getElementById('alertContainer').appendChild(alertBox);
+  applyOutline(overlaySettings);
+  setTimeout(() => spawnParticles(alertBox, overlaySettings.particleCount), 300);
+
+  currentAlertBox = alertBox;
+  isPinned = true;
+  isShowing = true; // holds the queue: nothing else runs until unpin/skip
+}
+
+// Unpin: drop the held alert and let the queue resume. Unpinning before the pin ever got its turn
+// just cancels the request — the alert playing at the time is left alone.
+function releasePinnedAlert() {
+  if (!isPinned) {
+    pendingPin = null;
+    return;
+  }
+  isPinned = false;
+  teardownCurrentAlert();
+  isShowing = false;
+  processQueue();
+  if (alertQueue.length === 0) {
+    setTimeout(showStaticPreview, 700);
   }
 }
 
@@ -690,10 +888,13 @@ function playYoutubeTierSound(videoId, startSec, endSec, volume) {
         done = true;
         clearTimeout(constructTimeout);
         clearInterval(iv);
+        if (stopActiveAlertAudio === stopThis) stopActiveAlertAudio = null;
         try { (player || playerRef)?.destroy(); } catch {}
         hiddenDiv.remove();
         resolve();
       };
+      const stopThis = () => finish(playerRef);
+      stopActiveAlertAudio = stopThis; // lets Skip cut this clip mid-playback
       // codex adversarial-review round 4 2026-08-11: onReady/onError aren't guaranteed to fire if
       // player construction/iframe loading itself stalls (network blip, blocked iframe) — the
       // per-playback watchdog below only exists *inside* onReady, so that gap had no timeout at
@@ -752,9 +953,11 @@ function playAudioUrlOnce(url, volume, timeoutMs = 15000) {
       clearTimeout(timer);
       audio.onended = null;
       audio.onerror = null;
+      if (stopActiveAlertAudio === done) stopActiveAlertAudio = null;
       try { audio.pause(); audio.src = ''; } catch {}
       resolve();
     }
+    stopActiveAlertAudio = done; // lets Skip cut this clip mid-playback
     audio.onended = done;
     audio.onerror = () => { console.warn('Audio playback failed'); done(); };
     audio.play().catch(err => { console.warn('Audio play() rejected:', err.message); done(); });

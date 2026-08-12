@@ -5,6 +5,7 @@ const DEMO_STREAMER = window.DEMO_STREAMER || 'KaminKub';
 let allTransactions = [];
 let activeTab = 'dashboard';
 let _csrfToken = null;
+let pinnedTransactionId = null; // local UI state only — not synced live across tabs (see CHECKLIST.md known limitation)
 
 const tabLoaded = {
   'overlay-config': false,
@@ -1147,6 +1148,9 @@ async function initializeDashboard() {
 
     const btnTestAlert = document.getElementById('btnTestAlert');
     if (btnTestAlert) btnTestAlert.onclick = triggerAlertPreviewTest;
+
+    const btnSkipAlertPreview = document.getElementById('btnSkipAlertPreview');
+    if (btnSkipAlertPreview) btnSkipAlertPreview.onclick = skipAlertPreview;
 
     // Slider Real-time Updates
     const sliders = [
@@ -4542,6 +4546,9 @@ function renderFullTransactions(transactions) {
     actionsHtml += (t.status === 'pending' || t.status === 'failed')
       ? `<button class="btn btn-primary btn-sm" style="background:#059669;box-shadow:none;" onclick="forceSuccessTransaction('${t.id}')" title="ยืนยันการชำระเงินด้วยตนเอง"><i class="fa-solid fa-check" style="color:#4ade80;"></i> ยืนยัน</button>`
       : '<div></div>';
+    actionsHtml += t.status === 'successful'
+      ? `<button class="btn btn-secondary btn-sm btn-pin-alert${t.id === pinnedTransactionId ? ' active' : ''}" onclick="pinTransactionAlert('${t.id}')" aria-pressed="${t.id === pinnedTransactionId ? 'true' : 'false'}" title="${t.id === pinnedTransactionId ? 'ยกเลิกตรึง' : 'ตรึง Alert'}"><i class="fa-solid fa-thumbtack"></i></button>`
+      : '<div></div>';
     actionsHtml += '</div>';
 
     tr.innerHTML = `
@@ -4776,6 +4783,42 @@ async function simulateTransactionAlert(id) {
   }
 }
 
+
+async function pinTransactionAlert(id) {
+  try {
+    const url = DEMO_MODE ? '/api/demo/alerts/pin' : '/api/alerts/pin';
+    const response = await fetchWithCsrf(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId: id })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'ตรึง Alert ไม่สำเร็จ');
+
+    pinnedTransactionId = result.pinned ? id : null;
+    renderFullTransactions(allTransactions);
+    showNotification(result.pinned ? 'ตรึง Alert แล้ว' : 'ยกเลิกตรึงแล้ว', 'success');
+  } catch (err) {
+    showNotification(err.message || 'ตรึง Alert ไม่สำเร็จ', 'error');
+  }
+}
+
+async function skipAlertPreview() {
+  const btn = document.getElementById('btnSkipAlertPreview');
+  setButtonBusy(btn, true);
+  try {
+    const url = DEMO_MODE ? '/api/demo/alerts/skip' : '/api/alerts/skip';
+    const response = await fetchWithCsrf(url, { method: 'POST' });
+    if (!response.ok) throw new Error('ข้าม Alert ไม่สำเร็จ');
+    pinnedTransactionId = null;
+    renderFullTransactions(allTransactions);
+    showNotification('ข้าม Alert แล้ว', 'success');
+  } catch (err) {
+    showNotification(err.message || 'ข้าม Alert ไม่สำเร็จ', 'error');
+  } finally {
+    setButtonBusy(btn, false);
+  }
+}
 
 function inspectTransaction(id) {
   const tx = allTransactions.find(t => t.id === id);

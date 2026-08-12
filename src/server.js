@@ -388,6 +388,14 @@ function checkAntiBot(req, res) {
 }
 // ========== End Anti-Bot ==========
 
+// ── Alert Skip/Pin ephemeral state (presentation-only, no DB — restart clears it) ──────
+// Pin ("ตรึง") holds a donation's alert on the overlay and stops the alert queue behind it,
+// until Skip or unpin.
+// Real: one pin per streamer. Demo: separate singleton so it never touches the real map,
+// even though DEMO_STREAMER_USERNAME ('kaminkub') is also a real account.
+const pinnedAlertState = new Map(); // username -> { id, donor, amount, message }
+let demoPinnedAlert = null; // { id, donor, amount, message } | null
+
 // ── Broadcast matrix ──────────────────────────────────────────────────
 // broadcastAlert()       → real clients (overlay, goal-bar, dona-monitor)
 //                          MUST exclude ALL demo-* sources
@@ -1545,6 +1553,28 @@ app.post('/api/demo/alerts/test-clear-sticky', demoRateLimiter, demoAlertLimiter
   res.json({ success: true });
 });
 
+app.post('/api/demo/alerts/skip', demoRateLimiter, demoAlertLimiter, (req, res) => {
+  demoPinnedAlert = null;
+  broadcastDemoAlert(DEMO_STREAMER_USERNAME, { type: 'skip_alert' });
+  res.json({ success: true });
+});
+
+app.post('/api/demo/alerts/pin', demoRateLimiter, demoAlertLimiter, (req, res) => {
+  const { transactionId } = req.body || {};
+  const tx = DEMO_MOCK_TRANSACTIONS.find(t => t.id === transactionId);
+  if (!tx || tx.status !== 'successful') return res.status(400).json({ error: 'ตรึงได้เฉพาะรายการที่ชำระสำเร็จ' });
+
+  if (demoPinnedAlert && demoPinnedAlert.id === tx.id) {
+    demoPinnedAlert = null;
+    broadcastDemoAlert(DEMO_STREAMER_USERNAME, { type: 'clear_pin' });
+    return res.json({ success: true, pinned: false });
+  }
+
+  demoPinnedAlert = { id: tx.id, donor: tx.donor || 'Anonymous', amount: tx.amount, message: tx.message || '' };
+  broadcastDemoAlert(DEMO_STREAMER_USERNAME, { type: 'pin_alert', ...demoPinnedAlert });
+  res.json({ success: true, pinned: true });
+});
+
 app.get('/demo/dona-monitor', demoRateLimiter, (req, res) => {
   const filePath = path.join(__dirname, '../public/dashboard/dona-monitor.html');
   const html = fs.readFileSync(filePath, 'utf8');
@@ -1612,6 +1642,9 @@ app.get('/api/demo/alerts/stream', demoRateLimiter, (req, res) => {
   }
   if (clientSource === 'demo-recent-donate') {
     res.write(`data: ${JSON.stringify({ type: 'recentdonate_update', entries: DEMO_MOCK_RECENTDONATE })}\n\n`);
+  }
+  if (clientSource === 'demo-overlay' && demoPinnedAlert) {
+    res.write(`data: ${JSON.stringify({ type: 'pin_alert', ...demoPinnedAlert })}\n\n`);
   }
   const clientObj = { res, validated: false, username: DEMO_STREAMER_USERNAME, authMethod: 'demo', lastActivity: now, source: clientSource, ip: clientIp };
   sseClients.push(clientObj);
@@ -2671,6 +2704,13 @@ app.get('/api/alerts/stream', async (req, res) => {
     resolveRecentDonateEntries(authenticatedUser, 5).then(entries => {
       try { res.write(`data: ${JSON.stringify({ type: 'recentdonate_update', entries: entries.map(e => ({ donor: e.donor, amount: e.amount, message: e.message, paidAt: e.paidAt, payment_method: e.payment_method })) })}\n\n`); } catch {}
     }).catch(() => {});
+  }
+  // Resync pinned alert on reconnect — authoritative state lives server-side (in-memory)
+  if (authenticatedUser && source === 'overlay') {
+    const pinned = pinnedAlertState.get(authenticatedUser);
+    if (pinned) {
+      try { res.write(`data: ${JSON.stringify({ type: 'pin_alert', ...pinned })}\n\n`); } catch {}
+    }
   }
 
   // Notify donate-monitor clients of widget state change (overlay/timer only — dona-monitor itself excluded)
@@ -4627,6 +4667,56 @@ app.post('/api/alerts/test-clear-sticky', ensureAuthenticated, csrfProtection, a
   } catch (err) {
     console.error('Clear sticky alert error:', err);
     res.status(500).json({ error: 'ไม่สามารถปิด Preview ได้' });
+  }
+});
+
+// Skip current alert: overlay dismisses whatever real alert is on screen (no-op if none) and
+// always clears any active pin (Skip ต้อง clear pin เดิม เสมอ — CHECKLIST.md §Senior Sign-off)
+app.post('/api/alerts/skip', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const actualUsername = await getActualUsername(req.user);
+    pinnedAlertState.delete(actualUsername);
+    broadcastAlert(actualUsername, { type: 'skip_alert' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Skip alert error:', err);
+    res.status(500).json({ error: 'ไม่สามารถข้าม Alert ได้' });
+  }
+});
+
+// Pin/unpin ("ตรึง") a donation's alert on the overlay: if that alert is on screen right now it
+// freezes in place, otherwise it is re-shown visuals-only (no sound/TTS). Either way the alert
+// queue stops behind it until Skip or unpin. Identity = real transaction id; donor/amount/message
+// always read from DB, never trusted from the client. Same id while pinned toggles it off.
+app.post('/api/alerts/pin', ensureAuthenticated, csrfProtection, async (req, res) => {
+  try {
+    const { transactionId } = req.body || {};
+    if (!transactionId) return res.status(400).json({ error: 'ไม่ระบุรายการ' });
+
+    const actualUsername = await getActualUsername(req.user);
+    const tx = await db.getTransactionById(transactionId);
+    if (!tx) return res.status(404).json({ error: 'ไม่พบธุรกรรม' });
+    if (actualUsername !== tx.streamer_username) {
+      return res.status(403).json({ error: 'Forbidden: คุณไม่มีสิทธิ์จัดการธุรกรรมนี้' });
+    }
+    if (tx.status !== 'successful') {
+      return res.status(400).json({ error: 'ตรึงได้เฉพาะรายการที่ชำระสำเร็จ' });
+    }
+
+    const current = pinnedAlertState.get(actualUsername);
+    if (current && current.id === tx.id) {
+      pinnedAlertState.delete(actualUsername);
+      broadcastAlert(actualUsername, { type: 'clear_pin' });
+      return res.json({ success: true, pinned: false });
+    }
+
+    const pinned = { id: tx.id, donor: tx.donor || 'Anonymous', amount: tx.amount, message: tx.message || '' };
+    pinnedAlertState.set(actualUsername, pinned);
+    broadcastAlert(actualUsername, { type: 'pin_alert', ...pinned });
+    res.json({ success: true, pinned: true });
+  } catch (err) {
+    console.error('Pin alert error:', err);
+    res.status(500).json({ error: 'ไม่สามารถตรึง Alert ได้' });
   }
 });
 

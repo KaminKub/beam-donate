@@ -77,6 +77,23 @@
       color: #f87171;
       border: 1px solid rgba(239, 68, 68, 0.2);
     }
+    .btn-alert-skip {
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+    .popup-btn-pin {
+      background: rgba(100, 116, 139, 0.2);
+      color: #94a3b8;
+    }
+    .popup-btn-pin.active {
+      background: #ef4444;
+      color: #ffffff;
+    }
+    .popup-btn-pin.active .fa-thumbtack {
+      transform: rotate(45deg);
+      display: inline-block;
+    }
     .popup-status-mini {
       display: flex;
       align-items: center;
@@ -440,6 +457,7 @@
       <div class="popup-header-right">
         <a href="#" id="btnOpenDashboard" target="_blank" rel="noopener" class="btn btn-icon-round" title="เปิด Dashboard"><i class="fa-solid fa-gauge"></i></a>
         <button class="btn-alert btn-alert-fire" id="btnQuickAlert"><i class="fa-solid fa-bolt"></i> Quick Alert</button>
+        <button class="btn-alert btn-alert-skip" id="btnSkipAlert" title="ข้าม Alert ปัจจุบันและปล่อยคิวถัดไป"><i class="fa-solid fa-forward-step"></i> ข้าม Alert</button>
         <button class="btn btn-icon-round refresh-hover" id="btnRefresh" title="รีเฟรช"><i class="fa-solid fa-arrow-rotate-right"></i></button>
         <button class="btn-alert btn-alert-close" id="btnCloseWindow" title="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -516,6 +534,7 @@
     const REFRESH_SECONDS = 10;
     let countdown = REFRESH_SECONDS;
     let _csrfToken = null;
+    let pinnedTransactionId = null; // local UI state only — not synced live across tabs
 
     async function ensureCsrfToken() {
       if (_csrfToken) return _csrfToken;
@@ -647,6 +666,10 @@
         if (t.status === 'pending' || t.status === 'failed') {
           html += '<button class="popup-btn-sm popup-btn-force" onclick="forceSuccess(\'' + escapedId + '\')" title="ยืนยันการชำระเงิน"><i class="fa-solid fa-check"></i></button>';
         }
+        if (t.status === 'successful') {
+          var isPinned = t.id === pinnedTransactionId;
+          html += '<button class="popup-btn-sm popup-btn-pin' + (isPinned ? ' active' : '') + '" onclick="pinAlert(\'' + escapedId + '\')" aria-pressed="' + (isPinned ? 'true' : 'false') + '" title="' + (isPinned ? 'ยกเลิกตรึง' : 'ตรึง Alert') + '"><i class="fa-solid fa-thumbtack"></i></button>';
+        }
         html += '</div></td>';
         html += '<td class="col-donor">' + escapedDonor + '</td>';
         html += '<td class="col-amount">฿' + amount + '</td>';
@@ -671,6 +694,37 @@
         else showNotification('ส่ง Alert ไม่สำเร็จ', 'error');
       } catch (e) {
         showNotification('เกิดข้อผิดพลาด', 'error');
+      }
+    }
+
+    async function pinAlert(id) {
+      try {
+        var pinEndpoint = window.DEMO_MODE ? '/api/demo/alerts/pin' : '/api/alerts/pin';
+        var res = await fetchWithCsrf(pinEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactionId: id })
+        });
+        var result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'ตรึง Alert ไม่สำเร็จ');
+        pinnedTransactionId = result.pinned ? id : null;
+        render();
+        showNotification(result.pinned ? 'ตรึง Alert แล้ว' : 'ยกเลิกตรึงแล้ว', 'success');
+      } catch (e) {
+        showNotification(e.message || 'ตรึง Alert ไม่สำเร็จ', 'error');
+      }
+    }
+
+    async function skipAlert() {
+      try {
+        var skipEndpoint = window.DEMO_MODE ? '/api/demo/alerts/skip' : '/api/alerts/skip';
+        var res = await fetchWithCsrf(skipEndpoint, { method: 'POST' });
+        if (!res.ok) throw new Error('ข้าม Alert ไม่สำเร็จ');
+        pinnedTransactionId = null;
+        render();
+        showNotification('ข้าม Alert แล้ว', 'success');
+      } catch (e) {
+        showNotification(e.message || 'ข้าม Alert ไม่สำเร็จ', 'error');
       }
     }
 
@@ -868,6 +922,7 @@
       });
 
       document.getElementById('btnQuickAlert').addEventListener('click', quickAlert);
+      document.getElementById('btnSkipAlert').addEventListener('click', skipAlert);
       document.getElementById('btnCloseWindow').addEventListener('click', closeWindow);
       document.getElementById('inputSearch').addEventListener('input', render);
       document.getElementById('selectStatus').addEventListener('change', render);
