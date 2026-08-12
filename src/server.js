@@ -46,7 +46,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-const CURRENT_LEGAL_VERSION = '2026-08-11';  // L8: age/payment role separation
+const CURRENT_LEGAL_VERSION = '2026-08-12';  // L8 Round 1 legal fix: §1 role-scoped age rule, §2.1 credential exception removed
 const PAYMENT_ELIGIBILITY_VERSION = 'v1';
 
 // ========== Cloudflare R2 (S3-compatible) ==========
