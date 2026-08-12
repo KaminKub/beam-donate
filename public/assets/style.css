@@ -1545,6 +1545,12 @@ input[type=number] {
   border-color: #818cf8;
 }
 
+@media (max-width: 768px) {
+  .btn-mobile-slip {
+    display: none;
+  }
+}
+
 .mobile-slip-modal-overlay {
   position: fixed;
   inset: 0;
