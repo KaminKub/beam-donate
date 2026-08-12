@@ -1729,6 +1729,85 @@ label {
 .legal-document-link:hover,
 .legal-document-link:focus-visible { color: #fff; }
 
+.legal-change-summary {
+  margin-bottom: 1.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: rgba(102, 126, 234, 0.08);
+}
+
+.legal-change-summary-title {
+  margin: 0 0 0.6rem;
+  color: var(--text-main, #f3f4f6);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.legal-change-summary-title .fa-circle-info { color: #3b82f6; margin-right: 0.4rem; font-size: 1rem; }
+
+.legal-change-summary-list {
+  margin: 0 0 0.7rem;
+  padding-left: 1.1rem;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.legal-change-summary-list li { margin-bottom: 0.4rem; }
+.legal-change-summary-list strong { color: var(--text-main, #f3f4f6); }
+
+.legal-change-summary-date {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.legal-change-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 0.4rem;
+  border: none;
+  background: none;
+  color: #c7d2fe;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.legal-change-details-toggle:hover { color: #fff; }
+.legal-change-details-toggle .fa-chevron-down { transition: transform 200ms ease; }
+.legal-change-details-toggle[aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
+
+.legal-change-details {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.legal-change-details ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.legal-change-details li { margin-bottom: 0.5rem; }
+
+.legal-change-details-link {
+  color: #c7d2fe;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-change-details-link:hover,
+.legal-change-details-link:focus-visible { color: #fff; }
+
 .legal-acceptance-check {
   display: flex;
   align-items: flex-start;
@@ -1779,11 +1858,16 @@ label {
   }
   .legal-document-links { gap: 0.75rem; }
   .legal-acceptance-card > #legalAcceptanceButton { min-height: 48px; }
+  .legal-change-details-toggle { width: 100%; justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .legal-acceptance-modal,
   .legal-acceptance-card { transition: none; }
+  .legal-change-details-toggle,
+  .legal-change-details-toggle .fa-chevron-down { transition: none; }
+  .legal-change-details.switch-visibility-opening,
+  .legal-change-details.switch-visibility-closing { animation: none; }
 }
 
 /* ========== Payment Eligibility Modal (L8) — reuses .legal-acceptance-* base ========== */

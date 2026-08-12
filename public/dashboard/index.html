@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260811_7">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260812_1">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3817,6 +3817,26 @@
     <div class="legal-acceptance-card" role="document">
       <h1 id="legalAcceptanceTitle" tabindex="-1"><i class="fa-solid fa-file-contract"></i> อัปเดตข้อกำหนดการใช้งาน</h1>
       <p class="legal-acceptance-intro">เราได้อัปเดตข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว กรุณาอ่านและยอมรับก่อนดำเนินการต่อ</p>
+      <div class="legal-change-summary">
+        <h2 class="legal-change-summary-title"><i class="fa-solid fa-circle-info"></i> สรุปการเปลี่ยนแปลงสำคัญ</h2>
+        <ul class="legal-change-summary-list">
+          <li>แยกบทบาทผู้ใช้บริการเป็น <strong>ผู้ใช้งานทั่วไป/ผู้ชำระเงิน</strong> และ <strong>ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์</strong> — ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ต้องมีคุณสมบัติตามเกณฑ์ที่เข้มกว่าระหว่างการบรรลุนิติภาวะตามกฎหมายที่ใช้บังคับกับเกณฑ์ของผู้ให้บริการช่องทางรับเงินที่เลือก</li>
+          <li>สำหรับผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ ห้ามนำบัญชีรับเงิน บัญชีธนาคาร วอลเล็ท API Key, Branch URL, Webhook Secret หรือ Credential ของผู้ปกครองหรือบุคคลอื่นมาเชื่อมต่อ — ต้องเป็นของผู้เชื่อมต่อเองเท่านั้น</li>
+          <li>เพิ่มรายละเอียดการใช้บริการ TTS ภายนอกที่สตรีมเมอร์เลือกใช้ โดยข้อความโดเนทซึ่งอาจรวมชื่อผู้บริจาคหรือข้อมูลอ่อนไหว อาจถูกส่งไปประมวลผลนอกประเทศไทย ทั้งนี้สตรีมเมอร์เป็นผู้ควบคุมข้อมูล และ TipKub เป็นผู้ประมวลผลตามการตั้งค่าของสตรีมเมอร์</li>
+        </ul>
+        <p class="legal-change-summary-date">มีผลตั้งแต่วันที่ 12 สิงหาคม 2569</p>
+        <button type="button" id="legalChangeDetailsToggle" class="legal-change-details-toggle" aria-expanded="false" aria-controls="legalChangeDetails">
+          <i class="fa-solid fa-chevron-down"></i> ดูรายละเอียดการเปลี่ยนแปลง
+        </button>
+        <div id="legalChangeDetails" class="legal-change-details switch-visibility switch-visibility-hidden" hidden>
+          <ul>
+            <li>ข้อ 1.1 — นิยามบทบาทผู้ใช้บริการทั้ง 2 ประเภท และเกณฑ์อายุ/คุณสมบัติของแต่ละบทบาท (<a class="legal-change-details-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener">อ่านข้อ 1.1</a>)</li>
+            <li>ข้อ 2.1 — ข้อห้ามเกี่ยวกับ Credential การรับเงิน และสิทธิ์ของ TipKub ในการระงับการเชื่อมต่อเมื่อพบความผิดปกติ (<a class="legal-change-details-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener">อ่านข้อ 2.1</a>)</li>
+            <li>ข้อ 5.1–5.2 — เงื่อนไขการใช้งาน TTS ภายนอกและบทบาท Controller/Processor ของข้อมูลโดเนท (<a class="legal-change-details-link" href="/terms-of-services.html#tts-section" target="_blank" rel="noopener">อ่านข้อ 5.1</a>)</li>
+            <li>ผู้ให้บริการ TTS ภายนอกและการส่งข้อมูลข้ามพรมแดนตาม PDPA มาตรา 28/29 (<a class="legal-change-details-link" href="/privacy.html#third-party-tts" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัว ข้อ 3.1</a>)</li>
+          </ul>
+        </div>
+      </div>
       <div class="legal-document-links">
         <a class="legal-document-link" href="/terms-of-services.html" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน</a>
         <a class="legal-document-link" href="/privacy.html" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved"></i> อ่านนโยบายความเป็นส่วนตัว</a>
@@ -3853,7 +3873,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260811_10"></script>
+  <script src="/dashboard/dashboard.js?v=20260812_1"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

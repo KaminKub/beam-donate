@@ -177,7 +177,16 @@ function legalAcceptanceFocusableElements() {
   const modal = document.getElementById('legalAcceptanceModal');
   if (!modal) return [];
   return Array.from(modal.querySelectorAll('a[href], button, input, [tabindex]'))
-    .filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && el.tabIndex !== -1);
+    .filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && el.tabIndex !== -1 && el.offsetParent !== null);
+}
+
+function resetLegalChangeDetails() {
+  const details = document.getElementById('legalChangeDetails');
+  const toggle = document.getElementById('legalChangeDetailsToggle');
+  if (!details || !toggle) return;
+  setSwitchVisibility(details, false, { animate: false });
+  details.hidden = true;
+  toggle.setAttribute('aria-expanded', 'false');
 }
 
 function setLegalAcceptanceModalBusy(busy) {
@@ -222,6 +231,7 @@ function openLegalAcceptanceModal(status, message = '') {
   modal.setAttribute('aria-hidden', 'false');
   setLegalAcceptanceError(message || '', false);
   setLegalAcceptanceModalBusy(false);
+  resetLegalChangeDetails();
   requestAnimationFrame(() => {
     const firstLink = modal.querySelector('.legal-document-link');
     (firstLink || document.getElementById('legalAcceptanceTitle'))?.focus();
@@ -247,9 +257,24 @@ function setupLegalAcceptanceModal() {
   const modal = document.getElementById('legalAcceptanceModal');
   const checkbox = document.getElementById('legalAcceptanceCheckbox');
   const button = document.getElementById('legalAcceptanceButton');
+  const detailsToggle = document.getElementById('legalChangeDetailsToggle');
+  const details = document.getElementById('legalChangeDetails');
   if (!modal || !checkbox || !button || modal.dataset.bound === 'true') return;
   modal.dataset.bound = 'true';
   modal.addEventListener('keydown', trapLegalAcceptanceFocus);
+  if (detailsToggle && details) {
+    detailsToggle.addEventListener('click', () => {
+      const expanded = detailsToggle.getAttribute('aria-expanded') === 'true';
+      detailsToggle.setAttribute('aria-expanded', String(!expanded));
+      if (expanded) {
+        setSwitchVisibility(details, false);
+        setTimeout(() => { details.hidden = true; }, 300);
+      } else {
+        details.hidden = false;
+        setSwitchVisibility(details, true, { display: 'block' });
+      }
+    });
+  }
   checkbox.addEventListener('change', () => {
     if (!legalAcceptanceModalState.busy) button.disabled = !checkbox.checked;
   });
