@@ -730,6 +730,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-md);
   margin-bottom: 20px;
+  margin-top: 10px;
 }
 
 .amount-display .label {

@@ -7,6 +7,8 @@ let widgetStatusSource = null;       // EventSource for real-time widget status
 let widgetStatusRetryDelay = 3000;   // manual reconnect backoff (EventSource gives up after a 503)
 let widgetStatusRetryTimer = null;
 let timerChoice = 'add';
+let restoredTimerAction = null;
+let hasRestoredTimerAction = false;
 let selectedPaymentMethod = 'ffp';
 let currentChargeId = null;
 let pollInterval = null;
@@ -43,6 +45,7 @@ let selectedTierImageUrl = null;
 let selectedTierSoundUrl = null;
 let selectedTierSoundIsTemp = false;
 let selectedTierSoundLabel = '';
+let restoredTierSnapshot = null;
 let tierMediaRecorder = null;
 let tierMicStream = null;
 let tierAudioContext = null;
@@ -118,43 +121,153 @@ function getCookie(name) {
 
 // ========== Pending QR Cache (localStorage) ==========
 
+const PENDING_HISTORY_STATE_KEY = 'tipkubPendingPayments';
+const EXPIRED_QR_GRACE_MS = 10 * 60 * 1000;
+const MANUAL_PAYMENT_TTL_MS = 30 * 60 * 1000;
+
+function isPendingRestorable(pending, now = Date.now(), graceMs = EXPIRED_QR_GRACE_MS) {
+  if (!pending || pending.backedOutAt) return false;
+  const expiresAt = new Date(pending.expiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt >= now - graceMs;
+}
+
+function isManualPaymentStepFresh(pending, now = Date.now(), ttlMs = MANUAL_PAYMENT_TTL_MS) {
+  if (!pending || !Number.isFinite(Number(pending.savedAt))) return false;
+  const age = now - Number(pending.savedAt);
+  return age >= 0 && age < ttlMs;
+}
+
+function writePendingState(key, value) {
+  let saved = false;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    saved = true;
+  } catch (e) { /* localStorage full or disabled */ }
+
+  try {
+    const historyState = history.state && typeof history.state === 'object' ? history.state : {};
+    const pendingStates = historyState[PENDING_HISTORY_STATE_KEY] && typeof historyState[PENDING_HISTORY_STATE_KEY] === 'object'
+      ? historyState[PENDING_HISTORY_STATE_KEY]
+      : {};
+    history.replaceState({
+      ...historyState,
+      [PENDING_HISTORY_STATE_KEY]: { ...pendingStates, [key]: value }
+    }, document.title);
+    saved = true;
+  } catch (e) { /* History API unavailable */ }
+
+  return saved;
+}
+
+function readPendingState(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* Try history.state fallback */ }
+
+  try {
+    const pendingStates = history.state?.[PENDING_HISTORY_STATE_KEY];
+    return pendingStates && typeof pendingStates === 'object' ? pendingStates[key] || null : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearPendingState(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+
+  try {
+    const historyState = history.state && typeof history.state === 'object' ? history.state : {};
+    const pendingStates = historyState[PENDING_HISTORY_STATE_KEY];
+    if (!pendingStates || typeof pendingStates !== 'object' || !(key in pendingStates)) return;
+    const nextPendingStates = { ...pendingStates };
+    delete nextPendingStates[key];
+    history.replaceState({
+      ...historyState,
+      [PENDING_HISTORY_STATE_KEY]: nextPendingStates
+    }, document.title);
+  } catch (e) { /* History API unavailable */ }
+}
+
 function getPendingKey() {
   const username = window.location.pathname.split('/')[1];
   return username ? `promptpay_pending_${username}` : 'promptpay_pending';
 }
 
 function savePendingQR(data) {
-  try {
-    const pending = {
-      referenceId: data.referenceId,
-      qrData: data.qrData,
-      amount: selectedAmount,
-      donorName: donorNameInput?.value?.trim() || '',
-      message: donorMessageInput?.value?.trim() || '',
-      expiresAt: data.expiresAt,
-      recipientName: data.recipientName || '',
-      timerAction: getTimerActionForSubmit()
-    };
-    localStorage.setItem(getPendingKey(), JSON.stringify(pending));
-  } catch (e) { /* localStorage full or disabled */ }
+  clearManualPaymentStep();
+  clearTrueMoneyPendingQR();
+  const pending = {
+    referenceId: data.referenceId,
+    qrData: data.qrData,
+    amount: selectedAmount,
+    donorName: donorNameInput?.value?.trim() || '',
+    message: donorMessageInput?.value?.trim() || '',
+    expiresAt: data.expiresAt,
+    recipientName: data.recipientName || '',
+    timerAction: getTimerActionForSubmit()
+  };
+  writePendingState(getPendingKey(), pending);
 }
 
-function getPendingQR() {
-  try {
-    const raw = localStorage.getItem(getPendingKey());
-    if (!raw) return null;
-    const pending = JSON.parse(raw);
-    if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
-    if (Date.now() >= new Date(pending.expiresAt).getTime()) {
-      localStorage.removeItem(getPendingKey());
-      return null;
-    }
-    return pending;
-  } catch (e) { return null; }
+function getPendingQR(includeExpired = false) {
+  const pending = readPendingState(getPendingKey());
+  if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
+  const expiresAt = new Date(pending.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt)) return null;
+  if (!includeExpired && Date.now() >= expiresAt) return null;
+  return pending;
 }
 
 function clearPendingQR() {
-  try { localStorage.removeItem(getPendingKey()); } catch (e) {}
+  clearPendingState(getPendingKey());
+}
+
+function markPendingBackedOut(key) {
+  const pending = readPendingState(key);
+  if (pending && typeof pending === 'object') writePendingState(key, { ...pending, backedOutAt: Date.now() });
+}
+
+function getManualPaymentKey() {
+  const username = window.location.pathname.split('/')[1];
+  return username ? `manual_payment_pending_${username}` : 'manual_payment_pending';
+}
+
+function saveManualPaymentStep(method) {
+  if (!['truemoney', 'bank'].includes(method) || !Number.isFinite(selectedAmount) || selectedAmount <= 0) return;
+  clearPendingQR();
+  clearTrueMoneyPendingQR();
+  writePendingState(getManualPaymentKey(), {
+    method,
+    amount: selectedAmount,
+    donorName: donorNameInput?.value?.trim() || '',
+    message: donorMessageInput?.value?.trim() || '',
+    savedAt: Date.now(),
+    timerAction: getTimerActionForSubmit(),
+    tierImageUrl: selectedTierImageUrl || null,
+    tierSoundUrl: selectedTierSoundUrl || null,
+    tierSoundIsTemp: !!selectedTierSoundIsTemp,
+    tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null,
+    tierYoutubeId: selectedTierYoutube?.videoId || null,
+    tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
+    tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
+  });
+}
+
+function getManualPaymentStep() {
+  const pending = readPendingState(getManualPaymentKey());
+  if (!pending || !['truemoney', 'bank'].includes(pending.method)) return null;
+  const amount = Number(pending.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (!isManualPaymentStepFresh(pending)) {
+    clearManualPaymentStep();
+    return null;
+  }
+  return { ...pending, amount };
+}
+
+function clearManualPaymentStep() {
+  clearPendingState(getManualPaymentKey());
 }
 
 // Social icons map
@@ -561,7 +674,23 @@ function recomputeTierUnlock() {
   if ((unlocked?.level || null) !== (currentUnlockedTier?.level || null)) {
     currentUnlockedTier = unlocked;
     renderTierSection(unlocked);
+    applyRestoredTierSnapshot();
   }
+}
+
+function applyRestoredTierSnapshot() {
+  if (!restoredTierSnapshot) return;
+  selectedTierImageUrl = restoredTierSnapshot.tierImageUrl || null;
+  selectedTierSoundUrl = restoredTierSnapshot.tierSoundUrl || null;
+  selectedTierSoundIsTemp = !!restoredTierSnapshot.tierSoundIsTemp;
+  currentSoundSource = selectedTierSoundIsTemp ? (restoredTierSnapshot.tierSoundMode || 'upload') : null;
+  selectedTierYoutube = restoredTierSnapshot.tierYoutubeId
+    ? {
+        videoId: restoredTierSnapshot.tierYoutubeId,
+        startSec: Number(restoredTierSnapshot.tierYoutubeStart) || 0,
+        endSec: Number(restoredTierSnapshot.tierYoutubeEnd) || 0
+      }
+    : null;
 }
 
 function resetTierSelections() {
@@ -2046,6 +2175,8 @@ function updateAmountOptions(min) {
 // Amount button click — กดปุ่มเดิมซ้ำ = ยกเลิกเลือก
 amountBtns.forEach(btn => {
   btn.addEventListener('click', () => {
+    restoredTierSnapshot = null;
+    hasRestoredTimerAction = false;
     const wasSelected = btn.classList.contains('selected');
     amountBtns.forEach(b => b.classList.remove('selected'));
     if (wasSelected) {
@@ -2062,6 +2193,8 @@ amountBtns.forEach(btn => {
 
 // Custom amount input
 customAmountInput.addEventListener('input', () => {
+  restoredTierSnapshot = null;
+  hasRestoredTimerAction = false;
   amountBtns.forEach(b => b.classList.remove('selected'));
   selectedAmount = parseInt(customAmountInput.value) || 0;
   updateDonateButton();
@@ -2071,6 +2204,7 @@ customAmountInput.addEventListener('input', () => {
 document.getElementById('timerChoiceBox')?.addEventListener('click', e => {
   const btn = e.target.closest('.timer-choice-btn');
   if (!btn) return;
+  hasRestoredTimerAction = false;
   timerChoice = btn.dataset.choice;
   updateTimerChoiceBox();
 });
@@ -2221,6 +2355,7 @@ function updateTimerChoiceBox() {
 }
 
 function getTimerActionForSubmit() {
+  if (hasRestoredTimerAction) return restoredTimerAction;
   if (!timerActive) return null;                                            // B6: defense-in-depth
   const eff = getChoiceEffect(selectedAmount);
   if (!eff || eff.capFull) return null;                                     // capFull: server ignore อยู่แล้ว — กันชั้นสอง
@@ -2286,6 +2421,39 @@ function applyOverlayStatus(active) {
   }
 }
 
+function hydratePaymentMethodStep(methods) {
+  if (!methods || typeof methods !== 'object') return false;
+  streamerPaymentMethods = methods;
+  const hasAnyMethod = methods.promptpay || methods.truemoney_webhook || methods.bank || methods.ffp;
+  if (!hasAnyMethod) return false;
+
+  const optionFFP = document.getElementById('optionFFP');
+  const optionPromptPay = document.getElementById('optionPromptPay');
+  const optionTrueMoney = document.getElementById('optionTrueMoney');
+  const optionBank = document.getElementById('optionBank');
+  if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
+  if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
+  if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney_webhook ? '' : 'none';
+  if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
+
+  const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
+  if (trueMoneyP2PBadge) {
+    const usesPromptPayIn = (methods.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
+    trueMoneyP2PBadge.style.display = usesPromptPayIn ? '' : 'none';
+  }
+
+  if (methods.promptpay) {
+    selectPaymentMethod('promptpay');
+  } else if (methods.truemoney_webhook) {
+    selectPaymentMethod('truemoney');
+  } else if (methods.bank) {
+    selectPaymentMethod('bank');
+  } else {
+    selectPaymentMethod('promptpay');
+  }
+  return true;
+}
+
 // Donate button click -> go to payment method selection
 btnDonate.addEventListener('click', async () => {
   if (selectedAmount < userMinAmount) return;
@@ -2301,7 +2469,6 @@ btnDonate.addEventListener('click', async () => {
     const res = await fetch(`/api/page/${username}/payment-methods`);
     if (res.ok) {
       const methods = await res.json();
-      streamerPaymentMethods = methods;
       const hasAnyMethod = methods.promptpay || methods.truemoney_webhook || methods.bank || methods.ffp;
 
       if (!hasAnyMethod) {
@@ -2332,33 +2499,9 @@ btnDonate.addEventListener('click', async () => {
       }
 
       // แสดงเฉพาะวิธีชำระเงินที่เปิดใช้งาน
-      const optionFFP = document.getElementById('optionFFP');
-      const optionPromptPay = document.getElementById('optionPromptPay');
-      const optionTrueMoney = document.getElementById('optionTrueMoney');
-      const optionBank = document.getElementById('optionBank');
-
-      if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
-      if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
-      if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney_webhook ? '' : 'none';
-      if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
-
+      hydratePaymentMethodStep(methods);
       // P2P badge — เฉพาะตอน TrueMoney webhook เข้าแทนที่พร้อมเพย์ SlipOK (method PROMPTPAY_IN active)
-      const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
-      if (trueMoneyP2PBadge) {
-        const usesPromptPayIn = (methods.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
-        trueMoneyP2PBadge.style.display = usesPromptPayIn ? '' : 'none';
-      }
-
       // Auto-select first available method
-      if (methods.promptpay) {
-        selectPaymentMethod('promptpay');
-      } else if (methods.truemoney_webhook) {
-        selectPaymentMethod('truemoney');
-      } else if (methods.bank) {
-        selectPaymentMethod('bank');
-      } else {
-        selectPaymentMethod('promptpay'); // fallback
-      }
     }
   } catch (e) {
     // ถ้า API ล่ม ให้ดำเนินการต่อได้ (legacy behavior)
@@ -2580,8 +2723,7 @@ function generateQRImage(qrData) {
 }
 
 function showQRStep(data) {
-  stepPaymentMethod.classList.remove('active');
-  stepQR.classList.add('active');
+  showOnlyPaymentStep(stepQR);
   currentChargeId = data.referenceId;
 
   updateSlipOkWarning(false);
@@ -2603,8 +2745,7 @@ function restoreQRStep(pending) {
   currentChargeId = pending.referenceId;
   selectedAmount = pending.amount;
 
-  stepPaymentMethod.classList.remove('active');
-  stepQR.classList.add('active');
+  showOnlyPaymentStep(stepQR);
 
   updateSlipOkWarning(false);
 
@@ -2616,7 +2757,6 @@ function restoreQRStep(pending) {
 
   const remaining = Math.max(0, qrExpiresAt - Date.now());
   if (remaining <= 0) {
-    clearPendingQR();
     showQRExpired();
     return;
   }
@@ -2676,7 +2816,6 @@ function updateCountdown() {
   }
 
   if (remaining <= 0) {
-    clearPendingQR();
     showQRExpired();
   }
 }
@@ -2721,7 +2860,6 @@ function startPromptPayPolling() {
           window.location.href = `/${window.location.pathname.split('/')[1]}/thank-you`;
         }, 1500);
       } else if (data.expired) {
-        clearPendingQR();
         stopPolling();
         stopCountdown();
         closeMobileSlipModal();
@@ -2837,10 +2975,10 @@ if (btnBack) {
   btnBack.addEventListener('click', () => {
     stopPolling();
     stopCountdown();
+    markPendingBackedOut(getPendingKey());
     stepQR.classList.remove('active');
     stepPaymentMethod.classList.add('active');
     currentChargeId = null;
-    // Keep localStorage so donor can resume same QR
   });
 }
 
@@ -3227,6 +3365,7 @@ async function doVerifyTrueMoney() {
 
     if (data.success) {
       clearPendingQR();
+      clearManualPaymentStep();
       trueMoneyPaymentStatus.className = 'status success';
       trueMoneyPaymentStatus.innerHTML = '✅ ชำระเงินสำเร็จ!';
       setTimeout(() => {
@@ -3326,6 +3465,7 @@ function hideTrueMoneyError() {
 
 if (btnBackTrueMoney) {
   btnBackTrueMoney.addEventListener('click', () => {
+    clearManualPaymentStep();
     stepTrueMoney.classList.remove('active');
     stepPaymentMethod.classList.add('active');
     trueMoneySlipFile = null;
@@ -3469,6 +3609,7 @@ async function doVerifyBank() {
 
     if (data.success) {
       clearPendingQR();
+      clearManualPaymentStep();
       bankPaymentStatus.className = 'status success';
       bankPaymentStatus.querySelector('span').textContent = '✅ ชำระเงินสำเร็จ!';
       setTimeout(() => {
@@ -3538,6 +3679,7 @@ function hideBankError() {
 
 if (btnBackBank) {
   btnBackBank.addEventListener('click', () => {
+    clearManualPaymentStep();
     stepBank.classList.remove('active');
     stepPaymentMethod.classList.add('active');
     bankSlipFile = null;
@@ -3567,38 +3709,33 @@ function getTrueMoneyPendingKey() {
 }
 
 function saveTrueMoneyPendingQR(data) {
-  try {
-    const pending = {
-      referenceId: data.referenceId,
-      qrData: data.qrData,
-      amount: selectedAmount,
-      donorName: donorNameInput?.value?.trim() || '',
-      message: donorMessageInput?.value?.trim() || '',
-      expiresAt: data.expiresAt,
-      method: data.method || 'P2P',
-      displayAmount: data.displayAmount ?? selectedAmount,
-      timerAction: getTimerActionForSubmit()
-    };
-    localStorage.setItem(getTrueMoneyPendingKey(), JSON.stringify(pending));
-  } catch (e) {}
+  clearManualPaymentStep();
+  clearPendingQR();
+  const pending = {
+    referenceId: data.referenceId,
+    qrData: data.qrData,
+    amount: selectedAmount,
+    donorName: donorNameInput?.value?.trim() || '',
+    message: donorMessageInput?.value?.trim() || '',
+    expiresAt: data.expiresAt,
+    method: data.method || 'P2P',
+    displayAmount: data.displayAmount ?? selectedAmount,
+    timerAction: getTimerActionForSubmit()
+  };
+  writePendingState(getTrueMoneyPendingKey(), pending);
 }
 
-function getTrueMoneyPendingQR() {
-  try {
-    const raw = localStorage.getItem(getTrueMoneyPendingKey());
-    if (!raw) return null;
-    const pending = JSON.parse(raw);
-    if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
-    if (Date.now() >= new Date(pending.expiresAt).getTime()) {
-      localStorage.removeItem(getTrueMoneyPendingKey());
-      return null;
-    }
-    return pending;
-  } catch (e) { return null; }
+function getTrueMoneyPendingQR(includeExpired = false) {
+  const pending = readPendingState(getTrueMoneyPendingKey());
+  if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
+  const expiresAt = new Date(pending.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt)) return null;
+  if (!includeExpired && Date.now() >= expiresAt) return null;
+  return pending;
 }
 
 function clearTrueMoneyPendingQR() {
-  try { localStorage.removeItem(getTrueMoneyPendingKey()); } catch (e) {}
+  clearPendingState(getTrueMoneyPendingKey());
 }
 
 function generateTrueMoneyQRImage(qrData) {
@@ -3679,7 +3816,7 @@ function updateTrueMoneyQrCountdown() {
     }
     const btnSaveQRTrueMoney = document.getElementById('btnSaveQRTrueMoney');
     if (btnSaveQRTrueMoney) btnSaveQRTrueMoney.style.display = 'none';
-    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'none';
+    if (btnTrueMoneyQrSlipFallback) btnTrueMoneyQrSlipFallback.style.display = 'block';
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   }
 }
@@ -3825,8 +3962,7 @@ async function createTrueMoneyQR() {
 }
 
 function showTrueMoneyQrStep(data) {
-  stepPaymentMethod.classList.remove('active');
-  stepTrueMoneyQr.classList.add('active');
+  showOnlyPaymentStep(stepTrueMoneyQr);
   trueMoneyQrRefId = data.referenceId;
 
   generateTrueMoneyQRImage(data.qrData);
@@ -3867,14 +4003,27 @@ function restoreTrueMoneyQrStep(pending) {
       b.classList.toggle('active', b.dataset.method === trueMoneyQrMethod);
     });
   }
-  stepPaymentMethod.classList.remove('active');
-  stepTrueMoneyQr.classList.add('active');
+  showOnlyPaymentStep(stepTrueMoneyQr);
   generateTrueMoneyQRImage(pending.qrData);
   if (trueMoneyQrAmount) {
     const displayAmount = Number(pending.displayAmount || pending.amount);
     trueMoneyQrAmount.textContent = `฿${displayAmount.toLocaleString('th-TH', { minimumFractionDigits: displayAmount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
   }
-  startTrueMoneyStatusStream(pending.referenceId);
+  if (trueMoneyQrHint) {
+    trueMoneyQrHint.textContent = trueMoneyQrMethod === 'PROMPTPAY_IN'
+      ? 'สแกนด้วยแอปธนาคาร/พร้อมเพย์ แล้วโอนตามยอดนี้เป๊ะ ๆ'
+      : 'สแกนด้วยแอป TrueMoney แล้วโอนตามยอดนี้เป๊ะ ๆ';
+  }
+  const providerBadge = document.getElementById('trueMoneyQrProvider');
+  if (providerBadge) providerBadge.style.display = trueMoneyQrMethod === 'PROMPTPAY_IN' ? 'flex' : 'none';
+  if (trueMoneyQrWaiting) {
+    trueMoneyQrWaiting.className = 'qr-waiting-indicator';
+    trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:#3b82f6;"></i><span>รอการยืนยันอัตโนมัติ... โอนแล้วระบบจะขึ้นสำเร็จเองใน 1 นาที</span>';
+  }
+  if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'none';
+  if (new Date(pending.expiresAt).getTime() > Date.now()) {
+    startTrueMoneyStatusStream(pending.referenceId);
+  }
   startTrueMoneyQrCountdown(pending.expiresAt);
 
   // Show fallback button if 90s window already elapsed
@@ -3893,6 +4042,7 @@ function restoreTrueMoneyQrStep(pending) {
 if (btnBackTrueMoneyQr) {
   btnBackTrueMoneyQr.addEventListener('click', () => {
     stopTrueMoneyQr();
+    markPendingBackedOut(getTrueMoneyPendingKey());
     stepTrueMoneyQr.classList.remove('active');
     stepPaymentMethod.classList.add('active');
     if (btnProceedPayment) {
@@ -3903,14 +4053,14 @@ if (btnBackTrueMoneyQr) {
 }
 
 if (btnTrueMoneyQrSlipFallback) {
-  btnTrueMoneyQrSlipFallback.addEventListener('click', () => {
+  btnTrueMoneyQrSlipFallback.addEventListener('click', async () => {
     stopTrueMoneyQr();
-    stepTrueMoneyQr.classList.remove('active');
-    stepTrueMoney.classList.add('active');
-    if (trueMoneyAmount) trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
-    if (trueMoneyPhoneDisplay) {
-      trueMoneyPhoneDisplay.textContent = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
-    }
+    clearTrueMoneyPendingQR();
+    showOnlyPaymentStep(stepTrueMoney);
+    saveManualPaymentStep('truemoney');
+    applyManualPaymentDetails('truemoney');
+    await ensureStreamerPaymentMethodsLoaded();
+    if (stepTrueMoney?.classList.contains('active')) applyManualPaymentDetails('truemoney');
   });
 }
 
@@ -3945,8 +4095,8 @@ btnProceedPayment.addEventListener('click', async (e) => {
       }
       await createTrueMoneyQR();
     } else {
-      stepPaymentMethod.classList.remove('active');
-      stepTrueMoney.classList.add('active');
+      showOnlyPaymentStep(stepTrueMoney);
+      saveManualPaymentStep('truemoney');
 
       updateSlipOkWarning('truemoney');
 
@@ -3966,8 +4116,8 @@ btnProceedPayment.addEventListener('click', async (e) => {
   } else if (selectedPaymentMethod === 'bank') {
     e.stopImmediatePropagation();
 
-    stepPaymentMethod.classList.remove('active');
-    stepBank.classList.add('active');
+    showOnlyPaymentStep(stepBank);
+    saveManualPaymentStep('bank');
 
     updateSlipOkWarning('bank');
 
@@ -3982,20 +4132,21 @@ btnProceedPayment.addEventListener('click', async (e) => {
 }, true);
 
 function updateSlipOkWarning(method) {
+  const methodsLoaded = streamerPaymentMethods && Object.keys(streamerPaymentMethods).length > 0;
   if (method === 'truemoney') {
     const warning = document.getElementById('trueMoneySlipokWarning');
     if (warning) {
-      warning.style.display = streamerPaymentMethods.truemoney_slipok_connected ? 'none' : 'flex';
+      warning.style.display = methodsLoaded && streamerPaymentMethods.truemoney_slipok_connected ? 'none' : 'flex';
     }
   } else if (method === 'bank') {
     const warning = document.getElementById('bankSlipokWarning');
     if (warning) {
-      warning.style.display = streamerPaymentMethods.slipok_connected ? 'none' : 'flex';
+      warning.style.display = methodsLoaded && streamerPaymentMethods.slipok_connected ? 'none' : 'flex';
     }
   } else {
     const warning = document.getElementById('slipokWarning');
     if (warning) {
-      warning.style.display = streamerPaymentMethods.slipok_connected ? 'none' : 'flex';
+      warning.style.display = methodsLoaded && streamerPaymentMethods.slipok_connected ? 'none' : 'flex';
     }
   }
 }
@@ -4031,7 +4182,7 @@ async function updateStatus() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Restore donor name from cookie
   const savedName = getCookie('tk_donor_name');
   if (savedName && donorNameInput) {
@@ -4044,13 +4195,125 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  loadPageContent();
+  restorePendingPaymentStep();
+  await loadPageContent();
   updateStatus();
   const statusBtn = document.getElementById('statusBtn');
   if (statusBtn) {
     statusBtn.addEventListener('click', updateStatus);
   }
+
 });
+
+function showOnlyPaymentStep(targetStep) {
+  document.querySelectorAll('.step.active').forEach(step => step.classList.remove('active'));
+  if (targetStep) targetStep.classList.add('active');
+}
+
+function restorePendingDonorDetails(pending) {
+  if (!pending) return;
+  if (donorNameInput && pending.donorName) donorNameInput.value = pending.donorName;
+  if (donorMessageInput && typeof pending.message === 'string') donorMessageInput.value = pending.message;
+  hasRestoredTimerAction = Object.prototype.hasOwnProperty.call(pending, 'timerAction');
+  restoredTimerAction = ['add', 'sub', 'none'].includes(pending.timerAction) ? pending.timerAction : null;
+  if (hasRestoredTimerAction && ['add', 'sub', 'none'].includes(pending.timerAction)) timerChoice = pending.timerAction;
+  restoredTierSnapshot = {
+    tierImageUrl: pending.tierImageUrl || null,
+    tierSoundUrl: pending.tierSoundUrl || null,
+    tierSoundIsTemp: !!pending.tierSoundIsTemp,
+    tierSoundMode: pending.tierSoundMode || null,
+    tierYoutubeId: pending.tierYoutubeId || null,
+    tierYoutubeStart: pending.tierYoutubeStart,
+    tierYoutubeEnd: pending.tierYoutubeEnd
+  };
+  applyRestoredTierSnapshot();
+}
+
+async function ensureStreamerPaymentMethodsLoaded() {
+  if (streamerPaymentMethods && Object.keys(streamerPaymentMethods).length > 0) return true;
+  const username = window.location.pathname.split('/')[1];
+  if (!username) return false;
+
+  try {
+    const response = await fetch(`/api/page/${username}/payment-methods`);
+    if (!response.ok) return false;
+    streamerPaymentMethods = await response.json();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function hydratePaymentMethodsForRestore() {
+  const loaded = await ensureStreamerPaymentMethodsLoaded();
+  if (loaded) hydratePaymentMethodStep(streamerPaymentMethods);
+  return loaded;
+}
+
+function applyManualPaymentDetails(method) {
+  if (method === 'truemoney') {
+    if (trueMoneyAmount) trueMoneyAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
+    if (trueMoneyPhoneDisplay) {
+      trueMoneyPhoneDisplay.textContent = streamerPaymentMethods.truemoney_phone || 'ไม่พบเบอร์โทรศัพท์';
+    }
+    updateSlipOkWarning('truemoney');
+    return;
+  }
+
+  if (bankAmount) bankAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
+  if (bankNameDisplay) bankNameDisplay.textContent = streamerPaymentMethods.bank_name || '';
+  if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = streamerPaymentMethods.bank_account_number || '';
+  if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = streamerPaymentMethods.bank_account_name || '';
+  updateSlipOkWarning('bank');
+}
+
+function restoreManualPaymentStep(pending) {
+  selectedAmount = pending.amount;
+  selectedPaymentMethod = pending.method;
+  restorePendingDonorDetails(pending);
+  const targetStep = pending.method === 'truemoney' ? stepTrueMoney : stepBank;
+  showOnlyPaymentStep(targetStep);
+  applyManualPaymentDetails(pending.method);
+
+}
+
+async function restorePendingPaymentStep() {
+  const pendingPromptPay = getPendingQR(true);
+  if (pendingPromptPay && isPendingRestorable(pendingPromptPay)) {
+    selectedAmount = pendingPromptPay.amount;
+    selectedPaymentMethod = 'promptpay';
+    restorePendingDonorDetails(pendingPromptPay);
+    restoreQRStep(pendingPromptPay);
+    await hydratePaymentMethodsForRestore();
+    selectPaymentMethod('promptpay');
+    if (stepQR?.classList.contains('active')) updateSlipOkWarning(false);
+    return;
+  }
+  if (pendingPromptPay && !pendingPromptPay.backedOutAt) clearPendingQR();
+
+  const pendingTrueMoney = getTrueMoneyPendingQR(true);
+  if (pendingTrueMoney && isPendingRestorable(pendingTrueMoney)) {
+    selectedAmount = pendingTrueMoney.amount;
+    selectedPaymentMethod = 'truemoney';
+    trueMoneyQrMethod = pendingTrueMoney.method;
+    restorePendingDonorDetails(pendingTrueMoney);
+    restoreTrueMoneyQrStep(pendingTrueMoney);
+    await hydratePaymentMethodsForRestore();
+    selectPaymentMethod('truemoney');
+    return;
+  }
+  if (pendingTrueMoney && !pendingTrueMoney.backedOutAt) clearTrueMoneyPendingQR();
+
+  const pendingManualPayment = getManualPaymentStep();
+  if (pendingManualPayment) {
+    restoreManualPaymentStep(pendingManualPayment);
+    await hydratePaymentMethodsForRestore();
+    selectPaymentMethod(pendingManualPayment.method);
+    if (stepTrueMoney?.classList.contains('active') || stepBank?.classList.contains('active')) {
+      applyManualPaymentDetails(pendingManualPayment.method);
+    }
+  }
+}
 
 
 // Report modal

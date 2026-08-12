@@ -6321,8 +6321,9 @@ function applyGoalBgReplica() {
 
 function syncReplicaLayout() {
   const track = document.getElementById('goalBgReplicaTrack');
+  const fillClip = document.getElementById('goalBgReplicaFillClip');
   const fill = document.getElementById('goalBgReplicaFill');
-  if (!track || !fill) return;
+  if (!track || !fillClip || !fill) return;
   const isVertical = (document.getElementById('selectGoalBarLayout')?.value || 'horizontal') === 'vertical';
   const thicknessRaw = parseInt(document.getElementById('inputGoalBarThickness')?.value, 10);
   const thickness = (thicknessRaw >= 20 && thicknessRaw <= 140) ? thicknessRaw : 45;
@@ -6340,6 +6341,9 @@ function syncReplicaLayout() {
     track.style.borderRadius = (thickness / 2) + 'px';
     track.style.display = 'flex';
     track.style.flexDirection = 'column-reverse';
+    fillClip.style.borderRadius = (thickness / 2 - 2) + 'px';
+    fillClip.style.display = 'flex';
+    fillClip.style.flexDirection = 'column-reverse';
     fill.style.width = '100%';
     fill.style.height = pct + '%';
     fill.style.borderRadius = (thickness / 2 - 2) + 'px';
@@ -6351,6 +6355,9 @@ function syncReplicaLayout() {
     track.style.borderRadius = (thickness / 2) + 'px';
     track.style.display = 'block';
     track.style.flexDirection = '';
+    fillClip.style.borderRadius = (thickness / 2 - 2) + 'px';
+    fillClip.style.display = 'block';
+    fillClip.style.flexDirection = '';
     fill.style.height = '100%';
     fill.style.width = pct + '%';
     fill.style.borderRadius = (thickness / 2 - 2) + 'px';
