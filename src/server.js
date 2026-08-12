@@ -47,7 +47,9 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-const CURRENT_LEGAL_VERSION = '2026-08-12';  // L8 Round 1 legal fix: §1 role-scoped age rule, §2.1 credential exception removed
+// ToS §9 promises 7 days notice before a change takes effect, so the enforced version is
+// date-driven — see src/legal-helpers.js for the release procedure.
+const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions } = require('./legal-helpers');
 const PAYMENT_ELIGIBILITY_VERSION = 'v1';
 
 // ========== Cloudflare R2 (S3-compatible) ==========
@@ -1121,12 +1123,12 @@ async function requireCurrentLegalAcceptance(req, res, next) {
       res.setHeader('Cache-Control', 'no-store');
       return res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะข้อกำหนดการใช้งานได้' });
     }
-    if (streamer.legal_version !== CURRENT_LEGAL_VERSION) {
+    if (!hasAcceptedLegal(streamer.legal_version)) {
       res.setHeader('Cache-Control', 'no-store');
       return res.status(428).json({
         error: 'จำเป็นต้องยอมรับข้อกำหนดฉบับล่าสุดก่อนบันทึกการเปลี่ยนแปลง',
         code: 'LEGAL_ACCEPTANCE_REQUIRED',
-        currentVersion: CURRENT_LEGAL_VERSION
+        currentVersion: enforcedLegalVersion()
       });
     }
     return next();
@@ -1808,12 +1810,12 @@ app.post('/api/register/complete', sameOriginCheck, async (req, res) => {
       profile_image_value: avatarUrl,
       profile_image_source: avatarUrl ? (pending.streamlabsPlatform || (pending.streamlabsId ? 'streamlabs' : 'twitch')) : null,
       tos_accepted_at: registrationTimestamp,
-      legal_version: CURRENT_LEGAL_VERSION,
+      legal_version: enforcedLegalVersion(),
       primary_auth_provider: pending.streamlabsId ? 'streamlabs' : 'twitch'
     });
 
     // Durable legal proof must exist before establishing the authenticated session.
-    await db.recordLegalAcceptance(newUser.id, CURRENT_LEGAL_VERSION, registrationTimestamp);
+    await db.recordLegalAcceptance(newUser.id, enforcedLegalVersion(), registrationTimestamp);
     
     console.log(`✅ [Register Complete] User created successfully: ${newUser.username} (ID: ${newUser.id})`);
     
@@ -3038,9 +3040,9 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       memberSince,
       badgeDisplay: db.resolveBadgeDisplay(streamer),
       legalAcceptance: {
-        accepted: streamer.legal_version === CURRENT_LEGAL_VERSION,
+        accepted: hasAcceptedLegal(streamer.legal_version),
         acceptedVersion: streamer.legal_version || null,
-        currentVersion: CURRENT_LEGAL_VERSION
+        currentVersion: enforcedLegalVersion()
       },
       paymentEligibility: {
         accepted: streamer.payment_eligibility_version === PAYMENT_ELIGIBILITY_VERSION,
@@ -3056,12 +3058,14 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
 
 app.post('/api/user/accept-legal', ensureAuthenticated, csrfProtection, legalAcceptanceLimiter, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  // Accepting the announced-but-not-yet-effective version during the §9 notice window counts,
+  // so nobody gets prompted a second time when it becomes enforceable.
   const version = req.body?.version;
-  if (typeof version !== 'string' || version !== CURRENT_LEGAL_VERSION) {
+  if (typeof version !== 'string' || !acceptableLegalVersions().includes(version)) {
     return res.status(400).json({
       error: 'ข้อกำหนดการใช้งานฉบับนี้ไม่ถูกต้องหรือหมดอายุแล้ว',
       code: 'LEGAL_VERSION_INVALID',
-      currentVersion: CURRENT_LEGAL_VERSION
+      currentVersion: enforcedLegalVersion()
     });
   }
 
@@ -3071,7 +3075,7 @@ app.post('/api/user/accept-legal', ensureAuthenticated, csrfProtection, legalAcc
 
     const proof = await db.recordLegalAcceptance(
       streamer.id,
-      CURRENT_LEGAL_VERSION,
+      version,
       new Date().toISOString()
     );
     return res.json({
@@ -3079,7 +3083,7 @@ app.post('/api/user/accept-legal', ensureAuthenticated, csrfProtection, legalAcc
       legalAcceptance: {
         accepted: true,
         acceptedVersion: proof.acceptedVersion,
-        currentVersion: CURRENT_LEGAL_VERSION
+        currentVersion: enforcedLegalVersion()
       }
     });
   } catch (err) {

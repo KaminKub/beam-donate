@@ -139,6 +139,14 @@
       color: #cbd5e1;
       font-size: 0.85rem;
     }
+    /* Donate page is the mobile lane (FRONTEND_PERF_RULES): drop the decorative backdrop blur
+       on phones. The blur on the QR image itself stays — that one is the point of the state. */
+    @media (max-width: 768px) {
+      .qr-expired-overlay {
+        backdrop-filter: none;
+        background: rgba(12,15,29,0.88);
+      }
+    }
     @media (max-width: 768px) {
       #step-truemoney-qr .qr-method-toggle { gap: 6px; }
       #step-truemoney-qr .qr-method-btn { font-size: 12px; padding: 10px 4px; }
