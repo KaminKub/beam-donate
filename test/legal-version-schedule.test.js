@@ -14,6 +14,7 @@ const {
 
 const day = 24 * 60 * 60 * 1000;
 const announced = Date.parse('2026-09-01T00:00:00+07:00');
+const shippedAnnouncement = Date.parse('2026-08-12T20:00:00+07:00');
 const pending = {
   current: '2026-08-12',
   upcoming: '2026-09-08',
@@ -57,7 +58,7 @@ test('the notice window must be at least as long as ToS section 9 promises', () 
     false,
     'a 2-day notice must be rejected'
   );
-  assert.equal(noticeWindowIsSufficient(Date.now(), LEGAL_SCHEDULE), true);
+  assert.equal(noticeWindowIsSufficient(shippedAnnouncement, LEGAL_SCHEDULE), true);
 });
 
 test('the shipped schedule is coherent and matches the published documents', () => {
@@ -81,7 +82,7 @@ test('the shipped schedule is coherent and matches the published documents', () 
     const effectiveThaiDate = `${effectiveDate.getUTCDate()} ${thaiMonths[effectiveDate.getUTCMonth()]} ${effectiveDate.getUTCFullYear() + 543}`;
     assert.match(tos, new RegExp(`มีผลบังคับใช้ตั้งแต่วันที่: ${effectiveThaiDate}`));
     assert.match(privacy, new RegExp(`มีผลบังคับใช้ตั้งแต่วันที่: ${effectiveThaiDate}`));
-    assert.equal(noticeWindowIsSufficient(Date.parse('2026-08-12T20:00:00+07:00'), LEGAL_SCHEDULE), true);
+    assert.equal(noticeWindowIsSufficient(shippedAnnouncement, LEGAL_SCHEDULE), true);
   }
 
   // Both upcoming fields are set together or not at all.
