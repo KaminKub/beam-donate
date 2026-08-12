@@ -213,6 +213,26 @@ function setLegalAcceptanceError(message, success = false) {
   error.classList.toggle('is-success', success);
 }
 
+function formatLegalVersionDate(version) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(version || ''));
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+  if (!Number.isInteger(year) || !Number.isInteger(day) || month < 1 || month > 12) return '';
+  return `${day} ${thaiMonths[month - 1]} ${year + 543}`;
+}
+
+function syncLegalAcceptanceVersionDate(status) {
+  const target = document.getElementById('legalAcceptanceVersionDate');
+  const date = formatLegalVersionDate(status?.currentVersion);
+  if (target && date) target.textContent = date;
+}
+
 function openLegalAcceptanceModal(status, message = '') {
   const modal = document.getElementById('legalAcceptanceModal');
   const root = document.querySelector('.admin-wrapper');
@@ -223,6 +243,7 @@ function openLegalAcceptanceModal(status, message = '') {
   }
   legalAcceptanceModalState.open = true;
   legalAcceptanceModalState.status = status;
+  syncLegalAcceptanceVersionDate(status);
   root.inert = true;
   root.setAttribute('inert', '');
   root.setAttribute('aria-hidden', 'true');

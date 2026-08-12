@@ -76,6 +76,14 @@ test('the shipped schedule is coherent and matches the published documents', () 
   assert.match(tos, new RegExp(`อัปเดตล่าสุด: ${thaiDate}`));
   assert.match(privacy, new RegExp(`อัปเดตล่าสุด: ${thaiDate}`));
 
+  if (LEGAL_SCHEDULE.upcoming && LEGAL_SCHEDULE.effectiveAt) {
+    const effectiveDate = new Date(LEGAL_SCHEDULE.effectiveAt);
+    const effectiveThaiDate = `${effectiveDate.getUTCDate()} ${thaiMonths[effectiveDate.getUTCMonth()]} ${effectiveDate.getUTCFullYear() + 543}`;
+    assert.match(tos, new RegExp(`มีผลบังคับใช้ตั้งแต่วันที่: ${effectiveThaiDate}`));
+    assert.match(privacy, new RegExp(`มีผลบังคับใช้ตั้งแต่วันที่: ${effectiveThaiDate}`));
+    assert.equal(noticeWindowIsSufficient(Date.parse('2026-08-12T20:00:00+07:00'), LEGAL_SCHEDULE), true);
+  }
+
   // Both upcoming fields are set together or not at all.
   assert.equal(
     (LEGAL_SCHEDULE.upcoming === null) === (LEGAL_SCHEDULE.effectiveAt === null),
