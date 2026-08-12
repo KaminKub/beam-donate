@@ -2141,23 +2141,15 @@ label {
   transition: opacity 0.25s ease, filter 0.25s ease;
 }
 
-.pointer-panel.disabled {
+.pointer-panel.disabled .pointer-options {
   opacity: 0.45;
   filter: grayscale(0.6);
-}
-
-.pointer-panel.disabled .pointer-options {
   pointer-events: none;
-}
-
-.pointer-panel.disabled .pointer-header {
-  opacity: 1;
-  filter: none;
 }
 
 .pointer-options {
   margin-top: 12px;
-  transition: opacity 0.25s ease, max-height 0.3s ease;
+  transition: opacity 0.25s ease, filter 0.25s ease, max-height 0.3s ease;
   overflow: hidden;
 }
 

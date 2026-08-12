@@ -91,6 +91,18 @@ body.position-bottom #animStage {
   border: 2px solid #000;
 }
 
+/* clip layer: บังคับให้ goalFill ถูกตัดตามโค้งของ goalTrack เสมอ
+   จำเป็นเพราะ goalTrack ต้อง overflow:visible (ให้ pointer/label โผล่นอกหลอดได้)
+   ตัว goalFill พึ่ง border-radius ตัวเองไม่ได้ — พอหลอดสั้น (fill % น้อย) CSS ย่อ radius
+   ลงตามความกว้างกล่อง มุมเลยแบนกว่าโค้งของ track แล้วโผล่พ้นขอบออกมา */
+#goalFillClip {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--bar-thickness, 45px) / 2 - 2px);
+  overflow: hidden;
+  z-index: 1;
+}
+
 #goalFill {
   height: 100%;
   border-radius: calc(var(--bar-thickness, 45px) / 2 - 2px);
@@ -433,6 +445,12 @@ body.position-bottom #animStage {
   height: var(--bar-max-width, 600px);
   flex: 1 1 var(--bar-max-width, 600px); /* หดตามพื้นที่ที่เหลือหลัง label/footer */
   min-height: 0;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* fill ยึดก้นหลอด — flex ย้ายมาอยู่ที่ clip layer แทน track (track มีแต่ลูก absolute แล้ว) */
+#goalBarWrapper.layout-vertical #goalFillClip {
   display: flex;
   flex-direction: column-reverse;
 }
