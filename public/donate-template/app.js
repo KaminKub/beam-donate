@@ -347,6 +347,7 @@ const btnProceedPayment = document.getElementById('btnProceedPayment');
 const btnRetryQR = document.getElementById('btnRetryQR');
 const qrLoading = document.getElementById('qrLoading');
 const qrImage = document.getElementById('qrImage');
+const qrContainer = document.getElementById('qrContainer');
 const displayAmount = document.getElementById('displayAmount');
 const paymentStatus = document.getElementById('paymentStatus');
 const minAmountWarning = document.getElementById('minAmountWarning');
@@ -2717,8 +2718,14 @@ function renderQRDataURL(text, sizePx) {
   return qr.createDataURL(cell, 2);
 }
 
+function setQrExpiredVisualState(expired) {
+  qrContainer?.classList.toggle('qr-display-expired', expired);
+  trueMoneyQrDisplayBox?.classList.toggle('qr-display-expired', expired);
+}
+
 function generateQRImage(qrData) {
   if (!qrImage) return;
+  setQrExpiredVisualState(false);
   qrLoading.style.display = 'block';
   qrImage.style.display = 'none';
 
@@ -2823,6 +2830,7 @@ function restoreQRStep(pending) {
 function showQRExpired() {
   stopPolling();
   stopCountdown();
+  setQrExpiredVisualState(true);
   if (paymentStatus) {
     paymentStatus.style.display = 'flex';
     paymentStatus.className = 'status expired';
@@ -3206,6 +3214,20 @@ async function doVerifySlip() {
     }
 
     const errorCode = data.errorCode || '';
+    if (errorCode === 'QR_EXPIRED') {
+      clearPendingQR();
+      stopPolling();
+      stopCountdown();
+      closeMobileSlipModal();
+      showQRExpired();
+      slipFile = null;
+      slipFileInput.value = '';
+      slipPreview.style.display = 'none';
+      slipUploadBtn.style.display = 'flex';
+      btnVerifySlip.disabled = true;
+      return;
+    }
+
     const isRetryable = errorCode === 'CONNECTION_FAILED' || errorCode === 'SERVER_ERROR' || errorCode === 'RATE_LIMITED';
 
     if (errorCode === 'SLIP_DELAY') {
@@ -3283,6 +3305,7 @@ const trueMoneyPaymentErrorMessage = document.getElementById('trueMoneyPaymentEr
 const stepTrueMoneyQr = document.getElementById('step-truemoney-qr');
 const trueMoneyQrImage = document.getElementById('trueMoneyQrImage');
 const trueMoneyQrLoading = document.getElementById('trueMoneyQrLoading');
+const trueMoneyQrDisplayBox = document.getElementById('trueMoneyQrDisplayBox');
 const trueMoneyQrAmount = document.getElementById('trueMoneyQrAmount');
 const trueMoneyQrHint = document.getElementById('trueMoneyQrHint');
 const trueMoneyQrExpiry = document.getElementById('trueMoneyQrExpiry');
@@ -3799,6 +3822,7 @@ function clearTrueMoneyPendingQR() {
 
 function generateTrueMoneyQRImage(qrData) {
   if (!trueMoneyQrImage) return;
+  setQrExpiredVisualState(false);
   trueMoneyQrLoading.style.display = 'block';
   trueMoneyQrImage.style.display = 'none';
 
@@ -3869,6 +3893,7 @@ function updateTrueMoneyQrCountdown() {
   else trueMoneyQrExpiry.classList.remove('urgent');
   if (remaining <= 0) {
     stopTrueMoneyQr();
+    setQrExpiredVisualState(true);
     if (trueMoneyQrWaiting) {
       trueMoneyQrWaiting.className = 'qr-waiting-indicator expired';
       trueMoneyQrWaiting.innerHTML = '<i class="fa-solid fa-clock" style="color:#ef4444;"></i><span>QR หมดอายุแล้ว กดสร้าง QR ใหม่เพื่อบริจาคต่อ</span>';

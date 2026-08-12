@@ -39,6 +39,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
 const { determinePrimaryAuth, isSafeReturnTo, loginDest } = require('./auth-helpers');
+const { isSlipUploadWindowClosed } = require('./payment-helpers');
 const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
 
 
@@ -5932,6 +5933,22 @@ app.post('/api/verify-slip', loadShedGuard(1), sameOriginCheck, uploadSlipLimite
       if (pendingTx && pendingTx.status === 'successful') {
         return res.json({ success: false, errorCode: 'ALREADY_VERIFIED', error: '✅ รายการนี้ได้รับการยืนยันเรียบร้อยแล้ว' });
       }
+    }
+
+    // QR transactions must expire before any SlipOK call or donation confirmation.
+    // Direct bank/TrueMoney slip uploads have no referenceId and keep their existing flow.
+    //
+    // The cutoff is lifetime + SLIP_UPLOAD_GRACE_MS, not lifetime alone: the donor-side
+    // isPendingRestorable() (app.js) deliberately restores the payment step for 10 minutes
+    // AFTER the countdown hits zero, because someone who transferred at 9:50 and only then
+    // reloaded still has to be able to upload their slip. Cutting at the bare lifetime would
+    // 410 a donor whose money has already left their account, with no in-app way back.
+    if (pendingTx && isSlipUploadWindowClosed(pendingTx)) {
+      return res.status(410).json({
+        success: false,
+        errorCode: 'QR_EXPIRED',
+        error: 'QR Code หมดอายุแล้ว กรุณาสร้าง QR Code ใหม่ก่อนอัพโหลดสลิป'
+      });
     }
 
     // Guard 2: Deduplicate slip by image hash (1 min TTL per streamer) — mark only on

@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260811_1">
+  <link rel="stylesheet" href="/assets/style.css?v=20260812_4">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -95,6 +95,49 @@
     #step-truemoney-qr .qr-waiting-indicator.expired {
       background: rgba(239,68,68,0.08);
       border-color: rgba(239,68,68,0.2);
+    }
+    #qrContainer,
+    #trueMoneyQrDisplayBox {
+      position: relative;
+    }
+    #qrContainer.qr-display-expired #qrImage,
+    #trueMoneyQrDisplayBox.qr-display-expired #trueMoneyQrImage {
+      filter: blur(10px);
+      opacity: 0.35;
+      user-select: none;
+    }
+    .qr-expired-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: 12px;
+      background: rgba(12,15,29,0.72);
+      backdrop-filter: blur(2px);
+      color: #e2e8f0;
+      text-align: center;
+      pointer-events: none;
+    }
+    .qr-display-expired .qr-expired-overlay {
+      display: flex;
+    }
+    .qr-expired-overlay i {
+      color: #ef4444;
+      font-size: 2rem;
+    }
+    .qr-expired-overlay strong {
+      color: #fecaca;
+      font-size: 1.05rem;
+    }
+    .qr-expired-overlay span {
+      color: #cbd5e1;
+      font-size: 0.85rem;
     }
     @media (max-width: 768px) {
       #step-truemoney-qr .qr-method-toggle { gap: 6px; }
@@ -537,7 +580,7 @@
           <p class="subtitle" id="qrSubtitle">สแกน QR Code เพื่อโอนเงินผ่านพร้อมเพย์</p>
         </div>
 
-        <div class="qr-container">
+        <div id="qrContainer" class="qr-container">
           <div id="qrLoading" class="loading">
             <div class="spinner"></div>
             <p>กำลังสร้าง QR Code...</p>
@@ -549,6 +592,11 @@
             </div>
           </div>
           <img id="qrImage" src="" alt="QR Code" style="display: none;">
+          <div id="qrExpiredOverlay" class="qr-expired-overlay" role="status" aria-live="polite">
+            <i class="fa-solid fa-clock"></i>
+            <strong>QR Code หมดอายุแล้ว</strong>
+            <span>กด “ลองใหม่” เพื่อสร้าง QR Code ใหม่</span>
+          </div>
         </div>
 
         <a id="btnSaveQR" class="btn-secondary btn-save-qr" download="tipkub-promptpay-qr.gif" style="display:none;">
@@ -739,12 +787,17 @@
           </button>
         </div>
 
-        <div class="qr-display-box">
+        <div id="trueMoneyQrDisplayBox" class="qr-display-box">
           <div id="trueMoneyQrLoading" class="loading">
             <div class="spinner"></div>
             <p>กำลังสร้าง QR Code...</p>
           </div>
           <img id="trueMoneyQrImage" src="" alt="QR Code" width="250" height="250" style="display: none;">
+          <div id="trueMoneyQrExpiredOverlay" class="qr-expired-overlay" role="status" aria-live="polite">
+            <i class="fa-solid fa-clock"></i>
+            <strong>QR Code หมดอายุแล้ว</strong>
+            <span>กด “สร้าง QR ใหม่” เพื่อทำรายการต่อ</span>
+          </div>
           <a id="btnSaveQRTrueMoney" class="btn-secondary btn-save-qr" download="tipkub-truemoney-qr.gif" style="display:none;">
             <i class="fa-solid fa-download" style="color:#3b82f6;"></i> บันทึก QR ลงเครื่อง
           </a>
@@ -996,6 +1049,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260812_3"></script>
+  <script src="/donate-template/app.js?v=20260812_5"></script>
 </body>
 </html>
