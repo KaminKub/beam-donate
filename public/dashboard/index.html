@@ -402,7 +402,7 @@
 
                           <!-- Badge selector — เลือก badge ที่จะโชว์บนหน้าโดเนท (sync กับ tab บัญชีผู้ใช้) -->
                           <div class="form-group">
-                            <label><i class="fa-solid fa-award" style="color:#8b5cf6"></i> Badges บนหน้าโดเนท <small style="color:var(--text-muted)">(กดไอคอนเพื่อเลือก/ยกเลิก • อายุสมาชิกเลือกได้ทีละ 1)</small></label>
+                            <label><i class="fa-solid fa-award" style="color:#8b5cf6"></i> Badges บนหน้าโดเนท <small style="color:var(--text-muted)">(กดไอคอนเพื่อเลือก/ยกเลิก • อายุสมาชิกเลือกได้ทีละ 1 • badge ใหม่โชว์อัตโนมัติ • อายุสมาชิกเปลี่ยนเป็น tier สูงสุดอัตโนมัติเมื่อถึงอายุใหม่)</small></label>
                             <div class="membership-badges badge-selector-inline" id="customizationBadges"><!-- rendered by JS --></div>
                             <span class="badge-selector-empty" style="font-size:12px;color:var(--text-muted);">ยังไม่มี badge — จะปรากฏที่นี่เมื่อคุณได้รับ</span>
                           </div>
@@ -614,7 +614,7 @@
                       <span class="membership-label">ใช้ Tipkub มาแล้ว</span>
                       <span class="membership-value" id="memberDuration">—</span>
                     </div>
-                    <div class="membership-stat-box" title="แตะ badge เพื่อเลือกโชว์บนหน้าโดเนท • แตะซ้ำเพื่อยกเลิก • อายุสมาชิกเลือกได้ทีละ 1">
+                    <div class="membership-stat-box" title="แตะ badge เพื่อเลือกโชว์บนหน้าโดเนท • แตะซ้ำเพื่อยกเลิก • อายุสมาชิกเลือกได้ทีละ 1 • badge ใหม่โชว์อัตโนมัติ • อายุสมาชิกเปลี่ยนเป็น tier สูงสุดอัตโนมัติเมื่อถึงอายุใหม่">
                       <span class="membership-label">เหรียญประดับ</span>
                       <div class="membership-badges" id="membershipBadges"><!-- rendered by JS --></div>
                     </div>
@@ -3976,7 +3976,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260812_6"></script>
+  <script src="/dashboard/dashboard.js?v=20260812_7"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

@@ -3038,7 +3038,8 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       profileGlowColor: streamer.profile_glow_color || '#005704',
       badges,
       memberSince,
-      badgeDisplay: db.resolveBadgeDisplay(streamer),
+      badgeDisplay: db.resolveBadgeDisplay(streamer, { isAdmin: !!isAdmin }),
+      badgeOptout: db.parseBadgeOptout(streamer.badge_optout),
       legalAcceptance: {
         accepted: hasAcceptedLegal(streamer.legal_version),
         acceptedVersion: streamer.legal_version || null,
@@ -3736,18 +3737,39 @@ app.post('/api/badges/display', ensureAuthenticated, csrfProtection, async (req,
     const streamer = await getStreamerForUser(req.user);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
 
-    let { display } = req.body; // array of badge keys
+    let { display, optout } = req.body; // display: badge keys ที่โชว์, optout: keys ที่ user กดปิดเอง
     if (!Array.isArray(display)) return res.status(400).json({ error: 'รูปแบบข้อมูลไม่ถูกต้อง' });
 
-    const earned = db.parseBadges(streamer.badges);
+    // earned compute on the fly — member tier ที่ถึงอายุแล้วไม่โดนตัด (ไม่ต้องรอ login)
+    const earned = db.parseBadges(db.computeMemberBadges(streamer));
     const ALL_KEYS = ['dev', 'beta_tester', 'member_1m', 'member_3m', 'member_6m', 'member_1y', 'member_2y'];
     // sanitize: เฉพาะ key ที่รู้จัก + ได้จริง
     display = [...new Set(display)].filter(k => ALL_KEYS.includes(k) && earned[k]);
 
-    await db.saveStreamer({ ...streamer, badge_display: JSON.stringify(display) });
-    // resolve กลับ (clamp membership เหลือ 1) เพื่อคืน state จริงหลัง save
-    const resolved = db.resolveBadgeDisplay({ ...streamer, badge_display: JSON.stringify(display) });
-    res.json({ success: true, badgeDisplay: resolved });
+    // badge_display_top = top tier ปัจจุบันตอน save (ใช้ตัดสิน auto-switch ครั้งถัดไป)
+    const topTier = db.getTopMembershipTier(streamer);
+    const isAdmin = !!(ADMIN_TWITCH_ID && String(streamer.twitch_id) === ADMIN_TWITCH_ID);
+    const patch = {
+      badge_display: JSON.stringify(display),
+      badge_display_top: topTier
+    };
+
+    // optout: ส่งมาเป็น array เท่านั้นถึงจะเขียนทับ (รวม [] = ล้าง optout)
+    // client เก่า / rollback ส่งแค่ { display } → คงค่าเดิมไว้ ห้ามล้าง (ไม่งั้น badge ที่ user ปิดไปเด้งกลับ)
+    const ALL_OPTOUT_KEYS = ['dev', 'beta_tester', 'membership'];
+    let optoutOut;
+    if (Array.isArray(optout)) {
+      // sanitize: whitelist เท่านั้น (user inject key อื่น → ตัดทิ้ง)
+      optoutOut = [...new Set(optout)].filter(k => ALL_OPTOUT_KEYS.includes(k));
+      patch.badge_optout = JSON.stringify(optoutOut);
+    } else {
+      optoutOut = db.parseBadgeOptout(streamer.badge_optout);
+    }
+
+    await db.saveStreamer({ ...streamer, ...patch });
+    // resolve กลับ (clamp membership เหลือ 1 + auto-show) เพื่อคืน state จริงหลัง save
+    const resolved = db.resolveBadgeDisplay({ ...streamer, ...patch }, { isAdmin });
+    res.json({ success: true, badgeDisplay: resolved, badgeOptout: optoutOut });
   } catch (err) {
     console.error('Badge display save error:', err);
     res.status(500).json({ error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' });
@@ -4091,7 +4113,8 @@ app.get('/api/page/:username/settings', async (req, res) => {
         discord: streamer.social_discord,
         instagram: streamer.social_instagram,
       },
-      badges: db.resolveBadgeDisplay(streamer),  // array key ที่ user เลือกโชว์เท่านั้น (ปิดหมด → [])
+      // array key ที่โชว์จริง (auto-show badge ที่ได้ เว้นที่ user กดปิด) — dev เฉพาะ admin
+      badges: db.resolveBadgeDisplay(streamer, { isAdmin: !!(ADMIN_TWITCH_ID && String(streamer.twitch_id) === ADMIN_TWITCH_ID) }),
       // Default alert sound — ให้ donor ทดสอบฟัง "เสียงเริ่มต้น" ของ streamer ได้ (overlay เล่น client-side อยู่แล้ว ไม่ใช่ secret)
       soundEnabled: Number(streamer.soundEnabled) !== 0,
       soundChoice: streamer.soundChoice || 'none',

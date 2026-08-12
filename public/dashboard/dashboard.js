@@ -3315,6 +3315,7 @@ function getBadgeDefinitions() {
 }
 
 let currentBadgeDisplay = []; // state ปัจจุบัน (subset ที่โชว์)
+let currentBadgeOptout = []; // badge key ที่ user กดปิดเอง (dev / beta_tester / membership)
 const MEMBERSHIP_KEYS_UI = ['member_1m','member_3m','member_6m','member_1y','member_2y'];
 
 function showBadgeTooltip(anchor, text) {
@@ -3347,6 +3348,7 @@ async function ensureBadgesLoaded() {
     if (!r.ok) return;
     const d = await r.json();
     badgesLoaded = true;
+    currentBadgeOptout = Array.isArray(d.badgeOptout) ? [...d.badgeOptout] : [];
     renderMembershipBadges(d.badges || {}, d.badgeDisplay || []);
   } catch (e) { /* silent — badge selector เป็น optional UI */ }
 }
@@ -3430,13 +3432,18 @@ function toggleBadgeDisplay(key) {
   const on = currentBadgeDisplay.includes(key);
 
   if (on) {
-    currentBadgeDisplay = currentBadgeDisplay.filter(k => k !== key); // แตะซ้ำ = ยกเลิก
+    // แตะซ้ำ = ยกเลิก → ลง optout เพื่อกัน auto-show กลับมาอีก
+    currentBadgeDisplay = currentBadgeDisplay.filter(k => k !== key);
+    const optKey = isMember ? 'membership' : key;
+    if (!currentBadgeOptout.includes(optKey)) currentBadgeOptout.push(optKey);
   } else if (isMember) {
-    // membership = radio: เอา member เดิมออกก่อน แล้วใส่ใหม่
+    // membership = radio: เอา member เดิมออกก่อน แล้วใส่ใหม่ + ยกเลิก optout
     currentBadgeDisplay = currentBadgeDisplay.filter(k => !MEMBERSHIP_KEYS_UI.includes(k));
     currentBadgeDisplay.push(key);
+    currentBadgeOptout = currentBadgeOptout.filter(k => k !== 'membership');
   } else {
     currentBadgeDisplay.push(key); // dev/beta = checkbox independent
+    currentBadgeOptout = currentBadgeOptout.filter(k => k !== key);
   }
 
   document.querySelectorAll('.membership-badge').forEach(el => {
@@ -3456,12 +3463,13 @@ function saveBadgeDisplay() {
       const res = await fetchWithCsrf('/api/badges/display', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display: currentBadgeDisplay })
+        body: JSON.stringify({ display: currentBadgeDisplay, optout: currentBadgeOptout })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'save failed');
       if (seq !== badgeSaveSeq) return; // stale response — newer request in flight
       currentBadgeDisplay = data.badgeDisplay; // sync กับ server (เผื่อ clamp)
+      currentBadgeOptout = Array.isArray(data.badgeOptout) ? [...data.badgeOptout] : [];
       document.querySelectorAll('.membership-badge').forEach(el => {
         el.classList.toggle('selected', currentBadgeDisplay.includes(el.dataset.key));
       });
@@ -3533,6 +3541,7 @@ async function loadAccountInfo() {
       }
 
       badgesLoaded = true;
+      currentBadgeOptout = Array.isArray(data.badgeOptout) ? [...data.badgeOptout] : [];
       renderMembershipBadges(earnedBadges, data.badgeDisplay || []);
       renderAvatarOrbitBadges('accountAvatarOrbit', 'accountAvatarTierCrown', currentBadgeDisplay);
 

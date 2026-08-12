@@ -253,6 +253,8 @@ async function migrateDB() {
         truemoney_promptpay_id_encrypted TEXT,
         badges TEXT DEFAULT '{}',
         badge_display TEXT DEFAULT NULL,
+        badge_display_top TEXT DEFAULT NULL,
+        badge_optout TEXT DEFAULT NULL,
         leaderboard_settings TEXT DEFAULT NULL,
         recentdonate_settings TEXT DEFAULT NULL,
         goal_text_settings TEXT DEFAULT NULL,
@@ -522,6 +524,8 @@ async function migrateDB() {
       { name: 'template_line2', type: 'TEXT' },
       { name: 'badges', type: "TEXT DEFAULT '{}'" },
       { name: 'badge_display', type: 'TEXT DEFAULT NULL' },
+      { name: 'badge_display_top', type: 'TEXT DEFAULT NULL' },
+      { name: 'badge_optout', type: 'TEXT DEFAULT NULL' },
       { name: 'leaderboard_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'recentdonate_settings', type: 'TEXT DEFAULT NULL' },
       { name: 'goal_text_settings', type: 'TEXT DEFAULT NULL' },
@@ -548,6 +552,14 @@ async function migrateDB() {
 
     // Backfill NULL is_active → 1 (Number(null) === 0 would false-ban legacy rows)
     await db.execute("UPDATE streamers SET is_active = 1 WHERE is_active IS NULL");
+
+    // Backfill legacy "ปิด badge ทั้งหมด" (badge_display = '[]' ใต้ระบบ opt-in เดิม) → optout ทุกตัว
+    // ไม่งั้น opt-out revert จะ auto-show badge ที่ user เคยกดปิดทิ้งไว้ชัดเจน
+    // idempotent: แตะเฉพาะแถวที่ badge_optout ยัง NULL
+    await db.execute(
+      `UPDATE streamers SET badge_optout = '["dev","beta_tester","membership"]'
+       WHERE badge_optout IS NULL AND REPLACE(COALESCE(badge_display, ''), ' ', '') = '[]'`
+    );
 
     // Grandfather streamers already enabled before the account-verification gate existed —
     // they've received real donations already, so treat them as verified. One-time only
@@ -1279,6 +1291,8 @@ async function saveStreamer(data) {
                truemoney_promptpay_id_encrypted = COALESCE(?, streamers.truemoney_promptpay_id_encrypted),
                badges = COALESCE(?, streamers.badges),
                badge_display = COALESCE(?, streamers.badge_display),
+               badge_display_top = COALESCE(?, streamers.badge_display_top),
+               badge_optout = COALESCE(?, streamers.badge_optout),
                leaderboard_settings = COALESCE(?, streamers.leaderboard_settings),
                recentdonate_settings = COALESCE(?, streamers.recentdonate_settings),
                goal_text_settings = COALESCE(?, streamers.goal_text_settings),
@@ -1425,6 +1439,8 @@ async function saveStreamer(data) {
           finalData.truemoney_promptpay_id_encrypted !== undefined ? finalData.truemoney_promptpay_id_encrypted : null,
           finalData.badges !== undefined ? finalData.badges : null,
           finalData.badge_display !== undefined ? finalData.badge_display : null,
+          finalData.badge_display_top !== undefined ? finalData.badge_display_top : null,
+          finalData.badge_optout !== undefined ? finalData.badge_optout : null,
           finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
           finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
           finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
@@ -1459,9 +1475,9 @@ async function saveStreamer(data) {
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
                header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, payment_eligibility_version, payment_eligibility_accepted_at, primary_auth_provider, timer_settings,
-              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
+              truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, badge_display_top, badge_optout, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
               tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled, goal_bg_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1595,6 +1611,8 @@ async function saveStreamer(data) {
         finalData.truemoney_promptpay_id_encrypted || null,
         finalData.badges || '{}',
         finalData.badge_display !== undefined ? finalData.badge_display : null,
+        finalData.badge_display_top !== undefined ? finalData.badge_display_top : null,
+        finalData.badge_optout !== undefined ? finalData.badge_optout : null,
         finalData.leaderboard_settings !== undefined ? finalData.leaderboard_settings : null,
         finalData.recentdonate_settings !== undefined ? finalData.recentdonate_settings : null,
         finalData.goal_text_settings !== undefined ? finalData.goal_text_settings : null,
@@ -1716,21 +1734,69 @@ function computeMemberBadges(streamer) {
 const MEMBERSHIP_KEYS = ['member_2y', 'member_1y', 'member_6m', 'member_3m', 'member_1m']; // สูง→ต่ำ
 
 /**
- * คืน array ของ badge key ที่ควรโชว์บนหน้าโดเนท
- * - guard: คืนเฉพาะ badge ที่ "ได้จริง" (intersect กับ earned) เสมอ
- * - NULL prefs → default = [] (opt-in: ไม่โชว์จนกว่า user เลือกเอง)
+ * คืน member tier สูงสุดที่ user ได้ (compute on the fly) หรือ null
+ * ใช้ใน POST /api/badges/display เพื่อ store badge_display_top
  */
-function resolveBadgeDisplay(streamer) {
-  const earned = parseBadges(streamer.badges);
+function getTopMembershipTier(streamer) {
+  const earned = parseBadges(computeMemberBadges(streamer));
+  return MEMBERSHIP_KEYS.find(k => earned[k]) || null;
+}
+
+/**
+ * parse badge_optout (JSON array) → array ของ badge key ที่ user กดปิดเอง
+ * guard: คืน array เสมอ (ไม่พังถ้า JSON เพี้ยน)
+ */
+function parseBadgeOptout(str) {
+  try { const v = JSON.parse(str || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+
+/**
+ * คืน array ของ badge key ที่ควรโชว์บนหน้าโดเนท
+ * - compute member badges on the fly → auto-switch tier เมื่อถึงอายุใหม่ โดยไม่ต้องรอ login
+ * - NULL prefs → auto-show: dev (เฉพาะ isAdmin) + beta_tester + member tier สูงสุด, minus optout
+ * - non-NULL → auto-add non-member badge ใหม่ (dev/beta) ที่ยังไม่ถูก optout
+ * - non-NULL + มี member โชว์อยู่ → auto-switch เป็น top tier เมื่อข้าม threshold ใหม่
+ * - guard: คืนเฉพาะ badge ที่ "ได้จริง" (intersect กับ earned) เสมอ
+ */
+function resolveBadgeDisplay(streamer, opts = {}) {
+  const earned = parseBadges(computeMemberBadges(streamer));
+  const optout = parseBadgeOptout(streamer.badge_optout);
+  const isAdmin = !!opts.isAdmin;
+  const topTier = MEMBERSHIP_KEYS.find(k => earned[k]); // tier สูงสุดที่ได้ (หรือ undefined)
   let selected;
 
   if (streamer.badge_display == null) {
-    // default = ไม่โชว์ badge จนกว่า user จะเลือกเองในหน้า dashboard (opt-in)
+    // default = auto-show badge ที่ได้ (opt-out) — user ปิดเองได้ใน dashboard
     selected = [];
+    if (earned.dev && isAdmin && !optout.includes('dev')) selected.push('dev');
+    if (earned.beta_tester && !optout.includes('beta_tester')) selected.push('beta_tester');
+    if (topTier && !optout.includes('membership')) selected.push(topTier);
   } else {
     try { selected = JSON.parse(streamer.badge_display); } catch (e) { selected = []; }
     if (!Array.isArray(selected)) selected = [];
+
+    // auto-add non-member badge ที่เพิ่งได้และยังไม่เคยกดปิด
+    // — user ที่แค่เลือก member tier ต่ำ ยังได้ auto-show สำหรับ beta_tester ใหม่
+    if (earned.dev && isAdmin && !optout.includes('dev') && !selected.includes('dev')) selected.push('dev');
+    if (earned.beta_tester && !optout.includes('beta_tester') && !selected.includes('beta_tester')) selected.push('beta_tester');
+
+    // membership auto-switch: user มี member badge โชว์อยู่ + ข้าม threshold ใหม่ → อัปเป็น tier สูงสุด
+    const hasMember = selected.some(k => MEMBERSHIP_KEYS.includes(k));
+    if (hasMember && topTier && !optout.includes('membership')) {
+      const storedTop = streamer.badge_display_top;
+      const storedIdx = storedTop ? MEMBERSHIP_KEYS.indexOf(storedTop) : -1;
+      const curIdx = MEMBERSHIP_KEYS.indexOf(topTier);
+      // MEMBERSHIP_KEYS เรียงสูง→ต่ำ (idx 0=2y, 4=1m) → tier สูงขึ้น = idx เล็กลง → ต้องใช้ <
+      // storedIdx < 0 = ยังไม่เคยตั้งค่า (user เดิม) → auto-switch เป็น top tier ครั้งเดียว
+      if (storedIdx < 0 || curIdx < storedIdx) {
+        selected = selected.filter(k => !MEMBERSHIP_KEYS.includes(k));
+        selected.push(topTier);
+      }
+    }
   }
+
+  // dev แสดงเฉพาะ isAdmin (กัน stale dev รั่วหน้า public)
+  if (!isAdmin) selected = selected.filter(k => k !== 'dev');
 
   // guard: เฉพาะ earned + clamp membership เหลือ tier สูงสุด 1 อัน
   selected = selected.filter(k => earned[k]);
@@ -2721,6 +2787,8 @@ module.exports = {
   parseBadges,
   computeMemberBadges,
   resolveBadgeDisplay,
+  getTopMembershipTier,
+  parseBadgeOptout,
   getAllR2Refs,
   logIpEvent,
   cleanupOldIpEvents,
