@@ -222,7 +222,7 @@ body.position-bottom #animStage {
   margin-top: 4px;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-bottom: 10px solid var(--bar-color, #4ade80);
+  border-bottom: 10px solid var(--goal-color-pointer-arrow, var(--bar-color-solid, #4ade80));
   transform: translateX(-50%);
 }
 
@@ -235,6 +235,7 @@ body.position-bottom #animStage {
   justify-content: center;
   text-align: center;
   line-height: 1.25;
+  font-size: calc(var(--goal-font-pointer, 16) * 1px);
   max-width: 180px;
   /* outline ขอบหนาเดียวกับ text อื่น (SVG dilate) + drop-shadow */
   filter: url(#outline-2) drop-shadow(0 2px 5px rgba(0,0,0,0.75));
@@ -245,13 +246,13 @@ body.position-bottom #animStage {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #ffffff;
+  color: var(--goal-color-pointer-name, #ffffff);
   font-weight: 600;
 }
 
 .ptr-amount {
   white-space: nowrap;
-  color: #fbbf24;
+  color: var(--goal-color-pointer-amount, #fbbf24);
   font-weight: 600;
 }
 
@@ -269,7 +270,7 @@ body.position-bottom #animStage {
   margin-left: 4px;
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
-  border-right: 10px solid var(--bar-color, #4ade80);
+  border-right: 10px solid var(--goal-color-pointer-arrow, var(--bar-color-solid, #4ade80));
   transform: translateY(50%);
 }
 
@@ -280,7 +281,7 @@ body.position-bottom #animStage {
   margin-right: 4px;
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
-  border-left: 10px solid var(--bar-color, #4ade80);
+  border-left: 10px solid var(--goal-color-pointer-arrow, var(--bar-color-solid, #4ade80));
   transform: translateY(50%);
 }
 

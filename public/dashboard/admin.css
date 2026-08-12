@@ -2138,19 +2138,10 @@ label {
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 12px 14px;
-  transition: opacity 0.25s ease, filter 0.25s ease;
-}
-
-.pointer-panel.disabled .pointer-options {
-  opacity: 0.45;
-  filter: grayscale(0.6);
-  pointer-events: none;
 }
 
 .pointer-options {
   margin-top: 12px;
-  transition: opacity 0.25s ease, filter 0.25s ease, max-height 0.3s ease;
-  overflow: hidden;
 }
 
 .width-input-wrapper {
@@ -4066,6 +4057,12 @@ label {
 
 .switch-visibility.switch-visibility-hidden {
   display: none;
+}
+
+/* คืน overflow ตอน idle-open — ไม่งั้นหัว range slider / เงา / CustomSelect โดนเฉือน
+   (hidden จำเป็นเฉพาะตอน animate max-height เท่านั้น — เหมือน .widget-settings-body ข้างบน) */
+.switch-visibility:not(.switch-visibility-hidden):not(.switch-visibility-opening):not(.switch-visibility-closing) {
+  overflow: visible;
 }
 
 .switch-visibility.switch-visibility-opening {

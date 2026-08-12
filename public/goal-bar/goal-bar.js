@@ -41,6 +41,14 @@
     return (suffix === 'บาท' || suffix === 'THB') ? '฿' : (suffix || '฿');
   }
 
+  // สีแถบเก็บเป็น #rrggbbaa ได้ (opacity slider) — ลูกศร/องค์ประกอบอื่นต้องใช้เวอร์ชันทึบ
+  // ไม่งั้น alpha 00 = ลูกศรหายทั้งดอก
+  function setBarColorVars(color) {
+    const solid = /^#[0-9a-fA-F]{8}$/.test(color) ? color.slice(0, 7) : color;
+    document.documentElement.style.setProperty('--bar-color', color);
+    document.documentElement.style.setProperty('--bar-color-solid', solid);
+  }
+
   const wrapper = document.getElementById('goalBarWrapper');
   const labelEl = document.getElementById('goalLabel');
   const fillEl = document.getElementById('goalFill');
@@ -204,7 +212,7 @@
     if (color) {
       barColor = color;
       fillEl.style.background = color;
-      document.documentElement.style.setProperty('--bar-color', color);
+      setBarColorVars(color);
     }
     if (barText !== undefined) goalBarText = barText || '';
     if (subtitle1 !== undefined) goalSubtitle1 = subtitle1 || '';
@@ -281,6 +289,15 @@
     root.setProperty('--goal-font-bar', c.font_size_bar || 25);
     root.setProperty('--goal-font-sub1', c.font_size_sub1 || 20);
     root.setProperty('--goal-font-sub2', c.font_size_sub2 || 20);
+    root.setProperty('--goal-color-pointer-name', c.color_pointer_name || '#ffffff');
+    root.setProperty('--goal-color-pointer-amount', c.color_pointer_amount || '#fbbf24');
+    root.setProperty('--goal-font-pointer', c.font_size_pointer || 16);
+    // ค่าว่าง = ตามสีแถบ → ต้อง removeProperty ไม่ใช่ set '' (var(--x) ที่ค่าว่างจะไม่ fallback)
+    if (c.color_pointer_arrow) {
+      root.setProperty('--goal-color-pointer-arrow', c.color_pointer_arrow);
+    } else {
+      root.removeProperty('--goal-color-pointer-arrow');
+    }
 
     const oc = c.outline_color || '#000000';
     // ponytail: single outline_width applies to all 4 positions (merged 2026-07-18); fall back to old per-key field then 2
@@ -327,7 +344,7 @@
 
       wrapper.style.display = '';
       const color = data.goal_bar_color || '#4ade80';
-      document.documentElement.style.setProperty('--bar-color', color);
+      setBarColorVars(color);
       const isVertical = (data.goal_bar_layout || 'horizontal') === 'vertical';
       const autoWidth = data.goal_bar_width_auto == 1 || data.goal_bar_width_auto === true;
       if (autoWidth) {

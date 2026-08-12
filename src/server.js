@@ -261,7 +261,9 @@ const defaultSettings = {
     font_size_label: 30, font_size_bar: 25,
     font_size_sub1: 20, font_size_sub2: 20,
     outline_width: 2,
-    outline_color: '#000000'
+    outline_color: '#000000',
+    color_pointer_arrow: '', color_pointer_name: '#ffffff',
+    color_pointer_amount: '#fbbf24', font_size_pointer: 16
   }),
   // Tier Donate — keys must exist here or SEC-004 filter in getSettings() strips them
   tier_donate_settings: JSON.stringify({

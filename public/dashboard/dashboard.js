@@ -1515,7 +1515,10 @@ async function initializeDashboard() {
       ['inputGoalTextColorBar', 'txtGoalTextColorBar'],
       ['inputGoalTextColorSub1', 'txtGoalTextColorSub1'],
       ['inputGoalTextColorSub2', 'txtGoalTextColorSub2'],
-      ['inputGoalOutlineColor', 'txtGoalOutlineColor']
+      ['inputGoalOutlineColor', 'txtGoalOutlineColor'],
+      ['inputGoalPointerColorArrow', 'txtGoalPointerColorArrow'],
+      ['inputGoalPointerColorName', 'txtGoalPointerColorName'],
+      ['inputGoalPointerColorAmount', 'txtGoalPointerColorAmount']
     ].forEach(([pickId, txtId]) => {
       const p = document.getElementById(pickId);
       const t = document.getElementById(txtId);
@@ -1664,7 +1667,11 @@ async function initializeDashboard() {
             font_size_sub1:  parseInt(document.getElementById('selectGoalFontSizeSub1')?.value)  || 20,
             font_size_sub2:  parseInt(document.getElementById('selectGoalFontSizeSub2')?.value)  || 20,
             outline_width: parseInt(document.getElementById('selectGoalOutlineWidth')?.value) || 2,
-            outline_color: document.getElementById('inputGoalOutlineColor')?.value || '#000000'
+            outline_color: document.getElementById('inputGoalOutlineColor')?.value || '#000000',
+            color_pointer_arrow:  document.getElementById('inputGoalPointerColorArrow')?.value || '',
+            color_pointer_name:   document.getElementById('inputGoalPointerColorName')?.value || '#ffffff',
+            color_pointer_amount: document.getElementById('inputGoalPointerColorAmount')?.value || '#fbbf24',
+            font_size_pointer: parseInt(document.getElementById('selectGoalPointerFontSize')?.value) || 16
           }),
           goal_bg_settings: (() => {
             const url = document.getElementById('goalBgUrl')?.value || '';
@@ -2123,6 +2130,7 @@ function loadDemoGoalSettingsFromData(data) {
   setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
   setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
   setSelectValue('selectGoalOutlineWidth', gtc.outline_width ?? gtc.outline_width_label ?? 2);
+  setSelectValue('selectGoalPointerFontSize', gtc.font_size_pointer || 16);
   ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
    'selectGoalOutlineWidth']
     .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -2131,7 +2139,10 @@ function loadDemoGoalSettingsFromData(data) {
     ['inputGoalTextColorBar','txtGoalTextColorBar',     gtc.color_bar,   '#ffffff'],
     ['inputGoalTextColorSub1','txtGoalTextColorSub1',   gtc.color_sub1,  '#ffffff'],
     ['inputGoalTextColorSub2','txtGoalTextColorSub2',   gtc.color_sub2,  '#ffffff'],
-    ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000']
+    ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000'],
+    ['inputGoalPointerColorArrow','txtGoalPointerColorArrow',   gtc.color_pointer_arrow, (data.goal_bar_color || '#4ade80').slice(0, 7)],
+    ['inputGoalPointerColorName','txtGoalPointerColorName',     gtc.color_pointer_name,  '#ffffff'],
+    ['inputGoalPointerColorAmount','txtGoalPointerColorAmount', gtc.color_pointer_amount, '#fbbf24']
   ].forEach(([p, t, v, f]) => {
     const pe = document.getElementById(p), te = document.getElementById(t);
     if (pe) pe.value = v || f;
@@ -5635,7 +5646,7 @@ function syncGoalPointerControls(data) {
   const chk = document.getElementById('chkGoalPointerEnabled');
   const sideEl = document.getElementById('selectGoalPointerSide');
   const contentEl = document.getElementById('selectGoalPointerContent');
-  const panel = document.getElementById('goalPointerPanel');
+  const options = document.getElementById('goalPointerOptions');
   if (chk) chk.checked = !!data.goal_pointer_enabled;
   if (sideEl) {
     sideEl.value = data.goal_pointer_side || 'right';
@@ -5645,12 +5656,10 @@ function syncGoalPointerControls(data) {
     contentEl.value = data.goal_pointer_content || 'both';
     contentEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  if (panel) {
-    panel.classList.toggle('disabled', !(chk && chk.checked));
+  if (chk && options) {
+    setSwitchVisibility(options, chk.checked, { animate: false });
     if (!chk._pointerToggleBound) {
-      chk.addEventListener('change', () => {
-        panel.classList.toggle('disabled', !chk.checked);
-      });
+      chk.addEventListener('change', () => setSwitchVisibility(options, chk.checked));
       chk._pointerToggleBound = true;
     }
   }
@@ -6172,6 +6181,7 @@ async function loadGoalSettings() {
     setSelectValue('selectGoalFontSizeSub1',  gtc.font_size_sub1  || 20);
     setSelectValue('selectGoalFontSizeSub2',  gtc.font_size_sub2  || 20);
     setSelectValue('selectGoalOutlineWidth', gtc.outline_width ?? gtc.outline_width_label ?? 2);
+    setSelectValue('selectGoalPointerFontSize', gtc.font_size_pointer || 16);
     ['selectGoalFontSizeLabel','selectGoalFontSizeBar','selectGoalFontSizeSub1','selectGoalFontSizeSub2',
      'selectGoalOutlineWidth']
       .forEach(id => { const el = document.getElementById(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -6180,7 +6190,10 @@ async function loadGoalSettings() {
       ['inputGoalTextColorBar','txtGoalTextColorBar',     gtc.color_bar,   '#ffffff'],
       ['inputGoalTextColorSub1','txtGoalTextColorSub1',   gtc.color_sub1,  '#ffffff'],
       ['inputGoalTextColorSub2','txtGoalTextColorSub2',   gtc.color_sub2,  '#ffffff'],
-      ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000']
+      ['inputGoalOutlineColor','txtGoalOutlineColor',     gtc.outline_color, '#000000'],
+      ['inputGoalPointerColorArrow','txtGoalPointerColorArrow',   gtc.color_pointer_arrow, (data.goal_bar_color || '#4ade80').slice(0, 7)],
+      ['inputGoalPointerColorName','txtGoalPointerColorName',     gtc.color_pointer_name,  '#ffffff'],
+      ['inputGoalPointerColorAmount','txtGoalPointerColorAmount', gtc.color_pointer_amount, '#fbbf24']
     ].forEach(([p, t, v, f]) => {
       const pe = document.getElementById(p), te = document.getElementById(t);
       if (pe) pe.value = v || f;
