@@ -133,6 +133,71 @@
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes legalTargetPulse {
+      0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.55); background-color: rgba(250, 204, 21, 0.18); }
+      100% { box-shadow: 0 0 0 16px rgba(250, 204, 21, 0); background-color: rgba(250, 204, 21, 0.08); }
+    }
+    :target {
+      scroll-margin-top: 6rem;
+      outline: 3px solid #facc15;
+      outline-offset: 6px;
+      border-radius: 10px;
+      animation: legalTargetPulse 1.8s ease-out forwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :target {
+        animation: none;
+        background-color: rgba(250, 204, 21, 0.1);
+      }
+    }
+    .doc-switch-fab {
+      position: fixed;
+      right: 1.5rem;
+      bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+      z-index: 50;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.25rem;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s backwards;
+    }
+    .doc-switch-fab i {
+      color: #60a5fa;
+      font-size: 1.05rem;
+    }
+    .doc-switch-fab .fab-arrow {
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+    .doc-switch-fab:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.6);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .doc-switch-fab {
+        animation: none;
+      }
+    }
+    @media (max-width: 480px) {
+      .doc-switch-fab {
+        padding: 0.85rem;
+        right: 1rem;
+        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      }
+      .doc-switch-fab .fab-label {
+        display: none;
+      }
+    }
     .ai-summary-box {
       background: rgba(0, 0, 0, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -273,7 +338,8 @@
       <li>กุญแจถอดรหัส (Encryption Key) จะถูกเก็บรักษาโดยผู้ให้บริการเท่านั้น ไม่มีการเปิดเผยต่อบุคคลที่สาม</li>
     </ul>
 
-    <h2 id="third-party-tts">3.1 ผู้ให้บริการภายนอก (Third-Party Processors)</h2>
+    <div id="third-party-tts">
+    <h2>3.1 ผู้ให้บริการภายนอก (Third-Party Processors)</h2>
     <p>TipKub ส่งข้อมูลไปยังผู้ให้บริการภายนอกดังต่อไปนี้เพื่อวัตถุประสงค์ที่ระบุ:</p>
     <style>
       .tp-table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.95rem; }
@@ -346,6 +412,7 @@
     <p><strong>ข้อความโดเนทเป็นข้อมูลส่วนบุคคล</strong> และอาจถูกส่งไปยังผู้ให้บริการ TTS ตามการตั้งค่าของสตรีมเมอร์</p>
     <p>⚠️ <strong>ข้อมูลอ่อนไหว:</strong> ข้อความโดเนทอาจมีข้อมูลอ่อนไหว (เช่น ข้อมูลสุขภาพหรือศาสนา) ซึ่ง TipKub <strong>คัดกรองไม่ได้</strong></p>
     <p><strong>การส่งข้อมูลไปต่างประเทศ (PDPA มาตรา 28/29):</strong> เมื่อสตรีมเมอร์เปิดใช้ฟีเจอร์ TTS ข้อความโดเนทอาจถูกส่งไปประมวลผลที่เซิร์ฟเวอร์ของ Google หรือ (กรณีเลือกเสียง Microsoft ผ่าน Edge TTS แบบไม่เป็นทางการ) Microsoft ซึ่งตั้งอยู่<strong>นอกราชอาณาจักรไทย</strong> สำหรับข้อความโดเนท สตรีมเมอร์ในฐานะ<strong>ผู้ควบคุมข้อมูลส่วนบุคคล (Controller)</strong> เป็นผู้รับผิดเรื่องมาตรการส่งข้อมูลข้ามพรมแดนตาม PDPA มาตรา 28/29 อันเนื่องจากการเปิดใช้ TTS ที่ตนเลือก; TipKub ในฐานะ<strong>ผู้ประมวลผลข้อมูล (Processor)</strong> ปฏิบัติตามคำสั่งของสตรีมเมอร์ และ<strong>ไม่ได้เป็นคู่สัญญาใน DPA/SCC ระหว่างสตรีมเมอร์กับผู้ให้บริการ TTS</strong> — สำหรับ Edge TTS ซึ่งเป็นบริการแบบไม่เป็นทางการของ Microsoft <strong>ไม่มี DPA/SCC ทางการรองรับ</strong> และปัจจุบัน endpoint ใช้งานไม่ได้จริง</p>
+    </div>
 
     <h2>3.2 การจัดเก็บรูปภาพใน Cloudflare R2</h2>
     <ul>
@@ -496,5 +563,9 @@
     </a>
     <p style="color:#64748b;font-size:0.8rem;text-align:center;margin-top:1.5rem;">© 2026 TipKub สงวนลิขสิทธิ์</p>
   </div>
+
+  <a href="/terms-of-services.html" class="doc-switch-fab" aria-label="ไปอ่านข้อกำหนดการใช้งาน">
+    <i class="fa-solid fa-scroll"></i> <span class="fab-label">อ่านข้อกำหนดการใช้งาน</span> <i class="fa-solid fa-arrow-right fab-arrow"></i>
+  </a>
 </body>
 </html>

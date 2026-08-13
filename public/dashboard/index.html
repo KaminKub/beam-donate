@@ -3927,6 +3927,8 @@
           <li>แยกบทบาทผู้ใช้บริการเป็น <strong>ผู้ใช้งานทั่วไป/ผู้ชำระเงิน</strong> และ <strong>ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์</strong> — ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ต้องมีคุณสมบัติตามเกณฑ์ที่เข้มกว่าระหว่างการบรรลุนิติภาวะตามกฎหมายที่ใช้บังคับกับเกณฑ์ของผู้ให้บริการช่องทางรับเงินที่เลือก</li>
           <li>สำหรับผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ ห้ามนำบัญชีรับเงิน บัญชีธนาคาร วอลเล็ท API Key, Branch URL, Webhook Secret หรือ Credential ของผู้ปกครองหรือบุคคลอื่นมาเชื่อมต่อ — ต้องเป็นของผู้เชื่อมต่อเองเท่านั้น</li>
           <li>เพิ่มรายละเอียดการใช้บริการ TTS ภายนอกที่สตรีมเมอร์เลือกใช้ โดยข้อความโดเนทซึ่งอาจรวมชื่อผู้บริจาคหรือข้อมูลอ่อนไหว อาจถูกส่งไปประมวลผลนอกประเทศไทย ทั้งนี้สตรีมเมอร์เป็นผู้ควบคุมข้อมูล และ TipKub เป็นผู้ประมวลผลตามการตั้งค่าของสตรีมเมอร์</li>
+          <li>เพิ่มคำนิยามชัดเจนว่า TipKub เป็นระบบแจ้งเตือน/ตรวจสอบสลิปเท่านั้น <strong>ไม่รับเงิน ไม่ถือครองเงิน และไม่โอนเงินแทนฝ่ายใด</strong> — เงินโอนตรงระหว่างผู้ชำระเงินกับผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์</li>
+          <li>เพิ่มข้อมูลภาษีเงินได้ — เงินสนับสนุนที่ได้รับถือเป็นรายได้ส่วนบุคคลตามกฎหมายไทย อาจมีหน้าที่ยื่นแบบ/เสียภาษี TipKub ไม่ออกเอกสารหักภาษี ณ ที่จ่ายหรือให้คำแนะนำด้านภาษี</li>
         </ul>
         <p class="legal-change-summary-date">มีผลตั้งแต่วันที่ 19 สิงหาคม 2569</p>
         <button type="button" id="legalChangeDetailsToggle" class="legal-change-details-toggle" aria-expanded="false" aria-controls="legalChangeDetails">
@@ -3935,9 +3937,11 @@
         <div id="legalChangeDetails" class="legal-change-details switch-visibility switch-visibility-hidden" hidden>
           <ul>
             <li>ข้อ 1.1 — นิยามบทบาทผู้ใช้บริการทั้ง 2 ประเภท และเกณฑ์อายุ/คุณสมบัติของแต่ละบทบาท (<a class="legal-change-details-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener">อ่านข้อ 1.1</a>)</li>
-            <li>ข้อ 2.1 — ข้อห้ามเกี่ยวกับ Credential การรับเงิน และสิทธิ์ของ TipKub ในการระงับการเชื่อมต่อเมื่อพบความผิดปกติ (<a class="legal-change-details-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener">อ่านข้อ 2.1</a>)</li>
+            <li>ข้อ 2.1 — ข้อห้ามเกี่ยวกับ Credential การรับเงิน และสิทธิ์ของ TipKub ในการระงับการเชื่อมต่อเมื่อพบความผิดปกติ (<a class="legal-change-details-link" href="/terms-of-services.html#credential-restrictions" target="_blank" rel="noopener">อ่านข้อ 2.1</a>)</li>
             <li>ข้อ 5.1–5.2 — เงื่อนไขการใช้งาน TTS ภายนอกและบทบาท Controller/Processor ของข้อมูลโดเนท (<a class="legal-change-details-link" href="/terms-of-services.html#tts-section" target="_blank" rel="noopener">อ่านข้อ 5.1</a>)</li>
             <li>ผู้ให้บริการ TTS ภายนอกและการส่งข้อมูลข้ามพรมแดนตาม PDPA มาตรา 28/29 (<a class="legal-change-details-link" href="/privacy.html#third-party-tts" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัว ข้อ 3.1</a>)</li>
+            <li>นิยามขอบเขตบริการ — TipKub ไม่ใช่ payment gateway (<a class="legal-change-details-link" href="/terms-of-services.html#service-scope" target="_blank" rel="noopener">อ่านข้อ 1</a>)</li>
+            <li>ข้อ 3.1 — ภาษีเงินได้จากเงินสนับสนุน (<a class="legal-change-details-link" href="/terms-of-services.html#tax-info" target="_blank" rel="noopener">อ่านข้อ 3.1</a>)</li>
           </ul>
         </div>
       </div>
@@ -3964,7 +3968,8 @@
         <li>ท่านเข้าใจว่า TipKub <strong>ไม่ได้รับรองหรือตรวจสอบ</strong> อายุหรือความเป็นเจ้าของ Credential และท่านรับผิดชอบความถูกต้องของข้อมูลเอง</li>
       </ul>
       <div class="legal-document-links">
-        <a class="legal-document-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน §1.1 และ §2.1</a>
+        <a class="legal-document-link" href="/terms-of-services.html#payment-eligibility" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน §1.1</a>
+        <a class="legal-document-link" href="/terms-of-services.html#credential-restrictions" target="_blank" rel="noopener"><i class="fa-solid fa-scroll"></i> อ่านข้อกำหนดการใช้งาน §2.1</a>
       </div>
       <label class="legal-acceptance-check" for="paymentEligibilityCheckbox">
         <input id="paymentEligibilityCheckbox" type="checkbox">
