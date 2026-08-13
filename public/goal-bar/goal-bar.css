@@ -133,8 +133,20 @@ body.position-bottom #animStage {
   will-change: transform;
 }
 
+/* clip layer สำหรับภาพพื้นหลังโหมด track — จำเป็นเพราะ #goalTrack ต้อง overflow:visible
+   (ให้ pointer/label โผล่นอกหลอด) แต่ภาพถูก transform:scale() ตอนซูม เลยล้นออกนอกหลอด
+   radius ใช้ค่าด้านใน (ลบ border 2px) เหมือน #goalFillClip */
+#goalTrackBgClip {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--bar-thickness, 45px) / 2 - 2px);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* Background image: mode=track — ภาพอยู่หลัง goalFill */
-#goalTrack::before {
+#goalTrackBgClip::before {
   content: '';
   position: absolute;
   inset: 0;
