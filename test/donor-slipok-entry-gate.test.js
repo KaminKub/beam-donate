@@ -134,6 +134,26 @@ test('fail closed: ตรวจ payment-methods ไม่ได้ ต้อง�
   assert.match(handler, /catch \(e\) \{\s*console\.error\('Error checking payment methods:', e\);\s*\}/);
 });
 
+// QA ROUND_1 Q1+Q2 — กดรัวระหว่างรอ response ต้องไม่ยิงซ้ำ และปุ่มต้องบอกสถานะ
+test('btnDonate กันกดรัวระหว่าง request และคืนสถานะปุ่มทุก path', () => {
+  const handler = appSource.slice(
+    appSource.indexOf("btnDonate.addEventListener('click'"),
+    appSource.indexOf("document.querySelectorAll('.payment-method-option')")
+  );
+  assert.match(appSource, /let donateGateInFlight = false;/);
+  const guardAt = handler.indexOf('if (donateGateInFlight) return;');
+  assert.notEqual(guardAt, -1, 'ต้อง return ทันทีเมื่อมี request ค้างอยู่');
+  assert.ok(guardAt < handler.indexOf('fetch('), 'guard ต้องอยู่ก่อนยิง request');
+
+  assert.match(handler, /btnDonate\.disabled = true;[\s\S]{0,200}กำลังตรวจสอบ/, 'ต้อง disable + บอกสถานะก่อน await');
+  // finally = ทางเดียวที่คืนสถานะครบทุก path (success / fail-closed / throw)
+  assert.match(handler, /\} finally \{\s*donateGateInFlight = false;\s*updateDonateButton\(\);/);
+  assert.ok(
+    handler.indexOf('} finally {') < handler.indexOf('showDonateBlockedMessage'),
+    'ต้องคืนปุ่มก่อนแสดง error ไม่งั้น donor กดลองใหม่ไม่ได้'
+  );
+});
+
 test('ข้อความ error ใช้ textContent เท่านั้น ไม่ใช้ innerHTML', () => {
   const fn = appSource.slice(
     appSource.indexOf('function showDonateBlockedMessage('),
@@ -160,6 +180,16 @@ test('slipok_ready ปิดการ์ดเมื่อ primary SlipOK พั
 test('ไม่มี slipok_ready ใน response (client cache เก่า) → fallback เป็น configured && connected', () => {
   assert.equal(getUsablePaymentMethods({ promptpay: true, slipok_configured: true, slipok_connected: true }).promptpay, true);
   assert.equal(getUsablePaymentMethods({ promptpay: true, slipok_configured: true, slipok_connected: false }).promptpay, false);
+});
+
+// QA ROUND_1 Q3 — public endpoint ที่ donor ยิงทุกครั้งที่กดบริจาค
+test('payment-methods มี rate limiter และ limiter ถูก define ก่อน route', () => {
+  assert.match(serverSource, /const paymentMethodsLimiter = rateLimit\(\{/);
+  assert.match(serverSource, /app\.get\('\/api\/page\/:username\/payment-methods', paymentMethodsLimiter,/);
+  assert.ok(
+    serverSource.indexOf('const paymentMethodsLimiter = rateLimit({') < serverSource.indexOf("app.get('/api/page/:username/payment-methods'"),
+    'limiter ต้อง define ก่อน route ไม่งั้น ReferenceError ตอน startup'
+  );
 });
 
 test('server คำนวณ slipok_ready ตาม lane เดียวกับ /api/verify-slip (primary มาก่อน)', () => {

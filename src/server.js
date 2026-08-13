@@ -1251,6 +1251,17 @@ const goalPublicLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// QA ROUND_1 Q3 — public donate page อ่านทุกครั้งที่ donor กดปุ่มบริจาค (Turso round-trip ~460ms/ครั้ง)
+// max สูงโดยตั้งใจ: donor มือถือหลายคนใช้ IP ร่วมกันได้ (CGNAT ของค่าย) — เพดานต่ำจะบล็อกคนจ่ายเงินจริง
+// 120/นาที ยังกันการยิงรัวไม่จำกัดได้ ขณะที่ donor ปกติใช้ 1-3 requests ต่อการโดเนท 1 ครั้ง
+const paymentMethodsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { error: 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const testWidgetLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -6195,7 +6206,7 @@ app.post('/api/verify-promptpay-slip', loadShedGuard(2), sameOriginCheck, pollSl
 });
 
 // GET /api/page/:username/payment-methods - Public endpoint for available payment methods
-app.get('/api/page/:username/payment-methods', async (req, res) => {
+app.get('/api/page/:username/payment-methods', paymentMethodsLimiter, async (req, res) => {
   try {
     const { username } = req.params;
     const streamer = await db.getStreamer(username);

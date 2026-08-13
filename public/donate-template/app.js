@@ -2557,7 +2557,9 @@ function showDonateBlockedMessage(text) {
 }
 
 // Donate button click -> go to payment method selection
+let donateGateInFlight = false;
 btnDonate.addEventListener('click', async () => {
+  if (donateGateInFlight) return; // กดรัวระหว่างรอ response = ยิงซ้ำโดยเปล่าประโยชน์ (QA ROUND_1 Q1)
   if (selectedAmount < userMinAmount) return;
 
   const username = window.location.pathname.split('/')[1];
@@ -2568,11 +2570,18 @@ btnDonate.addEventListener('click', async () => {
 
   // Guard: เช็คว่า streamer ตั้งค่าวิธีชำระเงินอย่างน้อย 1 วิธีหรือไม่
   let methods = null;
+  donateGateInFlight = true;
+  // request นี้ใช้เวลา ~0.5 วิ — ต้องบอกสถานะ ไม่งั้น donor คิดว่าปุ่มไม่ทำงานแล้วกดซ้ำ (QA ROUND_1 Q2)
+  btnDonate.disabled = true;
+  btnDonate.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังตรวจสอบ...';
   try {
     const res = await fetch(`/api/page/${username}/payment-methods`);
     if (res.ok) methods = await res.json();
   } catch (e) {
     console.error('Error checking payment methods:', e);
+  } finally {
+    donateGateInFlight = false;
+    updateDonateButton(); // คืนทั้ง label และ disabled ตามยอดล่าสุด
   }
 
   // Fail closed — ตรวจสถานะช่องทางรับเงินไม่ได้ ห้ามเดาว่าพร้อม (AUDIT ROUND_1 A1)
