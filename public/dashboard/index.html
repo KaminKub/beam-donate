@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260813_4">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260813_5">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3466,6 +3466,11 @@
             </div>
 
             <div class="feedback-form-card">
+              <div class="feedback-footer">
+                <i class="fa-brands fa-discord" style="color:#5865f2;"></i>
+                <span>Feedback ถูกส่งตรงถึงนักพัฒนาผ่าน Discord — ไม่แสดงต่อสาธารณะ</span>
+              </div>
+
               <div class="form-group">
                 <label class="form-label">ประเภท</label>
                 <select id="feedbackType" class="form-select">
@@ -3495,9 +3500,49 @@
               <div id="feedbackStatus" class="feedback-status" style="display:none;"></div>
             </div>
 
-            <div class="feedback-footer">
-              <i class="fa-brands fa-discord" style="color:#5865f2;"></i>
-              <span>Feedback ถูกส่งตรงถึงนักพัฒนาผ่าน Discord — ไม่แสดงต่อสาธารณะ</span>
+            <div class="feedback-contact-card">
+              <div class="feedback-contact-heading">
+                <div class="feedback-contact-heading-icon" aria-hidden="true">
+                  <i class="fa-solid fa-comments"></i>
+                </div>
+                <div>
+                  <h3>ติดต่อ TipKub พวกเราได้ที่นี่</h3>
+                  <p>หากต้องการสอบถาม พูดคุย หรือ ติดตามข่าวสาร เลือกช่องทางที่สะดวกได้เลย</p>
+                </div>
+              </div>
+
+              <div class="feedback-contact-grid">
+                <a class="feedback-contact-link feedback-contact-link-x" href="https://x.com/TipKubTH" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ TipKub ผ่าน X">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-brands fa-x-twitter"></i></span>
+                  <span class="feedback-contact-copy"><strong>X</strong><span>@TipKubTH</span></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+                <a class="feedback-contact-link feedback-contact-link-instagram" href="https://www.instagram.com/tipkub.me/" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ TipKub ผ่าน Instagram">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-brands fa-instagram"></i></span>
+                  <span class="feedback-contact-copy"><strong>Instagram</strong><span>@tipkub.me</span></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+                <a class="feedback-contact-link feedback-contact-link-facebook" href="https://www.facebook.com/TipKubTH" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ TipKub ผ่าน Facebook">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-brands fa-facebook-f"></i></span>
+                  <span class="feedback-contact-copy"><strong>Facebook</strong><span>TipKubTH</span></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+                <a class="feedback-contact-link feedback-contact-link-tiktok" href="https://www.tiktok.com/@TipKubTH" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ TipKub ผ่าน TikTok">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-brands fa-tiktok"></i></span>
+                  <span class="feedback-contact-copy"><strong>TikTok</strong><span>@TipKubTH</span></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+                <a class="feedback-contact-link feedback-contact-link-messenger" href="https://m.me/TipKubTH" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ TipKub ผ่าน Messenger">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-brands fa-facebook-messenger"></i></span>
+                  <span class="feedback-contact-copy"><strong>Messenger</strong><span>m.me/TipKubTH</span></span>
+                  <i class="fa-solid fa-arrow-up-right-from-square feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+                <a class="feedback-contact-link feedback-contact-link-email" href="mailto:contact@tipkub.me" aria-label="ส่งอีเมลถึง TipKub ที่ contact@tipkub.me">
+                  <span class="feedback-contact-brand" aria-hidden="true"><i class="fa-solid fa-envelope"></i></span>
+                  <span class="feedback-contact-copy"><strong>อีเมล</strong><span>contact@tipkub.me</span></span>
+                  <i class="fa-solid fa-paper-plane feedback-contact-arrow" aria-hidden="true"></i>
+                </a>
+              </div>
             </div>
           </section>
 
