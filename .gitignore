@@ -3,3 +3,13 @@ node_modules/
 .DS_Store
 *.log
 data/
+.env.production
+migrate-overlay-settings.js
+db_new_funcs.js
+patch_db_insert.js
+verify_db_counts.js
+diag-alert-sound.js
+public/dashboard/*.min.js
+public/dashboard/*.min.css
+tools/*
+.uptime-monitor-state.json
