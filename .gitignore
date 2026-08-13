@@ -12,3 +12,4 @@ diag-alert-sound.js
 public/dashboard/*.min.js
 public/dashboard/*.min.css
 tools/*
+.uptime-monitor-state.json

@@ -1,0 +1,45 @@
+name: External uptime monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: true
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      DISCORD_WATCHDOG_THREAD_ID: ${{ secrets.DISCORD_WATCHDOG_THREAD_ID }}
+      HEALTHCHECK_TIMEOUT_MS: '10000'
+      FAILURE_THRESHOLD: '2'
+      MONITOR_LABEL: 'TipKub production'
+      MONITOR_STATE_FILE: '.uptime-monitor-state.json'
+    steps:
+      - name: Checkout monitor code
+        uses: actions/checkout@v4
+
+      - name: Restore monitor state
+        uses: actions/cache/restore@v4
+        with:
+          path: .uptime-monitor-state.json
+          key: uptime-monitor-state-${{ github.run_id }}
+          restore-keys: uptime-monitor-state-
+
+      - name: Check health and notify Discord
+        run: node scripts/monitor-health.js
+
+      - name: Save monitor state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .uptime-monitor-state.json
+          key: uptime-monitor-state-${{ github.run_id }}
