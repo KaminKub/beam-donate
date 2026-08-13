@@ -6211,8 +6211,16 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
 
     // Effective SlipOK credential สำหรับ PromptPay/Bank — นิยามเดียวกับ /api/verify-slip (fallback ชุด TrueMoney สำหรับ user เก่า)
     // ส่งเป็น boolean เท่านั้น ห้ามส่ง URL/key ออกไปหา donor
-    const slipOkConfigured = !!((decrypted.slipok_api && decrypted.slipok_api_key) ||
-      (decrypted.truemoney_slipok_api && decrypted.truemoney_slipok_api_key));
+    const slipOkPrimaryPair = !!(decrypted.slipok_api && decrypted.slipok_api_key);
+    const slipOkFallbackPair = !!(decrypted.truemoney_slipok_api && decrypted.truemoney_slipok_api_key);
+    const slipOkConfigured = slipOkPrimaryPair || slipOkFallbackPair;
+
+    // slipok_ready = พร้อมใช้จริงตาม lane ที่ /api/verify-slip จะเลือก (primary มาก่อน fallback)
+    // ห้ามใช้ aggregate slipok_connected ตรงนี้ — เคส primary พังแต่ TrueMoney SlipOK ต่อได้ จะพา donor
+    // เข้า PromptPay/Bank ที่ verify ไม่ผ่าน (AUDIT ROUND_1 A3)
+    const slipOkReady = slipOkPrimaryPair
+      ? streamer.slipok_connected === 1
+      : (slipOkFallbackPair && streamer.truemoney_slipok_connected === 1);
 
     res.json({
       // FIXME: เมื่อ FFP พร้อมใช้งาน เปลี่ยนเป็น (method === 'ffp' || method === 'both')
@@ -6225,6 +6233,7 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
       slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1 || streamer.truemoney_slipok_connected === 1,
       slipok_configured: slipOkConfigured,
+      slipok_ready: slipOkReady,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
       truemoney_webhook: streamer.truemoney_webhook_enabled === 1,
       truemoney_webhook_methods: streamer.truemoney_webhook_enabled === 1 ? (streamer.truemoney_webhook_methods || 'P2P') : '',

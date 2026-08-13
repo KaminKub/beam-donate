@@ -2480,7 +2480,11 @@ function getUsablePaymentMethods(methods) {
   if (!methods || typeof methods !== 'object') {
     return { ffp: false, promptpay: false, truemoney: false, bank: false, any: false };
   }
-  const slipOkReady = !!(methods.slipok_configured && methods.slipok_connected);
+  // slipok_ready = server คำนวณตาม lane เดียวกับ /api/verify-slip (primary มาก่อน fallback TrueMoney)
+  // fallback expression ไว้เผื่อ client cache เก่าเจอ response ที่ยังไม่มี field นี้
+  const slipOkReady = methods.slipok_ready !== undefined
+    ? !!methods.slipok_ready
+    : !!(methods.slipok_configured && methods.slipok_connected);
   const usable = {
     ffp: !!methods.ffp,
     promptpay: !!methods.promptpay && slipOkReady,
@@ -2495,8 +2499,9 @@ function hydratePaymentMethodStep(methods) {
   if (!methods || typeof methods !== 'object') return false;
   streamerPaymentMethods = methods;
   const usable = getUsablePaymentMethods(methods);
-  if (!usable.any) return false;
 
+  // ซ่อนการ์ดก่อนเสมอ แม้ไม่มีวิธีที่ใช้ได้เลย — การ์ดใน index.html แสดงเป็น default
+  // ถ้า return ก่อนตรงนี้ เส้นทาง restore แล้วกด Back จะโชว์การ์ดที่ใช้ไม่ได้ทั้งหมด (AUDIT ROUND_1 A2)
   const optionFFP = document.getElementById('optionFFP');
   const optionPromptPay = document.getElementById('optionPromptPay');
   const optionTrueMoney = document.getElementById('optionTrueMoney');
@@ -2505,6 +2510,8 @@ function hydratePaymentMethodStep(methods) {
   if (optionPromptPay) optionPromptPay.style.display = usable.promptpay ? '' : 'none';
   if (optionTrueMoney) optionTrueMoney.style.display = usable.truemoney ? '' : 'none';
   if (optionBank) optionBank.style.display = usable.bank ? '' : 'none';
+
+  if (!usable.any) return false;
 
   const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
   if (trueMoneyP2PBadge) {
@@ -2524,6 +2531,31 @@ function hydratePaymentMethodStep(methods) {
   return true;
 }
 
+// แสดง error ใต้ปุ่มโดเนท (shake + red glow + ข้อความ) — ใช้ node/animation เดิมทั้งหมด
+function showDonateBlockedMessage(text) {
+  const btn = document.getElementById('btnDonate');
+  const existingMsg = document.getElementById('noPaymentMethodMsg');
+
+  // ลบ animation เดิม (ถ้ามี) เพื่อ re-trigger
+  btn.classList.remove('btn-shake', 'btn-glow-red');
+  void btn.offsetWidth; // reflow
+  btn.classList.add('btn-shake', 'btn-glow-red');
+
+  if (!existingMsg) {
+    const msg = document.createElement('div');
+    msg.id = 'noPaymentMethodMsg';
+    msg.className = 'no-payment-message';
+    msg.textContent = text;
+    btn.parentElement.appendChild(msg);
+  } else {
+    existingMsg.textContent = text;
+    // re-trigger animation
+    existingMsg.style.animation = 'none';
+    void existingMsg.offsetWidth;
+    existingMsg.style.animation = 'revealMessage 0.5s ease-out forwards';
+  }
+}
+
 // Donate button click -> go to payment method selection
 btnDonate.addEventListener('click', async () => {
   if (selectedAmount < userMinAmount) return;
@@ -2535,49 +2567,28 @@ btnDonate.addEventListener('click', async () => {
   }
 
   // Guard: เช็คว่า streamer ตั้งค่าวิธีชำระเงินอย่างน้อย 1 วิธีหรือไม่
+  let methods = null;
   try {
     const res = await fetch(`/api/page/${username}/payment-methods`);
-    if (res.ok) {
-      const methods = await res.json();
-      // วิธีที่ต้องใช้ SlipOK แต่ SlipOK ใช้ไม่ได้ = ไม่นับว่าเป็นช่องทางที่พร้อม (การ์ดจะถูกซ่อนใน hydrate)
-      const hasAnyMethod = getUsablePaymentMethods(methods).any;
-
-      if (!hasAnyMethod) {
-        // Shake + Red Glow + Message
-        const btn = document.getElementById('btnDonate');
-        const existingMsg = document.getElementById('noPaymentMethodMsg');
-
-        // ลบ animation เดิม (ถ้ามี) เพื่อ re-trigger
-        btn.classList.remove('btn-shake', 'btn-glow-red');
-        void btn.offsetWidth; // reflow
-        btn.classList.add('btn-shake', 'btn-glow-red');
-
-        // แสดง/สร้างข้อความ
-        if (!existingMsg) {
-          const msg = document.createElement('div');
-          msg.id = 'noPaymentMethodMsg';
-          msg.className = 'no-payment-message';
-          msg.textContent = 'เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน';
-          btn.parentElement.appendChild(msg);
-        } else {
-          // re-trigger animation
-          existingMsg.style.animation = 'none';
-          void existingMsg.offsetWidth;
-          existingMsg.style.animation = 'revealMessage 0.5s ease-out forwards';
-        }
-
-        return; // หยุด — ไม่ไปหน้าถัดไป
-      }
-
-      // แสดงเฉพาะวิธีชำระเงินที่เปิดใช้งาน
-      hydratePaymentMethodStep(methods);
-      // P2P badge — เฉพาะตอน TrueMoney webhook เข้าแทนที่พร้อมเพย์ SlipOK (method PROMPTPAY_IN active)
-      // Auto-select first available method
-    }
+    if (res.ok) methods = await res.json();
   } catch (e) {
-    // ถ้า API ล่ม ให้ดำเนินการต่อได้ (legacy behavior)
     console.error('Error checking payment methods:', e);
   }
+
+  // Fail closed — ตรวจสถานะช่องทางรับเงินไม่ได้ ห้ามเดาว่าพร้อม (AUDIT ROUND_1 A1)
+  if (!methods || typeof methods !== 'object') {
+    showDonateBlockedMessage('ไม่สามารถตรวจสอบช่องทางรับเงินได้ กรุณาลองใหม่อีกครั้ง');
+    return;
+  }
+
+  // วิธีที่ต้องใช้ SlipOK แต่ SlipOK ใช้ไม่ได้ = ไม่นับว่าเป็นช่องทางที่พร้อม (การ์ดจะถูกซ่อนใน hydrate)
+  if (!getUsablePaymentMethods(methods).any) {
+    showDonateBlockedMessage('เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน');
+    return; // หยุด — ไม่ไปหน้าถัดไป
+  }
+
+  // แสดงเฉพาะวิธีชำระเงินที่ใช้งานได้ + auto-select ตัวแรก (P2P badge อยู่ใน hydrate)
+  hydratePaymentMethodStep(methods);
 
   // Update summary
   document.getElementById('summaryAmount').textContent = `฿${selectedAmount.toLocaleString()}`;
@@ -3338,14 +3349,16 @@ const btnTrueMoneyQrSlipFallback = document.getElementById('btnTrueMoneyQrSlipFa
 const btnBackTrueMoneyQr = document.getElementById('btnBackTrueMoneyQr');
 const btnRetryTrueMoneyQr = document.getElementById('btnRetryTrueMoneyQr');
 
+// TrueMoney ใช้ webhook อย่างเดียว — SlipOK ตรวจสลิป TrueMoney ไม่ได้ จึงปิดทาง fallback อัปโหลดสลิปถาวร
+// โค้ด slip/SlipOK ของ TrueMoney ด้านล่างคงไว้ทั้งหมด เผื่อกลับมาใช้ แค่ไม่มีทางเข้าถึงจาก UI
+const TRUEMONEY_SLIP_FALLBACK_ENABLED = false;
+
 function setTrueMoneyQrSlipFallbackVisible(visible) {
-  // TrueMoney ใช้ webhook อย่างเดียว — SlipOK ตรวจสลิป TrueMoney ไม่ได้ จึงปิดทาง fallback อัปโหลดสลิปถาวร
-  // โค้ด slip/SlipOK ของ TrueMoney ด้านล่างคงไว้ทั้งหมด เผื่อกลับมาใช้ แค่ไม่มีทางเข้าถึงจาก UI
-  visible = false;
   if (!btnTrueMoneyQrSlipFallback) return;
-  btnTrueMoneyQrSlipFallback.classList.toggle('visible', visible);
-  btnTrueMoneyQrSlipFallback.setAttribute('aria-hidden', String(!visible));
-  btnTrueMoneyQrSlipFallback.tabIndex = visible ? 0 : -1;
+  const show = visible && TRUEMONEY_SLIP_FALLBACK_ENABLED;
+  btnTrueMoneyQrSlipFallback.classList.toggle('visible', show);
+  btnTrueMoneyQrSlipFallback.setAttribute('aria-hidden', String(!show));
+  btnTrueMoneyQrSlipFallback.tabIndex = show ? 0 : -1;
 }
 
 // Copy phone number button

@@ -22,7 +22,7 @@ function loadPureFunctions(names) {
   const source = names.map(name => {
     const start = appSource.indexOf(`function ${name}(`);
     assert.notEqual(start, -1, `missing function: ${name}`);
-    const end = appSource.indexOf('\n}\n', start);
+    const end = appSource.indexOf('\n}', start); // top-level close (body braces are indented) — '\n}\n' พังกับ checkout CRLF
     assert.notEqual(end, -1, `missing function end: ${name}`);
     return appSource.slice(start, end + 2);
   }).join('\n');
