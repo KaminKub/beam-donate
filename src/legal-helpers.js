@@ -55,9 +55,15 @@ function noticeWindowIsSufficient(announcedAt, schedule = LEGAL_SCHEDULE) {
   return Date.parse(schedule.effectiveAt) - announcedAt >= LEGAL_NOTICE_DAYS * 24 * 60 * 60 * 1000;
 }
 
+// Self-attestation that the streamer is of legal age and owns the payment credentials being
+// connected. Not date-scheduled like the ToS — a bump simply re-prompts. Lives here so the
+// admin retest CLI can check a target's eligibility without loading src/server.js.
+const PAYMENT_ELIGIBILITY_VERSION = 'v1';
+
 module.exports = {
   LEGAL_SCHEDULE,
   LEGAL_NOTICE_DAYS,
+  PAYMENT_ELIGIBILITY_VERSION,
   enforcedLegalVersion,
   acceptableLegalVersions,
   hasAcceptedLegal,

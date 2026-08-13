@@ -41,6 +41,7 @@ const OAuth2Strategy = require('passport-oauth2').Strategy;
 const { determinePrimaryAuth, isSafeReturnTo, loginDest } = require('./auth-helpers');
 const { isSlipUploadWindowClosed } = require('./payment-helpers');
 const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
+const { validateSlipOkUrl, inferSlipOkBasePlan } = require('./slipok-connection');
 
 
 const app = express();
@@ -49,8 +50,7 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 // ToS §9 promises 7 days notice before a change takes effect, so the enforced version is
 // date-driven — see src/legal-helpers.js for the release procedure.
-const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions } = require('./legal-helpers');
-const PAYMENT_ELIGIBILITY_VERSION = 'v1';
+const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions, PAYMENT_ELIGIBILITY_VERSION } = require('./legal-helpers');
 
 // ========== Cloudflare R2 (S3-compatible) ==========
 const s3Client = new S3Client({
@@ -5245,17 +5245,8 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
   }
 });
 
-// SEC-003: Allowlist-based SSRF protection for SlipOK API URLs
-function validateSlipOkUrl(url) {
-  if (!url) throw new Error('SlipOK API URL is required');
-  let parsed;
-  try { parsed = new URL(url); } catch { throw new Error('SlipOK API URL is not a valid URL'); }
-  if (parsed.protocol !== 'https:') throw new Error('SlipOK API URL must use HTTPS');
-  const allowed = ['api.slipok.com'];
-  if (!allowed.includes(parsed.hostname)) {
-    throw new Error(`SlipOK API hostname not allowed: ${parsed.hostname}`);
-  }
-}
+// SEC-003 SSRF allowlist + quota-plan inference live in src/slipok-connection.js
+// (shared with the admin retest CLI) and are imported at the top of this file.
 
 // SlipOK error code → Thai user-facing message
 const SLIPOK_ERROR_MAP = {
@@ -5390,14 +5381,6 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
 
     const streamer = await db.getStreamer(actualUsername);
 
-    function inferBasePlan(quota) {
-      const plans = [100, 500, 1000, 2000, 5000, 10000];
-      for (const plan of plans) {
-        if (quota <= plan) return plan;
-      }
-      return Math.max(100, quota);
-    }
-
     // Successful API test = streamer's own confirmation the receiver is bound in SlipOK
     // (SlipOK has no "list bound accounts" API to check this automatically) — trust it and
     // mark all 3 methods verified immediately. Only reset-on-account-change (payment/settings)
@@ -5412,7 +5395,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
     if (isTruemoney) {
       const currentQuota = response.data?.data?.quota || 0;
       const existingTotal = streamer?.truemoney_slipok_quota_total || 0;
-      const candidate = inferBasePlan(currentQuota);
+      const candidate = inferSlipOkBasePlan(currentQuota);
       const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
         twitch_id: req.user.twitch_id || null,
@@ -5429,7 +5412,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
     } else {
       const currentQuota = response.data?.data?.quota || 0;
       const existingTotal = streamer?.slipok_quota_total || 0;
-      const candidate = inferBasePlan(currentQuota);
+      const candidate = inferSlipOkBasePlan(currentQuota);
       const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
       await db.saveStreamer({
         twitch_id: req.user.twitch_id || null,
@@ -5522,25 +5505,17 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
     const q = response.data?.data || {};
     const quotaValue = q.quota || 0;
 
-    function inferBasePlan(quota) {
-      const plans = [100, 500, 1000, 2000, 5000, 10000];
-      for (const plan of plans) {
-        if (quota <= plan) return plan;
-      }
-      return Math.max(100, quota);
-    }
-
     const _ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: streamer.username };
     if (isTruemoney) {
       const existingTotal = streamer.truemoney_slipok_quota_total || 0;
       if (!existingTotal) {
-        const inferred = inferBasePlan(quotaValue);
+        const inferred = inferSlipOkBasePlan(quotaValue);
         try { await db.saveStreamer({ ..._ids, truemoney_slipok_quota_total: inferred }); } catch (e) {}
       }
     } else {
       const existingTotal = streamer.slipok_quota_total || 0;
       if (!existingTotal) {
-        const inferred = inferBasePlan(quotaValue);
+        const inferred = inferSlipOkBasePlan(quotaValue);
         try { await db.saveStreamer({ ..._ids, slipok_quota_total: inferred }); } catch (e) {}
       }
     }
@@ -5554,8 +5529,8 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
         endDate: q.endDate ?? null,
         method: isTruemoney ? 'truemoney' : 'promptpay',
         snapshotTotal: isTruemoney
-          ? (inferBasePlan(quotaValue) || streamer.truemoney_slipok_quota_total)
-          : (inferBasePlan(quotaValue) || streamer.slipok_quota_total)
+          ? (inferSlipOkBasePlan(quotaValue) || streamer.truemoney_slipok_quota_total)
+          : (inferSlipOkBasePlan(quotaValue) || streamer.slipok_quota_total)
       }
     });
   } catch (err) {
