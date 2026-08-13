@@ -20,7 +20,7 @@ jobs:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       DISCORD_WATCHDOG_THREAD_ID: ${{ secrets.DISCORD_WATCHDOG_THREAD_ID }}
       HEALTHCHECK_TIMEOUT_MS: '10000'
-      FAILURE_THRESHOLD: '2'
+      FAILURE_THRESHOLD: '1'
       MONITOR_LABEL: 'TipKub production'
       MONITOR_STATE_FILE: '.uptime-monitor-state.json'
     steps:
