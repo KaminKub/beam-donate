@@ -2474,20 +2474,37 @@ function applyOverlayStatus(active) {
   }
 }
 
+// PromptPay/Bank ยืนยันด้วยการอัปโหลดสลิป จึงต้องมี SlipOK ที่ตั้งค่าแล้วและเชื่อมต่อได้
+// TrueMoney Webhook ยืนยันเองผ่าน webhook — ไม่เกี่ยวกับ SlipOK จึงห้ามถูกซ่อนตาม
+function getUsablePaymentMethods(methods) {
+  if (!methods || typeof methods !== 'object') {
+    return { ffp: false, promptpay: false, truemoney: false, bank: false, any: false };
+  }
+  const slipOkReady = !!(methods.slipok_configured && methods.slipok_connected);
+  const usable = {
+    ffp: !!methods.ffp,
+    promptpay: !!methods.promptpay && slipOkReady,
+    truemoney: !!methods.truemoney_webhook,
+    bank: !!methods.bank && slipOkReady
+  };
+  usable.any = usable.ffp || usable.promptpay || usable.truemoney || usable.bank;
+  return usable;
+}
+
 function hydratePaymentMethodStep(methods) {
   if (!methods || typeof methods !== 'object') return false;
   streamerPaymentMethods = methods;
-  const hasAnyMethod = methods.promptpay || methods.truemoney_webhook || methods.bank || methods.ffp;
-  if (!hasAnyMethod) return false;
+  const usable = getUsablePaymentMethods(methods);
+  if (!usable.any) return false;
 
   const optionFFP = document.getElementById('optionFFP');
   const optionPromptPay = document.getElementById('optionPromptPay');
   const optionTrueMoney = document.getElementById('optionTrueMoney');
   const optionBank = document.getElementById('optionBank');
-  if (optionFFP) optionFFP.style.display = methods.ffp ? '' : 'none';
-  if (optionPromptPay) optionPromptPay.style.display = methods.promptpay ? '' : 'none';
-  if (optionTrueMoney) optionTrueMoney.style.display = methods.truemoney_webhook ? '' : 'none';
-  if (optionBank) optionBank.style.display = methods.bank ? '' : 'none';
+  if (optionFFP) optionFFP.style.display = usable.ffp ? '' : 'none';
+  if (optionPromptPay) optionPromptPay.style.display = usable.promptpay ? '' : 'none';
+  if (optionTrueMoney) optionTrueMoney.style.display = usable.truemoney ? '' : 'none';
+  if (optionBank) optionBank.style.display = usable.bank ? '' : 'none';
 
   const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
   if (trueMoneyP2PBadge) {
@@ -2495,11 +2512,11 @@ function hydratePaymentMethodStep(methods) {
     trueMoneyP2PBadge.style.display = usesPromptPayIn ? '' : 'none';
   }
 
-  if (methods.promptpay) {
+  if (usable.promptpay) {
     selectPaymentMethod('promptpay');
-  } else if (methods.truemoney_webhook) {
+  } else if (usable.truemoney) {
     selectPaymentMethod('truemoney');
-  } else if (methods.bank) {
+  } else if (usable.bank) {
     selectPaymentMethod('bank');
   } else {
     selectPaymentMethod('promptpay');
@@ -2522,7 +2539,8 @@ btnDonate.addEventListener('click', async () => {
     const res = await fetch(`/api/page/${username}/payment-methods`);
     if (res.ok) {
       const methods = await res.json();
-      const hasAnyMethod = methods.promptpay || methods.truemoney_webhook || methods.bank || methods.ffp;
+      // วิธีที่ต้องใช้ SlipOK แต่ SlipOK ใช้ไม่ได้ = ไม่นับว่าเป็นช่องทางที่พร้อม (การ์ดจะถูกซ่อนใน hydrate)
+      const hasAnyMethod = getUsablePaymentMethods(methods).any;
 
       if (!hasAnyMethod) {
         // Shake + Red Glow + Message
@@ -2564,6 +2582,10 @@ btnDonate.addEventListener('click', async () => {
   // Update summary
   document.getElementById('summaryAmount').textContent = `฿${selectedAmount.toLocaleString()}`;
   document.getElementById('summaryDonor').textContent = donorNameInput.value || 'ไม่ระบุชื่อ';
+
+  // เข้าหน้าถัดไปได้แล้ว — ล้าง error เดิม ไม่ให้ค้างตอน Back กลับมาหน้าเลือกจำนวนเงิน
+  btnDonate.classList.remove('btn-shake', 'btn-glow-red');
+  document.getElementById('noPaymentMethodMsg')?.remove();
 
   // Show payment method step
   stepAmount.classList.remove('active');
@@ -3317,6 +3339,9 @@ const btnBackTrueMoneyQr = document.getElementById('btnBackTrueMoneyQr');
 const btnRetryTrueMoneyQr = document.getElementById('btnRetryTrueMoneyQr');
 
 function setTrueMoneyQrSlipFallbackVisible(visible) {
+  // TrueMoney ใช้ webhook อย่างเดียว — SlipOK ตรวจสลิป TrueMoney ไม่ได้ จึงปิดทาง fallback อัปโหลดสลิปถาวร
+  // โค้ด slip/SlipOK ของ TrueMoney ด้านล่างคงไว้ทั้งหมด เผื่อกลับมาใช้ แค่ไม่มีทางเข้าถึงจาก UI
+  visible = false;
   if (!btnTrueMoneyQrSlipFallback) return;
   btnTrueMoneyQrSlipFallback.classList.toggle('visible', visible);
   btnTrueMoneyQrSlipFallback.setAttribute('aria-hidden', String(!visible));
@@ -4405,6 +4430,11 @@ async function restorePendingPaymentStep() {
   if (pendingTrueMoney && !pendingTrueMoney.backedOutAt) clearTrueMoneyPendingQR();
 
   const pendingManualPayment = getManualPaymentStep();
+  // TrueMoney manual step ไม่มี SSE รอ webhook — restore เข้าไปแล้วยืนยันไม่ได้ ปล่อยให้เริ่มใหม่จากหน้าแรกแทน
+  if (pendingManualPayment && pendingManualPayment.method === 'truemoney') {
+    clearManualPaymentStep();
+    return;
+  }
   if (pendingManualPayment) {
     restoreManualPaymentStep(pendingManualPayment);
     await hydratePaymentMethodsForRestore();

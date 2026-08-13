@@ -658,7 +658,7 @@
 
         <div id="slipokWarning" class="slipok-warning" style="display: none;">
           <i class="fas fa-exclamation-triangle"></i>
-          <span>ระบบตรวจสอบสลิปยังไม่พร้อม — เจ้าของหน้ายังไม่ได้ตั้งค่า SlipOK API</span>
+          <span>ระบบตรวจสอบสลิปยังไม่พร้อม — เจ้าของหน้ายังไม่ได้ตั้งค่า หรือยังไม่กดต่ออายุ SlipOK API</span>
         </div>
 
         <div id="paymentStatus" class="status checking" style="display: none;">
@@ -725,11 +725,13 @@
         <div class="instructions">
           <p><span>1</span> เปิดแอป TrueMoney Wallet</p>
           <p><span>2</span> เลือกเมนู "โอนเงิน" → "โอนเงินให้บุคคล"</p>
-          <p><span>3</span> กรอกเบอร์โทรศัพท์ด้านบน แล้วระบุยอดเงิน</p>
-          <p><span>4</span> กดยืนยันการโอน แล้วอัพโหลดสลิปด้านล่าง</p>
+          <p><span>3</span> กรอกเบอร์โทรศัพท์ด้านบน แล้วระบุยอดเงินให้ตรงเป๊ะ</p>
+          <p><span>4</span> กดยืนยันการโอน แล้วรอสักครู่ — ระบบจะตรวจสอบและยืนยันให้อัตโนมัติ ไม่ต้องอัพโหลดสลิป</p>
         </div>
 
-        <div class="slip-upload-container" id="trueMoneySlipUploadContainer">
+        <!-- TrueMoney ใช้ webhook อย่างเดียว — SlipOK ตรวจสลิป TrueMoney ไม่ได้ จึงซ่อนการอัพโหลดสลิปทั้งหมด
+             (คงมาร์กอัป/โค้ดไว้เผื่อกลับมาใช้ ไม่ได้ลบ) -->
+        <div class="slip-upload-container" id="trueMoneySlipUploadContainer" style="display: none;">
           <input type="file" id="trueMoneySlipFileInput" accept="image/*" style="display: none;">
           <label for="trueMoneySlipFileInput" class="slip-upload-btn" id="trueMoneySlipUploadBtn">
             <div class="upload-content">
@@ -746,11 +748,11 @@
           </div>
         </div>
 
-        <button type="button" id="btnMobileSlipUploadTrueMoney" class="btn-mobile-slip">
+        <button type="button" id="btnMobileSlipUploadTrueMoney" class="btn-mobile-slip" style="display: none;">
           <i class="fa-solid fa-mobile-screen-button"></i> อัพสลิปผ่านมือถือ
         </button>
 
-        <button id="btnVerifyTrueMoney" class="btn-verify-slip" disabled>
+        <button id="btnVerifyTrueMoney" class="btn-verify-slip" style="display: none;" disabled>
           <i class="fas fa-check-circle"></i> ตรวจสอบสลิป
         </button>
 
@@ -1057,6 +1059,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260812_5"></script>
+  <script src="/donate-template/app.js?v=20260813_2"></script>
 </body>
 </html>

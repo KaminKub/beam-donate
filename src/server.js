@@ -6209,6 +6209,11 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
     const bankEnabled = streamer.bank_enabled === 1;
     const truemoneyEnabled = streamer.truemoney_enabled === 1;
 
+    // Effective SlipOK credential สำหรับ PromptPay/Bank — นิยามเดียวกับ /api/verify-slip (fallback ชุด TrueMoney สำหรับ user เก่า)
+    // ส่งเป็น boolean เท่านั้น ห้ามส่ง URL/key ออกไปหา donor
+    const slipOkConfigured = !!((decrypted.slipok_api && decrypted.slipok_api_key) ||
+      (decrypted.truemoney_slipok_api && decrypted.truemoney_slipok_api_key));
+
     res.json({
       // FIXME: เมื่อ FFP พร้อมใช้งาน เปลี่ยนเป็น (method === 'ffp' || method === 'both')
       ffp: false,
@@ -6219,6 +6224,7 @@ app.get('/api/page/:username/payment-methods', async (req, res) => {
       promptpay_name: streamer.promptpay_name || streamer.username,
       truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
       slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1 || streamer.truemoney_slipok_connected === 1,
+      slipok_configured: slipOkConfigured,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
       truemoney_webhook: streamer.truemoney_webhook_enabled === 1,
       truemoney_webhook_methods: streamer.truemoney_webhook_enabled === 1 ? (streamer.truemoney_webhook_methods || 'P2P') : '',
