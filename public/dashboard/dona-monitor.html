@@ -39,6 +39,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
     }
     .popup-header h1 {
       font-size: 16px;
@@ -264,14 +265,33 @@
     .popup-footer {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 16px;
+      justify-content: flex-start;
+      height: 34px;
+      min-height: 34px;
+      max-height: 34px;
+      padding: 0 16px;
       background: rgba(15, 23, 42, 0.9);
       border-top: 1px solid rgba(99, 102, 241, 0.15);
       font-size: 11px;
       color: #64748b;
       flex-shrink: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      white-space: nowrap;
     }
+    .popup-footer::-webkit-scrollbar { display: none; }
+    .popup-footer-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: max-content;
+      min-width: 100%;
+      height: 100%;
+      white-space: nowrap;
+    }
+    .popup-footer-content > span { flex: 0 0 auto; }
     .popup-footer .count {
       color: #818cf8;
       font-weight: 500;
@@ -445,6 +465,51 @@
       from { opacity: 1; transform: scale(1); }
       to { opacity: 0; transform: scale(0.95); }
     }
+
+    /* Dona-Monitor responsive header/footer: keep actions visible and footer one-line. */
+    @media (max-width: 600px) {
+      .popup-header {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 10px;
+      }
+      .popup-header-left {
+        flex: 1 1 100%;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .popup-header h1 { font-size: 14px; }
+      .popup-header-right {
+        flex: 1 1 100%;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.1fr) 34px 34px;
+        gap: 4px;
+      }
+      .popup-header-right > .btn,
+      .popup-header-right > .btn-alert {
+        width: 100%;
+        min-width: 0;
+        height: 34px;
+      }
+      .popup-header-right .btn-alert {
+        overflow: hidden;
+        padding: 6px 4px;
+        font-size: 10px;
+        gap: 3px;
+        text-overflow: ellipsis;
+      }
+      .popup-footer { padding: 0 10px; }
+    }
+    @media (max-width: 360px) {
+      .popup-header-right {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .popup-header-right .btn-alert {
+        font-size: 0;
+      }
+      .popup-header-right .btn-alert i { font-size: 13px; }
+    }
   </style>
 </head>
 <body>
@@ -501,16 +566,18 @@
     </div>
 
     <div class="popup-footer">
-      <span>รายการ: <span class="count" id="rowCount">0</span></span>
-      <span class="quota-monitor-badge" id="quotaMonitorBadge" title="เครดิต SlipOK คงเหลือ — คลิกเพื่อรีเฟรช">
-        <i class="fa-solid fa-receipt"></i>
-        <span class="quota-monitor-text" id="quotaMonitorText">—/—</span>
-        <span class="quota-monitor-bar-bg">
-          <span class="quota-monitor-bar" id="quotaMonitorBar"></span>
+      <div class="popup-footer-content">
+        <span>รายการ: <span class="count" id="rowCount">0</span></span>
+        <span class="quota-monitor-badge" id="quotaMonitorBadge" title="เครดิต SlipOK คงเหลือ — คลิกเพื่อรีเฟรช">
+          <i class="fa-solid fa-receipt"></i>
+          <span class="quota-monitor-text" id="quotaMonitorText">—/—</span>
+          <span class="quota-monitor-bar-bg">
+            <span class="quota-monitor-bar" id="quotaMonitorBar"></span>
+          </span>
+          <i class="fa-solid fa-rotate quota-monitor-refresh-icon" id="quotaMonitorRefreshIcon"></i>
         </span>
-        <i class="fa-solid fa-rotate quota-monitor-refresh-icon" id="quotaMonitorRefreshIcon"></i>
-      </span>
-      <span>TipKub Dona-Monitor v1.0 · © 2026 TipKub สงวนลิขสิทธิ์</span>
+        <span>TipKub Dona-Monitor v1.0 · © 2026 TipKub สงวนลิขสิทธิ์</span>
+      </div>
     </div>
   </div>
 
