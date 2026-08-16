@@ -235,6 +235,17 @@
         display: inline;
         animation: shineText 3s linear infinite;
       }
+      .free-service-note {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: var(--text-muted, #94a3b8);
+        text-align: center;
+        max-width: 42rem;
+        margin: 0.75rem auto 0;
+        padding-inline: 0.75rem;
+        opacity: 0.85;
+        animation: none;
+      }
     @keyframes shineText {
       0% { background-position: 200% center; }
       100% { background-position: 0% center; }
@@ -263,7 +274,7 @@
   <div class="landing-container">
     <h1><span class="highlight-amount">TipKub</span></h1>
     <p style="font-size: 1rem; margin-top: -1rem; margin-bottom: 2rem;">By <a href="https://www.openlink.co/kaminkub" target="_blank" style="color: #a5b4fc; text-decoration: none;">Kaminkub</a></p>
-    <p>หน้ารับโดเนทสำเร็จรูป โดยสตรีมเมอร์ เพื่อสตรีมเมอร์<br>โอนตรงเข้าบัญชีคุณเอง ไม่รายเดือน ไม่ต้องเติมเงินเข้าระบบ<br><span class="highlight-free">ฟรี! ไม่กั๊ก</span></p>
+    <p>หน้ารับโดเนทสำเร็จรูป โดยสตรีมเมอร์ เพื่อสตรีมเมอร์<br>โอนตรงเข้าบัญชีคุณเอง ไม่รายเดือน ไม่ต้องเติมเงินเข้าระบบ<br><span class="highlight-free">ฟรี! ไม่กั๊ก<sup>*</sup></span></p>
     
     <div class="cta-group">
       <a href="/login" class="btn btn-secondary">
@@ -273,6 +284,7 @@
         <i class="fa-solid fa-plus"></i> สมัครสมาชิก
       </a>
     </div>
+    <p id="free-service-note" class="free-service-note" role="note">* TipKub ไม่เรียกเก็บค่าบริการ แต่บริการภายนอก เช่น SlipOK, TTS-API (Google Cloud TTS และ Vertex AI), TrueMoney หรือสถาบันการเงิน อาจมีค่าใช้จ่ายตามแพ็กเกจ การใช้งาน และเงื่อนไขของผู้ให้บริการโดยตรง</p>
     <div class="demo-btn-container">
       <a href="/kaminkub" class="btn btn-secondary btn-small" style="width: fit-content;" target="_blank">
         ตัวอย่างหน้าโดเนท
