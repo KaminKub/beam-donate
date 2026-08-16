@@ -418,9 +418,10 @@ body.position-bottom #animStage {
    หมายเหตุ: --bar-max-width ถูก reuse เป็น "ความสูงหลอด" ในโหมดนี้
    (แกนหลักที่ผู้ใช้ปรับได้ยังเป็น slider เดิม 1 ตัว ไม่เพิ่มคอลัมน์ใหม่) */
 #goalBarWrapper.layout-vertical {
-  width: auto;
+  /* เว้นพื้นที่สองข้างของหลอดให้ pointer label ที่มีตัวเลขยาว/ตัวใหญ่ไม่ถูกตัด */
+  width: min(100%, 740px);
   min-width: 220px;
-  max-width: 360px;
+  max-width: 740px;
   padding: 8px;
   /* cap ความสูงรวมตาม viewport เหมือนแนวนอน cap ความกว้าง — แล้วให้หลอดหดเอง
      ส่วนหัว (label + % text) ที่อาจ wrap หลายบรรทัดจะได้ไม่ล้นขอบ windows */
@@ -438,8 +439,18 @@ body.position-bottom #animStage {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  width: 100%;
   flex: 1 1 auto;
   min-height: 0; /* อนุญาตให้หดต่ำกว่า content ได้ */
+}
+
+/* ในแนวตั้ง label อยู่ด้านข้างหลอด จึงต้องใช้ความกว้างมากกว่าแนวนอน */
+#goalBarWrapper.layout-vertical #goalPointerLabel {
+  max-width: 320px;
+}
+
+#goalBarWrapper.layout-vertical .ptr-name {
+  max-width: 320px;
 }
 
 /* % text ย้ายจาก overlay กลางหลอด → อยู่เหนือหลอด (หลอดแคบเกินจะวางซ้อนได้) */
