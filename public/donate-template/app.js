@@ -4142,6 +4142,16 @@ function showTrueMoneyQrStep(data) {
   }, 90000);
 }
 
+// Post-click pulse ring — ปุ่มที่กดแล้วไม่เปลี่ยนหน้า (select/control) เท่านั้น
+// ref: .timer-control-buttons pulse ใน dashboard.js — delegate เพราะ .tier-image-choice ถูกสร้างด้วย JS
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.amount-btn, .tier-image-choice, .tier-subtab-btn, .tier-eq-btn, #tierRecordBtn');
+  if (!btn) return;
+  btn.classList.remove('tk-btn-pulse');
+  void btn.offsetWidth;
+  btn.classList.add('tk-btn-pulse');
+});
+
 function restoreTrueMoneyQrStep(pending) {
   trueMoneyQrRefId = pending.referenceId;
   selectedAmount = pending.amount;

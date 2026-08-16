@@ -242,7 +242,7 @@ body {
   font-weight: 600;
   text-decoration: none;
   color: #ffffff;
-  transition: var(--transition-smooth);
+  transition: var(--transition-smooth), box-shadow 160ms ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
 }
@@ -251,14 +251,46 @@ body {
   font-size: 16px;
 }
 
-.social-btn.twitch { background: rgba(146, 65, 165, 0.4); border-color: rgba(146, 65, 165, 0.6); }
-.social-btn.youtube { background: rgba(255, 0, 0, 0.4); border-color: rgba(255, 0, 0, 0.6); }
-.social-btn.discord { background: rgba(88, 101, 242, 0.4); border-color: rgba(88, 101, 242, 0.6); }
-.social-btn.facebook { background: rgba(24, 119, 242, 0.4); border-color: rgba(24, 119, 242, 0.6); }
-.social-btn.tiktok { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
-.social-btn.x { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
-.social-btn.instagram { background: linear-gradient(45deg, rgba(225, 48, 100, 0.4), rgba(131, 56, 236, 0.4)); border-color: rgba(225, 48, 100, 0.6); }
-.social-btn.kick { background: rgba(0, 0, 0, 0.6); border-color: rgba(83, 252, 24, 0.6); }
+.social-btn.twitch {
+  background: radial-gradient(circle at 20% 0%, rgba(196, 132, 252, 0.35), transparent 60%), linear-gradient(135deg, rgba(146, 65, 165, 0.6), rgba(88, 28, 135, 0.35));
+  border-color: rgba(146, 65, 165, 0.6);
+  --social-glow: rgba(146, 65, 165, 0.55);
+}
+.social-btn.youtube {
+  background: radial-gradient(circle at 20% 0%, rgba(255, 120, 120, 0.35), transparent 60%), linear-gradient(135deg, rgba(255, 0, 0, 0.55), rgba(153, 0, 0, 0.35));
+  border-color: rgba(255, 0, 0, 0.6);
+  --social-glow: rgba(255, 0, 0, 0.5);
+}
+.social-btn.discord {
+  background: radial-gradient(circle at 20% 0%, rgba(150, 160, 255, 0.35), transparent 60%), linear-gradient(135deg, rgba(88, 101, 242, 0.55), rgba(54, 57, 163, 0.35));
+  border-color: rgba(88, 101, 242, 0.6);
+  --social-glow: rgba(88, 101, 242, 0.5);
+}
+.social-btn.facebook {
+  background: radial-gradient(circle at 20% 0%, rgba(120, 180, 255, 0.35), transparent 60%), linear-gradient(135deg, rgba(24, 119, 242, 0.55), rgba(13, 71, 161, 0.35));
+  border-color: rgba(24, 119, 242, 0.6);
+  --social-glow: rgba(24, 119, 242, 0.5);
+}
+.social-btn.tiktok {
+  background: radial-gradient(circle at 20% 0%, rgba(34, 211, 238, 0.2), transparent 60%), linear-gradient(135deg, rgba(20, 20, 20, 0.75), rgba(0, 0, 0, 0.55));
+  border-color: rgba(255, 255, 255, 0.2);
+  --social-glow: rgba(34, 211, 238, 0.3);
+}
+.social-btn.x {
+  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.12), transparent 60%), linear-gradient(135deg, rgba(30, 30, 30, 0.75), rgba(0, 0, 0, 0.55));
+  border-color: rgba(255, 255, 255, 0.2);
+  --social-glow: rgba(255, 255, 255, 0.2);
+}
+.social-btn.instagram {
+  background: radial-gradient(circle at 20% 0%, rgba(245, 158, 11, 0.3), transparent 60%), linear-gradient(45deg, rgba(225, 48, 100, 0.55), rgba(131, 56, 236, 0.5));
+  border-color: rgba(225, 48, 100, 0.6);
+  --social-glow: rgba(225, 48, 100, 0.5);
+}
+.social-btn.kick {
+  background: radial-gradient(circle at 20% 0%, rgba(83, 252, 24, 0.25), transparent 60%), linear-gradient(135deg, rgba(20, 20, 20, 0.75), rgba(0, 0, 0, 0.55));
+  border-color: rgba(83, 252, 24, 0.6);
+  --social-glow: rgba(83, 252, 24, 0.4);
+}
 .social-btn.kick:focus-visible { outline: 2px solid #53fc18; outline-offset: 2px; }
 
 /* Kick ไม่มี glyph ใน Font Awesome — ใช้ตัว K แทน โดยคุมขนาด/เส้นให้เท่า fa icon ตัวอื่น (16px) */
@@ -277,7 +309,7 @@ body {
 .social-btn:hover {
   transform: translateY(-3px);
   filter: brightness(1.2);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3), 0 0 14px var(--social-glow, transparent);
 }
 
 .status-btn {
@@ -468,6 +500,18 @@ body {
 
 .amount-btn.selected .amount-desc {
   color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Post-click pulse ring (ปุ่ม select/control ที่กดแล้วไม่เปลี่ยนหน้า — ref: .timer-control-buttons ใน dashboard) ── */
+@keyframes tkBtnPulse {
+  0%   { box-shadow: 0 0 0 0 var(--pulse-color, rgba(168,85,247,.5)); }
+  100% { box-shadow: 0 0 0 14px rgba(0,0,0,0); }
+}
+.tk-btn-pulse { animation: tkBtnPulse .45s ease-out; }
+.amount-btn.tk-btn-pulse { --pulse-color: rgba(168,85,247,.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-btn-pulse { animation: none; }
 }
 
 /* ========== Custom Amount Area ========== */
@@ -2068,6 +2112,12 @@ input[type=number] {
   opacity: 0.4;
   pointer-events: none;
   transition: opacity 0.2s ease;
+}
+
+/* บัค: #btnChangeTierSound อยู่ใน #tierSoundChoiceBlock — โดน pointer-events:none ไปด้วยตอนสลับไปแหล่งเสียงอื่น
+   ทั้งที่มันคือปุ่ม "เปลี่ยนตัวเลือก" ที่ต้องกดได้เพื่อย้อนกลับออกจากแหล่งเสียงนั้น — opacity ของ ancestor คุมทั้ง subtree แก้ผ่าน child ไม่ได้ ปล่อยไว้ (แค่คืน pointer-events ให้กดได้)*/
+.sound-source-block.sound-source-dimmed #btnChangeTierSound {
+  pointer-events: auto;
 }
 
 /* Record review */

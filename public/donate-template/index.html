@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260816_1">
+  <link rel="stylesheet" href="/assets/style.css?v=20260816_4">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -163,6 +163,9 @@
     #tierDonateSection.tier-open {
       max-height: 900px;
       opacity: 1;
+      /* overflow เปลี่ยนเป็น visible หลัง max-height transition (.35s) จบเท่านั้น — กัน pulse ring ของปุ่มลูกโดนตัดขอบ แต่ยังคง clip ระหว่างเปิด/ปิดตามปกติ */
+      transition: max-height 0.35s ease, opacity 0.3s ease, overflow 0s 0.35s;
+      overflow: visible;
     }
     .tier-banner {
       padding: 10px 14px;
@@ -192,6 +195,11 @@
       margin-bottom: 12px;
     }
     .tier-option-block > .tier-option-inner { overflow: hidden; min-height: 0; }
+    /* เช่นเดียวกับ #tierDonateSection — visible หลัง grid-template-rows transition (.3s) จบ กัน pulse ring โดนตัดขอบซ้าย/ขวา/ล่าง */
+    .tier-option-block.tier-block-open > .tier-option-inner {
+      overflow: visible;
+      transition: overflow 0s 0.3s;
+    }
     .tier-unlock-hint {
       margin-top: 6px;
       font-size: 0.72rem;
@@ -217,6 +225,8 @@
       background: rgba(255,255,255,0.05); color: #cbd5e1; font-size: 0.78rem; cursor: pointer;
     }
     .tier-subtab-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); color: #fde68a; }
+    .tier-image-choice.tk-btn-pulse, .tier-subtab-btn.tk-btn-pulse, .tier-eq-btn.tk-btn-pulse { --pulse-color: rgba(251,191,36,.55); }
+    #tierRecordBtn.tk-btn-pulse { --pulse-color: rgba(239,68,68,.55); }
     .tier-record-timer { font-size: 0.85rem; color: #f87171; margin-top: 6px; transition: color .2s; }
     /* ช่วงนับถอยหลังเตรียมตัว (ยังไม่อัดจริง) — ฟ้า+ตัวใหญ่ ให้ต่างจากตอนอัดจริง (แดง) */
     .tier-record-timer.prep { color: #60a5fa; font-size: 1.05rem; font-weight: 700; }
@@ -1059,6 +1069,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260816_2"></script>
+  <script src="/donate-template/app.js?v=20260816_4"></script>
 </body>
 </html>
