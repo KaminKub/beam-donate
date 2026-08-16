@@ -2027,7 +2027,7 @@ function syncGoalWidthLabel() {
 
   const rec = document.getElementById('goalPreviewRecommendationText');
   if (rec) rec.textContent = isVertical
-    ? 'แนะนำ: ขนาด 360×800px, background transparent'
+    ? 'แนะนำ: ขนาด 740×800px, background transparent'
     : 'แนะนำ: ขนาด 600×350px, background transparent';
 }
 
