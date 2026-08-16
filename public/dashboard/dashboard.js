@@ -4145,6 +4145,9 @@ function calculateStats(transactions) {
 }
 
 // ========== SlipOK Quota Dashboard Card ==========
+let slipokDashQuotaInFlight = null;
+let slipokDashMethodOrder = ['promptpay', 'truemoney'];
+
 async function fetchUserPaymentStatus() {
   try {
     const response = await fetch('/api/user/me');
@@ -4156,6 +4159,12 @@ async function fetchUserPaymentStatus() {
     applyBrandIdentity(user);
 
     const connected = user.slipok_connected || user.truemoney_slipok_connected;
+    // Prefer the method that is actually connected. Keep the other method as a
+    // fallback for legacy/stale connection flags, but do not probe a known-
+    // disconnected method first.
+    slipokDashMethodOrder = user.truemoney_slipok_connected && !user.slipok_connected
+      ? ['truemoney', 'promptpay']
+      : ['promptpay', 'truemoney'];
     // disconnected at load: distinguish "never configured" vs "was connected but failed"
     const reason = connected ? null : (user.slipokApiConfigured ? 'error' : 'no-api');
     renderSlipokDashCard(connected, reason);
@@ -4283,6 +4292,22 @@ function renderSlipokDashExpiry(endDate) {
   expiryEl.style.display = 'block';
 }
 
+function showSlipokDashRefreshFeedback() {
+  const affordEl = document.querySelector('.slipok-dash-refresh-afford .fa-rotate');
+  if (!affordEl || !affordEl.parentElement) return;
+
+  const parent = affordEl.parentElement;
+  const originalHtml = parent.innerHTML;
+  parent.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> อัปเดตแล้ว';
+  parent.style.opacity = '1';
+  setTimeout(() => {
+    if (parent) {
+      parent.innerHTML = originalHtml;
+      parent.style.opacity = '';
+    }
+  }, 2000);
+}
+
 async function fetchSlipokDashQuota(method, showFeedback) {
   const usedEl = document.getElementById('slipokDashUsed');
   const totalEl = document.getElementById('slipokDashTotal');
@@ -4291,14 +4316,45 @@ async function fetchSlipokDashQuota(method, showFeedback) {
   const affordEl = document.querySelector('.slipok-dash-refresh-afford .fa-rotate');
 
   if (!method) {
-    if (affordEl) affordEl.classList.add('spinning');
-    const ok = await fetchSlipokDashQuota('promptpay', showFeedback);
-    if (!ok) await fetchSlipokDashQuota('truemoney', showFeedback);
-    if (metaEl && (!usedEl || usedEl.textContent === '—')) {
-      metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+    if (slipokDashQuotaInFlight) {
+      const ok = await slipokDashQuotaInFlight;
+      if (showFeedback && ok) showSlipokDashRefreshFeedback();
+      return ok;
     }
-    setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
-    return;
+
+    const request = (async () => {
+      if (affordEl) affordEl.classList.add('spinning');
+
+      let ok = false;
+      for (const candidate of slipokDashMethodOrder) {
+        ok = await fetchSlipokDashQuota(candidate, false);
+        if (ok) break;
+      }
+
+      if (ok) {
+        // A fallback method may have succeeded after a previous attempt put the
+        // card in error state; restore the actionable connected card.
+        renderSlipokDashCard(true);
+      } else {
+        if (metaEl && (!usedEl || usedEl.textContent === '—')) {
+          metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+        }
+        updateSlipOkStatus(false, new Date().toISOString());
+        renderSlipokDashCard(false, 'error');
+      }
+
+      setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
+      return ok;
+    })();
+
+    slipokDashQuotaInFlight = request;
+    try {
+      const ok = await request;
+      if (showFeedback && ok) showSlipokDashRefreshFeedback();
+      return ok;
+    } finally {
+      if (slipokDashQuotaInFlight === request) slipokDashQuotaInFlight = null;
+    }
   }
 
   try {
@@ -4309,18 +4365,11 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     }
     if (!response.ok) {
       if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
-      // 401/403/404 = API key issue → disconnect (server already set slipok_connected=0)
-      if (response.status === 401 || response.status === 403 || response.status === 404) {
-        updateSlipOkStatus(false, new Date().toISOString());
-        renderSlipokDashCard(false, 'error');
-      }
       return false;
     }
     const result = await response.json();
     if (!result.success) {
       if (metaEl && method === 'truemoney') metaEl.textContent = result.error || 'ไม่สามารถดึงข้อมูลได้';
-      updateSlipOkStatus(false, new Date().toISOString());
-      renderSlipokDashCard(false, 'error');
       return false;
     }
 
@@ -4364,25 +4413,10 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     }
     renderSlipokDashExpiry(quota.endDate);
 
-    const origText = affordEl ? affordEl.parentElement.innerHTML : '';
-    if (showFeedback && affordEl && affordEl.parentElement) {
-      affordEl.parentElement.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> อัปเดตแล้ว';
-      affordEl.parentElement.style.opacity = '1';
-    }
-    setTimeout(() => {
-      if (affordEl && affordEl.parentElement && showFeedback) {
-        affordEl.parentElement.innerHTML = origText;
-        affordEl.parentElement.style.opacity = '';
-      }
-    }, 2000);
-
     return true;
   } catch (err) {
     console.error('fetchSlipokDashQuota error:', err.message);
     if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
-    // Auto-disconnect UI on network/parse failure
-    updateSlipOkStatus(false, new Date().toISOString());
-    renderSlipokDashCard(false, 'error');
     return false;
   }
 }

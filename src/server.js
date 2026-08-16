@@ -5548,18 +5548,6 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
     const slipCode = err.response?.data?.code;
     console.error('SlipOK quota fetch error: code=' + (slipCode || err.response?.status || 'NO_RESPONSE'));
 
-    // Auto-disconnect on quota fetch failure
-    const actualUsername = await getActualUsername(req.user);
-    const isTruemoney = req.query.method === 'truemoney';
-    try {
-      const _ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: actualUsername };
-      if (isTruemoney) {
-        await db.saveStreamer({ ..._ids, truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
-      } else {
-        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
-      }
-    } catch (ignore) {}
-
     const status = err.response?.status || 500;
     res.status(status).json({ success: false, error: 'ไม่สามารถดึงข้อมูลโควต้าได้', errorCode: slipCode || null });
   }
