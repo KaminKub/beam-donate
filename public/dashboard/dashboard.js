@@ -4228,6 +4228,61 @@ function renderSlipokDashCard(connected, reason) {
   }
 }
 
+function renderSlipokDashExpiry(endDate) {
+  const expiryEl = document.getElementById('slipokDashExpiry');
+  const statCard = document.getElementById('statCardSlipok');
+  if (!expiryEl || !statCard) return;
+
+  statCard.classList.remove('stat-card-expiring', 'stat-card-expired');
+  expiryEl.className = 'slipok-dash-expiry';
+  expiryEl.replaceChildren();
+  expiryEl.style.display = 'none';
+
+  const endMs = typeof endDate === 'string' ? Date.parse(endDate) : NaN;
+  if (!Number.isFinite(endMs)) return;
+
+  const daysLeft = Math.ceil((endMs - Date.now()) / (1000 * 60 * 60 * 24));
+  let state;
+  let iconClass;
+  if (daysLeft <= 0) {
+    state = 'critical';
+    iconClass = 'fa-circle-exclamation';
+    statCard.classList.add('stat-card-expired');
+  } else if (daysLeft <= 3) {
+    state = 'critical';
+    iconClass = 'fa-clock';
+    statCard.classList.add('stat-card-expired');
+  } else if (daysLeft <= 7) {
+    state = 'warning';
+    iconClass = 'fa-clock';
+    statCard.classList.add('stat-card-expiring');
+  } else {
+    return;
+  }
+
+  const icon = document.createElement('i');
+  icon.className = `fa-solid ${iconClass} slipok-dash-expiry-icon ${state}`;
+  icon.setAttribute('aria-hidden', 'true');
+  expiryEl.classList.add(state);
+  expiryEl.append(icon);
+
+  if (daysLeft <= 0) {
+    expiryEl.append('แพ็กเกจหมดอายุแล้ว — ');
+    const renewText = document.createElement('strong');
+    renewText.textContent = 'กรุณาต่ออายุใน Chat Line SlipOK';
+    expiryEl.append(renewText);
+  } else {
+    expiryEl.append('เหลืออีก ');
+    const daysText = document.createElement('strong');
+    daysText.textContent = `${daysLeft} วัน`;
+    expiryEl.append(daysText, daysLeft <= 3 ? ' เท่านั้น! อย่าลืมต่ออายุใน ' : ' — อย่าลืมต่ออายุใน ');
+    const renewText = document.createElement('strong');
+    renewText.textContent = 'Chat Line SlipOK';
+    expiryEl.append(renewText);
+  }
+  expiryEl.style.display = 'block';
+}
+
 async function fetchSlipokDashQuota(method, showFeedback) {
   const usedEl = document.getElementById('slipokDashUsed');
   const totalEl = document.getElementById('slipokDashTotal');
@@ -4307,6 +4362,7 @@ async function fetchSlipokDashQuota(method, showFeedback) {
         : '—';
       metaEl.innerHTML = `${packageLabel}<span class="slipok-dash-sep-dot">·</span>รีเซท ${endDate}`;
     }
+    renderSlipokDashExpiry(quota.endDate);
 
     const origText = affordEl ? affordEl.parentElement.innerHTML : '';
     if (showFeedback && affordEl && affordEl.parentElement) {

@@ -783,6 +783,51 @@ body {
   color: #666; font-size: 9px;
 }
 
+.stat-card-expiring {
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+.stat-card-expired {
+  border-color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+.slipok-dash-expiry {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.slipok-dash-expiry.warning {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+}
+.slipok-dash-expiry.critical {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.12);
+  animation: expiryPulse 2s ease-in-out 3;
+}
+.slipok-dash-expiry-icon {
+  margin-right: 4px;
+}
+.slipok-dash-expiry-icon.warning {
+  color: #f59e0b;
+}
+.slipok-dash-expiry-icon.critical {
+  color: #ef4444;
+}
+@keyframes expiryPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slipok-dash-expiry.critical { animation: none; }
+}
+
 .slipok-dash-refresh-afford {
   display: block;
   font-size: 9px;
