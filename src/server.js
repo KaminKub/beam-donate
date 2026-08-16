@@ -1445,7 +1445,7 @@ function applyDemoMask(row) {
     'header_bg_url', 'page_bg_url', 'header_bg_y', 'header_bg_zoom',
     // Social links (public info)
     'social_twitch', 'social_youtube', 'social_tiktok',
-    'social_facebook', 'social_x', 'social_discord', 'social_instagram',
+    'social_facebook', 'social_x', 'social_discord', 'social_instagram', 'social_kick',
     // Payment method status indicators (no credentials)
     'payment_method', 'promptpay_enabled', 'promptpay_type',
     'tfp_connected', 'tfp_last_check',
@@ -3381,7 +3381,7 @@ const PAGE_ALLOWED_FIELDS = [
   'page_title', 'page_subtitle', 'thank_you_header', 'thank_you_subtitle',
   'profile_image_value', 'profile_image_source', 'profile_glow_color',
   'social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook',
-  'social_x', 'social_discord', 'social_instagram',
+  'social_x', 'social_discord', 'social_instagram', 'social_kick',
   'header_bg_url', 'page_bg_url', 'header_bg_y', 'header_bg_zoom'
 ];
 
@@ -4163,6 +4163,7 @@ app.get('/api/page/:username/settings', async (req, res) => {
         x: streamer.social_x,
         discord: streamer.social_discord,
         instagram: streamer.social_instagram,
+        kick: streamer.social_kick,
       },
       // array key ที่โชว์จริง (auto-show badge ที่ได้ เว้นที่ user กดปิด) — dev เฉพาะ admin
       badges: db.resolveBadgeDisplay(streamer, { isAdmin: !!(ADMIN_TWITCH_ID && String(streamer.twitch_id) === ADMIN_TWITCH_ID) }),
@@ -4188,13 +4189,28 @@ app.get('/api/page/:username/settings', async (req, res) => {
   }
 });
 
-const SOCIAL_LINK_FIELDS = new Set(['social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook', 'social_x', 'social_discord', 'social_instagram', 'header_bg_url', 'page_bg_url']);
+const SOCIAL_LINK_FIELDS = new Set(['social_twitch', 'social_youtube', 'social_tiktok', 'social_facebook', 'social_x', 'social_discord', 'social_instagram', 'social_kick', 'header_bg_url', 'page_bg_url']);
 
 function validateSocialUrl(url) {
   if (!url) return true;
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+// ปุ่ม Kick ติดป้ายแบรนด์ → บังคับให้ชี้ kick.com เท่านั้น กัน phishing host (เช่น evilkick.com)
+function validateKickUrl(url) {
+  if (!url) return true;
+  if (url.length > 2048) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (parsed.username || parsed.password) return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'kick.com' || host.endsWith('.kick.com');
   } catch {
     return false;
   }
@@ -4384,6 +4400,11 @@ app.post('/api/page/settings', ensureAuthenticated, csrfProtection, async (req, 
       if (safeBody[field] && !validateSocialUrl(safeBody[field])) {
         return res.status(400).json({ error: `Invalid URL in ${field}: only http/https allowed` });
       }
+    }
+
+    if (typeof safeBody.social_kick === 'string') safeBody.social_kick = safeBody.social_kick.trim();
+    if (!validateKickUrl(safeBody.social_kick)) {
+      return res.status(400).json({ error: 'Invalid URL in social_kick: only https://kick.com links allowed' });
     }
 
     const updatedStreamer = await db.saveStreamer({

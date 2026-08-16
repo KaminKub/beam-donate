@@ -329,7 +329,8 @@ const SOCIAL_ICONS = {
   facebook: 'fa-facebook',
   x: 'fa-x-twitter',
   discord: 'fa-discord',
-  instagram: 'fa-instagram'
+  instagram: 'fa-instagram',
+  kick: 'fa-kick'   // ไม่มี glyph Kick ใน Font Awesome — ตัว K มาจาก .social-btn.kick i::before ใน style.css
 };
 
 // Elements
@@ -2182,7 +2183,7 @@ function renderSocialLinks(socials) {
   socialLinksContainer.innerHTML = '';
   
   const activeLinks = Object.entries(socials).filter(([_, url]) => url);
-  const showLabels = activeLinks.length <= 3;
+  const showLabels = activeLinks.length <= 4;
 
   const platformNames = {
     twitch: 'Twitch',
@@ -2191,25 +2192,35 @@ function renderSocialLinks(socials) {
     facebook: 'Facebook',
     x: 'X (Twitter)',
     discord: 'Discord',
-    instagram: 'Instagram'
+    instagram: 'Instagram',
+    kick: 'Kick'
   };
 
   activeLinks.forEach(([platform, url]) => {
     // SEC-001 / SEC-012: Validate URL scheme and add noopener to prevent XSS and tab-nabbing
+    let parsed;
     try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return;
+      parsed = new URL(url);
     } catch { return; }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return;
+    // userinfo ในลิงก์ = ส่ง credential ไปปลายทาง — ตัดทุกแพลตฟอร์ม ไม่ใช่แค่ Kick
+    if (parsed.username || parsed.password) return;
+    // ปุ่ม Kick ติดป้ายแบรนด์ — mirror validateKickUrl() ฝั่ง server กัน legacy data ที่บันทึกไว้ก่อนมี validation
+    if (platform === 'kick') {
+      const host = parsed.hostname.toLowerCase();
+      if (parsed.protocol !== 'https:' || url.length > 2048 || (host !== 'kick.com' && !host.endsWith('.kick.com'))) return;
+    }
     const iconClass = SOCIAL_ICONS[platform] || 'fa-link';
     const a = document.createElement('a');
     a.href = url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.className = `social-btn ${platform}`;
-    
+    a.setAttribute('aria-label', platformNames[platform] || platform);
+
     const label = showLabels ? `<span class="social-label">${platformNames[platform] || platform}</span>` : '';
     a.innerHTML = `<i class="fa-brands ${iconClass}"></i>${label}`;
-    
+
     socialLinksContainer.appendChild(a);
   });
 }

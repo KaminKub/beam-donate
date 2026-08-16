@@ -163,6 +163,7 @@ async function migrateDB() {
         social_x TEXT,
         social_discord TEXT,
         social_instagram TEXT,
+        social_kick TEXT,
         
         -- Streamlabs OAuth Tokens
         streamlabs_access_token TEXT,
@@ -436,6 +437,7 @@ async function migrateDB() {
       { name: 'social_x', type: 'TEXT' },
       { name: 'social_discord', type: 'TEXT' },
       { name: 'social_instagram', type: 'TEXT' },
+      { name: 'social_kick', type: 'TEXT' },
       { name: 'profile_image_source', type: "TEXT DEFAULT 'twitch'" },
       { name: 'profile_image_value', type: 'TEXT' },
        { name: 'profile_glow_color', type: "TEXT DEFAULT '#005704'" },
@@ -1215,6 +1217,7 @@ async function saveStreamer(data) {
               social_x = COALESCE(?, streamers.social_x),
               social_discord = COALESCE(?, streamers.social_discord),
                social_instagram = COALESCE(?, streamers.social_instagram),
+               social_kick = COALESCE(?, streamers.social_kick),
                streamlabs_access_token = COALESCE(?, streamers.streamlabs_access_token),
                streamlabs_refresh_token = COALESCE(?, streamers.streamlabs_refresh_token),
                 profile_image_source = COALESCE(?, streamers.profile_image_source),
@@ -1363,6 +1366,7 @@ async function saveStreamer(data) {
           finalData.social_x !== undefined ? finalData.social_x : null,
           finalData.social_discord !== undefined ? finalData.social_discord : null,
            finalData.social_instagram !== undefined ? finalData.social_instagram : null,
+           finalData.social_kick !== undefined ? finalData.social_kick : null,
            finalData.streamlabs_access_token !== undefined ? finalData.streamlabs_access_token : null,
            finalData.streamlabs_refresh_token !== undefined ? finalData.streamlabs_refresh_token : null,
            finalData.profile_image_source !== undefined ? finalData.profile_image_source : null,
@@ -1465,7 +1469,7 @@ async function saveStreamer(data) {
              theme, animation, fontFamily, primaryColor, secondaryColor, backgroundColor, textColor, borderColor, particleCount, fontSize,
              theme_colors, alert_font_sizes, alert_outline, template_line1, template_line2,
              customImageMode, customImageValue, customSoundUrl, alert_sound_url, page_title, page_subtitle, thank_you_header, thank_you_subtitle,
-              social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram,
+              social_twitch, social_youtube, social_tiktok, social_facebook, social_x, social_discord, social_instagram, social_kick,
                streamlabs_access_token, streamlabs_refresh_token,
                profile_image_source, profile_image_value, profile_glow_color,
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
@@ -1477,7 +1481,7 @@ async function saveStreamer(data) {
                header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, payment_eligibility_version, payment_eligibility_accepted_at, primary_auth_provider, timer_settings,
               truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, badge_display_top, badge_optout, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
               tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled, goal_bg_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1536,6 +1540,7 @@ async function saveStreamer(data) {
         finalData.social_x || null,
         finalData.social_discord || null,
          finalData.social_instagram || null,
+         finalData.social_kick || null,
          finalData.streamlabs_access_token || null,
          finalData.streamlabs_refresh_token || null,
          finalData.profile_image_source || 'twitch',

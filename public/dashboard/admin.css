@@ -240,6 +240,9 @@ body {
 .social-inputs-grid .fa-x-twitter { color: #e2e8f0; }
 .social-inputs-grid .fa-discord { color: #5865f2; }
 .social-inputs-grid .fa-instagram { color: #e4405f; }
+/* Kick ไม่มี glyph ใน Font Awesome — ใช้ตัว K เป็น mark (หน้าโดเนทใช้ mark เดียวกันใน style.css) */
+.social-inputs-grid .fa-kick { color: #53fc18; font-style: normal; }
+.social-inputs-grid .fa-kick::before { content: "K"; font-family: "Arial Black", Arial, sans-serif; font-weight: 900; }
 /* ============================================= */
 
 .dashboard-card .btn-icon-monitor .fa-arrow-up-right-from-square { color: inherit; }

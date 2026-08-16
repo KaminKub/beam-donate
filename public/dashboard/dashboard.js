@@ -945,7 +945,7 @@ async function initializeDashboard() {
 
     const socialInputs = [
       'socialTwitch', 'socialYoutube', 'socialTiktok', 
-      'socialFacebook', 'socialX', 'socialDiscord', 'socialInstagram'
+      'socialFacebook', 'socialX', 'socialDiscord', 'socialInstagram', 'socialKick'
     ];
     
     socialInputs.forEach(id => {
@@ -953,7 +953,11 @@ async function initializeDashboard() {
       if (input) {
         input.addEventListener('input', () => {
           const errorSpan = document.getElementById(`err-${id}`);
-          if (!validateUrl(input.value.trim())) {
+          // Kick รับเฉพาะ kick.com (server เป็น gate จริง — ตรงนี้แค่บอก user ก่อนกดบันทึก)
+          const isValid = id === 'socialKick'
+            ? validateKickUrlClient(input.value.trim())
+            : validateUrl(input.value.trim());
+          if (!isValid) {
             input.classList.add('input-error');
             if (errorSpan) errorSpan.style.display = 'block';
           } else {
@@ -2847,6 +2851,7 @@ function loadPageSettingsFromData(data) {
     socialX:         'social_x',
     socialDiscord:   'social_discord',
     socialInstagram: 'social_instagram',
+    socialKick:      'social_kick',
   };
   for (const [id, key] of Object.entries(socialMap)) {
     const el = document.getElementById(id);
@@ -8595,6 +8600,7 @@ async function loadPageSettings() {
         socialX: 'x',
         socialDiscord: 'discord',
         socialInstagram: 'instagram',
+        socialKick: 'kick',
       };
       Object.entries(socialMapping).forEach(([id, socialKey]) => {
         const input = document.getElementById(id);
@@ -8662,6 +8668,7 @@ async function savePageSettings(e) {
     social_x: document.getElementById('socialX')?.value || '',
     social_discord: document.getElementById('socialDiscord')?.value || '',
     social_instagram: document.getElementById('socialInstagram')?.value || '',
+    social_kick: document.getElementById('socialKick')?.value.trim() || '',
     profile_image_value: document.getElementById('profileImageValue')?.value || '',
     profile_glow_color: document.getElementById('profileGlowColor')?.value || '',
     header_bg_url: document.getElementById('inputHeaderBgUrl')?.value || '',
@@ -8731,6 +8738,20 @@ function validateUrl(url) {
   try {
     new URL(url);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+// mirror ของ validateKickUrl() ใน server.js — ปุ่มติดป้าย Kick ต้องชี้ kick.com เท่านั้น
+function validateKickUrlClient(url) {
+  if (!url) return true; // Optional
+  if (url.length > 2048) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'kick.com' || host.endsWith('.kick.com');
   } catch {
     return false;
   }

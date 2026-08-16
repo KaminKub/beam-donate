@@ -258,6 +258,21 @@ body {
 .social-btn.tiktok { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
 .social-btn.x { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 255, 255, 0.2); }
 .social-btn.instagram { background: linear-gradient(45deg, rgba(225, 48, 100, 0.4), rgba(131, 56, 236, 0.4)); border-color: rgba(225, 48, 100, 0.6); }
+.social-btn.kick { background: rgba(0, 0, 0, 0.6); border-color: rgba(83, 252, 24, 0.6); }
+.social-btn.kick:focus-visible { outline: 2px solid #53fc18; outline-offset: 2px; }
+
+/* Kick ไม่มี glyph ใน Font Awesome — ใช้ตัว K แทน โดยคุมขนาด/เส้นให้เท่า fa icon ตัวอื่น (16px) */
+.social-btn.kick i {
+  font-family: "Arial Black", Arial, sans-serif;
+  font-style: normal;
+  font-weight: 900;
+  font-size: 19px;      /* cap height ของ K ให้สูงเท่า glyph fa 16px */
+  line-height: 16px;    /* กล่องสูงเท่า fa icon เป๊ะ — ปุ่มไม่สูงขึ้น */
+  width: 16px;
+  text-align: center;
+  color: #53fc18;
+}
+.social-btn.kick i::before { content: "K"; }
 
 .social-btn:hover {
   transform: translateY(-3px);
