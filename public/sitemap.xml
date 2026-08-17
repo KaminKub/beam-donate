@@ -16,12 +16,12 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tipkub.me/privacy</loc>
+    <loc>https://tipkub.me/privacy.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://tipkub.me/terms-of-services</loc>
+    <loc>https://tipkub.me/terms-of-services.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
