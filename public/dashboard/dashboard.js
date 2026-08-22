@@ -1836,6 +1836,23 @@ async function initializeDashboard() {
         // FFP disabled - ไม่ทำอะไร
         if (method === 'ffp') return;
 
+        const turningOn = !card.classList.contains('active');
+        const s = window._lastPaymentSettings || {};
+        const webhookPpin = s.truemoney_webhook_enabled == 1 &&
+                            (s.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
+
+        // สลับโหมด: พร้อมเพย์ SlipOK กับ พร้อมเพย์ทรูมันนี่ ใช้ QR พร้อมเพย์ช่องเดียวกัน เปิดพร้อมกันไม่ได้
+        if (method === 'promptpay' && turningOn && webhookPpin) {
+          showConfirmModal(
+            'สลับไปใช้พร้อมเพย์ SlipOK',
+            'ตอนนี้คุณเปิด "พร้อมเพย์ทรูมันนี่" อยู่ — เปิดพร้อมเพย์ SlipOK จะปิดพร้อมเพย์ทรูมันนี่อัตโนมัติ (เปิดพร้อมกันไม่ได้) ต้องการสลับหรือไม่?',
+            '<i class="fa-solid fa-right-left" style="color:#f59e0b;"></i>',
+            () => { card.classList.add('active'); showSelectionBubble(card, 'เลือกแล้ว'); updateSaveButton(); },
+            'สลับโหมด', 'btn-primary'
+          );
+          return;   // ห้าม toggle ก่อนได้รับการยืนยัน
+        }
+
         // Toggle active state (checkbox behavior)
         card.classList.toggle('active');
 
@@ -9575,7 +9592,15 @@ function renderTrueMoneyWebhookState(data) {
   if (swP2P) { swP2P.checked = methods.includes('P2P') || methods.length === 0; swP2P.dispatchEvent(new Event('change', { bubbles: true })); }
   if (swPromptpay) { swPromptpay.checked = methods.includes('PROMPTPAY_IN'); swPromptpay.dispatchEvent(new Event('change', { bubbles: true })); }
   if (promptpayGroup) promptpayGroup.style.display = (swPromptpay?.checked) ? 'block' : 'none';
-  if (promptpayIdInput) promptpayIdInput.value = data.truemoney_promptpay_id || '';
+  if (promptpayIdInput) {
+    // ค่าที่ server ส่งมาถูก censor แล้ว — ใส่ลง value ไม่ได้ (validate 15 หลักจะไม่ผ่าน)
+    // แสดงเป็น placeholder แทน: เว้นว่าง = ใช้ค่าเดิม, กรอกใหม่ = เปลี่ยนค่า
+    const storedPpId = data.truemoney_promptpay_id || '';
+    promptpayIdInput.value = '';
+    promptpayIdInput.placeholder = storedPpId
+      ? `บันทึกไว้แล้ว: ${storedPpId} (เว้นว่างไว้ = ใช้ค่าเดิม)`
+      : 'PromptPay e-Wallet ID 15 หลัก จากแอป TrueMoney';
+  }
 
   if (conflictBanner) {
     const hasPromptpayIn = methods.includes('PROMPTPAY_IN');
@@ -9641,6 +9666,58 @@ function initTrueMoneyWebhookModal() {
   if (swPromptpay && promptpayGroup) {
     swPromptpay.addEventListener('change', () => {
       promptpayGroup.style.display = swPromptpay.checked ? 'block' : 'none';
+    });
+  }
+
+  // ---- บันทึกวิธีรับเงิน (F4) — แผง #webhookMethodSettings ไม่เคยมีปุ่มบันทึกมาก่อน ----
+  const btnSaveMethods = document.getElementById('btnSaveWebhookMethods');
+  if (btnSaveMethods) {
+    btnSaveMethods.addEventListener('click', async () => {
+      const p2p = document.getElementById('swMethodP2P')?.checked;
+      const ppin = document.getElementById('swMethodPromptpay')?.checked;
+      const ppId = (document.getElementById('webhookPromptpayId')?.value || '').trim();
+      const hasStored = !!(window._lastPaymentSettings || {}).truemoney_promptpay_id;
+
+      const methods = [];
+      if (p2p) methods.push('P2P');
+      if (ppin) methods.push('PROMPTPAY_IN');
+      if (methods.length === 0) return showNotification('กรุณาเลือกอย่างน้อย 1 วิธีรับเงิน', 'error');
+      if (ppin && !ppId && !hasStored) return showNotification('กรุณากรอก PromptPay e-Wallet ID 15 หลัก', 'error');
+      if (ppin && ppId && !/^\d{15}$/.test(ppId)) return showNotification('PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก', 'error');
+
+      const submit = async () => {
+        try {
+          const res = await fetchWithCsrf('/api/truemoney/setup-webhook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update-methods', methods, promptpayId: ppin ? ppId : undefined })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showNotification('บันทึกวิธีรับเงินแล้ว', 'success');
+            if (data.promptpaySlipokDisabled) {
+              showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
+            }
+            await loadPaymentSettings();
+          } else {
+            showNotification(data.error || 'บันทึกวิธีรับเงินไม่สำเร็จ', 'error');
+          }
+        } catch (err) {
+          showNotification(err.message || 'บันทึกวิธีรับเงินไม่สำเร็จ', 'error');
+        }
+      };
+
+      const slipokOn = (window._lastPaymentSettings || {}).promptpay_enabled == 1;
+      if (ppin && slipokOn) {
+        showConfirmModal(
+          'เปิดพร้อมเพย์ทรูมันนี่',
+          'เปิดพร้อมเพย์ทรูมันนี่ → ระบบจะปิดพร้อมเพย์ SlipOK อัตโนมัติ (เงินเข้า wallet เดียวกัน) เปิดกลับได้ที่ตั้งค่าพร้อมเพย์',
+          '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
+          submit, 'ตกลง', 'btn-primary'
+        );
+      } else {
+        await submit();
+      }
     });
   }
 
@@ -9745,7 +9822,12 @@ function initTrueMoneyWebhookModal() {
         showNotification('กรุณาเลือกอย่างน้อย 1 วิธีรับเงิน', 'error');
         return;
       }
-      if (promptpay && !/^\d{15}$/.test(promptpayId)) {
+      const hasStoredPromptpayId = !!(window._lastPaymentSettings || {}).truemoney_promptpay_id;
+      if (promptpay && !promptpayId && !hasStoredPromptpayId) {
+        showNotification('กรุณากรอก PromptPay e-Wallet ID 15 หลัก', 'error');
+        return;
+      }
+      if (promptpay && promptpayId && !/^\d{15}$/.test(promptpayId)) {
         showNotification('PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก', 'error');
         return;
       }

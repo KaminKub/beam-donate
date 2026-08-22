@@ -5983,6 +5983,37 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       return res.json({ success: true, enabled: false });
     }
 
+    if (action === 'update-methods') {
+      if (streamer.truemoney_webhook_enabled !== 1 || !streamer.truemoney_webhook_secret_encrypted) {
+        return res.status(400).json({ error: 'กรุณาเชื่อมต่อ TrueMoney Webhook ก่อน' });
+      }
+      const ALLOWED = ['P2P', 'PROMPTPAY_IN'];
+      const clean = (Array.isArray(methods) ? methods : [methods]).filter(Boolean).filter(m => ALLOWED.includes(m));
+      if (clean.length === 0) return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
+
+      const patch = { ...ids, truemoney_webhook_methods: clean.join(',') };
+
+      if (clean.includes('PROMPTPAY_IN')) {
+        const existing = decryptPaymentFields(streamer).truemoney_promptpay_id;
+        const incoming = String(promptpayId || '').replace(/\D/g, '');
+        if (incoming) {
+          if (!/^\d{15}$/.test(incoming)) return res.status(400).json({ error: 'PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก' });
+          patch.truemoney_promptpay_id = incoming;
+        } else if (!existing) {
+          return res.status(400).json({ error: 'กรุณากรอก PromptPay e-Wallet ID 15 หลัก' });
+        }
+      }
+
+      let conflictUM = false;
+      if (clean.includes('PROMPTPAY_IN') && streamer.promptpay_enabled === 1) {
+        patch.promptpay_enabled = 0;
+        conflictUM = true;
+      }
+
+      await db.saveStreamer(patch);
+      return res.json({ success: true, methods: clean, promptpaySlipokDisabled: conflictUM });
+    }
+
     if (action !== 'enable') return res.status(400).json({ error: 'Invalid action' });
 
     const ALLOWED_METHODS = ['P2P', 'PROMPTPAY_IN'];
@@ -6003,9 +6034,15 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       return res.status(400).json({ error: 'Key ไม่ถูกต้อง กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney' });
     }
 
+    let ppIdToSave = null;
     if (cleanMethods.includes('PROMPTPAY_IN')) {
-      if (!promptpayId || !/^\d{15}$/.test(String(promptpayId).replace(/\D/g, ''))) {
-        return res.status(400).json({ error: 'PromptPay e-Wallet ID must be 15 digits' });
+      const existingPpId = decryptPaymentFields(streamer).truemoney_promptpay_id;
+      const incomingPpId = String(promptpayId || '').replace(/\D/g, '');
+      if (incomingPpId) {
+        if (!/^\d{15}$/.test(incomingPpId)) return res.status(400).json({ error: 'PromptPay e-Wallet ID ต้องเป็นตัวเลข 15 หลัก' });
+        ppIdToSave = incomingPpId;
+      } else if (!existingPpId) {
+        return res.status(400).json({ error: 'กรุณากรอก PromptPay e-Wallet ID 15 หลัก' });
       }
     }
 
@@ -6035,7 +6072,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       truemoney_webhook_enabled: 1,
       truemoney_webhook_kyc_confirmed: 1,
       truemoney_webhook_methods: cleanMethods.join(','),
-      ...(cleanMethods.includes('PROMPTPAY_IN') ? { truemoney_promptpay_id: promptpayId } : {}),
+      ...(ppIdToSave ? { truemoney_promptpay_id: ppIdToSave } : {}),
       ...(secretChanged ? { truemoney_webhook_verified_at: '' } : {})
     });
 
