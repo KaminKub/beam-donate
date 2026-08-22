@@ -216,6 +216,8 @@ body {
 /* ========== Dashboard Card Icon Colors ========== */
 .api-notice .fa-info-circle { color: #60a5fa; }
 
+.api-notice .fa-exclamation-circle { color: #f59e0b; }
+
 .btn-slipok-api .fa-external-link-alt { color: inherit; }
 
 .btn-settings .fa-chevron-down { color: inherit; }
@@ -3960,6 +3962,56 @@ label {
 
 .btn-slipok-api:hover i {
   transform: translateX(2px);
+}
+
+/* ========== SlipOK LINE Add Button (Prominent — renewal) ========== */
+.btn-slipok-line-add {
+  background: linear-gradient(135deg, #00c73c 0%, #06c755 50%, #00b544 100%);
+  background-size: 200% auto;
+  border: none;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(6, 199, 85, 0.4), 0 0 0 1px rgba(0, 199, 60, 0.2);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-slipok-line-add::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-slipok-line-add:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(6, 199, 85, 0.5), 0 0 0 1px rgba(0, 199, 60, 0.35);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.btn-slipok-line-add:hover::before {
+  left: 100%;
+}
+
+.btn-slipok-line-add:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(6, 199, 85, 0.35);
+}
+
+.btn-slipok-line-add i {
+  font-size: 13px;
 }
 
 /* ========== SlipOK Packages Link ========== */
