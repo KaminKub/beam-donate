@@ -3737,6 +3737,18 @@ const btnBackBank = document.getElementById('btnBackBank');
 const btnVerifyBank = document.getElementById('btnVerifyBank');
 const bankAmount = document.getElementById('bankAmount');
 const bankNameDisplay = document.getElementById('bankNameDisplay');
+const BANK_FULL_NAMES = {
+  kbank: 'กสิกรไทย', scb: 'ไทยพาณิชย์', krungthai: 'กรุงไทย', bbl: 'กรุงเทพ',
+  ttb: 'ทีเอ็มบีธนชาต', bay: 'กรุงศรีอยุธยา', cimb: 'ซีไอเอ็มบี ไทย', lhbank: 'แลนด์ แอนด์ เฮ้าส์',
+  uob: 'ยูโอบี', tcrb: 'ไทยเครดิตเพื่อรายย่อย', gsb: 'ออมสิน', baac: 'ธ.ก.ส.',
+  citibank: 'ซิตี้แบงก์', sc: 'สแตนดาร์ดชาร์เตอร์ด', kkp: 'เกียรตินาคินภัทร', ghb: 'อาคารสงเคราะห์',
+  tisco: 'ทิสโก้', ibank: 'อิสลามแห่งประเทศไทย'
+};
+function formatBankName(code) {
+  if (!code) return '';
+  const full = BANK_FULL_NAMES[code.toLowerCase()];
+  return full ? `${full} (${code.toUpperCase()})` : code;
+}
 const bankAccountNumberDisplay = document.getElementById('bankAccountNumberDisplay');
 const bankAccountNameDisplay = document.getElementById('bankAccountNameDisplay');
 const bankSlipFileInput = document.getElementById('bankSlipFileInput');
@@ -4393,7 +4405,7 @@ btnProceedPayment.addEventListener('click', async (e) => {
     updateSlipOkWarning('bank');
 
     if (bankAmount) bankAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
-    if (bankNameDisplay) bankNameDisplay.textContent = streamerPaymentMethods.bank_name || '';
+    if (bankNameDisplay) bankNameDisplay.textContent = formatBankName(streamerPaymentMethods.bank_name);
     if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = streamerPaymentMethods.bank_account_number || '';
     if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = streamerPaymentMethods.bank_account_name || '';
 
@@ -4542,7 +4554,7 @@ function applyManualPaymentDetails(method) {
   }
 
   if (bankAmount) bankAmount.textContent = `฿${selectedAmount.toLocaleString()}`;
-  if (bankNameDisplay) bankNameDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_name || loadingText) : loadingText;
+  if (bankNameDisplay) bankNameDisplay.textContent = methodsLoaded ? formatBankName(streamerPaymentMethods.bank_name) : loadingText;
   if (bankAccountNumberDisplay) bankAccountNumberDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_account_number || loadingText) : loadingText;
   if (bankAccountNameDisplay) bankAccountNameDisplay.textContent = methodsLoaded ? (streamerPaymentMethods.bank_account_name || loadingText) : loadingText;
   updateSlipOkWarning('bank');
