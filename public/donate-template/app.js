@@ -2592,8 +2592,21 @@ function hydratePaymentMethodStep(methods) {
   const optionBank = document.getElementById('optionBank');
   if (optionFFP) optionFFP.style.display = usable.ffp ? '' : 'none';
   if (optionPromptPay) optionPromptPay.style.display = usable.promptpay ? '' : 'none';
-  if (optionTrueMoney) optionTrueMoney.style.display = usable.truemoney ? '' : 'none';
   if (optionBank) optionBank.style.display = usable.bank ? '' : 'none';
+
+  // ปิดปรับปรุงชั่วคราว (global kill-switch) — โชว์การ์ดแบบกดไม่ได้ แทนการซ่อน
+  const maintenanceBadge = document.getElementById('trueMoneyMaintenanceBadge');
+  if (optionTrueMoney) {
+    if (methods.truemoney_webhook_maintenance) {
+      optionTrueMoney.style.display = '';
+      optionTrueMoney.classList.add('disabled');
+      if (maintenanceBadge) maintenanceBadge.style.display = '';
+    } else {
+      optionTrueMoney.style.display = usable.truemoney ? '' : 'none';
+      optionTrueMoney.classList.remove('disabled');
+      if (maintenanceBadge) maintenanceBadge.style.display = 'none';
+    }
+  }
 
   if (!usable.any) return false;
 

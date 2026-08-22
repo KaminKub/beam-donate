@@ -56,6 +56,9 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+// Global kill-switch — /api/truemoney/webhook ยังไม่เคยถูกยิงถึงจริงจากบัญชีทดสอบ (0 hit ทั้ง nginx log)
+// ปิดชั่วคราวทุกสตรีมเมอร์จนกว่าจะยืนยันว่า webhook ทำงานจริง — toggle ผ่าน .env (ต้อง pm2 delete/start ไม่ใช่ restart)
+const TRUEMONEY_WEBHOOK_MAINTENANCE = process.env.TRUEMONEY_WEBHOOK_MAINTENANCE === 'on';
 // ToS §9 promises 7 days notice before a change takes effect, so the enforced version is
 // date-driven — see src/legal-helpers.js for the release procedure.
 const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions, PAYMENT_ELIGIBILITY_VERSION } = require('./legal-helpers');
@@ -6054,6 +6057,9 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
     if (!['P2P', 'PROMPTPAY_IN'].includes(method)) {
       return res.status(400).json({ error: 'Invalid method' });
     }
+    if (TRUEMONEY_WEBHOOK_MAINTENANCE) {
+      return res.status(400).json({ error: 'ระบบ TrueMoney Webhook ปิดปรับปรุงชั่วคราว' });
+    }
 
     await cleanupExpiredTransactionsWithR2();
     const pendingCount = await db.countPendingTransactions(username);
@@ -6426,8 +6432,9 @@ app.get('/api/page/:username/payment-methods', paymentMethodsLimiter, async (req
       slipok_ready: slipOkState.ready,
       slipok_effective_scope: slipOkState.effectiveScope,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
-      truemoney_webhook: streamer.truemoney_webhook_enabled === 1,
-      truemoney_webhook_methods: streamer.truemoney_webhook_enabled === 1 ? (streamer.truemoney_webhook_methods || 'P2P') : '',
+      truemoney_webhook: streamer.truemoney_webhook_enabled === 1 && !TRUEMONEY_WEBHOOK_MAINTENANCE,
+      truemoney_webhook_methods: (streamer.truemoney_webhook_enabled === 1 && !TRUEMONEY_WEBHOOK_MAINTENANCE) ? (streamer.truemoney_webhook_methods || 'P2P') : '',
+      truemoney_webhook_maintenance: TRUEMONEY_WEBHOOK_MAINTENANCE && streamer.truemoney_webhook_enabled === 1,
       bank_name: bankEnabled ? (streamer.bank_name || '') : '',
       bank_account_number: bankEnabled ? (decrypted.bank_account_number || '') : '',
       bank_account_name: bankEnabled ? (decrypted.bank_account_name || '') : ''
