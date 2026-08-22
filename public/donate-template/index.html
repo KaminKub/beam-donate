@@ -415,12 +415,16 @@
               <button type="button" class="tier-subtab-btn active" data-subtab="upload" id="tierUploadSubtabBtn"><i class="fa-solid fa-upload"></i> อัพโหลดเสียง</button>
               <button type="button" class="tier-subtab-btn" data-subtab="record" id="tierRecordSubtabBtn"><i class="fa-solid fa-microphone"></i> อัดเสียงจากไมค์</button>
             </div>
+            <div id="tierOwnAudioStatusRow" class="tier-own-audio-status-row" style="display:none;">
+              <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
+              <button type="button" id="btnChangeTierOwnAudioSound" class="btn-text" style="display:none;"><i class="fa-solid fa-rotate-left"></i> เปลี่ยนเสียง</button>
+              <button type="button" id="btnChangeTierYoutubeSound" class="btn-text" style="display:none;"><i class="fa-brands fa-youtube"></i> เปลี่ยนเสียง YouTube</button>
+            </div>
             <div id="tierUploadPane" class="sound-source-pane" data-sound-source="upload">
               <input type="file" id="tierOwnAudioFile" accept="audio/*" hidden>
               <label for="tierOwnAudioFile" id="tierUploadLabelBtn" class="tier-upload-label"><i class="fa-solid fa-upload"></i> เลือกไฟล์เสียง</label>
               <button type="button" id="btnPickTierYoutube" class="tier-upload-label tier-youtube-label"><i class="fa-brands fa-youtube"></i> YouTube</button>
               <button type="button" id="btnPickTierCatalog" class="tier-upload-label"><i class="fa-solid fa-globe" style="color:#3b82f6;"></i> เลือกเสียง URL</button>
-              <span id="tierOwnAudioStatus" style="font-size:12px;color:#94a3b8;"></span>
               <div id="tierUploadReview" style="display:none;">
                 <audio id="tierUploadPreview" controls></audio>
                 <button type="button" id="tierUploadCancelBtn" class="btn-text"><i class="fa-solid fa-rotate-left"></i> เปลี่ยนไฟล์เสียง</button>
@@ -432,7 +436,10 @@
                   <i class="fa-solid fa-circle" style="color:#ef4444;"></i> <span id="tierRecordBtnLabel">เริ่มอัดเสียง</span>
                 </button>
                 <div id="tierRecordTimer" class="tier-record-timer" style="display:none"></div>
-                <span id="tierRecordStatus" style="font-size:12px;color:#94a3b8;"></span>
+                <div class="tier-record-status-row">
+                  <span id="tierRecordStatus" style="font-size:12px;color:#94a3b8;"></span>
+                  <button type="button" id="btnChangeTierRecordSound" class="btn-text" style="display:none;"><i class="fa-solid fa-rotate-left"></i> เปลี่ยนเสียง</button>
+                </div>
                 <div id="tierRecordUnsupported" style="display:none;margin-top:10px;padding:12px 14px;border-radius:8px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#fca5a5;font-size:13px;line-height:1.6;">
                   <i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>
                   <strong>เบราว์เซอร์นี้ใช้ไมโครโฟนไม่ได้</strong><br>
@@ -447,6 +454,7 @@
                   <button type="button" class="tier-eq-btn" data-eq="warm">เสียงทุ้ม</button>
                 </div>
                 <span id="tierEqStatus" style="font-size:12px;color:#94a3b8;"></span>
+                <div id="tierRecordConfirmHint" class="tier-record-confirm-hint" role="alert" style="display:none;">กรุณากด “ใช้เสียงนี้” ก่อนดำเนินการต่อ</div>
                 <div class="tier-record-review-actions">
                   <button type="button" id="tierRecordRetryBtn" class="btn-secondary btn-sm"><i class="fa-solid fa-rotate-left"></i> อัดใหม่</button>
                   <button type="button" id="tierRecordConfirmBtn" class="btn-primary btn-sm"><i class="fa-solid fa-check"></i> ใช้เสียงนี้</button>

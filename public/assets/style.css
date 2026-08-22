@@ -2301,9 +2301,29 @@ input[type=number] {
   align-items: center;
   gap: 8px;
 }
-#tierUploadPane #tierUploadReview,
-#tierUploadPane #tierOwnAudioStatus {
+#tierUploadPane #tierUploadReview {
   flex-basis: 100%;
+}
+#tierOwnAudioStatusRow {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.tier-record-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 24px;
+}
+.tier-record-confirm-hint {
+  color: #fca5a5;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
 }
 /* บังคับ 3 ปุ่มแถวเดียวเสมอ รวมมือถือ — flex-basis 0 หารพื้นที่เท่ากัน + ellipsis กันล้น */
 #tierUploadPane > #tierUploadLabelBtn,
