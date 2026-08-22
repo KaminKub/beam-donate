@@ -5218,6 +5218,7 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       truemoney_webhook_methods: decrypted.truemoney_webhook_methods || 'P2P',
       truemoney_webhook_expiry: decrypted.truemoney_webhook_expiry || '',
       truemoney_webhook_kyc_confirmed: decrypted.truemoney_webhook_kyc_confirmed || 0,
+      truemoney_webhook_verified_at: decrypted.truemoney_webhook_verified_at || '',
       truemoney_promptpay_id: censor(decrypted.truemoney_promptpay_id || '', 3, 2),
       truemoney_webhook_tx_month: await db.countMonthlyWebhookTx(actualUsername),
       bank_enabled: decrypted.bank_enabled || 0,
@@ -5872,6 +5873,17 @@ app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => 
       return res.status(401).json({ error: 'Invalid JWT' });
     }
 
+    // signature ผ่าน = TrueMoney ถือ secret เดียวกับเรา — พิสูจน์ verified ได้จุดเดียวตรงนี้
+    // เขียนก่อนกรอง event_type เพื่อให้เติมเงินเข้า wallet ตัวเองก็ยืนยันได้ (streamer ทดสอบเองได้)
+    if (!streamer.truemoney_webhook_verified_at) {
+      db.saveStreamer({
+        twitch_id: streamer.twitch_id || null,
+        streamlabs_id: streamer.streamlabs_id || null,
+        username: streamerId,
+        truemoney_webhook_verified_at: new Date().toISOString()
+      }).catch(e => console.error('mark webhook verified failed:', e.message));
+    }
+
     if (decoded.event_type === 'DIRECT_TOPUP') {
       return res.json({ success: true, ignored: 'direct_topup' });
     }
@@ -6008,13 +6020,20 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       conflict = true;
     }
 
+    // key ใหม่ = ยังไม่พิสูจน์ ต้องเริ่มนับใหม่ (ส่ง '' ไม่ใช่ null เพราะ COALESCE ถือ null = ไม่เปลี่ยน)
+    const prevSecret = streamer.truemoney_webhook_secret_encrypted
+      ? (() => { try { return decrypt(streamer.truemoney_webhook_secret_encrypted); } catch { return null; } })()
+      : null;
+    const secretChanged = secret !== prevSecret;
+
     await db.saveStreamer({
       ...ids,
       truemoney_webhook_secret: secret,
       truemoney_webhook_enabled: 1,
       truemoney_webhook_kyc_confirmed: 1,
       truemoney_webhook_methods: cleanMethods.join(','),
-      ...(cleanMethods.includes('PROMPTPAY_IN') ? { truemoney_promptpay_id: promptpayId } : {})
+      ...(cleanMethods.includes('PROMPTPAY_IN') ? { truemoney_promptpay_id: promptpayId } : {}),
+      ...(secretChanged ? { truemoney_webhook_verified_at: '' } : {})
     });
 
     res.json({ success: true, enabled: true, methods: cleanMethods, connected: true, promptpaySlipokDisabled: conflict });

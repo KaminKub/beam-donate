@@ -5069,6 +5069,86 @@ label {
   color: var(--text-muted);
 }
 
+/* รอยืนยันการเชื่อมต่อ webhook — แสดงเฉพาะ enabled && !verified (F3/E3.7) */
+.webhook-verify-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: radial-gradient(circle at 0% 0%, rgba(245,158,11,0.18), transparent 60%), linear-gradient(135deg, rgba(245,158,11,0.10), rgba(245,158,11,0.03));
+  border: 1px solid rgba(245,158,11,0.28);
+  border-radius: 12px;
+  padding: 0 14px;
+  margin-bottom: 0;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity .2s ease, max-height .2s ease, padding .2s ease, margin-bottom .2s ease;
+}
+
+.webhook-verify-card.is-visible {
+  opacity: 1;
+  max-height: 200px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.webhook-verify-card > i.fa-shield-halved {
+  color: #f59e0b;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.webhook-verify-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.webhook-verify-body strong {
+  display: block;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.webhook-verify-body p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+#btnCheckWebhookVerified {
+  flex-shrink: 0;
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+
+#btnCheckWebhookVerified:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.25), 0 0 12px rgba(245,158,11,.35);
+}
+
+#btnCheckWebhookVerified:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+#btnCheckWebhookVerified:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .webhook-verify-card.is-visible {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  #btnCheckWebhookVerified {
+    width: 100%;
+  }
+}
+
 .webhook-methods-row {
   display: flex;
   flex-wrap: wrap;

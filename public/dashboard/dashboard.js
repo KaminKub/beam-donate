@@ -9503,18 +9503,23 @@ function renderTrueMoneyWebhookState(data) {
 
   const enabled = data.truemoney_webhook_enabled === 1 || data.truemoney_webhook_enabled === true || data.truemoney_webhook_enabled === '1';
   const secretSet = !!data.truemoney_webhook_secret_set;
+  const verified = !!data.truemoney_webhook_verified_at;
   const methods = (data.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
 
   const hiddenNote = document.getElementById('truemoneyWebhookRequiredNote');
   if (hiddenNote) hiddenNote.classList.toggle('is-visible', !!data.truemoney_enabled && !enabled);
 
-  // badge — three states (no expiry countdown: Open API expiry unknown, RT#5)
+  // badge — four states (no expiry countdown: Open API expiry unknown, RT#5)
   // dot ใช้ .status-dot เหมือนหน้าโดเนท/TikTok bridge badge (ไม่ใช้ emoji)
   let badgeText, badgeColor, dotCls;
-  if (enabled) {
+  if (enabled && verified) {
     badgeText = 'เชื่อมต่อแล้ว · ไม่ต้องใช้สลิป';
     badgeColor = '#10b981';
     dotCls = 'online';
+  } else if (enabled && !verified) {
+    badgeText = 'บันทึก Key แล้ว · รอตรวจสอบ';
+    badgeColor = '#f59e0b';
+    dotCls = 'warn';
   } else if (secretSet) {
     badgeText = 'เชื่อมต่อไม่ได้ · กดต่ออายุ';
     badgeColor = '#ef4444';
@@ -9577,6 +9582,9 @@ function renderTrueMoneyWebhookState(data) {
     const slipokPromptpayEnabled = data.promptpay_enabled === 1 || data.promptpay_enabled === true || data.promptpay_enabled === '1';
     conflictBanner.style.display = (enabled && hasPromptpayIn && !slipokPromptpayEnabled) ? 'flex' : 'none';
   }
+
+  const verifyCard = document.getElementById('webhookVerifyCard');
+  if (verifyCard) verifyCard.classList.toggle('is-visible', enabled && !verified);
 }
 
 function initTrueMoneyWebhookModal() {
@@ -9633,6 +9641,16 @@ function initTrueMoneyWebhookModal() {
   if (swPromptpay && promptpayGroup) {
     swPromptpay.addEventListener('change', () => {
       promptpayGroup.style.display = swPromptpay.checked ? 'block' : 'none';
+    });
+  }
+
+  // ---- ตรวจสอบสถานะ verified (F3/E3.7) — reload settings เท่านั้น ไม่มี endpoint ใหม่ ----
+  const btnCheckVerified = document.getElementById('btnCheckWebhookVerified');
+  if (btnCheckVerified) {
+    btnCheckVerified.addEventListener('click', async () => {
+      btnCheckVerified.disabled = true;
+      await loadPaymentSettings();
+      btnCheckVerified.disabled = false;
     });
   }
 
@@ -9753,7 +9771,7 @@ function initTrueMoneyWebhookModal() {
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            showNotification('เชื่อมต่อ TrueMoney สำเร็จ! รับเงินอัตโนมัติได้เลย ไม่ต้องใช้สลิป', 'success');
+            showNotification('บันทึก Key แล้ว — เหลืออีกขั้น: รับเงินเข้า wallet 1 ครั้งเพื่อยืนยันการเชื่อมต่อ', 'success');
             if (data.promptpaySlipokDisabled) {
               showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
             }
