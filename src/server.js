@@ -5272,6 +5272,17 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
       }
     }
 
+    // TrueMoney P2P QR ต้องการเบอร์ 10 หลักขึ้นต้น 0 เป๊ะ ๆ (promptparse ต่อ "14000"+เบอร์ = 15 หลัก)
+    // ค่าที่มี '*' = placeholder จาก dashboard (ไม่ได้แก้) — ปล่อยผ่านให้ database.js กรองทิ้งตามเดิม
+    let tmPhone = req.body.truemoney_phone || '';
+    if (tmPhone && !tmPhone.includes('*')) {
+      tmPhone = tmPhone.replace(/\D/g, '');
+      if (tmPhone.startsWith('66') && tmPhone.length === 11) tmPhone = '0' + tmPhone.slice(2);
+      if (req.body.truemoney_enabled && !/^0\d{9}$/.test(tmPhone)) {
+        return res.status(400).json({ error: 'เบอร์ TrueMoney ต้องเป็นเบอร์มือถือ 10 หลัก (ขึ้นต้นด้วย 0)' });
+      }
+    }
+
     const updatedStreamer = await db.saveStreamer({
       twitch_id: req.user.twitch_id || null,
       streamlabs_id: req.user.streamlabs_id || null,
@@ -5285,7 +5296,7 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
       slipok_api: req.body.slipok_api || '',
       slipok_api_key: req.body.slipok_api_key || '',
       truemoney_enabled: req.body.truemoney_enabled ? 1 : 0,
-      truemoney_phone: req.body.truemoney_phone || '',
+      truemoney_phone: tmPhone,
       truemoney_slipok_api: req.body.truemoney_slipok_api || '',
       truemoney_slipok_api_key: req.body.truemoney_slipok_api_key || '',
       bank_enabled: req.body.bank_enabled ? 1 : 0,
@@ -6041,7 +6052,9 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
       return res.status(400).json({ error: 'Method not enabled for this streamer' });
     }
 
-    const refId = `donate-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+    // TrueMoney P2P QR ฝัง refId ลง EMVCo tag 81 (UTF-16 hex = 4 ตัวอักษร/char) และ TLV
+    // length field มีแค่ 2 หลัก → message ห้ามเกิน 24 ตัวอักษร ไม่งั้น QR พัง (BPAY-2010)
+    const refId = `donate-${crypto.randomBytes(7).toString('hex')}`;   // 21 chars = 84 hex
     const createdAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -6050,8 +6063,15 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
 
     if (method === 'P2P') {
       const decrypted = decryptPaymentFields(streamer);
-      const phone = decrypted.truemoney_phone;
-      if (!phone) return res.status(400).json({ error: 'TrueMoney phone not configured' });
+      const phone = (decrypted.truemoney_phone || '').replace(/\D/g, '');
+      if (!/^0\d{9}$/.test(phone)) {
+        return res.status(400).json({ error: 'สตรีมเมอร์ยังตั้งค่าเบอร์ TrueMoney ไม่ถูกต้อง' });
+      }
+      // EMVCo tag 81 TLV length = 2 หลัก → message ยาวเกิน 24 ตัวอักษรทำ payload พังเงียบ ๆ
+      if (refId.length > 24) {
+        console.error('TrueMoney P2P refId too long for EMVCo tag 81:', refId.length);
+        return res.status(500).json({ error: 'ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่' });
+      }
       qrData = promptparse.generate.trueMoney({ mobileNo: phone, amount: parseFloat(amount), message: refId });
     } else {
       const decrypted = decryptPaymentFields(streamer);

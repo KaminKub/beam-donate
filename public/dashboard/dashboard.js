@@ -9455,8 +9455,10 @@ function validatePromptPaySettings() {
 
   if (trueMoneyActive) {
     const phone = document.getElementById('inputTrueMoneyPhone')?.value.trim();
-    if (!phone) errors.push('เบอร์ TrueMoney');
-    highlight('inputTrueMoneyPhone', !phone);
+    const digits = (phone || '').replace(/\D/g, '');
+    const bad = !phone || (!phone.includes('*') && !/^0\d{9}$/.test(digits));
+    if (bad) errors.push('เบอร์ TrueMoney (ต้อง 10 หลัก ขึ้นต้น 0)');
+    highlight('inputTrueMoneyPhone', bad);
   }
 
   if (bankActive) {

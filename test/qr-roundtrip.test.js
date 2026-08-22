@@ -2,6 +2,7 @@
 // -> ถอดกลับด้วย jsQR -> ต้องได้สตริงเดิมเป๊ะ + เลขที่ฝังต้องตรงกับที่ streamer ตั้งไว้ (Lesson 64 guard)
 const path = require('path');
 const jsQR = require('jsqr');
+const promptparse = require('promptparse');
 const qrcode = require(path.join(__dirname, '../public/assets/qrcode-generator.min.js'));
 const {
   generatePromptPayPayload,
@@ -89,6 +90,29 @@ if (!lesson64Guarded) {
 } else {
   console.log('→ ยืนยัน: ฟังก์ชันเบอร์โทรไม่ใช่ตัวกลาง ต้องเลือก generatePromptPayEWalletPayload() สำหรับ e-Wallet เท่านั้น (ตรงกับ fix §0b)');
 }
+
+// TrueMoney P2P ฝัง refId ลง EMVCo tag 81 (UTF-16 hex = 4 ตัว/char) แต่ TLV length field
+// มีแค่ 2 หลัก -> message > 24 ตัวอักษรทำ payload พังเงียบ ๆ (BPAY-2010, ไม่ throw)
+console.log('\n--- F1 guard: TrueMoney P2P refId ต้อง <= 24 ตัวอักษร ไม่งั้น EMVCo TLV พัง ---');
+const tmRef = 'donate-' + 'a'.repeat(14);                    // 21 chars = format ที่ create-qr ใช้จริง
+const tmRefOk = tmRef.length <= 24;
+console.log('refId length   :', tmRef.length, tmRefOk ? '(ok)' : '(FAIL — ต้อง <= 24)');
+
+const tmPayload = promptparse.generate.trueMoney({ mobileNo: '0812345678', amount: 100, message: tmRef });
+const tmHasCrc = promptparse.parse(tmPayload).tags.map(t => t.id).includes('63');
+console.log('CRC tag 63     :', tmHasCrc ? 'พบ (TLV ไม่พัง)' : 'ไม่พบ! (FAIL)');
+const tmRoundTrip = roundTrip(tmPayload).decoded === tmPayload;
+console.log('roundtrip QR   :', tmRoundTrip ? 'IDENTICAL' : 'MISMATCH! (FAIL)');
+
+const tmPass = tmRefOk && tmHasCrc && tmRoundTrip;
+allPass = allPass && tmPass;
+if (!tmPass) console.error('  FAIL: TrueMoney P2P refId/QR roundtrip guard');
+
+// regression guard: format เดิม 33 ตัวอักษรต้องพังจริง (กันคนเผลอ revert refId กลับ)
+const tmBad = promptparse.generate.trueMoney({ mobileNo: '0812345678', amount: 100, message: 'donate-' + 'a'.repeat(26) });
+const tmBadHasCrc = promptparse.parse(tmBad).tags.map(t => t.id).includes('63');
+console.log('regression     :', !tmBadHasCrc ? 'ยืนยัน message ยาวเกิน 24 ทำ TLV พังจริง (ok)' : 'ไม่พัง! (FAIL — guard ไม่จำเป็นจริง?)');
+allPass = allPass && !tmBadHasCrc;
 
 console.log('\nRESULT:', allPass ? 'ALL PASS' : 'FAILED');
 if (!allPass) process.exit(1);
