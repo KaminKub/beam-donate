@@ -47,7 +47,8 @@ const {
   classifySlipOkErrorCode,
   classifySlipOkQuotaResponse,
   resolveSlipOkLane,
-  getEffectiveSlipOkCredentialSet
+  getEffectiveSlipOkCredentialSet,
+  normalizeSlipOkScope
 } = require('./slipok-connection');
 
 
@@ -5327,10 +5328,6 @@ const SLIPOK_ERROR_MAP = {
 // The shared classifier below keeps quota, donor verification, explicit retests,
 // and reconciliation on one authoritative-provider allowlist.
 
-function getRequestedSlipOkScope(method) {
-  return method === 'promptpay' || method === 'truemoney' ? method : null;
-}
-
 async function persistAuthoritativeSlipOkDisconnect(streamer, scope, now, endDate) {
   if (!streamer || !scope) throw new Error('Invalid SlipOK authoritative scope');
   return db.disconnectSlipOkScopeIfUnchanged(streamer, scope, now, endDate);
@@ -5424,7 +5421,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
       return res.status(400).json({ error: 'กรุณากรอก API และ API Key' });
     }
 
-    requestedScope = getRequestedSlipOkScope(method);
+    requestedScope = normalizeSlipOkScope(method);
     if (!requestedScope) return res.status(400).json({ success: false, error: 'วิธีการชำระเงินไม่ถูกต้อง' });
     actualUsername = await getActualUsername(req.user);
     streamerBeforeProbe = await db.getStreamer(actualUsername);
@@ -5578,7 +5575,7 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
   let streamer = null;
   try {
     const { method } = req.query;
-    requestedScope = getRequestedSlipOkScope(method);
+    requestedScope = normalizeSlipOkScope(method);
     if (!requestedScope) return res.status(400).json({ success: false, error: 'วิธีการชำระเงินไม่ถูกต้อง' });
     const actualUsername = await getActualUsername(req.user);
     streamer = await db.getStreamer(actualUsername);

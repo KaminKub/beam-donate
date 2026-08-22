@@ -1926,7 +1926,7 @@ async function initializeDashboard() {
 
     // SlipOK Test link (per-method, in slipok-linked-note)
     document.querySelectorAll('.slipok-test-link').forEach(btn => {
-      btn.onclick = () => testSlipOkConnection(btn.getAttribute('data-method') || 'promptpay');
+      btn.onclick = () => testSlipOkConnection(btn.getAttribute('data-method') || 'promptpay', btn);
     });
 
     // TrueMoney Webhook modal
@@ -10046,7 +10046,7 @@ function updateSlipOkStatus(connected, lastCheck, reason = null) {
 }
 
 
-async function testSlipOkConnection(method) {
+async function testSlipOkConnection(method, triggerButton = null) {
   const api = document.getElementById('inputSlipOkApi')?.value.trim();
   const apiKey = document.getElementById('inputSlipOkApiKey')?.value.trim();
 
@@ -10055,7 +10055,10 @@ async function testSlipOkConnection(method) {
     return;
   }
 
-  const btn = document.getElementById('btnTestSlipOk');
+  const btn = triggerButton || document.getElementById('btnTestSlipOk');
+  const originalButtonState = btn
+    ? { disabled: btn.disabled, innerHTML: btn.innerHTML }
+    : null;
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังทดสอบ...';
@@ -10116,9 +10119,9 @@ async function testSlipOkConnection(method) {
   } catch (err) {
     showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ';
+    if (btn && originalButtonState) {
+      btn.disabled = originalButtonState.disabled;
+      btn.innerHTML = originalButtonState.innerHTML;
     }
   }
 }

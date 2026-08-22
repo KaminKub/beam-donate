@@ -37,6 +37,14 @@ const SCOPE_COLUMNS = {
   }
 };
 
+// Bank donations use the same primary SlipOK credential/status lane as PromptPay.
+// Keep this alias centralized so request validation and quota refresh cannot drift
+// apart, while preserving the two actual stored SlipOK scopes above.
+function normalizeSlipOkScope(method) {
+  if (method === 'bank') return 'promptpay';
+  return method === 'promptpay' || method === 'truemoney' ? method : null;
+}
+
 // SEC-003: Allowlist-based SSRF protection for SlipOK API URLs.
 function validateSlipOkUrl(url) {
   if (!url) throw new Error('SlipOK API URL is required');
@@ -357,6 +365,7 @@ module.exports = {
   SLIPOK_TIMEOUT_MS,
   SLIPOK_ACCOUNT_ISSUE_CODES,
   SCOPE_COLUMNS,
+  normalizeSlipOkScope,
   validateSlipOkUrl,
   inferSlipOkBasePlan,
   classifySlipOkEndDate,
