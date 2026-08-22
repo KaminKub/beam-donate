@@ -186,7 +186,7 @@ async function applyReconciliationPlan(plan, { disconnectScope, checkedAt = new 
       continue;
     }
     try {
-      const result = await disconnectScope(action.streamer, action.scope, checkedAt);
+      const result = await disconnectScope(action.streamer, action.scope, checkedAt, action.outcome.endDate);
       if (result?.rowsAffected === 1) {
         action.writeOutcome = 'disconnected';
         counts.disconnected++;

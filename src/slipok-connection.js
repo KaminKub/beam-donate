@@ -18,6 +18,7 @@ const SCOPE_COLUMNS = {
   promptpay: {
     connected: 'slipok_connected',
     lastCheck: 'slipok_last_check',
+    expiry: 'slipok_expiry',
     quotaTotal: 'slipok_quota_total',
     urlColumn: 'slipok_api_encrypted',
     keyColumn: 'slipok_api_key_encrypted',
@@ -27,6 +28,7 @@ const SCOPE_COLUMNS = {
   truemoney: {
     connected: 'truemoney_slipok_connected',
     lastCheck: 'truemoney_slipok_last_check',
+    expiry: 'truemoney_slipok_expiry',
     quotaTotal: 'truemoney_slipok_quota_total',
     urlColumn: 'truemoney_slipok_api_encrypted',
     keyColumn: 'truemoney_slipok_api_key_encrypted',
@@ -107,18 +109,15 @@ function hasCredentialPair(source, scope) {
   return !!(columns && source && source[columns.urlField] && source[columns.keyField]);
 }
 
-/**
- * Returns only non-secret effective-lane metadata. This is the shared policy for
- * /api/verify-slip, Dashboard status, settings, and the public donor gate:
- * primary PromptPay/Bank credentials win whenever their pair is complete; the
- * TrueMoney pair is a fallback only when no complete primary pair exists.
- */
-function resolveSlipOkLane(source) {
-  const promptpayConfigured = hasCredentialPair(source, 'promptpay');
-  const truemoneyConfigured = hasCredentialPair(source, 'truemoney');
+// Keep the primary-first policy usable by server paths that intentionally receive
+// only safe configuration booleans, never a credential value.
+function resolveSlipOkLaneFromState({
+  promptpayConfigured = false,
+  truemoneyConfigured = false,
+  promptpayConnected = false,
+  truemoneyConnected = false
+} = {}) {
   const effectiveScope = promptpayConfigured ? 'promptpay' : (truemoneyConfigured ? 'truemoney' : null);
-  const promptpayConnected = !!source?.slipok_connected;
-  const truemoneyConnected = !!source?.truemoney_slipok_connected;
   const ready = effectiveScope === 'promptpay'
     ? promptpayConnected
     : effectiveScope === 'truemoney'
@@ -128,12 +127,27 @@ function resolveSlipOkLane(source) {
   return {
     configured: !!effectiveScope,
     effectiveScope,
-    ready,
-    promptpayConfigured,
-    truemoneyConfigured,
-    promptpayConnected,
-    truemoneyConnected
+    ready: !!ready,
+    promptpayConfigured: !!promptpayConfigured,
+    truemoneyConfigured: !!truemoneyConfigured,
+    promptpayConnected: !!promptpayConnected,
+    truemoneyConnected: !!truemoneyConnected
   };
+}
+
+/**
+ * Returns only non-secret effective-lane metadata. This is the shared policy for
+ * /api/verify-slip, Dashboard status, settings, and the public donor gate:
+ * primary PromptPay/Bank credentials win whenever their pair is complete; the
+ * TrueMoney pair is a fallback only when no complete primary pair exists.
+ */
+function resolveSlipOkLane(source) {
+  return resolveSlipOkLaneFromState({
+    promptpayConfigured: hasCredentialPair(source, 'promptpay'),
+    truemoneyConfigured: hasCredentialPair(source, 'truemoney'),
+    promptpayConnected: !!source?.slipok_connected,
+    truemoneyConnected: !!source?.truemoney_slipok_connected
+  });
 }
 
 // This returns plaintext only for server-process callers that immediately make the
@@ -291,6 +305,7 @@ function buildPatch(results, streamer, now) {
 
     if (result.authoritative) {
       Object.assign(patch, buildSlipOkDisconnectPatch(result.scope, now));
+      if (result.endDateValid && result.endDate) patch[columns.expiry] = result.endDate;
       continue;
     }
     // An explicit retest can reconnect only on a complete, valid, currently-usable
@@ -302,6 +317,7 @@ function buildPatch(results, streamer, now) {
     // an explicit successful retest; ordinary Dashboard quota refreshes never use it.
     patch[columns.connected] = 1;
     patch[columns.lastCheck] = now;
+    patch[columns.expiry] = result.endDate;
     const existingTotal = streamer[columns.quotaTotal] || 0;
     const candidate = inferSlipOkBasePlan(result.quota || 0);
     patch[columns.quotaTotal] = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
@@ -344,6 +360,7 @@ module.exports = {
   validateSlipOkUrl,
   inferSlipOkBasePlan,
   classifySlipOkEndDate,
+  resolveSlipOkLaneFromState,
   resolveSlipOkLane,
   getEffectiveSlipOkCredentialSet,
   buildSlipOkDisconnectPatch,

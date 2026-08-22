@@ -90,6 +90,18 @@
     .page-info { color: #94a3b8; font-size: 0.8rem; }
     .provider-logo { width: 20px; height: 20px; vertical-align: middle; }
     .provider-cell { display: inline-flex; gap: 6px; align-items: center; }
+    .slipok-cell { min-width: 150px; }
+    .slipok-badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+    .slipok-badge.connected { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .slipok-badge.expired { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .slipok-badge.not-connected { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .slipok-meta { display: block; color: #94a3b8; font-size: 0.7rem; margin-top: 0.2rem; }
+    .slipok-legend { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; color: #94a3b8; font-size: 0.75rem; margin: -0.25rem 0 1rem; }
+    .slipok-legend-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+    .slipok-legend-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; }
+    .slipok-legend-dot.connected { background: #22c55e; }
+    .slipok-legend-dot.expired { background: #ef4444; }
+    .slipok-legend-dot.not-connected { background: #f59e0b; }
   </style>
 </head>
 <body>
@@ -133,11 +145,17 @@
     </select>
     <button id="btnRefresh" class="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
   </div>
+  <div class="slipok-legend" aria-label="SlipOK status legend">
+    <span>SlipOK API:</span>
+    <span class="slipok-legend-item"><i class="slipok-legend-dot not-connected"></i>ยังไม่เชื่อมต่อ</span>
+    <span class="slipok-legend-item"><i class="slipok-legend-dot expired"></i>หมดอายุแล้ว</span>
+    <span class="slipok-legend-item"><i class="slipok-legend-dot connected"></i>เชื่อมต่อแล้ว</span>
+  </div>
   <div class="table-wrap">
     <table class="user-table">
-      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>REGISTERED</th><th>TestKub</th><th>LINKS</th></tr></thead>
+      <thead><tr><th>USERNAME</th><th>STATUS</th><th>AUTH</th><th>PAYMENT</th><th>SLIPOK API</th><th>REGISTERED</th><th>TestKub</th><th>LINKS</th></tr></thead>
       <tbody id="tbody">
-        <tr><td colspan="7" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
+        <tr><td colspan="8" class="empty"><i class="fa-solid fa-rotate fa-spin" style="color:#94a3b8;margin-right:6px;"></i>กำลังโหลด...</td></tr>
       </tbody>
     </table>
   </div>
@@ -183,6 +201,35 @@ function paymentLabel(row) {
   return methods.length ? methods.join(', ') : '—';
 }
 
+const SLIPOK_STATUS_META = {
+  connected: { label: 'เชื่อมต่อแล้ว', icon: 'fa-circle-check' },
+  expired: { label: 'หมดอายุแล้ว', icon: 'fa-circle-exclamation' },
+  'not-connected': { label: 'ยังไม่เชื่อมต่อ', icon: 'fa-link-slash' }
+};
+
+function formatSlipokDate(dateOnly) {
+  if (typeof dateOnly !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return '';
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatSlipokLastCheck(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function slipokStatusLabel(row) {
+  const status = SLIPOK_STATUS_META[row.slipok_status] ? row.slipok_status : 'not-connected';
+  const meta = SLIPOK_STATUS_META[status];
+  const scope = row.slipok_scope === 'truemoney' ? 'TrueMoney' : row.slipok_scope === 'promptpay' ? 'PromptPay' : '';
+  const expiry = formatSlipokDate(row.slipok_expiry);
+  const lastCheck = formatSlipokLastCheck(row.slipok_last_check);
+  const detail = [scope, expiry ? `หมดอายุ ${expiry}` : 'ยังไม่มีวันหมดอายุที่ยืนยัน', lastCheck ? `ตรวจล่าสุด ${lastCheck}` : 'ยังไม่เคย retest'].filter(Boolean).join(' · ');
+  return `<div class="slipok-cell"><span class="slipok-badge ${status}"><i class="fa-solid ${meta.icon}" aria-hidden="true"></i>${meta.label}</span><small class="slipok-meta">${escapeHtml(detail)}</small></div>`;
+}
+
 function formatDate(iso) {
   if (!iso) return '<span style="color:#64748b;">—</span>';
   const d = new Date(iso);
@@ -194,7 +241,7 @@ function renderTable(data) {
   document.getElementById('totalCount').textContent = data.total;
   const tbody = document.getElementById('tbody');
   if (!data.users.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">ไม่พบ user ที่ตรงกับเงื่อนไข</td></tr>';
   } else {
     tbody.innerHTML = data.users.map(u => `
       <tr>
@@ -205,6 +252,7 @@ function renderTable(data) {
         </span></td>
         <td>${providerLogos(u)}</td>
         <td><span class="badge-payment">${escapeHtml(paymentLabel(u))}</span></td>
+        <td>${slipokStatusLabel(u)}</td>
         <td>${formatDate(u.tos_accepted_at)}</td>
         <td><button class="badge-toggle-btn ${u.hasBetaBadge ? 'active' : ''}" data-username="${escapeHtml(u.username)}" data-active="${u.hasBetaBadge ? '1' : '0'}"><i class="fa-solid fa-flask"></i> TestKub</button></td>
         <td class="link-cell">
@@ -281,7 +329,7 @@ async function fetchUsers() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     renderTable(await res.json());
   } catch (err) {
-    document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="8" class="empty" style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> โหลดข้อมูลไม่สำเร็จ</td></tr>';
     console.error('[Users] fetch error:', err);
   } finally {
     setLoadingState(false);

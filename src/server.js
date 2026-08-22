@@ -2444,10 +2444,6 @@ app.get('/api/admin/users', adminMonitorLimiter, ensureAdmin, async (req, res) =
     const sort = (req.query.sort || 'registered').trim().toLowerCase();
     const order = (req.query.order || 'desc').trim().toLowerCase();
     const users = await db.getAdminUsers({ page, q, filter, sort, order });
-    users.users = users.users.map(u => ({
-      ...u,
-      hasBetaBadge: !!db.parseBadges(u.badges).beta_tester
-    }));
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'Users query failed' });
@@ -5335,9 +5331,9 @@ function getRequestedSlipOkScope(method) {
   return method === 'promptpay' || method === 'truemoney' ? method : null;
 }
 
-async function persistAuthoritativeSlipOkDisconnect(streamer, scope, now) {
+async function persistAuthoritativeSlipOkDisconnect(streamer, scope, now, endDate) {
   if (!streamer || !scope) throw new Error('Invalid SlipOK authoritative scope');
-  return db.disconnectSlipOkScopeIfUnchanged(streamer, scope, now);
+  return db.disconnectSlipOkScopeIfUnchanged(streamer, scope, now, endDate);
 }
 
 async function persistExplicitSlipOkRetest(streamer, scope, data) {
@@ -5345,9 +5341,9 @@ async function persistExplicitSlipOkRetest(streamer, scope, data) {
   return db.applyScopedSlipOkExplicitRetestIfUnchanged(streamer, scope, data);
 }
 
-async function persistSlipOkQuotaSnapshot(streamer, scope, quotaTotal) {
+async function persistSlipOkQuotaSnapshot(streamer, scope, quotaTotal, endDate) {
   if (!streamer || !scope) throw new Error('Invalid SlipOK quota scope');
-  return db.recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal);
+  return db.recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal, endDate);
 }
 
 function isStaleSlipOkDisconnect(result) {
@@ -5496,7 +5492,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
     if (quotaOutcome.authoritative) {
       if (storedCredentialMatch) {
         try {
-          const persisted = await persistAuthoritativeSlipOkDisconnect(streamerBeforeProbe, evidenceScope, now);
+          const persisted = await persistAuthoritativeSlipOkDisconnect(streamerBeforeProbe, evidenceScope, now, quotaOutcome.endDate);
           if (isStaleSlipOkDisconnect(persisted)) {
             return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
           }
@@ -5532,6 +5528,7 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
       const persisted = await persistExplicitSlipOkRetest(streamerBeforeProbe, evidenceScope, {
         checkedAt: now,
         quotaTotal: inferSlipOkBasePlan(quotaOutcome.quota || 0),
+        endDate: quotaOutcome.endDate,
         url: realApi,
         key: realApiKey,
         promptpayType: isTruemoney ? undefined : realPromptpayType,
@@ -5618,7 +5615,7 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
     const now = new Date().toISOString();
     if (quotaOutcome.authoritative) {
       try {
-        const persisted = await persistAuthoritativeSlipOkDisconnect(streamer, requestedScope, now);
+        const persisted = await persistAuthoritativeSlipOkDisconnect(streamer, requestedScope, now, quotaOutcome.endDate);
         if (isStaleSlipOkDisconnect(persisted)) {
           return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
         }
@@ -5655,9 +5652,9 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
       ? Number(streamer.truemoney_slipok_quota_total) || 0
       : Number(streamer.slipok_quota_total) || 0;
     const snapshotTotal = Math.max(existingSnapshot, quotaCandidate);
-    if (quotaCandidate > existingSnapshot) {
+    if (quotaCandidate > existingSnapshot || quotaOutcome.endDateValid) {
       try {
-        const persisted = await persistSlipOkQuotaSnapshot(streamer, requestedScope, quotaCandidate);
+        const persisted = await persistSlipOkQuotaSnapshot(streamer, requestedScope, quotaCandidate, quotaOutcome.endDate);
         if (isStaleSlipOkDisconnect(persisted)) {
           return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
         }

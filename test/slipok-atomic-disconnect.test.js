@@ -19,10 +19,12 @@ function snapshot(overrides = {}) {
     slipok_api_key_encrypted: 'cipher-primary-key',
     slipok_connected: 1,
     slipok_last_check: '2026-08-20T00:00:00.000Z',
+    slipok_expiry: null,
     truemoney_slipok_api_encrypted: 'cipher-wallet-api',
     truemoney_slipok_api_key_encrypted: 'cipher-wallet-key',
     truemoney_slipok_connected: 1,
     truemoney_slipok_last_check: '2026-08-20T01:00:00.000Z',
+    truemoney_slipok_expiry: null,
     ...overrides
   };
 }
@@ -49,7 +51,8 @@ test('authoritative disconnect is an allowlisted atomic compare-and-set for only
     42,
     'cipher-primary-api',
     'cipher-primary-key',
-    '2026-08-20T00:00:00.000Z'
+    '2026-08-20T00:00:00.000Z',
+    null
   ]);
   assertBoundStatement(statement);
 });
@@ -77,7 +80,8 @@ test('explicit reconnect and quota snapshot writes use the same scoped stale gua
     snapshot({ slipok_connected: 0, slipok_quota_total: 100 }),
     'promptpay',
     '2026-08-22T00:00:00.000Z',
-    500
+    500,
+    '2026-08-30'
   );
   assert.match(reconnect.sql, /SET slipok_connected = 1,\s+slipok_last_check = \?/);
   assert.match(reconnect.sql, /slipok_quota_total = CASE/);
@@ -91,7 +95,8 @@ test('explicit reconnect and quota snapshot writes use the same scoped stale gua
   const quota = buildScopedSlipOkQuotaSnapshotStatement(
     snapshot({ truemoney_slipok_quota_total: 0 }),
     'truemoney',
-    100
+    100,
+    '2026-08-30'
   );
   assert.match(quota.sql, /SET truemoney_slipok_quota_total = \?/);
   assert.match(quota.sql, /truemoney_slipok_api_encrypted IS \?/);
@@ -115,7 +120,8 @@ test('explicit retest can save only its requested scope through a guarded atomic
     url: 'https://api.slipok.com/api/line/apikey/new',
     key: 'new-key',
     promptpayType: 'phone',
-    promptpayValue: '0833333333'
+    promptpayValue: '0833333333',
+    endDate: '2026-08-30'
   });
 
   assert.match(statement.sql, /SET slipok_api_encrypted = \?,\s+slipok_api_key_encrypted = \?/);

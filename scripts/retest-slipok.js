@@ -51,7 +51,8 @@ async function applyScopedResults(streamer, results) {
         persisted = await db.disconnectSlipOkScopeIfUnchanged(
           streamer,
           result.scope,
-          new Date().toISOString()
+          new Date().toISOString(),
+          result.endDate
         );
         if (persisted.rowsAffected === 1 || persisted.skipped) after[result.scope] = 0;
       } else if (result.success && result.endDateValid && !result.expired) {
@@ -59,7 +60,8 @@ async function applyScopedResults(streamer, results) {
           streamer,
           result.scope,
           new Date().toISOString(),
-          inferSlipOkBasePlan(result.quota || 0)
+          inferSlipOkBasePlan(result.quota || 0),
+          result.endDate
         );
         if (persisted.rowsAffected === 1 || persisted.skipped) after[result.scope] = 1;
       } else {

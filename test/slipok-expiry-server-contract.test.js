@@ -20,8 +20,8 @@ test('quota refresh uses server classification and scoped compare-and-set discon
 
   assert.match(quota, /requestedScope = getRequestedSlipOkScope\(method\);/);
   assert.match(quota, /const quotaOutcome = classifySlipOkQuotaResponse\(response\.data, Date\.now\(\)\);/);
-  assert.match(quota, /await persistAuthoritativeSlipOkDisconnect\(streamer, requestedScope, now\);/);
-  assert.match(quota, /await persistSlipOkQuotaSnapshot\(streamer, requestedScope, quotaCandidate\);/);
+  assert.match(quota, /await persistAuthoritativeSlipOkDisconnect\(streamer, requestedScope, now, quotaOutcome\.endDate\);/);
+  assert.match(quota, /await persistSlipOkQuotaSnapshot\(streamer, requestedScope, quotaCandidate, quotaOutcome\.endDate\);/);
   assert.match(quota, /Unknown\/malformed quota payloads are deliberately read-only/);
   assert.doesNotMatch(quota, /err\.message/);
   assert.doesNotMatch(quota, /db\.saveStreamer/);

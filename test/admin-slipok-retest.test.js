@@ -163,8 +163,8 @@ test('an identical primary/TrueMoney pair costs one call and updates both scopes
   assert.equal(ok, true);
   assert.deepEqual(results.map(r => r.scope), ['promptpay', 'truemoney']);
   assert.deepEqual(patch, {
-    slipok_connected: 1, slipok_last_check: 'NOW', slipok_quota_total: 500,
-    truemoney_slipok_connected: 1, truemoney_slipok_last_check: 'NOW', truemoney_slipok_quota_total: 500
+    slipok_connected: 1, slipok_last_check: 'NOW', slipok_expiry: '2099-12-31', slipok_quota_total: 500,
+    truemoney_slipok_connected: 1, truemoney_slipok_last_check: 'NOW', truemoney_slipok_expiry: '2099-12-31', truemoney_slipok_quota_total: 500
   });
 });
 
@@ -211,7 +211,7 @@ test('expired quota disconnects only the tested scope and never reconnects it', 
   assert.equal(results[0].expired, true);
   assert.equal(results[0].authoritative, true);
   assert.equal(results[0].reason, 'expired');
-  assert.deepEqual(patch, { slipok_connected: 0, slipok_last_check: 'NOW', truemoney_slipok_connected: 0, truemoney_slipok_last_check: 'NOW' });
+  assert.deepEqual(patch, { slipok_connected: 0, slipok_last_check: 'NOW', slipok_expiry: '2026-08-22', truemoney_slipok_connected: 0, truemoney_slipok_last_check: 'NOW', truemoney_slipok_expiry: '2026-08-22' });
 });
 
 test('provider code 1003 is authoritative expired evidence even without an end date', async () => {
@@ -252,7 +252,7 @@ test('an untested scope is absent from the patch', async () => {
 
   const { patch } = await retestStoredSlipOk({ streamer, axiosClient, now: 'NOW' });
 
-  assert.deepEqual(Object.keys(patch).sort(), ['slipok_connected', 'slipok_last_check', 'slipok_quota_total']);
+  assert.deepEqual(Object.keys(patch).sort(), ['slipok_connected', 'slipok_expiry', 'slipok_last_check', 'slipok_quota_total']);
 });
 
 test('the patch never carries credential, account or verified fields', async () => {
@@ -270,8 +270,8 @@ test('the patch never carries credential, account or verified fields', async () 
   const { patch } = await retestStoredSlipOk({ streamer, axiosClient, now: 'NOW' });
 
   const allowed = new Set([
-    'slipok_connected', 'slipok_last_check', 'slipok_quota_total',
-    'truemoney_slipok_connected', 'truemoney_slipok_last_check', 'truemoney_slipok_quota_total'
+    'slipok_connected', 'slipok_expiry', 'slipok_last_check', 'slipok_quota_total',
+    'truemoney_slipok_connected', 'truemoney_slipok_expiry', 'truemoney_slipok_last_check', 'truemoney_slipok_quota_total'
   ]);
   for (const key of Object.keys(patch)) assert.ok(allowed.has(key), `patch leaked column ${key}`);
 });

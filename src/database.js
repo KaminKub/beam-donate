@@ -1,7 +1,7 @@
 ﻿const path = require('path');
 const fs = require('fs');
 const { encrypt, decrypt } = require('./encryption');
-const { SCOPE_COLUMNS } = require('./slipok-connection');
+const { SCOPE_COLUMNS, classifySlipOkEndDate, resolveSlipOkLaneFromState } = require('./slipok-connection');
 
 let db = null;
 let isFallback = false;
@@ -204,6 +204,8 @@ async function migrateDB() {
         truemoney_account_verified_at TEXT,
         slipok_quota_total INTEGER,
         truemoney_slipok_quota_total INTEGER,
+        slipok_expiry TEXT,
+        truemoney_slipok_expiry TEXT,
         bank_enabled INTEGER DEFAULT 0,
         bank_name TEXT,
         bank_account_number_encrypted TEXT,
@@ -473,6 +475,8 @@ async function migrateDB() {
       { name: 'truemoney_account_verified_at', type: 'TEXT' },
       { name: 'slipok_quota_total', type: 'INTEGER' },
       { name: 'truemoney_slipok_quota_total', type: 'INTEGER' },
+      { name: 'slipok_expiry', type: 'TEXT' },
+      { name: 'truemoney_slipok_expiry', type: 'TEXT' },
       { name: 'bank_enabled', type: 'INTEGER DEFAULT 0' },
       { name: 'bank_name', type: 'TEXT' },
       { name: 'bank_account_number_encrypted', type: 'TEXT' },
@@ -1238,6 +1242,7 @@ async function saveStreamer(data) {
                slipok_api_key_encrypted = COALESCE(?, streamers.slipok_api_key_encrypted),
                slipok_connected = COALESCE(?, streamers.slipok_connected),
                slipok_last_check = COALESCE(?, streamers.slipok_last_check),
+               slipok_expiry = COALESCE(?, streamers.slipok_expiry),
                promptpay_account_verified = COALESCE(?, streamers.promptpay_account_verified),
                promptpay_account_verified_at = COALESCE(?, streamers.promptpay_account_verified_at),
                truemoney_enabled = COALESCE(?, streamers.truemoney_enabled),
@@ -1246,6 +1251,7 @@ async function saveStreamer(data) {
                truemoney_slipok_api_key_encrypted = COALESCE(?, streamers.truemoney_slipok_api_key_encrypted),
                truemoney_slipok_connected = COALESCE(?, streamers.truemoney_slipok_connected),
                truemoney_slipok_last_check = COALESCE(?, streamers.truemoney_slipok_last_check),
+               truemoney_slipok_expiry = COALESCE(?, streamers.truemoney_slipok_expiry),
                truemoney_account_verified = COALESCE(?, streamers.truemoney_account_verified),
                truemoney_account_verified_at = COALESCE(?, streamers.truemoney_account_verified_at),
                slipok_quota_total = COALESCE(?, streamers.slipok_quota_total),
@@ -1387,6 +1393,7 @@ async function saveStreamer(data) {
           finalData.slipok_api_key_encrypted !== undefined ? finalData.slipok_api_key_encrypted : null,
           finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : null,
           finalData.slipok_last_check !== undefined ? finalData.slipok_last_check : null,
+          finalData.slipok_expiry !== undefined ? finalData.slipok_expiry : null,
           finalData.promptpay_account_verified !== undefined ? (finalData.promptpay_account_verified ? 1 : 0) : null,
           finalData.promptpay_account_verified_at !== undefined ? finalData.promptpay_account_verified_at : null,
           finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : null,
@@ -1395,6 +1402,7 @@ async function saveStreamer(data) {
           finalData.truemoney_slipok_api_key_encrypted !== undefined ? finalData.truemoney_slipok_api_key_encrypted : null,
           finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : null,
           finalData.truemoney_slipok_last_check !== undefined ? finalData.truemoney_slipok_last_check : null,
+          finalData.truemoney_slipok_expiry !== undefined ? finalData.truemoney_slipok_expiry : null,
           finalData.truemoney_account_verified !== undefined ? (finalData.truemoney_account_verified ? 1 : 0) : null,
           finalData.truemoney_account_verified_at !== undefined ? finalData.truemoney_account_verified_at : null,
           finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
@@ -1474,15 +1482,15 @@ async function saveStreamer(data) {
                streamlabs_access_token, streamlabs_refresh_token,
                profile_image_source, profile_image_value, profile_glow_color,
               payment_method, promptpay_phone, promptpay_name, promptpay_enabled, tfp_api_key, tfp_api_secret, tfp_connected, tfp_last_check,
-              promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check,
+              promptpay_type, promptpay_value_encrypted, slipok_api_encrypted, slipok_api_key_encrypted, slipok_connected, slipok_last_check, slipok_expiry,
               promptpay_account_verified, promptpay_account_verified_at,
-              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check,
+              truemoney_enabled, truemoney_phone_encrypted, truemoney_slipok_api_encrypted, truemoney_slipok_api_key_encrypted, truemoney_slipok_connected, truemoney_slipok_last_check, truemoney_slipok_expiry,
               truemoney_account_verified, truemoney_account_verified_at, slipok_quota_total, truemoney_slipok_quota_total,
               bank_enabled, bank_name, bank_account_number_encrypted, bank_account_name, bank_account_verified, bank_account_verified_at,
                header_bg_url, page_bg_url, header_bg_y, header_bg_zoom, goal_enabled, goal_amount, goal_current, goal_label, goal_bar_color, goal_show_on_donate, goal_end_date, goal_bar_text, goal_subtitle1, goal_subtitle2, goal_anim_sound, goal_anim_enabled, goal_anim_sound_volume, goal_bar_position, goal_bar_width, goal_bar_layout, goal_bar_thickness, goal_pointer_enabled, goal_pointer_side, goal_pointer_content, tos_accepted_at, legal_version, payment_eligibility_version, payment_eligibility_accepted_at, primary_auth_provider, timer_settings,
               truemoney_webhook_secret_encrypted, truemoney_webhook_enabled, truemoney_webhook_kyc_confirmed, truemoney_webhook_expiry, truemoney_webhook_methods, truemoney_promptpay_id_encrypted, badges, badge_display, badge_display_top, badge_optout, leaderboard_settings, recentdonate_settings, goal_text_settings, tier_donate_settings, sound_library, goal_bar_width_auto,
               tts_mode, tts_google_api_key_encrypted, tts_gemini_api_key_encrypted, tts_random_voice, tts_confirm_accepted_at, tts_confirm_version, tts_quota_guard_enabled, goal_bg_settings)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        
        args: [
          finalData.twitch_id || null,
@@ -1561,6 +1569,7 @@ async function saveStreamer(data) {
         finalData.slipok_api_key_encrypted || null,
         finalData.slipok_connected !== undefined ? (finalData.slipok_connected ? 1 : 0) : 0,
         finalData.slipok_last_check || null,
+        finalData.slipok_expiry || null,
         finalData.promptpay_account_verified !== undefined ? (finalData.promptpay_account_verified ? 1 : 0) : 0,
         finalData.promptpay_account_verified_at || null,
         finalData.truemoney_enabled !== undefined ? (finalData.truemoney_enabled ? 1 : 0) : 0,
@@ -1569,6 +1578,7 @@ async function saveStreamer(data) {
         finalData.truemoney_slipok_api_key_encrypted || null,
         finalData.truemoney_slipok_connected !== undefined ? (finalData.truemoney_slipok_connected ? 1 : 0) : 0,
         finalData.truemoney_slipok_last_check || null,
+        finalData.truemoney_slipok_expiry || null,
         finalData.truemoney_account_verified !== undefined ? (finalData.truemoney_account_verified ? 1 : 0) : 0,
         finalData.truemoney_account_verified_at || null,
         finalData.slipok_quota_total !== undefined ? finalData.slipok_quota_total : null,
@@ -1669,12 +1679,24 @@ function quotaCandidateOrThrow(quotaTotal) {
   return candidate;
 }
 
+function slipOkExpiryOrNull(endDate) {
+  if (typeof endDate !== 'string') return null;
+  return classifySlipOkEndDate(endDate).valid ? endDate : null;
+}
+
+function requiredSlipOkExpiry(endDate) {
+  const expiry = slipOkExpiryOrNull(endDate);
+  if (!expiry) throw new Error('Invalid SlipOK expiry snapshot');
+  return expiry;
+}
+
 function scopedSlipOkWhereArgs(streamer, columns, { includeQuota = false } = {}) {
   const args = [
     Number(streamer.id),
     streamer[columns.urlColumn] ?? null,
     streamer[columns.keyColumn] ?? null,
-    streamer[columns.lastCheck] ?? null
+    streamer[columns.lastCheck] ?? null,
+    streamer[columns.expiry] ?? null
   ];
   if (includeQuota) args.push(Number(streamer[columns.quotaTotal]) || 0);
   return args;
@@ -1686,7 +1708,8 @@ function scopedSlipOkWhere(columns, { includeQuota = false, expectedConnected = 
             AND ${columns.urlColumn} IS ?
             AND ${columns.keyColumn} IS ?
             AND COALESCE(${columns.connected}, 0) = ${expected}
-            AND ${columns.lastCheck} IS ?${includeQuota ? `
+            AND ${columns.lastCheck} IS ?
+            AND ${columns.expiry} IS ?${includeQuota ? `
             AND COALESCE(${columns.quotaTotal}, 0) = ?` : ''}`;
 }
 
@@ -1695,17 +1718,31 @@ function scopedSlipOkWhere(columns, { includeQuota = false, expectedConnected = 
 // write on the exact credential ciphertext plus the status snapshot read before the
 // provider call. That makes a delayed quota result harmless if an admin has since
 // retested, reconnected, or changed credentials.
-function buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt) {
+function buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt, endDate) {
   const columns = assertScopedSlipOkSnapshot(streamer, scope);
   checkedAtOrThrow(checkedAt);
-  if (Number(streamer[columns.connected]) !== 1) return null;
+  const expiry = slipOkExpiryOrNull(endDate);
+  const wasConnected = Number(streamer[columns.connected]) === 1;
+  const expiryChanged = !!expiry && streamer[columns.expiry] !== expiry;
+  if (!wasConnected && !expiryChanged) return null;
+
+  const setParts = [];
+  const args = [];
+  if (wasConnected) {
+    setParts.push(`${columns.connected} = 0`, `${columns.lastCheck} = ?`);
+    args.push(checkedAt);
+  }
+  if (expiryChanged) {
+    setParts.push(`${columns.expiry} = ?`);
+    args.push(expiry);
+  }
 
   return {
     sql: `UPDATE streamers
-          SET ${columns.connected} = 0, ${columns.lastCheck} = ?
-          ${scopedSlipOkWhere(columns, { expectedConnected: 1 })}`,
+          SET ${setParts.join(', ')}
+          ${scopedSlipOkWhere(columns, { expectedConnected: streamer[columns.connected] })}`,
     args: [
-      checkedAt,
+      ...args,
       ...scopedSlipOkWhereArgs(streamer, columns)
     ]
   };
@@ -1713,10 +1750,11 @@ function buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt) {
 
 // Explicit retests may reconnect a scope, but only against the exact stored
 // credential/status/quota snapshot that was read before the provider call.
-function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal) {
+function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal, endDate) {
   const columns = assertScopedSlipOkSnapshot(streamer, scope);
   checkedAtOrThrow(checkedAt);
   const candidate = quotaCandidateOrThrow(quotaTotal);
+  const expiry = requiredSlipOkExpiry(endDate);
   return {
     sql: `UPDATE streamers
           SET ${columns.connected} = 1,
@@ -1724,7 +1762,8 @@ function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTo
               ${columns.quotaTotal} = CASE
                 WHEN COALESCE(${columns.quotaTotal}, 0) < ? THEN ?
                 ELSE ${columns.quotaTotal}
-              END
+              END,
+              ${columns.expiry} = ?
           ${scopedSlipOkWhere(columns, {
             includeQuota: true,
             expectedConnected: streamer[columns.connected]
@@ -1733,6 +1772,7 @@ function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTo
       checkedAt,
       candidate,
       candidate,
+      expiry,
       ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true })
     ]
   };
@@ -1741,19 +1781,32 @@ function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTo
 // A successful Dashboard quota refresh may grow its inferred quota snapshot, but
 // never reconnects a scope. It is still guarded so a delayed response cannot write
 // across a credential/status change.
-function buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal) {
+function buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal, endDate) {
   const columns = assertScopedSlipOkSnapshot(streamer, scope);
   const candidate = quotaCandidateOrThrow(quotaTotal);
   const previous = Number(streamer[columns.quotaTotal]) || 0;
-  if (candidate <= previous) return null;
+  const expiry = requiredSlipOkExpiry(endDate);
+  const quotaChanged = candidate > previous;
+  const expiryChanged = streamer[columns.expiry] !== expiry;
+  if (!quotaChanged && !expiryChanged) return null;
+  const setParts = [];
+  const args = [];
+  if (quotaChanged) {
+    setParts.push(`${columns.quotaTotal} = ?`);
+    args.push(candidate);
+  }
+  if (expiryChanged) {
+    setParts.push(`${columns.expiry} = ?`);
+    args.push(expiry);
+  }
   return {
     sql: `UPDATE streamers
-          SET ${columns.quotaTotal} = ?
+          SET ${setParts.join(', ')}
           ${scopedSlipOkWhere(columns, {
             includeQuota: true,
             expectedConnected: streamer[columns.connected]
           })}`,
-    args: [candidate, ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true })]
+    args: [...args, ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true })]
   };
 }
 
@@ -1777,7 +1830,8 @@ function buildScopedSlipOkExplicitRetestStatement(streamer, scope, {
   key,
   promptpayType,
   promptpayValue,
-  truemoneyPhone
+  truemoneyPhone,
+  endDate
 } = {}) {
   const columns = assertScopedSlipOkSnapshot(streamer, scope, { requireCredentials: false });
   checkedAtOrThrow(checkedAt);
@@ -1803,6 +1857,7 @@ function buildScopedSlipOkExplicitRetestStatement(streamer, scope, {
   const profileArgs = scope === 'promptpay'
     ? [nextPromptpayType, nextPromptpayValue]
     : [nextTruemoneyPhone];
+  const expiry = requiredSlipOkExpiry(endDate);
 
   return {
     sql: `UPDATE streamers
@@ -1814,6 +1869,7 @@ function buildScopedSlipOkExplicitRetestStatement(streamer, scope, {
                 WHEN COALESCE(${columns.quotaTotal}, 0) < ? THEN ?
                 ELSE ${columns.quotaTotal}
               END,
+              ${columns.expiry} = ?,
               ${profileSet},
               promptpay_account_verified = 1,
               promptpay_account_verified_at = ?,
@@ -1835,6 +1891,7 @@ function buildScopedSlipOkExplicitRetestStatement(streamer, scope, {
       checkedAt,
       candidate,
       candidate,
+      expiry,
       ...profileArgs,
       checkedAt,
       checkedAt,
@@ -1859,16 +1916,16 @@ async function executeScopedSlipOkStatement(statement) {
 // Compare-and-set disconnect for an authoritative expired/account-issue result.
 // Returns rowsAffected=0 when the scope was already disconnected or a newer setting
 // changed after the provider probe; callers must treat that as a safe stale/no-op.
-async function disconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt) {
-  return executeScopedSlipOkStatement(buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt));
+async function disconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt, endDate) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt, endDate));
 }
 
-async function reconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt, quotaTotal) {
-  return executeScopedSlipOkStatement(buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal));
+async function reconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt, quotaTotal, endDate) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal, endDate));
 }
 
-async function recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal) {
-  return executeScopedSlipOkStatement(buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal));
+async function recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal, endDate) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal, endDate));
 }
 
 async function applyScopedSlipOkExplicitRetestIfUnchanged(streamer, scope, data) {
@@ -2680,6 +2737,67 @@ const ADMIN_USER_SORT_MAP = {
   payment: '(promptpay_enabled + truemoney_enabled + tfp_connected + bank_enabled)',
   badge: "(CASE WHEN badges LIKE '%beta_tester%' THEN 1 ELSE 0 END)",
 };
+
+const ADMIN_SLIPOK_STATUS_LABELS = Object.freeze({
+  connected: 'เชื่อมต่อแล้ว',
+  expired: 'หมดอายุแล้ว',
+  'not-connected': 'ยังไม่เชื่อมต่อ'
+});
+
+function getAdminSlipOkStatus(row, nowMs = Date.now()) {
+  const lane = resolveSlipOkLaneFromState({
+    promptpayConfigured: Number(row.slipok_configured) === 1,
+    truemoneyConfigured: Number(row.truemoney_slipok_configured) === 1,
+    promptpayConnected: Number(row.slipok_connected) === 1,
+    truemoneyConnected: Number(row.truemoney_slipok_connected) === 1
+  });
+  const scope = lane.effectiveScope;
+  if (!scope) {
+    return {
+      slipok_status: 'not-connected',
+      slipok_status_label: ADMIN_SLIPOK_STATUS_LABELS['not-connected'],
+      slipok_scope: null,
+      slipok_expiry: null,
+      slipok_last_check: null
+    };
+  }
+
+  const columns = SCOPE_COLUMNS[scope];
+  const expiry = classifySlipOkEndDate(row[columns.expiry], nowMs);
+  const status = expiry.valid && expiry.expired
+    ? 'expired'
+    : lane.ready && expiry.valid
+      ? 'connected'
+      : 'not-connected';
+
+  return {
+    slipok_status: status,
+    slipok_status_label: ADMIN_SLIPOK_STATUS_LABELS[status],
+    slipok_scope: scope,
+    slipok_expiry: expiry.valid ? expiry.endDate : null,
+    slipok_last_check: typeof row[columns.lastCheck] === 'string' && row[columns.lastCheck]
+      ? row[columns.lastCheck]
+      : null
+  };
+}
+
+function projectAdminUserRow(row, nowMs = Date.now()) {
+  const asBoolean = value => Number(value) === 1;
+  return {
+    username: row.username,
+    is_active: asBoolean(row.is_active),
+    has_twitch: asBoolean(row.has_twitch),
+    has_streamlabs: asBoolean(row.has_streamlabs),
+    tos_accepted_at: row.tos_accepted_at || null,
+    promptpay_enabled: asBoolean(row.promptpay_enabled),
+    truemoney_enabled: asBoolean(row.truemoney_enabled),
+    tfp_connected: asBoolean(row.tfp_connected),
+    bank_enabled: asBoolean(row.bank_enabled),
+    hasBetaBadge: !!parseBadges(row.badges).beta_tester,
+    ...getAdminSlipOkStatus(row, nowMs)
+  };
+}
+
 async function getAdminUsers({ page = 1, q = '', filter = 'all', sort = 'registered', order = 'desc' } = {}) {
   await ensureConnected();
   if (isFallback || !db) return { users: [], total: 0, page, pageSize: 25 };
@@ -2697,16 +2815,26 @@ async function getAdminUsers({ page = 1, q = '', filter = 'all', sort = 'registe
   const nullGuard = sort === 'registered' ? `CASE WHEN tos_accepted_at IS NULL THEN 1 ELSE 0 END ASC, ` : '';
   const [rows, countRow] = await Promise.all([
     db.execute(
-      `SELECT username, is_active, primary_auth_provider,
+      `SELECT username, is_active,
               (twitch_id IS NOT NULL AND twitch_id != '') AS has_twitch,
               (streamlabs_id IS NOT NULL AND streamlabs_id != '') AS has_streamlabs,
-              tos_accepted_at, payment_method, promptpay_enabled, truemoney_enabled, tfp_connected, bank_enabled, badges
+              tos_accepted_at, promptpay_enabled, truemoney_enabled, tfp_connected, bank_enabled, badges,
+              (COALESCE(slipok_api_encrypted, '') != '' AND COALESCE(slipok_api_key_encrypted, '') != '') AS slipok_configured,
+              (COALESCE(truemoney_slipok_api_encrypted, '') != '' AND COALESCE(truemoney_slipok_api_key_encrypted, '') != '') AS truemoney_slipok_configured,
+              slipok_connected, slipok_last_check, slipok_expiry,
+              truemoney_slipok_connected, truemoney_slipok_last_check, truemoney_slipok_expiry
        FROM streamers ${whereClause} ORDER BY ${nullGuard}${sortExpr} ${dir}, username ASC LIMIT ? OFFSET ?`,
       [...args, PAGE_SIZE, offset]
     ),
     db.execute(`SELECT COUNT(*) as n FROM streamers ${whereClause}`, args),
   ]);
-  return { users: rows.rows, total: countRow.rows[0].n, page, pageSize: PAGE_SIZE };
+  const nowMs = Date.now();
+  return {
+    users: rows.rows.map(row => projectAdminUserRow(row, nowMs)),
+    total: countRow.rows[0].n,
+    page,
+    pageSize: PAGE_SIZE
+  };
 }
 
 async function getAdminIpEvents({ limit = 100, type = 'all' } = {}) {
@@ -3037,6 +3165,8 @@ module.exports = {
   cleanupOldIpEvents,
   getAdminUserStats,
   getAdminTxStats,
+  getAdminSlipOkStatus,
+  projectAdminUserRow,
   getAdminUsers,
   getAdminIpEvents,
   maskMobile,
