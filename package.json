@@ -9,6 +9,7 @@
     "test:money-path-live": "node test-money-path.js",
     "migrate": "node scripts/migrate.js",
     "admin:retest-slipok": "node scripts/retest-slipok.js",
+    "admin:reconcile-slipok-expiry": "node scripts/reconcile-slipok-expiry.js",
     "build": "esbuild public/dashboard/dashboard.js --minify --outfile=public/dashboard/dashboard.min.js && esbuild public/dashboard/admin.css --minify --outfile=public/dashboard/admin.min.css"
   },
   "keywords": [

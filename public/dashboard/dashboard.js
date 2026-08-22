@@ -2647,7 +2647,9 @@ function loadDemoPaymentInfo(data) {
   const promptpayInput = document.getElementById('inputPromptPay');
   if (promptpayInput) { promptpayInput.value = censor; promptpayInput.disabled = true; }
 
-  if (typeof updateSlipOkStatus === 'function') updateSlipOkStatus(data.slipok_connected, data.slipok_last_check);
+  if (typeof updateSlipOkStatus === 'function') {
+    updateSlipOkStatus(data.slipok_ready !== undefined ? data.slipok_ready : data.slipok_connected, data.slipok_last_check);
+  }
   const slipOkApi = document.getElementById('inputSlipOkApi');
   const slipOkApiKey = document.getElementById('inputSlipOkApiKey');
   if (slipOkApi) { slipOkApi.value = censor; slipOkApi.disabled = true; }
@@ -4152,6 +4154,8 @@ function calculateStats(transactions) {
 // ========== SlipOK Quota Dashboard Card ==========
 let slipokDashQuotaInFlight = null;
 let slipokDashMethodOrder = ['promptpay', 'truemoney'];
+let slipokDashEffectiveScope = null;
+let slipokDashEffectiveReady = null;
 
 async function fetchUserPaymentStatus() {
   try {
@@ -4163,15 +4167,18 @@ async function fetchUserPaymentStatus() {
     // regardless of which tab is active, since page-customization is now lazy-loaded.
     applyBrandIdentity(user);
 
-    const connected = user.slipok_connected || user.truemoney_slipok_connected;
-    // Prefer the method that is actually connected. Keep the other method as a
-    // fallback for legacy/stale connection flags, but do not probe a known-
-    // disconnected method first.
-    slipokDashMethodOrder = user.truemoney_slipok_connected && !user.slipok_connected
+    // The server owns the effective primary/fallback lane. Do not derive status
+    // from an aggregate here: a connected fallback must not mask a failed primary.
+    const connected = user.slipok_ready !== undefined
+      ? !!user.slipok_ready
+      : !!user.slipok_connected;
+    slipokDashEffectiveScope = user.slipok_effective_scope || null;
+    slipokDashEffectiveReady = connected;
+    slipokDashMethodOrder = slipokDashEffectiveScope === 'truemoney'
       ? ['truemoney', 'promptpay']
       : ['promptpay', 'truemoney'];
     // disconnected at load: distinguish "never configured" vs "was connected but failed"
-    const reason = connected ? null : (user.slipokApiConfigured ? 'error' : 'no-api');
+    const reason = connected ? null : ((user.slipokApiConfigured || user.slipok_configured) ? 'error' : 'no-api');
     renderSlipokDashCard(connected, reason);
 
     if (connected) {
@@ -4207,7 +4214,7 @@ function slipokFadeSwap(showEl, hideEl) {
   }
 }
 
-// reason: 'no-api' (never configured) | 'error' (was connected but fetch failed)
+// reason: 'no-api' | 'error' | 'expired' | 'account-issue'
 function renderSlipokDashCard(connected, reason) {
   const card = document.getElementById('statCardSlipok');
   const connectedEl = document.getElementById('slipokDashConnected');
@@ -4222,14 +4229,23 @@ function renderSlipokDashCard(connected, reason) {
     card.onclick = () => fetchSlipokDashQuota(null, true);
     card.title = 'คลิกเพื่อรีเฟรชเครดิต SlipOK';
   } else {
+    const isExpired = reason === 'expired';
+    const isAccountIssue = reason === 'account-issue';
     const isError = reason === 'error';
+    const needsSetup = isExpired || isAccountIssue;
     if (titleEl) {
-      titleEl.textContent = isError ? 'ไม่สามารถเชื่อมต่อ SlipOK' : 'ยังไม่เชื่อมต่อ API';
-      titleEl.classList.toggle('is-error', isError);
+      titleEl.textContent = isExpired
+        ? 'แพ็กเกจ SlipOK หมดอายุ'
+        : isAccountIssue
+          ? 'บัญชี SlipOK ใช้งานไม่ได้'
+          : isError ? 'ไม่สามารถเชื่อมต่อ SlipOK' : 'ยังไม่เชื่อมต่อ API';
+      titleEl.classList.toggle('is-error', isError || needsSetup);
     }
     if (linkEl) {
       linkEl.innerHTML = isError
         ? 'คลิกเพื่อลองใหม่ <i class="fa-solid fa-rotate"></i>'
+        : needsSetup
+          ? 'คลิกเพื่อตั้งค่า/ต่ออายุ <i class="fa-solid fa-arrow-right"></i>'
         : 'คลิกตั้งค่า <i class="fa-solid fa-arrow-right"></i>';
     }
     slipokFadeSwap(disconnectedEl, connectedEl);
@@ -4242,7 +4258,39 @@ function renderSlipokDashCard(connected, reason) {
   }
 }
 
-function renderSlipokDashExpiry(endDate) {
+function slipokBangkokDateKey(now = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date(now));
+  const values = Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function slipokStrictDateOnly(endDate) {
+  if (typeof endDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return null;
+  const [year, month, day] = endDate.split('-').map(Number);
+  const check = new Date(Date.UTC(year, month - 1, day));
+  return check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day
+    ? endDate
+    : null;
+}
+
+// yyyy-MM-dd -> UTC-noon epoch, so calendar subtraction never crosses a DST/tz edge.
+function slipokDateKeyToUtc(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+// SlipOK sends a date-only value; build it at local midnight so th-TH formatting
+// cannot shift it a day the way `new Date('2026-09-01')` (UTC midnight) does.
+function slipokFormatEndDate(endDate, options) {
+  const valid = slipokStrictDateOnly(endDate);
+  if (!valid) return '—';
+  const [year, month, day] = valid.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('th-TH', options);
+}
+
+function renderSlipokDashExpiry(endDate, expired = false) {
   const expiryEl = document.getElementById('slipokDashExpiry');
   const statCard = document.getElementById('statCardSlipok');
   if (!expiryEl || !statCard) return;
@@ -4252,23 +4300,26 @@ function renderSlipokDashExpiry(endDate) {
   expiryEl.replaceChildren();
   expiryEl.style.display = 'none';
 
-  const endMs = typeof endDate === 'string' ? Date.parse(endDate) : NaN;
-  if (!Number.isFinite(endMs)) return;
+  // Server classification is authoritative. The browser never turns a date into
+  // a disconnected/expired verdict; it only renders a countdown for usable dates.
+  const validEndDate = slipokStrictDateOnly(endDate);
+  const today = slipokBangkokDateKey();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const daysLeft = validEndDate && today
+    ? Math.round((slipokDateKeyToUtc(validEndDate) - slipokDateKeyToUtc(today)) / dayMs)
+    : null;
 
-  const daysLeft = Math.ceil((endMs - Date.now()) / (1000 * 60 * 60 * 24));
-  let state;
-  let iconClass;
-  if (daysLeft <= 0) {
+  let state = null;
+  let iconClass = 'fa-clock';
+  if (expired === true) {
     state = 'critical';
     iconClass = 'fa-circle-exclamation';
     statCard.classList.add('stat-card-expired');
-  } else if (daysLeft <= 3) {
+  } else if (Number.isInteger(daysLeft) && daysLeft >= 0 && daysLeft <= 3) {
     state = 'critical';
-    iconClass = 'fa-clock';
     statCard.classList.add('stat-card-expired');
-  } else if (daysLeft <= 7) {
+  } else if (Number.isInteger(daysLeft) && daysLeft >= 0 && daysLeft <= 7) {
     state = 'warning';
-    iconClass = 'fa-clock';
     statCard.classList.add('stat-card-expiring');
   } else {
     return;
@@ -4280,7 +4331,7 @@ function renderSlipokDashExpiry(endDate) {
   expiryEl.classList.add(state);
   expiryEl.append(icon);
 
-  if (daysLeft <= 0) {
+  if (expired === true) {
     expiryEl.append('แพ็กเกจหมดอายุแล้ว — ');
     const renewText = document.createElement('strong');
     renewText.textContent = 'กรุณาต่ออายุใน Chat Line SlipOK';
@@ -4322,68 +4373,107 @@ async function fetchSlipokDashQuota(method, showFeedback) {
 
   if (!method) {
     if (slipokDashQuotaInFlight) {
-      const ok = await slipokDashQuotaInFlight;
-      if (showFeedback && ok) showSlipokDashRefreshFeedback();
-      return ok;
+      const outcome = await slipokDashQuotaInFlight;
+      if (showFeedback && outcome.ok) showSlipokDashRefreshFeedback();
+      return outcome;
     }
 
     const request = (async () => {
       if (affordEl) affordEl.classList.add('spinning');
 
-      let ok = false;
+      const outcomes = [];
+      let usableOutcome = null;
       for (const candidate of slipokDashMethodOrder) {
-        ok = await fetchSlipokDashQuota(candidate, false);
-        if (ok) break;
-      }
-
-      if (ok) {
-        // A fallback method may have succeeded after a previous attempt put the
-        // card in error state; restore the actionable connected card.
-        renderSlipokDashCard(true);
-      } else {
-        if (metaEl && (!usedEl || usedEl.textContent === '—')) {
-          metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+        const outcome = await fetchSlipokDashQuota(candidate, false);
+        outcomes.push(outcome);
+        if (outcome.ok) {
+          usableOutcome = outcome;
+          break;
         }
-        updateSlipOkStatus(false, new Date().toISOString());
-        renderSlipokDashCard(false, 'error');
       }
 
+      const effectiveOutcome = slipokDashEffectiveScope
+        ? outcomes.find(outcome => outcome.method === slipokDashEffectiveScope)
+        : null;
+      if (effectiveOutcome && effectiveOutcome.authoritative) {
+        const reason = effectiveOutcome.expired ? 'expired' : 'account-issue';
+        updateSlipOkStatus(false, effectiveOutcome.lastCheck || null, reason);
+        renderSlipokDashCard(false, reason);
+        setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
+        return effectiveOutcome;
+      }
+
+      if (usableOutcome) {
+        // A fallback can still have a readable quota, but it is not allowed to
+        // repaint the top card as connected when a configured primary lane had an
+        // unknown/transient result. Preserve that lane's last server-owned state
+        // until its own usable or authoritative result arrives.
+        const canPresentConnected = slipokDashEffectiveReady !== false
+          && (!slipokDashEffectiveScope || usableOutcome.method === slipokDashEffectiveScope);
+        setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
+        if (canPresentConnected) {
+          renderSlipokDashCard(true);
+          return usableOutcome;
+        }
+        return { ...usableOutcome, ok: false, presentationSuppressed: true };
+      }
+
+      if (metaEl && (!usedEl || usedEl.textContent === '—')) {
+        metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
+      }
       setTimeout(() => { if (affordEl) affordEl.classList.remove('spinning'); }, 1200);
-      return ok;
+      return outcomes[0] || { ok: false, method: null, transient: true, authoritative: false, expired: false };
     })();
 
     slipokDashQuotaInFlight = request;
     try {
-      const ok = await request;
-      if (showFeedback && ok) showSlipokDashRefreshFeedback();
-      return ok;
+      const outcome = await request;
+      if (showFeedback && outcome.ok) showSlipokDashRefreshFeedback();
+      return outcome;
     } finally {
       if (slipokDashQuotaInFlight === request) slipokDashQuotaInFlight = null;
     }
   }
 
+  const unknown = (extra = {}) => ({
+    ok: false,
+    method,
+    transient: true,
+    authoritative: false,
+    expired: false,
+    ...extra
+  });
+
   try {
     const response = await fetch(`/api/payment/slipok-quota?method=${method}`);
-    if (response.status === 429) {
-      if (metaEl && method === 'truemoney') metaEl.textContent = 'ตรวจสอบบ่อยเกินไป กรุณารอสักครู่';
-      return false;
+    let result = null;
+    try { result = await response.json(); } catch (_) {}
+    const quota = result?.data;
+    const reason = quota?.reason || result?.reason || null;
+    const authoritative = reason === 'expired' || reason === 'account-issue';
+    if (!response.ok || !result?.success) {
+      return authoritative
+        ? { ok: false, method, transient: false, authoritative: true, expired: reason === 'expired', reason }
+        : unknown();
     }
-    if (!response.ok) {
-      if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถดึงข้อมูลได้';
-      return false;
-    }
-    const result = await response.json();
-    if (!result.success) {
-      if (metaEl && method === 'truemoney') metaEl.textContent = result.error || 'ไม่สามารถดึงข้อมูลได้';
-      return false;
+    if (!quota || typeof quota !== 'object') return unknown();
+    if (quota.expired === true || quota.accountIssue === true || authoritative) {
+      renderSlipokDashExpiry(quota.endDate, quota.expired === true || reason === 'expired');
+      return {
+        ok: false,
+        method,
+        transient: false,
+        authoritative: true,
+        expired: quota.expired === true || reason === 'expired',
+        reason: quota.expired === true || reason === 'expired' ? 'expired' : 'account-issue',
+        lastCheck: quota.lastCheck || null
+      };
     }
 
-    const quota = result.data;
-    const snapshotFromDb = result.data.snapshotTotal;
+    const snapshotFromDb = quota.snapshotTotal;
     const remaining = quota.quota || 0;
     const specialQuota = quota.specialQuota || 0;
     const overQuota = quota.overQuota || 0;
-
     let totalPool;
     let used;
     if (snapshotFromDb && snapshotFromDb > 0) {
@@ -4395,34 +4485,25 @@ async function fetchSlipokDashQuota(method, showFeedback) {
     }
     const ratio = totalPool > 0 ? used / totalPool : 0;
 
-    _cachedQuotaData = { ...quota, method: method };
-
+    _cachedQuotaData = { ...quota, method };
     if (usedEl) usedEl.textContent = used;
     if (totalEl) totalEl.textContent = totalPool;
-
     if (barEl) {
       barEl.style.width = `${ratio * 100}%`;
-      barEl.className = 'slipok-dash-bar ' + (
-        ratio < 0.5 ? 'green' : ratio < 0.8 ? 'yellow' : 'red'
-      );
+      barEl.className = 'slipok-dash-bar ' + (ratio < 0.5 ? 'green' : ratio < 0.8 ? 'yellow' : 'red');
     }
-
     if (metaEl) {
       const basePlan = snapshotFromDb && snapshotFromDb > 0 ? snapshotFromDb : totalPool;
       const packageLabel = quota.packageName
         || (basePlan <= 100 ? 'Free Plan' : basePlan <= 500 ? 'OK Start' : basePlan <= 1000 ? 'OK SME' : 'Enterprise');
-      const endDate = quota.endDate
-        ? new Date(quota.endDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
-        : '—';
+      const endDate = slipokFormatEndDate(quota.endDate, { day: 'numeric', month: 'short', year: '2-digit' });
       metaEl.innerHTML = `${packageLabel}<span class="slipok-dash-sep-dot">·</span>รีเซท ${endDate}`;
     }
-    renderSlipokDashExpiry(quota.endDate);
-
-    return true;
-  } catch (err) {
-    console.error('fetchSlipokDashQuota error:', err.message);
+    renderSlipokDashExpiry(quota.endDate, false);
+    return { ok: true, method, transient: false, authoritative: false, expired: false };
+  } catch (_) {
     if (metaEl && method === 'truemoney') metaEl.textContent = 'ไม่สามารถเชื่อมต่อ SlipOK';
-    return false;
+    return unknown();
   }
 }
 
@@ -4474,18 +4555,27 @@ async function fetchQuotaMini(method, forceRefresh) {
       d.method = method;
       _cachedQuotaData = d;
       fetched = true;
-    } catch (err) {
-      console.error('fetchQuotaMini error:', err.message);
+    } catch (_) {
+      console.error('fetchQuotaMini error');
       if (valueEl) valueEl.textContent = 'Error';
       return;
     }
   }
 
+  if (d?.expired === true || d?.accountIssue === true) {
+    const reason = d.expired === true ? 'expired' : 'account-issue';
+    updateSlipOkStatus(false, d.lastCheck || null, reason);
+    renderSlipokDashCard(false, reason);
+    if (valueEl) valueEl.textContent = '—';
+    if (overEl) overEl.textContent = '—';
+    if (dateEl) dateEl.textContent = slipokFormatEndDate(d.endDate);
+    if (updatedEl) updatedEl.textContent = reason === 'expired' ? 'แพ็กเกจหมดอายุ' : 'บัญชี SlipOK ใช้งานไม่ได้';
+    return;
+  }
+
   if (valueEl) valueEl.textContent = d.quota ?? '—';
   if (overEl) overEl.textContent = d.overQuota ?? '0';
-  if (dateEl) dateEl.textContent = d.endDate
-    ? new Date(d.endDate).toLocaleDateString('th-TH')
-    : '—';
+  if (dateEl) dateEl.textContent = slipokFormatEndDate(d.endDate);
   if (updatedEl && forceRefresh) {
     updatedEl.textContent = 'อัปเดตแล้ว ✓';
     setTimeout(function() {
@@ -9806,7 +9896,10 @@ async function loadPaymentSettings() {
     if (slipOkApiKey) slipOkApiKey.value = data.slipok_api_key || '';
 
     // SlipOK connection status
-    updateSlipOkStatus(data.slipok_connected, data.slipok_last_check);
+    const slipOkReady = data.slipok_ready !== undefined ? data.slipok_ready : data.slipok_connected;
+    slipokDashEffectiveScope = data.slipok_effective_scope || slipokDashEffectiveScope;
+    slipokDashEffectiveReady = !!slipOkReady;
+    updateSlipOkStatus(slipOkReady, data.slipok_last_check);
 
     // Fill TrueMoney fields
     const trueMoneyPhone = document.getElementById('inputTrueMoneyPhone');
@@ -9826,7 +9919,7 @@ async function loadPaymentSettings() {
     renderTrueMoneyWebhookState(data);
     updateAccountVerifyBadges();
 
-    if (data.slipok_connected) fetchQuotaMini('promptpay');
+    if (slipOkReady) fetchQuotaMini(data.slipok_effective_scope || 'promptpay');
   } catch (err) {
     console.error('Load payment settings error:', err);
     tabLoaded['payment-setup'] = false;
@@ -9880,7 +9973,10 @@ function updateAccountVerifyBadges() {
   });
 }
 
-function updateSlipOkStatus(connected, lastCheck) {
+function updateSlipOkStatus(connected, lastCheck, reason = null) {
+  // Quota refreshes are display-only. Keep the last server-owned connection verdict
+  // so a later usable quota response cannot visually reconnect a stored-off lane.
+  slipokDashEffectiveReady = !!connected;
   const container = document.getElementById('slipokStatusContainer');
   const status = document.getElementById('slipokStatus');
   const title = document.getElementById('slipokStatusTitle');
@@ -9899,8 +9995,16 @@ function updateSlipOkStatus(connected, lastCheck) {
     if (apiNotice) apiNotice.classList.add('fade-out');
   } else {
     status.className = 'tfp-status disconnected';
-    if (title) title.textContent = lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
-    if (desc) desc.textContent = lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
+    if (title) title.textContent = reason === 'expired'
+      ? 'แพ็กเกจ SlipOK หมดอายุ'
+      : reason === 'account-issue'
+        ? 'บัญชี SlipOK ใช้งานไม่ได้'
+        : lastCheck ? 'เชื่อมต่อไม่สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ';
+    if (desc) desc.textContent = reason === 'expired'
+      ? 'กรุณาต่ออายุแพ็กเกจใน Chat Line SlipOK แล้วทดสอบการเชื่อมต่ออีกครั้ง'
+      : reason === 'account-issue'
+        ? 'กรุณาตรวจสอบบัญชีหรือแพ็กเกจ SlipOK แล้วทดสอบการเชื่อมต่ออีกครั้ง'
+        : lastCheck ? `เช็คล่าสุด: ${new Date(lastCheck).toLocaleString('th-TH')}` : 'กรุณากรอก API และ API Key แล้วทดสอบการเชื่อมต่อ';
 
     // Fade in api-notice
     if (apiNotice) apiNotice.classList.remove('fade-out');
@@ -9977,6 +10081,11 @@ async function testSlipOkConnection(method) {
     if (data.success) {
       showNotification('เชื่อมต่อ SlipOK สำเร็จ — บันทึกข้อมูลเรียบร้อย');
       const now = new Date().toISOString();
+      slipokDashEffectiveScope = data.method === 'truemoney' ? 'truemoney' : 'promptpay';
+      slipokDashMethodOrder = slipokDashEffectiveScope === 'truemoney'
+        ? ['truemoney', 'promptpay']
+        : ['promptpay', 'truemoney'];
+      slipokDashEffectiveReady = true;
       updateSlipOkStatus(true, now);
 
       // เชื่อมต่อสำเร็จ = verified ทันทีทั้ง 3 วิธี (promptpay/bank/truemoney ใช้ API เดียวกัน)
@@ -9987,19 +10096,25 @@ async function testSlipOkConnection(method) {
       });
       updateAccountVerifyBadges();
 
-      fetchQuotaMini('promptpay', true);
+      fetchQuotaMini(data.method === 'truemoney' ? 'truemoney' : 'promptpay', true);
       // Reconnect dashboard stat card + refresh quota numbers
       renderSlipokDashCard(true);
       fetchSlipokDashQuota();
     } else {
       showNotification((data.error || 'เชื่อมต่อ SlipOK ไม่สำเร็จ'), 'error');
-      // Auto-disconnect UI (server already sets slipok_connected=0)
-      updateSlipOkStatus(false, new Date().toISOString());
-      renderSlipokDashCard(false, 'error');
+      // Only the server-classified authoritative outcomes are allowed to change
+      // the persisted/disconnected presentation. Timeout, DNS, 429, 5xx, and
+      // malformed quota responses leave the prior state intact.
+      const reason = data.reason === 'expired' || data.reason === 'account-issue'
+        ? data.reason
+        : null;
+      if (reason) {
+        updateSlipOkStatus(false, new Date().toISOString(), reason);
+        renderSlipokDashCard(false, reason);
+      }
     }
   } catch (err) {
     showNotification('เกิดข้อผิดพลาดในการเชื่อมต่อ SlipOK', 'error');
-    updateSlipOkStatus(false, new Date().toISOString());
   } finally {
     if (btn) {
       btn.disabled = false;

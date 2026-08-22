@@ -41,7 +41,14 @@ const OAuth2Strategy = require('passport-oauth2').Strategy;
 const { determinePrimaryAuth, isSafeReturnTo, loginDest } = require('./auth-helpers');
 const { isSlipUploadWindowClosed } = require('./payment-helpers');
 const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
-const { validateSlipOkUrl, inferSlipOkBasePlan } = require('./slipok-connection');
+const {
+  validateSlipOkUrl,
+  inferSlipOkBasePlan,
+  classifySlipOkErrorCode,
+  classifySlipOkQuotaResponse,
+  resolveSlipOkLane,
+  getEffectiveSlipOkCredentialSet
+} = require('./slipok-connection');
 
 
 const app = express();
@@ -3057,6 +3064,8 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
     const streamer = await db.getStreamer(actualUsername);
     if (!streamer) return res.status(404).json({ error: 'User not found in database' });
 
+    const slipOkState = resolveSlipOkLane(decryptPaymentFields(streamer));
+
     const profileImage = await db.resolveProfileImage(streamer);
 
     // Auto-assign membership badges + dev badge (identity check เดียวกับ ensureAdmin)
@@ -3082,9 +3091,13 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       streamlabsId: streamer.streamlabs_id,
       authProvider: determinePrimaryAuth(streamer),
       email: req.user.email || 'Not provided',
-      slipok_connected: !!streamer.slipok_connected,
-      truemoney_slipok_connected: !!streamer.truemoney_slipok_connected,
-      slipokApiConfigured: !!(streamer.slipok_api || streamer.truemoney_slipok_api),
+      // Effective lane metadata is non-secret and follows the same primary-first
+      // policy as /api/verify-slip. Do not use an aggregate connected flag here.
+      slipok_connected: slipOkState.ready,
+      slipok_ready: slipOkState.ready,
+      slipok_effective_scope: slipOkState.effectiveScope,
+      truemoney_slipok_connected: slipOkState.truemoneyConnected,
+      slipokApiConfigured: slipOkState.configured,
       profileImage,
       profileGlowColor: streamer.profile_glow_color || '#005704',
       badges,
@@ -5165,6 +5178,16 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
     if (!streamer) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
 
     const decrypted = decryptPaymentFields(streamer);
+    const slipOkState = resolveSlipOkLane(decrypted);
+    const effectiveSlipOkApi = slipOkState.effectiveScope === 'truemoney'
+      ? decrypted.truemoney_slipok_api
+      : decrypted.slipok_api;
+    const effectiveSlipOkKey = slipOkState.effectiveScope === 'truemoney'
+      ? decrypted.truemoney_slipok_api_key
+      : decrypted.slipok_api_key;
+    const effectiveSlipOkLastCheck = slipOkState.effectiveScope === 'truemoney'
+      ? decrypted.truemoney_slipok_last_check
+      : decrypted.slipok_last_check;
     res.json({
       username: actualUsername, // webhook URL builder needs canonical username (not DOM placeholder)
       payment_method: decrypted.payment_method || 'ffp',
@@ -5178,10 +5201,15 @@ app.get('/api/payment/settings', ensureAuthenticated, async (req, res) => {
       tfp_last_check: decrypted.tfp_last_check || '',
       promptpay_type: decrypted.promptpay_type || 'phone',
       promptpay_value: censor(decrypted.promptpay_value || '', 3, 2),
-      slipok_api: censor(decrypted.slipok_api || decrypted.truemoney_slipok_api || '', 8, 4),
-      slipok_api_key: censor(decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key || ''),
-      slipok_connected: decrypted.slipok_connected || decrypted.truemoney_slipok_connected || 0,
-      slipok_last_check: decrypted.slipok_last_check || '',
+      slipok_api: censor(effectiveSlipOkApi || '', 8, 4),
+      slipok_api_key: censor(effectiveSlipOkKey || ''),
+      // This is intentionally lane-correct instead of aggregate. The dashboard
+      // must agree with public slipok_ready when the primary pair has failed.
+      slipok_connected: slipOkState.ready ? 1 : 0,
+      slipok_ready: slipOkState.ready,
+      slipok_configured: slipOkState.configured,
+      slipok_effective_scope: slipOkState.effectiveScope,
+      slipok_last_check: effectiveSlipOkLastCheck || '',
       truemoney_enabled: decrypted.truemoney_enabled || 0,
       truemoney_phone: censor(decrypted.truemoney_phone || '', 3, 2),
       truemoney_slipok_api: censor(decrypted.truemoney_slipok_api || '', 8, 4),
@@ -5300,10 +5328,38 @@ const SLIPOK_ERROR_MAP = {
   1015: 'ไม่พบข้อมูล Package กรุณาตรวจสอบสิทธิ์แพ็กเกจ'
 };
 
-// SlipOK codes that mean the streamer's SlipOK account itself is broken/expired/over-quota
-// (not the donor's slip). Non-terminal: donor can retry the same slip after streamer fixes it.
-// Mapped to errorCode 'SLIPOK_ACCOUNT_ISSUE' + raw code forwarded as slipSubCode for donor UX.
-const SLIPOK_ACCOUNT_ISSUE_CODES = new Set([1002, 1003, 1004, 1015]);
+// The shared classifier below keeps quota, donor verification, explicit retests,
+// and reconciliation on one authoritative-provider allowlist.
+
+function getRequestedSlipOkScope(method) {
+  return method === 'promptpay' || method === 'truemoney' ? method : null;
+}
+
+async function persistAuthoritativeSlipOkDisconnect(streamer, scope, now) {
+  if (!streamer || !scope) throw new Error('Invalid SlipOK authoritative scope');
+  return db.disconnectSlipOkScopeIfUnchanged(streamer, scope, now);
+}
+
+async function persistExplicitSlipOkRetest(streamer, scope, data) {
+  if (!streamer || !scope) throw new Error('Invalid SlipOK explicit retest scope');
+  return db.applyScopedSlipOkExplicitRetestIfUnchanged(streamer, scope, data);
+}
+
+async function persistSlipOkQuotaSnapshot(streamer, scope, quotaTotal) {
+  if (!streamer || !scope) throw new Error('Invalid SlipOK quota scope');
+  return db.recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal);
+}
+
+function isStaleSlipOkDisconnect(result) {
+  return !!result && result.rowsAffected === 0 && !result.skipped;
+}
+
+// SlipOK code 1010 carries how long the donor must wait. Forward the number only
+// (never the surrounding body) so the donor countdown stays accurate.
+function safeDelayMinutes(delay) {
+  const minutes = Number(delay);
+  return Number.isFinite(minutes) && minutes > 0 && minutes <= 1440 ? Math.ceil(minutes) : null;
+}
 
 // Shared SlipOK slip-verification call — used by /api/verify-slip (donation flow).
 // Normalizes both the success and failure shapes so callers don't duplicate SlipOK's
@@ -5329,7 +5385,7 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
     }
 
     const slipCode = slipData?.code;
-    const isAccountIssue = SLIPOK_ACCOUNT_ISSUE_CODES.has(slipCode);
+    const isAccountIssue = classifySlipOkErrorCode(slipCode).authoritative;
     const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
                        slipCode === 1010 ? 'SLIP_DELAY' :
                        slipCode === 1012 ? 'SLIP_DUPLICATE' :
@@ -5338,13 +5394,13 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
                        isAccountIssue ? 'SLIPOK_ACCOUNT_ISSUE' :
                        'SLIP_INVALID';
     const accountMsg = isAccountIssue ? (SLIPOK_ERROR_MAP[slipCode] || 'ระบบตรวจสลิปของผู้รับขัดข้องหรือหมดอายุ') : null;
-    return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || slipData?.message || slipData?.error || 'สลิปไม่ถูกต้อง', delayMinutes: slipData?.delay || null };
+    return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || 'ไม่สามารถตรวจสอบสลิปได้', delayMinutes: safeDelayMinutes(slipData?.delay) };
   } catch (slipErr) {
     console.error('SlipOK verification error: code=' + (slipErr.response?.data?.code || slipErr.code || 'UNKNOWN'));
     if (slipErr.response) {
       const body = slipErr.response.data;
       const slipCode = body?.code;
-      const isAccountIssue = SLIPOK_ACCOUNT_ISSUE_CODES.has(slipCode);
+      const isAccountIssue = classifySlipOkErrorCode(slipCode).authoritative;
       const mappedCode = slipCode === 1009 ? 'BANK_UNAVAILABLE' :
                          slipCode === 1010 ? 'SLIP_DELAY' :
                          slipCode === 1012 ? 'SLIP_DUPLICATE' :
@@ -5353,7 +5409,7 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
                          isAccountIssue ? 'SLIPOK_ACCOUNT_ISSUE' :
                          'SLIPOK_ERROR';
       const accountMsg = isAccountIssue ? (SLIPOK_ERROR_MAP[slipCode] || 'ระบบตรวจสลิปของผู้รับขัดข้องหรือหมดอายุ') : null;
-      return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || body?.message || body?.error || 'SlipOK API error', delayMinutes: body?.delay || null };
+      return { success: false, errorCode: mappedCode, slipSubCode: slipCode ?? null, error: accountMsg || 'ไม่สามารถตรวจสอบสลิปได้', delayMinutes: safeDelayMinutes(body?.delay) };
     }
     return { success: false, errorCode: 'CONNECTION_FAILED', error: 'ไม่สามารถเชื่อมต่อ SlipOK ได้' };
   }
@@ -5361,15 +5417,34 @@ async function callSlipOkVerify(branchUrl, apiKey, base64Image, amount) {
 
 // POST /api/payment/test-tfp - Test TFP API connection
 app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requirePaymentEligibility, async (req, res) => {
+  let requestedScope = null;
+  let evidenceScope = null;
+  let actualUsername = null;
+  let streamerBeforeProbe = null;
+  let storedCredentialMatch = false;
   try {
     const { slipok_api, slipok_api_key, method, promptpay_type, promptpay_value, truemoney_phone } = req.body;
     if (!slipok_api || !slipok_api_key) {
       return res.status(400).json({ error: 'กรุณากรอก API และ API Key' });
     }
 
-    const isTruemoney = method === 'truemoney';
-    const actualUsername = await getActualUsername(req.user);
-    const twitchId = req.user.twitch_id || req.user.id;
+    requestedScope = getRequestedSlipOkScope(method);
+    if (!requestedScope) return res.status(400).json({ success: false, error: 'วิธีการชำระเงินไม่ถูกต้อง' });
+    actualUsername = await getActualUsername(req.user);
+    streamerBeforeProbe = await db.getStreamer(actualUsername);
+    if (!streamerBeforeProbe) return res.status(404).json({ success: false, error: 'ไม่พบบัญชีผู้ใช้' });
+
+    const storedDecrypted = decryptPaymentFields(streamerBeforeProbe);
+    const storedEffective = getEffectiveSlipOkCredentialSet(storedDecrypted);
+    const storedPrimaryComplete = !!(storedDecrypted.slipok_api && storedDecrypted.slipok_api_key);
+    const usesMaskedStoredValue = slipok_api.includes('*') || slipok_api_key.includes('*');
+    // A legacy fallback is the effective lane when there is no complete primary
+    // pair. A masked promptpay retest therefore acts on that effective scope,
+    // not on an empty requested primary scope.
+    evidenceScope = requestedScope === 'promptpay' && usesMaskedStoredValue && !storedPrimaryComplete
+      ? (storedEffective?.scope || requestedScope)
+      : requestedScope;
+    const isTruemoney = evidenceScope === 'truemoney';
 
     let realApi = slipok_api;
     let realApiKey = slipok_api_key;
@@ -5377,19 +5452,16 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
     let realTruemoneyPhone = truemoney_phone || '';
     let realPromptpayType = promptpay_type || 'phone';
 
-    if (slipok_api.includes('*') || slipok_api_key.includes('*')) {
-      const streamerForDecrypt = await db.getStreamer(actualUsername);
-      if (streamerForDecrypt) {
-        const decrypted = decryptPaymentFields(streamerForDecrypt);
-        if (isTruemoney) {
-          if (slipok_api.includes('*')) realApi = decrypted.truemoney_slipok_api || '';
-          if (slipok_api_key.includes('*')) realApiKey = decrypted.truemoney_slipok_api_key || '';
-          if (truemoney_phone && truemoney_phone.includes('*')) realTruemoneyPhone = decrypted.truemoney_phone || '';
-        } else {
-          if (slipok_api.includes('*')) realApi = decrypted.slipok_api || decrypted.truemoney_slipok_api || '';
-          if (slipok_api_key.includes('*')) realApiKey = decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key || '';
-          if (promptpay_value && promptpay_value.includes('*')) realPromptpayValue = decrypted.promptpay_value || '';
-        }
+    if (usesMaskedStoredValue) {
+      const decrypted = storedDecrypted;
+      if (isTruemoney) {
+        if (slipok_api.includes('*')) realApi = decrypted.truemoney_slipok_api || '';
+        if (slipok_api_key.includes('*')) realApiKey = decrypted.truemoney_slipok_api_key || '';
+        if (truemoney_phone && truemoney_phone.includes('*')) realTruemoneyPhone = decrypted.truemoney_phone || '';
+      } else {
+        if (slipok_api.includes('*')) realApi = decrypted.slipok_api || '';
+        if (slipok_api_key.includes('*')) realApiKey = decrypted.slipok_api_key || '';
+        if (promptpay_value && promptpay_value.includes('*')) realPromptpayValue = decrypted.promptpay_value || '';
       }
     }
 
@@ -5397,9 +5469,17 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
       return res.status(400).json({ error: 'ไม่พบข้อมูล API ในระบบ กรุณากรอกใหม่' });
     }
 
-    try { validateSlipOkUrl(realApi); } catch (e) {
-      return res.status(400).json({ error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
+    try { validateSlipOkUrl(realApi); } catch (_) {
+      return res.status(400).json({ success: false, error: 'SlipOK URL ไม่ถูกต้อง' });
     }
+
+    // An authoritative result can change persisted status only when it proves the
+    // exact stored pair read before this request. New, unsaved form values must
+    // never disconnect an older stored account.
+    const storedSet = evidenceScope === 'truemoney'
+      ? { url: storedDecrypted.truemoney_slipok_api, key: storedDecrypted.truemoney_slipok_api_key }
+      : { url: storedDecrypted.slipok_api, key: storedDecrypted.slipok_api_key };
+    storedCredentialMatch = realApi === storedSet.url && realApiKey === storedSet.key;
 
     const branchUrl = realApi.endsWith('/quota') ? realApi.replace(/\/quota$/, '') : realApi;
     const quotaUrl = `${branchUrl}/quota`;
@@ -5411,104 +5491,104 @@ app.post('/api/payment/test-slipok', ensureAuthenticated, csrfProtection, requir
       timeout: 10000
     });
 
-    const streamer = await db.getStreamer(actualUsername);
+    const quotaOutcome = classifySlipOkQuotaResponse(response.data, Date.now());
+    const now = new Date().toISOString();
+    if (quotaOutcome.authoritative) {
+      if (storedCredentialMatch) {
+        try {
+          const persisted = await persistAuthoritativeSlipOkDisconnect(streamerBeforeProbe, evidenceScope, now);
+          if (isStaleSlipOkDisconnect(persisted)) {
+            return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+          }
+        } catch (_) {
+          console.error(`[SlipOK] authoritative test disconnect persistence failed scope=${evidenceScope}`);
+          return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
+        }
+      }
+      const providerCode = Number(quotaOutcome.errorCode) || 1003;
+      return res.status(422).json({
+        success: false,
+        error: SLIPOK_ERROR_MAP[providerCode] || 'บัญชี SlipOK ใช้งานไม่ได้ กรุณาตรวจสอบแพ็กเกจ',
+        errorCode: providerCode,
+        reason: quotaOutcome.reason
+      });
+    }
+
+    // A quota payload without a valid current/next Bangkok calendar date is not
+    // proof of a usable account. It must not reconnect or disconnect anything.
+    if (!quotaOutcome.success || !quotaOutcome.endDateValid) {
+      return res.status(502).json({ success: false, error: 'ไม่สามารถอ่านสถานะแพ็กเกจ SlipOK ได้', errorCode: quotaOutcome.errorCode || null });
+    }
 
     // Successful API test = streamer's own confirmation the receiver is bound in SlipOK
     // (SlipOK has no "list bound accounts" API to check this automatically) — trust it and
     // mark all 3 methods verified immediately. Only reset-on-account-change (payment/settings)
     // clears this; re-running the test here is how the streamer re-proves it after that.
-    const now = new Date().toISOString();
-    const verifiedFlags = {
-      promptpay_account_verified: 1, promptpay_account_verified_at: now,
-      bank_account_verified: 1, bank_account_verified_at: now,
-      truemoney_account_verified: 1, truemoney_account_verified_at: now
-    };
-
-    if (isTruemoney) {
-      const currentQuota = response.data?.data?.quota || 0;
-      const existingTotal = streamer?.truemoney_slipok_quota_total || 0;
-      const candidate = inferSlipOkBasePlan(currentQuota);
-      const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
-      await db.saveStreamer({
-        twitch_id: req.user.twitch_id || null,
-        streamlabs_id: req.user.streamlabs_id || null,
-        username: actualUsername,
-        truemoney_slipok_connected: 1,
-        truemoney_slipok_last_check: now,
-        truemoney_phone: realTruemoneyPhone,
-        truemoney_slipok_api: realApi,
-        truemoney_slipok_api_key: realApiKey,
-        truemoney_slipok_quota_total: newSnapshot,
-        ...verifiedFlags
+    // Successful API test is the explicit reconnect path. Its target scope,
+    // credential update, receiver confirmation and quota snapshot are one narrow
+    // CAS write against the exact pre-probe row; a delayed success cannot overwrite
+    // a concurrent settings save or a newer manual retest.
+    try {
+      const persisted = await persistExplicitSlipOkRetest(streamerBeforeProbe, evidenceScope, {
+        checkedAt: now,
+        quotaTotal: inferSlipOkBasePlan(quotaOutcome.quota || 0),
+        url: realApi,
+        key: realApiKey,
+        promptpayType: isTruemoney ? undefined : realPromptpayType,
+        promptpayValue: isTruemoney ? undefined : realPromptpayValue,
+        truemoneyPhone: isTruemoney ? realTruemoneyPhone : undefined
       });
-    } else {
-      const currentQuota = response.data?.data?.quota || 0;
-      const existingTotal = streamer?.slipok_quota_total || 0;
-      const candidate = inferSlipOkBasePlan(currentQuota);
-      const newSnapshot = (!existingTotal || candidate > existingTotal) ? candidate : existingTotal;
-      await db.saveStreamer({
-        twitch_id: req.user.twitch_id || null,
-        streamlabs_id: req.user.streamlabs_id || null,
-        username: actualUsername,
-        slipok_connected: 1,
-        slipok_last_check: now,
-        promptpay_type: realPromptpayType,
-        promptpay_value: realPromptpayValue,
-        slipok_api: realApi,
-        slipok_api_key: realApiKey,
-        slipok_quota_total: newSnapshot,
-        truemoney_slipok_connected: 1,
-        truemoney_slipok_last_check: now,
-        truemoney_slipok_api: realApi,
-        truemoney_slipok_api_key: realApiKey,
-        ...verifiedFlags
-      });
+      if (isStaleSlipOkDisconnect(persisted)) {
+        return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+      }
+    } catch (_) {
+      console.error(`[SlipOK] explicit test persistence failed scope=${evidenceScope}`);
+      return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
     }
 
-    res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ', quota: response.data?.data?.quota });
+    res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ', quota: quotaOutcome.quota, method: evidenceScope });
   } catch (err) {
     const slipCode = err.response?.data?.code;
     console.error('Test SlipOK error: code=' + (slipCode || err.response?.status || err.code || 'UNKNOWN'));
-    const actualUsername = await getActualUsername(req.user);
-    const isTruemoney = req.body.method === 'truemoney';
-    try {
-      const _ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: actualUsername };
-      if (isTruemoney) {
-        await db.saveStreamer({ ..._ids, truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
-      } else {
-        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
+    const classification = classifySlipOkErrorCode(slipCode);
+    if (classification.authoritative && streamerBeforeProbe && evidenceScope && storedCredentialMatch) {
+      try {
+        const persisted = await persistAuthoritativeSlipOkDisconnect(streamerBeforeProbe, evidenceScope, new Date().toISOString());
+        if (isStaleSlipOkDisconnect(persisted)) {
+          return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+        }
+      } catch (_) {
+        console.error(`[SlipOK] authoritative test disconnect persistence failed scope=${evidenceScope}`);
+        return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
       }
-    } catch (ignore) {}
+    }
 
-    const slipMsg = SLIPOK_ERROR_MAP[slipCode] || null;
-    const errorMsg = slipMsg
-      ? slipMsg
-      : err.response
-        ? (err.response.status === 401 || err.response.status === 403
-            ? 'SlipOK API key ไม่ถูกต้องหรือไม่ได้รับอนุญาต'
-            : err.response.status === 429
-              ? 'SlipOK API ถูกใช้งานเกินโควต้า กรุณาตรวจสอบแพ็คเกจของคุณ'
-              : `SlipOK ตอบกลับ HTTP ${err.response.status}`)
-        : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
-          ? 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ SlipOK ได้'
-          : err.code === 'ETIMEDOUT'
-            ? 'หมดเวลาเชื่อมต่อกับ SlipOK'
-            : `เกิดข้อผิดพลาด: ${err.message}`;
-
-    res.status(502).json({ success: false, error: errorMsg, errorCode: slipCode || null });
+    const errorMsg = classification.authoritative
+      ? (SLIPOK_ERROR_MAP[slipCode] || 'บัญชี SlipOK ใช้งานไม่ได้ กรุณาตรวจสอบแพ็กเกจ')
+      : 'ไม่สามารถตรวจสอบการเชื่อมต่อ SlipOK ได้';
+    res.status(classification.authoritative ? 422 : 502).json({
+      success: false,
+      error: errorMsg,
+      errorCode: classification.authoritative ? Number(slipCode) : null,
+      reason: classification.reason || undefined
+    });
   }
 });
 
 // GET /api/payment/slipok-quota — fetch live quota from SlipOK (read-only, no CSRF needed)
 app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, async (req, res) => {
+  let requestedScope = null;
+  let streamer = null;
   try {
     const { method } = req.query;
+    requestedScope = getRequestedSlipOkScope(method);
+    if (!requestedScope) return res.status(400).json({ success: false, error: 'วิธีการชำระเงินไม่ถูกต้อง' });
     const actualUsername = await getActualUsername(req.user);
-    const streamer = await db.getStreamer(actualUsername);
+    streamer = await db.getStreamer(actualUsername);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
 
     const decrypted = decryptPaymentFields(streamer);
-    const isTruemoney = method === 'truemoney';
+    const isTruemoney = requestedScope === 'truemoney';
     const realApi = isTruemoney
       ? decrypted.truemoney_slipok_api
       : decrypted.slipok_api;
@@ -5520,8 +5600,8 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
       return res.status(400).json({ error: 'ยังไม่ได้ตั้งค่า SlipOK API' });
     }
 
-    try { validateSlipOkUrl(realApi); } catch (e) {
-      return res.status(400).json({ error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
+    try { validateSlipOkUrl(realApi); } catch (_) {
+      return res.status(400).json({ success: false, error: 'SlipOK URL ไม่ถูกต้อง' });
     }
 
     const branchUrl = realApi.endsWith('/quota')
@@ -5534,43 +5614,106 @@ app.get('/api/payment/slipok-quota', ensureAuthenticated, slipokQuotaLimiter, as
       timeout: 10000
     });
 
-    const q = response.data?.data || {};
-    const quotaValue = q.quota || 0;
-
-    const _ids = { twitch_id: req.user.twitch_id || null, streamlabs_id: req.user.streamlabs_id || null, username: streamer.username };
-    if (isTruemoney) {
-      const existingTotal = streamer.truemoney_slipok_quota_total || 0;
-      if (!existingTotal) {
-        const inferred = inferSlipOkBasePlan(quotaValue);
-        try { await db.saveStreamer({ ..._ids, truemoney_slipok_quota_total: inferred }); } catch (e) {}
+    const quotaOutcome = classifySlipOkQuotaResponse(response.data, Date.now());
+    const now = new Date().toISOString();
+    if (quotaOutcome.authoritative) {
+      try {
+        const persisted = await persistAuthoritativeSlipOkDisconnect(streamer, requestedScope, now);
+        if (isStaleSlipOkDisconnect(persisted)) {
+          return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+        }
+      } catch (_) {
+        console.error(`[SlipOK] authoritative quota disconnect persistence failed scope=${requestedScope}`);
+        return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
       }
-    } else {
-      const existingTotal = streamer.slipok_quota_total || 0;
-      if (!existingTotal) {
-        const inferred = inferSlipOkBasePlan(quotaValue);
-        try { await db.saveStreamer({ ..._ids, slipok_quota_total: inferred }); } catch (e) {}
+      return res.json({
+        success: true,
+        data: {
+          quota: quotaOutcome.quota,
+          overQuota: quotaOutcome.overQuota,
+          specialQuota: quotaOutcome.specialQuota,
+          endDate: quotaOutcome.endDate,
+          expired: quotaOutcome.expired,
+          accountIssue: !quotaOutcome.expired,
+          reason: quotaOutcome.reason,
+          method: requestedScope,
+          lastCheck: now,
+          snapshotTotal: isTruemoney ? streamer.truemoney_slipok_quota_total || null : streamer.slipok_quota_total || null
+        }
+      });
+    }
+
+    // Unknown/malformed quota payloads are deliberately read-only. A Dashboard
+    // refresh must not turn a transient provider response into a stored disconnect.
+    if (!quotaOutcome.success || !quotaOutcome.endDateValid) {
+      return res.status(502).json({ success: false, error: 'ไม่สามารถอ่านสถานะแพ็กเกจ SlipOK ได้', errorCode: quotaOutcome.errorCode || null });
+    }
+
+    const quotaValue = quotaOutcome.quota || 0;
+    const quotaCandidate = inferSlipOkBasePlan(quotaValue);
+    const existingSnapshot = isTruemoney
+      ? Number(streamer.truemoney_slipok_quota_total) || 0
+      : Number(streamer.slipok_quota_total) || 0;
+    const snapshotTotal = Math.max(existingSnapshot, quotaCandidate);
+    if (quotaCandidate > existingSnapshot) {
+      try {
+        const persisted = await persistSlipOkQuotaSnapshot(streamer, requestedScope, quotaCandidate);
+        if (isStaleSlipOkDisconnect(persisted)) {
+          return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+        }
+      } catch (_) {
+        console.error(`[SlipOK] quota snapshot persistence failed scope=${requestedScope}`);
+        return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
       }
     }
 
     res.json({
       success: true,
       data: {
-        quota: q.quota ?? null,
-        overQuota: q.overQuota ?? 0,
-        specialQuota: q.specialQuota ?? 0,
-        endDate: q.endDate ?? null,
-        method: isTruemoney ? 'truemoney' : 'promptpay',
-        snapshotTotal: isTruemoney
-          ? (inferSlipOkBasePlan(quotaValue) || streamer.truemoney_slipok_quota_total)
-          : (inferSlipOkBasePlan(quotaValue) || streamer.slipok_quota_total)
+        quota: quotaOutcome.quota,
+        overQuota: quotaOutcome.overQuota,
+        specialQuota: quotaOutcome.specialQuota,
+        endDate: quotaOutcome.endDate,
+        expired: false,
+        accountIssue: false,
+        reason: null,
+        method: requestedScope,
+        snapshotTotal
       }
     });
   } catch (err) {
     const slipCode = err.response?.data?.code;
     console.error('SlipOK quota fetch error: code=' + (slipCode || err.response?.status || 'NO_RESPONSE'));
+    const classification = classifySlipOkErrorCode(slipCode);
+    if (classification.authoritative && streamer && requestedScope) {
+      try {
+        const persisted = await persistAuthoritativeSlipOkDisconnect(streamer, requestedScope, new Date().toISOString());
+        if (isStaleSlipOkDisconnect(persisted)) {
+          return res.status(409).json({ success: false, error: 'การตั้งค่า SlipOK เปลี่ยนระหว่างการตรวจสอบ กรุณาลองใหม่', errorCode: 'STATE_CHANGED' });
+        }
+      } catch (_) {
+        console.error(`[SlipOK] authoritative quota disconnect persistence failed scope=${requestedScope}`);
+        return res.status(503).json({ success: false, error: 'ไม่สามารถอัปเดตสถานะ SlipOK ได้ กรุณาลองใหม่', errorCode: 'STATE_SYNC_FAILED' });
+      }
+      return res.json({
+        success: true,
+        data: {
+          quota: null,
+          overQuota: 0,
+          specialQuota: 0,
+          endDate: null,
+          expired: classification.expired,
+          accountIssue: !classification.expired,
+          reason: classification.reason,
+          method: requestedScope,
+          snapshotTotal: null
+        }
+      });
+    }
 
-    const status = err.response?.status || 500;
-    res.status(status).json({ success: false, error: 'ไม่สามารถดึงข้อมูลโควต้าได้', errorCode: slipCode || null });
+    // Do not echo an upstream body/message/status. A non-authoritative provider
+    // failure is transient/unknown and intentionally leaves persisted state alone.
+    res.status(502).json({ success: false, error: 'ไม่สามารถดึงข้อมูลโควต้าได้', errorCode: null });
   }
 });
 
@@ -6019,22 +6162,19 @@ app.post('/api/verify-slip', loadShedGuard(1), sameOriginCheck, uploadSlipLimite
     if (!streamer) return res.status(404).json({ success: false, errorCode: 'NO_USER', error: 'ไม่พบผู้ใช้งาน' });
 
     const decrypted = decryptPaymentFields(streamer);
-    let slipOkApi, slipOkApiKey;
-    if (isTruemoney) {
-      slipOkApi = decrypted.truemoney_slipok_api || decrypted.slipok_api;
-      slipOkApiKey = decrypted.truemoney_slipok_api_key || decrypted.slipok_api_key;
-    } else {
-      // Fallback: user เก่าที่มีเฉพาะ truemoney_slipok_* ใช้ bank/promptpay ได้โดยไม่ต้อง re-test
-      slipOkApi = decrypted.slipok_api || decrypted.truemoney_slipok_api;
-      slipOkApiKey = decrypted.slipok_api_key || decrypted.truemoney_slipok_api_key;
-    }
+    // The donor verification lane has one policy: a complete primary pair wins,
+    // and the TrueMoney pair is a fallback only when no primary pair exists.
+    const effectiveSlipOk = getEffectiveSlipOkCredentialSet(decrypted);
+    const slipOkScope = effectiveSlipOk?.scope || null;
+    const slipOkApi = effectiveSlipOk?.url || '';
+    const slipOkApiKey = effectiveSlipOk?.key || '';
 
     if (!slipOkApi || !slipOkApiKey) {
       return res.status(503).json({ success: false, errorCode: 'SLIPOK_NOT_CONFIGURED', error: 'ผู้ใช้ยังไม่ได้ตั้งค่า SlipOK API' });
     }
 
-    try { validateSlipOkUrl(slipOkApi); } catch (e) {
-      return res.status(400).json({ success: false, errorCode: 'SLIPOK_URL_INVALID', error: `SlipOK URL ไม่ถูกต้อง: ${e.message}` });
+    try { validateSlipOkUrl(slipOkApi); } catch (_) {
+      return res.status(400).json({ success: false, errorCode: 'SLIPOK_URL_INVALID', error: 'SlipOK URL ไม่ถูกต้อง' });
     }
 
     // Guard 1: Reject if transaction already successful (prevents re-verifying completed payments)
@@ -6156,21 +6296,21 @@ app.post('/api/verify-slip', loadShedGuard(1), sameOriginCheck, uploadSlipLimite
         await db.saveTransaction({ ...tx, id: effectiveReferenceId, status: 'failed' });
       }
     }
-    // Streamer's SlipOK account is broken/expired/over-quota — auto-disconnect both SlipOK
-    // flags so the dashboard warns the streamer immediately. Public route (no req.user):
-    // build _ids from the already-loaded streamer row. Best-effort, never blocks the response.
-    if (result.errorCode === 'SLIPOK_ACCOUNT_ISSUE') {
+    // A donor upload can surface authoritative account evidence. Disconnect only
+    // the effective credential lane used for this verification; a fallback must
+    // never be cleared merely because the primary lane failed.
+    const accountIssue = classifySlipOkErrorCode(result.slipSubCode);
+    if (accountIssue.authoritative && slipOkScope) {
       try {
-        const _ids = { twitch_id: streamer.twitch_id || null, streamlabs_id: streamer.streamlabs_id || null, username: streamer.username };
-        await db.saveStreamer({ ..._ids, slipok_connected: 0, slipok_last_check: new Date().toISOString(), truemoney_slipok_connected: 0, truemoney_slipok_last_check: new Date().toISOString() });
-      } catch (disconnectErr) {
-        console.error('SlipOK auto-disconnect failed:', disconnectErr.message);
+        await persistAuthoritativeSlipOkDisconnect(streamer, slipOkScope, new Date().toISOString());
+      } catch (_) {
+        console.error(`[SlipOK] donor-path disconnect persistence failed scope=${slipOkScope}`);
       }
     }
     const status = result.errorCode === 'CONNECTION_FAILED' ? 502 : 200;
     return res.status(status).json({ success: false, errorCode: result.errorCode, slipSubCode: result.slipSubCode ?? undefined, error: result.error, delayMinutes: result.delayMinutes, referenceId: effectiveReferenceId });
   } catch (err) {
-    console.error('Verify slip error:', err);
+    console.error('Verify slip error: code=' + (err?.code || err?.name || 'UNKNOWN'));
     res.status(500).json({ success: false, errorCode: 'SERVER_ERROR', error: 'เกิดข้อผิดพลาดในการตรวจสอบสลิป' });
   }
 });
@@ -6188,9 +6328,9 @@ app.post('/api/verify-promptpay-slip', loadShedGuard(2), sameOriginCheck, pollSl
     const streamer = await db.getStreamer(tx.streamer_username);
     if (!streamer) return res.status(404).json({ error: 'ไม่พบข้อมูลผู้ใช้' });
     const decrypted = decryptPaymentFields(streamer);
-
-    const slipOkApi = decrypted.slipok_api;
-    const slipOkApiKey = decrypted.slipok_api_key;
+    const effectiveSlipOk = getEffectiveSlipOkCredentialSet(decrypted);
+    const slipOkApi = effectiveSlipOk?.url || '';
+    const slipOkApiKey = effectiveSlipOk?.key || '';
 
     if (!slipOkApi || !slipOkApiKey) {
       return res.status(503).json({
@@ -6231,16 +6371,11 @@ app.get('/api/page/:username/payment-methods', paymentMethodsLimiter, async (req
 
     // Effective SlipOK credential สำหรับ PromptPay/Bank — นิยามเดียวกับ /api/verify-slip (fallback ชุด TrueMoney สำหรับ user เก่า)
     // ส่งเป็น boolean เท่านั้น ห้ามส่ง URL/key ออกไปหา donor
-    const slipOkPrimaryPair = !!(decrypted.slipok_api && decrypted.slipok_api_key);
-    const slipOkFallbackPair = !!(decrypted.truemoney_slipok_api && decrypted.truemoney_slipok_api_key);
-    const slipOkConfigured = slipOkPrimaryPair || slipOkFallbackPair;
+    const slipOkState = resolveSlipOkLane(decrypted);
 
     // slipok_ready = พร้อมใช้จริงตาม lane ที่ /api/verify-slip จะเลือก (primary มาก่อน fallback)
     // ห้ามใช้ aggregate slipok_connected ตรงนี้ — เคส primary พังแต่ TrueMoney SlipOK ต่อได้ จะพา donor
     // เข้า PromptPay/Bank ที่ verify ไม่ผ่าน (AUDIT ROUND_1 A3)
-    const slipOkReady = slipOkPrimaryPair
-      ? streamer.slipok_connected === 1
-      : (slipOkFallbackPair && streamer.truemoney_slipok_connected === 1);
 
     res.json({
       // FIXME: เมื่อ FFP พร้อมใช้งาน เปลี่ยนเป็น (method === 'ffp' || method === 'both')
@@ -6251,9 +6386,12 @@ app.get('/api/page/:username/payment-methods', paymentMethodsLimiter, async (req
       beam: method === 'ffp' || method === 'both',
       promptpay_name: streamer.promptpay_name || streamer.username,
       truemoney_phone: truemoneyEnabled ? (decrypted.truemoney_phone || '') : '',
-      slipok_connected: streamer.slipok_connected === 1 || streamer.tfp_connected === 1 || streamer.truemoney_slipok_connected === 1,
-      slipok_configured: slipOkConfigured,
-      slipok_ready: slipOkReady,
+      // Retained for older donor UI, but now carries the same effective-lane
+      // verdict as slipok_ready rather than an unsafe aggregate.
+      slipok_connected: slipOkState.ready,
+      slipok_configured: slipOkState.configured,
+      slipok_ready: slipOkState.ready,
+      slipok_effective_scope: slipOkState.effectiveScope,
       truemoney_slipok_connected: streamer.truemoney_slipok_connected === 1,
       truemoney_webhook: streamer.truemoney_webhook_enabled === 1,
       truemoney_webhook_methods: streamer.truemoney_webhook_enabled === 1 ? (streamer.truemoney_webhook_methods || 'P2P') : '',

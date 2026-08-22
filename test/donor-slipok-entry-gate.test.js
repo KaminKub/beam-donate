@@ -197,12 +197,14 @@ test('server คำนวณ slipok_ready ตาม lane เดียวกั�
     serverSource.indexOf("app.get('/api/page/:username/payment-methods'"),
     serverSource.indexOf('const UPLOAD_MAX_SIZES')
   );
-  assert.match(endpoint, /const slipOkReady = slipOkPrimaryPair\s*\?\s*streamer\.slipok_connected === 1\s*:\s*\(slipOkFallbackPair && streamer\.truemoney_slipok_connected === 1\)/);
-  assert.match(endpoint, /slipok_ready: slipOkReady,/);
+  assert.match(endpoint, /const slipOkState = resolveSlipOkLane\(decrypted\);/);
+  assert.match(endpoint, /slipok_ready: slipOkState\.ready,/);
+  assert.match(endpoint, /slipok_effective_scope: slipOkState\.effectiveScope,/);
 
   // lane ต้องตรงกับ verify-slip: primary ก่อน แล้วค่อย fallback ชุด TrueMoney
-  const verifySlip = serverSource.slice(serverSource.indexOf('let slipOkApi, slipOkApiKey;'), serverSource.indexOf('if (!slipOkApi || !slipOkApiKey) {'));
-  assert.match(verifySlip, /slipOkApi = decrypted\.slipok_api \|\| decrypted\.truemoney_slipok_api;/);
+  const verifySlip = serverSource.slice(serverSource.indexOf("app.post('/api/verify-slip'"), serverSource.indexOf("app.post('/api/verify-promptpay-slip'"));
+  assert.match(verifySlip, /const effectiveSlipOk = getEffectiveSlipOkCredentialSet\(decrypted\);/);
+  assert.match(verifySlip, /const slipOkScope = effectiveSlipOk\?\.scope \|\| null;/);
 });
 
 test('public payment-methods ส่ง slipok_configured เป็น boolean ไม่รั่ว credential', () => {
@@ -210,8 +212,8 @@ test('public payment-methods ส่ง slipok_configured เป็น boolean �
     serverSource.indexOf("app.get('/api/page/:username/payment-methods'"),
     serverSource.indexOf('const UPLOAD_MAX_SIZES')
   );
-  assert.match(endpoint, /const slipOkConfigured = slipOkPrimaryPair \|\| slipOkFallbackPair;/);
-  assert.match(endpoint, /slipok_configured: slipOkConfigured,/);
+  assert.match(endpoint, /const slipOkState = resolveSlipOkLane\(decrypted\);/);
+  assert.match(endpoint, /slipok_configured: slipOkState\.configured,/);
   for (const secret of ['slipok_api:', 'slipok_api_key:', 'truemoney_slipok_api:', 'tfp_api_key', 'tfp_api_secret', 'promptpay_value']) {
     assert.doesNotMatch(endpoint.slice(endpoint.indexOf('res.json({')), new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }

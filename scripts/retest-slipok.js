@@ -1,18 +1,20 @@
-// Admin support CLI — retest the SlipOK credentials a streamer already stored.
+'use strict';
+
+// Admin support CLI: explicitly retest stored SlipOK credentials for one streamer.
 //
-//   npm run admin:retest-slipok -- --username <username>            (dry run, exit 1)
-//   npm run admin:retest-slipok -- --username <username> --execute
+//   npm run admin:retest-slipok -- --username <username>            # dry run
+//   npm run admin:retest-slipok -- --username <username> --execute  # probe + scoped CAS
 //
-// Deliberately narrow: it can only ask SlipOK whether the stored credentials still answer
-// /quota, and can only write the connected / last-check / quota-snapshot columns of the
-// scopes it tested. It cannot read, enter or change a Branch URL, API key, account number,
-// phone, payment method or any *_account_verified flag — those stay the streamer's own act.
-//
-// Exit codes: 0 all configured scopes connected · 1 refused before calling SlipOK · 2 upstream/DB failure.
+// This remains the explicit reconnect path. Every post-provider state change is a
+// scope-allowlisted compare-and-set; it never uses saveStreamer after a probe.
 
 require('dotenv').config();
 const db = require('../src/database');
-const { retestStoredSlipOk, getStoredSlipOkCredentialSets } = require('../src/slipok-connection');
+const {
+  retestStoredSlipOk,
+  getStoredSlipOkCredentialSets,
+  inferSlipOkBasePlan
+} = require('../src/slipok-connection');
 const { PAYMENT_ELIGIBILITY_VERSION } = require('../src/legal-helpers');
 
 function parseArgs(argv) {
@@ -31,11 +33,60 @@ function refuse(message, hint) {
   return 1;
 }
 
+function printableStatus(streamer) {
+  return {
+    promptpay: streamer.slipok_connected ? 1 : 0,
+    truemoney: streamer.truemoney_slipok_connected ? 1 : 0
+  };
+}
+
+async function applyScopedResults(streamer, results) {
+  const after = printableStatus(streamer);
+  let stateSyncFailed = false;
+
+  for (const result of results) {
+    let persisted = null;
+    try {
+      if (result.authoritative) {
+        persisted = await db.disconnectSlipOkScopeIfUnchanged(
+          streamer,
+          result.scope,
+          new Date().toISOString()
+        );
+        if (persisted.rowsAffected === 1 || persisted.skipped) after[result.scope] = 0;
+      } else if (result.success && result.endDateValid && !result.expired) {
+        persisted = await db.reconnectSlipOkScopeIfUnchanged(
+          streamer,
+          result.scope,
+          new Date().toISOString(),
+          inferSlipOkBasePlan(result.quota || 0)
+        );
+        if (persisted.rowsAffected === 1 || persisted.skipped) after[result.scope] = 1;
+      } else {
+        // Timeout/DNS/429/5xx/malformed/null-date outcomes are read-only.
+        continue;
+      }
+
+      if (persisted.rowsAffected === 0 && !persisted.skipped) {
+        stateSyncFailed = true;
+        after[result.scope] = '?';
+        console.error(`⚠️  สถานะเปลี่ยนระหว่างตรวจสอบ: scope=${result.scope}`);
+      }
+    } catch (err) {
+      stateSyncFailed = true;
+      after[result.scope] = '?';
+      console.error(`❌ บันทึกสถานะไม่สำเร็จ: scope=${result.scope} code=${err.code || err.name || 'DB_ERROR'}`);
+    }
+  }
+
+  return { after, stateSyncFailed };
+}
+
 async function main() {
   const { username, execute } = parseArgs(process.argv.slice(2));
 
-  // Same shape db.getStreamer() matches on (LOWER(username)); anything else is rejected rather
-  // than normalised, so a Twitch ID or a SQL fragment can never reach the query.
+  // Same shape db.getStreamer() matches on (LOWER(username)); anything else is
+  // rejected rather than normalized, so a Twitch ID or SQL fragment cannot reach it.
   if (!username || !/^[A-Za-z0-9_]{1,50}$/.test(username)) {
     return refuse('ต้องระบุ --username <username>', 'ตัวอักษร/ตัวเลข/_ เท่านั้น');
   }
@@ -51,7 +102,7 @@ async function main() {
     );
   }
 
-  const scopes = getStoredSlipOkCredentialSets(streamer).map(s => s.scope);
+  const scopes = getStoredSlipOkCredentialSets(streamer).map(set => set.scope);
   if (!scopes.length) {
     return refuse(`USER_ACTION_REQUIRED — ${streamer.username} ไม่มี SlipOK credential ครบคู่ในระบบ`,
       'ให้ user กรอก Branch URL + API Key ใหม่เองใน Dashboard');
@@ -66,45 +117,34 @@ async function main() {
     return 1;
   }
 
-  const { ok, results, patch } = await retestStoredSlipOk({ streamer });
+  const { ok, results } = await retestStoredSlipOk({ streamer });
 
   console.log('');
-  for (const r of results) {
-    console.log(r.success
-      ? `✅ ${r.scope}: connected · quota=${r.quota}`
-      : `❌ ${r.scope}: failed · code=${r.errorCode}`);
+  for (const result of results) {
+    console.log(result.success
+      ? `✅ ${result.scope}: connected · quota=${result.quota}`
+      : `❌ ${result.scope}: ${result.authoritative ? result.reason : 'unknown'} · code=${result.errorCode}`);
   }
 
-  try {
-    await db.saveStreamer({
-      twitch_id: streamer.twitch_id || null,
-      streamlabs_id: streamer.streamlabs_id || null,
-      username: streamer.username,
-      ...patch
-    });
-  } catch (err) {
-    console.error(`❌ บันทึกผลลงฐานข้อมูลไม่สำเร็จ: ${err.code || 'DB_ERROR'}`);
-    return 2;
-  }
+  const { after, stateSyncFailed } = await applyScopedResults(streamer, results);
+  console.log(`after:   promptpay=${after.promptpay} · truemoney=${after.truemoney}`);
 
-  console.log(`after:   promptpay=${patch.slipok_connected ?? (streamer.slipok_connected ? 1 : 0)} · truemoney=${patch.truemoney_slipok_connected ?? (streamer.truemoney_slipok_connected ? 1 : 0)}`);
-
-  for (const r of results) {
+  for (const result of results) {
     await db.logIpEvent('admin_slipok_retest', '127.0.0.1', streamer.username, {
       source: 'cli',
-      scope: r.scope,
-      success: r.success,
-      errorCode: r.errorCode
+      scope: result.scope,
+      success: result.success,
+      errorCode: result.errorCode
     });
   }
 
-  return ok ? 0 : 2;
+  return ok && !stateSyncFailed ? 0 : 2;
 }
 
 main()
   .then(code => process.exit(code))
   .catch(err => {
-    // No err.message: an axios/libsql error can carry the URL or the API key in it.
+    // Never print err.message: provider/DB clients can embed URLs or headers.
     console.error(`❌ retest ล้มเหลว: ${err.code || err.name || 'UNKNOWN'}`);
     process.exit(2);
   });

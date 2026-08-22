@@ -1,6 +1,7 @@
 ﻿const path = require('path');
 const fs = require('fs');
 const { encrypt, decrypt } = require('./encryption');
+const { SCOPE_COLUMNS } = require('./slipok-connection');
 
 let db = null;
 let isFallback = false;
@@ -1645,6 +1646,235 @@ async function saveStreamer(data) {
   return returned;
 }
 
+function assertScopedSlipOkSnapshot(streamer, scope, { requireCredentials = true } = {}) {
+  const columns = SCOPE_COLUMNS[scope];
+  if (!columns) throw new Error('Invalid SlipOK scope');
+  if (!streamer || !Number.isInteger(Number(streamer.id)) || Number(streamer.id) <= 0) {
+    throw new Error('Invalid SlipOK streamer snapshot');
+  }
+  if (requireCredentials && (!streamer[columns.urlColumn] || !streamer[columns.keyColumn])) {
+    throw new Error('SlipOK credential snapshot is incomplete');
+  }
+  return columns;
+}
+
+function checkedAtOrThrow(checkedAt) {
+  if (typeof checkedAt !== 'string' || !checkedAt) throw new Error('Invalid SlipOK check time');
+  return checkedAt;
+}
+
+function quotaCandidateOrThrow(quotaTotal) {
+  const candidate = Number(quotaTotal);
+  if (!Number.isFinite(candidate) || candidate < 0) throw new Error('Invalid SlipOK quota snapshot');
+  return candidate;
+}
+
+function scopedSlipOkWhereArgs(streamer, columns, { includeQuota = false } = {}) {
+  const args = [
+    Number(streamer.id),
+    streamer[columns.urlColumn] ?? null,
+    streamer[columns.keyColumn] ?? null,
+    streamer[columns.lastCheck] ?? null
+  ];
+  if (includeQuota) args.push(Number(streamer[columns.quotaTotal]) || 0);
+  return args;
+}
+
+function scopedSlipOkWhere(columns, { includeQuota = false, expectedConnected = 0 } = {}) {
+  const expected = Number(expectedConnected) === 1 ? 1 : 0;
+  return `WHERE id = ?
+            AND ${columns.urlColumn} IS ?
+            AND ${columns.keyColumn} IS ?
+            AND COALESCE(${columns.connected}, 0) = ${expected}
+            AND ${columns.lastCheck} IS ?${includeQuota ? `
+            AND COALESCE(${columns.quotaTotal}, 0) = ?` : ''}`;
+}
+
+// Build the only statement allowed to persist provider-authoritative SlipOK
+// disconnect evidence. It intentionally updates one scope only and predicates the
+// write on the exact credential ciphertext plus the status snapshot read before the
+// provider call. That makes a delayed quota result harmless if an admin has since
+// retested, reconnected, or changed credentials.
+function buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt) {
+  const columns = assertScopedSlipOkSnapshot(streamer, scope);
+  checkedAtOrThrow(checkedAt);
+  if (Number(streamer[columns.connected]) !== 1) return null;
+
+  return {
+    sql: `UPDATE streamers
+          SET ${columns.connected} = 0, ${columns.lastCheck} = ?
+          ${scopedSlipOkWhere(columns, { expectedConnected: 1 })}`,
+    args: [
+      checkedAt,
+      ...scopedSlipOkWhereArgs(streamer, columns)
+    ]
+  };
+}
+
+// Explicit retests may reconnect a scope, but only against the exact stored
+// credential/status/quota snapshot that was read before the provider call.
+function buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal) {
+  const columns = assertScopedSlipOkSnapshot(streamer, scope);
+  checkedAtOrThrow(checkedAt);
+  const candidate = quotaCandidateOrThrow(quotaTotal);
+  return {
+    sql: `UPDATE streamers
+          SET ${columns.connected} = 1,
+              ${columns.lastCheck} = ?,
+              ${columns.quotaTotal} = CASE
+                WHEN COALESCE(${columns.quotaTotal}, 0) < ? THEN ?
+                ELSE ${columns.quotaTotal}
+              END
+          ${scopedSlipOkWhere(columns, {
+            includeQuota: true,
+            expectedConnected: streamer[columns.connected]
+          })}`,
+    args: [
+      checkedAt,
+      candidate,
+      candidate,
+      ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true })
+    ]
+  };
+}
+
+// A successful Dashboard quota refresh may grow its inferred quota snapshot, but
+// never reconnects a scope. It is still guarded so a delayed response cannot write
+// across a credential/status change.
+function buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal) {
+  const columns = assertScopedSlipOkSnapshot(streamer, scope);
+  const candidate = quotaCandidateOrThrow(quotaTotal);
+  const previous = Number(streamer[columns.quotaTotal]) || 0;
+  if (candidate <= previous) return null;
+  return {
+    sql: `UPDATE streamers
+          SET ${columns.quotaTotal} = ?
+          ${scopedSlipOkWhere(columns, {
+            includeQuota: true,
+            expectedConnected: streamer[columns.connected]
+          })}`,
+    args: [candidate, ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true })]
+  };
+}
+
+function preserveOrEncryptSlipOkValue(previousCiphertext, plaintext) {
+  if (typeof plaintext !== 'string' || !plaintext) return previousCiphertext ?? null;
+  try {
+    if (previousCiphertext && decrypt(previousCiphertext) === plaintext) return previousCiphertext;
+  } catch (_) {
+    // Re-encrypt a replacement value rather than trusting malformed legacy text.
+  }
+  return encrypt(plaintext);
+}
+
+// The explicit dashboard test is the only post-provider flow that can save newly
+// entered credentials. Keep it narrow: one selected scope plus the pre-existing
+// receiver-verification confirmation, all guarded by the pre-probe snapshot.
+function buildScopedSlipOkExplicitRetestStatement(streamer, scope, {
+  checkedAt,
+  quotaTotal,
+  url,
+  key,
+  promptpayType,
+  promptpayValue,
+  truemoneyPhone
+} = {}) {
+  const columns = assertScopedSlipOkSnapshot(streamer, scope, { requireCredentials: false });
+  checkedAtOrThrow(checkedAt);
+  const candidate = quotaCandidateOrThrow(quotaTotal);
+  if (typeof url !== 'string' || !url || typeof key !== 'string' || !key) {
+    throw new Error('Invalid SlipOK explicit retest credentials');
+  }
+
+  const nextUrl = preserveOrEncryptSlipOkValue(streamer[columns.urlColumn], url);
+  const nextKey = preserveOrEncryptSlipOkValue(streamer[columns.keyColumn], key);
+  const nextPromptpayType = scope === 'promptpay' && typeof promptpayType === 'string' && promptpayType
+    ? promptpayType
+    : (streamer.promptpay_type ?? null);
+  const nextPromptpayValue = scope === 'promptpay'
+    ? preserveOrEncryptSlipOkValue(streamer.promptpay_value_encrypted, promptpayValue)
+    : (streamer.promptpay_value_encrypted ?? null);
+  const nextTruemoneyPhone = scope === 'truemoney'
+    ? preserveOrEncryptSlipOkValue(streamer.truemoney_phone_encrypted, truemoneyPhone)
+    : (streamer.truemoney_phone_encrypted ?? null);
+  const profileSet = scope === 'promptpay'
+    ? 'promptpay_type = ?, promptpay_value_encrypted = ?'
+    : 'truemoney_phone_encrypted = ?';
+  const profileArgs = scope === 'promptpay'
+    ? [nextPromptpayType, nextPromptpayValue]
+    : [nextTruemoneyPhone];
+
+  return {
+    sql: `UPDATE streamers
+          SET ${columns.urlColumn} = ?,
+              ${columns.keyColumn} = ?,
+              ${columns.connected} = 1,
+              ${columns.lastCheck} = ?,
+              ${columns.quotaTotal} = CASE
+                WHEN COALESCE(${columns.quotaTotal}, 0) < ? THEN ?
+                ELSE ${columns.quotaTotal}
+              END,
+              ${profileSet},
+              promptpay_account_verified = 1,
+              promptpay_account_verified_at = ?,
+              bank_account_verified = 1,
+              bank_account_verified_at = ?,
+              truemoney_account_verified = 1,
+              truemoney_account_verified_at = ?
+          ${scopedSlipOkWhere(columns, {
+            includeQuota: true,
+            expectedConnected: streamer[columns.connected]
+          })}
+            AND promptpay_type IS ?
+            AND promptpay_value_encrypted IS ?
+            AND bank_account_number_encrypted IS ?
+            AND truemoney_phone_encrypted IS ?`,
+    args: [
+      nextUrl,
+      nextKey,
+      checkedAt,
+      candidate,
+      candidate,
+      ...profileArgs,
+      checkedAt,
+      checkedAt,
+      checkedAt,
+      ...scopedSlipOkWhereArgs(streamer, columns, { includeQuota: true }),
+      streamer.promptpay_type ?? null,
+      streamer.promptpay_value_encrypted ?? null,
+      streamer.bank_account_number_encrypted ?? null,
+      streamer.truemoney_phone_encrypted ?? null
+    ]
+  };
+}
+
+async function executeScopedSlipOkStatement(statement) {
+  if (!statement) return { rowsAffected: 0, skipped: true };
+  await ensureConnected();
+  if (isFallback || !db) return { rowsAffected: 0, skipped: true };
+  const result = await db.execute(statement);
+  return { rowsAffected: result.rowsAffected || 0, skipped: false };
+}
+
+// Compare-and-set disconnect for an authoritative expired/account-issue result.
+// Returns rowsAffected=0 when the scope was already disconnected or a newer setting
+// changed after the provider probe; callers must treat that as a safe stale/no-op.
+async function disconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkDisconnectStatement(streamer, scope, checkedAt));
+}
+
+async function reconnectSlipOkScopeIfUnchanged(streamer, scope, checkedAt, quotaTotal) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkReconnectStatement(streamer, scope, checkedAt, quotaTotal));
+}
+
+async function recordSlipOkQuotaSnapshotIfUnchanged(streamer, scope, quotaTotal) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkQuotaSnapshotStatement(streamer, scope, quotaTotal));
+}
+
+async function applyScopedSlipOkExplicitRetestIfUnchanged(streamer, scope, data) {
+  return executeScopedSlipOkStatement(buildScopedSlipOkExplicitRetestStatement(streamer, scope, data));
+}
+
 const axios = require('axios'); // Use axios for simpler API calls
 
 let twitchTokenCache = {
@@ -2775,6 +3005,14 @@ module.exports = {
   getStreamerByToken,
   getDecryptedStreamer,
   saveStreamer,
+  buildScopedSlipOkDisconnectStatement,
+  buildScopedSlipOkReconnectStatement,
+  buildScopedSlipOkQuotaSnapshotStatement,
+  buildScopedSlipOkExplicitRetestStatement,
+  disconnectSlipOkScopeIfUnchanged,
+  reconnectSlipOkScopeIfUnchanged,
+  recordSlipOkQuotaSnapshotIfUnchanged,
+  applyScopedSlipOkExplicitRetestIfUnchanged,
   getLeaderboard,
   upsertLeaderboard,
   getLeaderboardAlltime,
