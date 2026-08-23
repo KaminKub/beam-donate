@@ -52,10 +52,19 @@ async function fetchCsrf() {
 }
 
 // ── Gift relay ──────────────────────────────────────────────────
+// repeatEnd มีความหมายเฉพาะของขวัญ streakable (giftType === 1) เท่านั้น
+// ของขวัญแพง (99/100+ coins) เป็น non-streakable → ส่ง event เดียว repeatEnd = false/0
+// และไม่มี event ปิดท้ายตามมา ถ้า drop ตาม repeatEnd อย่างเดียว = coins หายถาวร
+// giftType ไม่ถูกส่งมา → เดาว่า streakable (พฤติกรรมเดิม) กัน double-count ระหว่าง combo
+function isComboPending(g) {
+  if (g.repeatEnd) return false;
+  return g.giftType === undefined || g.giftType === 1;
+}
+
 function extractCoins(msg) {
   // Defensive multi-format parser — field names unknown until live R&D-1 runs
-  // Format A: { event:'gift', data:{ diamondCount, repeatCount, repeatEnd } }
-  // Format B: { type:'gift', diamondCount, repeatCount, repeatEnd }
+  // Format A: { event:'gift', data:{ diamondCount, repeatCount, repeatEnd, giftType } }
+  // Format B: { type:'gift', diamondCount, repeatCount, repeatEnd, giftType }
   // Format C: { event:'GIFT', gift:{ ... } }
   const isGiftEvent =
     msg.event === 'gift' || msg.event === 'GIFT' ||
@@ -64,18 +73,17 @@ function extractCoins(msg) {
 
   // Format A
   if (msg.data && typeof msg.data.diamondCount === 'number') {
-    const { diamondCount, repeatCount, repeatEnd } = msg.data;
-    if (repeatEnd === false) return null; // กำลัง combo อยู่ รอ repeatEnd
-    return diamondCount * (repeatCount || 1);
+    if (isComboPending(msg.data)) return null;
+    return msg.data.diamondCount * (msg.data.repeatCount || 1);
   }
   // Format B
   if (typeof msg.diamondCount === 'number') {
-    if (msg.repeatEnd === false) return null;
+    if (isComboPending(msg)) return null;
     return msg.diamondCount * (msg.repeatCount || 1);
   }
   // Format C
   if (msg.gift && typeof msg.gift.diamondCount === 'number') {
-    if (msg.gift.repeatEnd === false) return null;
+    if (isComboPending(msg.gift)) return null;
     return msg.gift.diamondCount * (msg.gift.repeatCount || 1);
   }
   return null;
