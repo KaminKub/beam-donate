@@ -51,10 +51,12 @@
       transition: transform .2s ease, background .2s, border-color .2s, color .2s, box-shadow .2s;
     }
     #step-truemoney-qr .qr-method-icon {
-      width: 28px;
-      height: 28px;
-      flex: 0 0 28px;
-      object-fit: contain;
+      width: 48px;
+      height: 48px;
+      flex: 0 0 48px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      object-fit: cover;
     }
     #step-truemoney-qr .qr-method-btn:hover {
       background: rgba(102,126,234,.15);
@@ -852,11 +854,11 @@
 
         <div class="qr-method-toggle" id="trueMoneyQrMethodToggle" style="display: none;">
           <button type="button" class="qr-method-btn active" data-method="P2P">
-            <img class="qr-method-icon" src="/assets/payment/TrueWallate.png" alt="" width="28" height="28">
+            <img class="qr-method-icon" src="/assets/payment/TrueWallate.png" alt="" width="48" height="48">
             <span>โอนในแอป TrueMoney</span>
           </button>
           <button type="button" class="qr-method-btn" data-method="PROMPTPAY_IN">
-            <img class="qr-method-icon" src="/assets/payment/icon-thaiqr.png" alt="" width="28" height="28">
+            <img class="qr-method-icon" src="/assets/payment/icon-thaiqr.png" alt="" width="48" height="48">
             <span>สแกนพร้อมเพย์</span>
           </button>
         </div>
