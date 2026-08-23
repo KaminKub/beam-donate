@@ -2607,15 +2607,18 @@ function hydratePaymentMethodStep(methods) {
 
   // ปิดปรับปรุงชั่วคราว (global kill-switch) — โชว์การ์ดแบบกดไม่ได้ แทนการซ่อน
   const maintenanceBadge = document.getElementById('trueMoneyMaintenanceBadge');
+  const featureRibbon = document.getElementById('trueMoneyFeatureRibbon');
   if (optionTrueMoney) {
     if (methods.truemoney_webhook_maintenance) {
       optionTrueMoney.style.display = '';
       optionTrueMoney.classList.add('disabled');
       if (maintenanceBadge) maintenanceBadge.style.display = '';
+      if (featureRibbon) featureRibbon.style.display = 'none';
     } else {
       optionTrueMoney.style.display = usable.truemoney ? '' : 'none';
       optionTrueMoney.classList.remove('disabled');
       if (maintenanceBadge) maintenanceBadge.style.display = 'none';
+      if (featureRibbon) featureRibbon.style.display = '';
     }
   }
 
