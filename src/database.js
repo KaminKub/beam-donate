@@ -314,7 +314,8 @@ async function migrateDB() {
         tier_sound_is_temp INTEGER DEFAULT 0,
         tier_sound_youtube_id TEXT DEFAULT NULL,
         tier_sound_youtube_start REAL DEFAULT NULL,
-        tier_sound_youtube_end REAL DEFAULT NULL
+        tier_sound_youtube_end REAL DEFAULT NULL,
+        intended_amount REAL DEFAULT NULL
       )
      `);
     await db.execute(`
@@ -401,7 +402,8 @@ async function migrateDB() {
       { name: 'tier_sound_is_temp', type: 'INTEGER DEFAULT 0' },
       { name: 'tier_sound_youtube_id', type: 'TEXT DEFAULT NULL' },
       { name: 'tier_sound_youtube_start', type: 'REAL DEFAULT NULL' },
-      { name: 'tier_sound_youtube_end', type: 'REAL DEFAULT NULL' }
+      { name: 'tier_sound_youtube_end', type: 'REAL DEFAULT NULL' },
+      { name: 'intended_amount', type: 'REAL DEFAULT NULL' }
     ];
 
     for (const col of requiredTxCols) {
@@ -864,8 +866,8 @@ async function saveTransaction(data) {
   const rawWebhook = data.raw_webhook ? (typeof data.raw_webhook === 'string' ? data.raw_webhook : JSON.stringify(data.raw_webhook)) : null;
 
   await db.execute({
-    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action, tier_level, tier_image_url, tier_sound_url, tier_sound_is_temp, tier_sound_youtube_id, tier_sound_youtube_start, tier_sound_youtube_end)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO transactions (id, amount, donor, message, status, paymentUrl, raw_response, raw_webhook, createdAt, updatedAt, paidAt, streamer_username, payment_method, promptpay_slip_id, promptpay_verified, promptpay_verified_at, timer_action, tier_level, tier_image_url, tier_sound_url, tier_sound_is_temp, tier_sound_youtube_id, tier_sound_youtube_start, tier_sound_youtube_end, intended_amount)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             amount = COALESCE(excluded.amount, transactions.amount),
             donor = COALESCE(excluded.donor, transactions.donor),
@@ -888,7 +890,8 @@ async function saveTransaction(data) {
             tier_sound_is_temp = COALESCE(excluded.tier_sound_is_temp, transactions.tier_sound_is_temp),
             tier_sound_youtube_id = COALESCE(excluded.tier_sound_youtube_id, transactions.tier_sound_youtube_id),
             tier_sound_youtube_start = COALESCE(excluded.tier_sound_youtube_start, transactions.tier_sound_youtube_start),
-            tier_sound_youtube_end = COALESCE(excluded.tier_sound_youtube_end, transactions.tier_sound_youtube_end)`,
+            tier_sound_youtube_end = COALESCE(excluded.tier_sound_youtube_end, transactions.tier_sound_youtube_end),
+            intended_amount = COALESCE(excluded.intended_amount, transactions.intended_amount)`,
     args: [
       data.id,
       data.amount || 0,
@@ -913,7 +916,8 @@ async function saveTransaction(data) {
       data.tier_sound_is_temp !== undefined ? (data.tier_sound_is_temp ? 1 : 0) : 0,
       data.tier_sound_youtube_id ?? null,
       data.tier_sound_youtube_start ?? null,
-      data.tier_sound_youtube_end ?? null
+      data.tier_sound_youtube_end ?? null,
+      data.intended_amount ?? null
     ]
   });
   
@@ -2948,6 +2952,30 @@ async function getPendingWebhookTxByAmount(username, amountSatang) {
   return result.rows || [];
 }
 
+// PROMPTPAY_IN satang collision-avoidance (F8 follow-up 2026-08-23): หา pending tx ที่ intended_amount
+// (ยอดตั้งใจ ก่อนหักเศษสตางค์) เท่ากัน ของ streamer เดียวกัน เพื่อเลือก extraSatang ที่ยังไม่ถูกใช้
+async function getPendingTxByIntendedAmount(username, intendedAmount) {
+  await ensureConnected();
+  const baseSatang = Math.round(intendedAmount * 100);
+  if (isFallback) {
+    return memoryTransactions.filter(t =>
+      t.streamer_username === username &&
+      t.payment_method === 'truemoney_webhook' &&
+      t.status === 'pending' &&
+      Math.round((t.intended_amount ?? t.amount) * 100) === baseSatang
+    ).map(t => ({ amount: t.amount }));
+  }
+  if (!db) return [];
+  const result = await db.execute({
+    sql: 'SELECT amount FROM transactions WHERE streamer_username = ? ' +
+        "AND payment_method = 'truemoney_webhook' " +
+        "AND status = 'pending' " +
+        'AND CAST(ROUND(intended_amount * 100) AS INTEGER) = ?',
+    args: [username, baseSatang]
+  });
+  return result.rows || [];
+}
+
 async function getStreamersWithWebhookEnabled() {
   await ensureConnected();
   if (isFallback || !db) return [];
@@ -3177,6 +3205,7 @@ module.exports = {
   maskMobile,
   insertProcessedWebhook,
   getPendingWebhookTxByAmount,
+  getPendingTxByIntendedAmount,
   getStreamersWithWebhookEnabled,
   countMonthlyWebhookTx,
   cleanupProcessedWebhooks,

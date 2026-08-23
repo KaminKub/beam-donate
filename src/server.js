@@ -814,7 +814,7 @@ async function confirmDonationSideEffects(txId, { amount, rawWebhook, extraTx = 
   const affected = confirmResult ? (confirmResult.rowsAffected ?? 0) : 0;
   const tx = (await db.getTransactionById(txId)) || {};
   if (!affected) return tx; // already confirmed by another path — no double side-effects
-  const finalAmount = amount ?? tx.amount ?? 0;
+  const finalAmount = tx.intended_amount ?? amount ?? tx.amount ?? 0;
   broadcastAlert(tx.streamer_username, {
     type: 'donation',
     donor: tx.donor || 'Anonymous',
@@ -6137,8 +6137,14 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
       const decrypted = decryptPaymentFields(streamer);
       const promptpayId = decrypted.truemoney_promptpay_id;
       if (!promptpayId) return res.status(400).json({ error: 'PromptPay e-Wallet ID not configured' });
-      const extraSatang = crypto.randomInt(1, 100) / 100;
-      displayAmount = parseFloat(amount) + extraSatang;
+      const baseAmount = parseFloat(amount);
+      // เลือกเศษสตางค์ตัวเล็กสุดที่ยังไม่ถูก pending tx ยอดตั้งใจเดียวกันของ streamer นี้ใช้ไปแล้ว
+      // (เก็บให้น้อยที่สุดเท่าที่ทำได้ ปกติ = 1 สตางค์, ขยับเกิน 10 เฉพาะกรณีชนจริงเท่านั้น — หายาก)
+      const existingPending = await db.getPendingTxByIntendedAmount(username, baseAmount);
+      const usedSatang = new Set(existingPending.map(r => Math.round((baseAmount - r.amount) * 100)));
+      let extraSatang = 1;
+      while (usedSatang.has(extraSatang) && extraSatang < 99) extraSatang++;
+      displayAmount = baseAmount - extraSatang / 100;
       qrData = generatePromptPayEWalletPayload(promptpayId, displayAmount);
     }
 
@@ -6147,6 +6153,7 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
     await db.saveTransaction({
       id: refId,
       amount: displayAmount,
+      intended_amount: parseFloat(amount),
       donor: name || 'Anonymous',
       message: message || '',
       status: 'pending',

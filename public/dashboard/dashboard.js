@@ -4753,11 +4753,17 @@ function renderFullTransactions(transactions) {
       : '<div></div>';
     actionsHtml += '</div>';
 
+    const amt = Number(t.amount) || 0;
+    const hasIntended = t.intended_amount != null && Math.abs(t.intended_amount - amt) >= 0.01;
+
     tr.innerHTML = `
       <td>${date}</td>
       <td style="font-family: monospace; font-size: 11px;">${t.id}</td>
       <td style="font-weight: 500;">${escapeHtml(t.donor || 'Anonymous')}</td>
-      <td style="font-weight: 600; color: #818cf8;">฿${(Number(t.amount) || 0).toLocaleString()}</td>
+      <td style="font-weight: 600; color: #818cf8;">
+        ฿${amt.toLocaleString('th-TH', { minimumFractionDigits: amt % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
+        ${hasIntended ? `<br><span style="font-size:10px;font-weight:400;color:#94a3b8;" title="ยอดที่ Donor ตั้งใจโดเนท (ก่อนหักเศษสตางค์ยืนยัน Webhook)">≈ ตั้งใจ ฿${Number(t.intended_amount).toLocaleString('th-TH')}</span>` : ''}
+      </td>
       <td class="text-muted" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.message || '-')}</td>
       <td><span class="badge ${getStatusBadgeClass(t.status)}">${getStatusLabel(t.status)}</span></td>
       <td>${actionsHtml}</td>
@@ -5032,7 +5038,15 @@ function inspectTransaction(id) {
   // Populate data
   document.getElementById('detailDonorName').textContent = tx.donor || 'Anonymous';
   document.getElementById('detailAmount').textContent = `฿${(Number(tx.amount) || 0).toLocaleString()}`;
-  
+  const detailIntendedNote = document.getElementById('detailAmountIntendedNote');
+  const txAmt = Number(tx.amount) || 0;
+  if (tx.intended_amount != null && Math.abs(tx.intended_amount - txAmt) >= 0.01) {
+    detailIntendedNote.textContent = `≈ ตั้งใจ ฿${Number(tx.intended_amount).toLocaleString('th-TH')}`;
+    detailIntendedNote.style.display = 'block';
+  } else {
+    detailIntendedNote.style.display = 'none';
+  }
+
   const messageSection = document.getElementById('detailMessageSection');
   const messageContent = document.getElementById('detailMessage');
   if (tx.message && tx.message.trim()) {
