@@ -2335,6 +2335,15 @@ async function cleanupExpiredTransactions() {
 
 // § 2.7 TIER_DONATE_BLUEPRINT.md — donor-temp R2 audio ต้องลบก่อน transaction ถูก expire/hard-delete
 // เรียกก่อน cleanupExpiredTransactions()/hardDeleteExpiredTransactions() เสมอ (WHERE เดียวกัน)
+//
+// แผนที่การลบไฟล์ donor-temp (แก้ที่ใดที่หนึ่ง ต้องทวนทั้ง 5 ช่องนี้):
+//   pending    → getExpiringTierAudioUrls()       (30 นาที)
+//   expired    → getHardDeletableTierAudioUrls()  (7 วัน)
+//   failed     → getHardDeletableTierAudioUrls()  (7 วัน) — retry BANK_UNAVAILABLE ใช้ tx เดิม ห้ามลบเร็วกว่านี้
+//   successful → server.js confirmDonationSideEffects (หน่วง 10 นาทีหลัง alert)
+//   ตกหล่น     → /api/cron/cleanup-r2-orphans (daily 03:05, grace 1 ชม.) เป็น net สุดท้าย
+// getAllR2Refs() ป้องกันเฉพาะ pending/failed — ถ้าเพิ่ม status เข้าไปในนั้น ต้องมี deterministic delete คู่เสมอ
+// hardDeleteOldTransactions() จงใจไม่มี R2 cleanup คู่: ทุก temp audio ตายก่อนถึง 6 เดือนแล้ว ที่เหลือ sweeper รับ
 async function getExpiringTierAudioUrls() {
   await ensureConnected();
   if (isFallback || !db) return [];
@@ -2348,7 +2357,7 @@ async function getHardDeletableTierAudioUrls() {
   await ensureConnected();
   if (isFallback || !db) return [];
   const result = await db.execute({
-    sql: `SELECT tier_sound_url FROM transactions WHERE status = 'expired' AND tier_sound_is_temp = 1 AND tier_sound_url IS NOT NULL AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
+    sql: `SELECT tier_sound_url FROM transactions WHERE status IN ('expired','failed') AND tier_sound_is_temp = 1 AND tier_sound_url IS NOT NULL AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
   });
   return result.rows.map(r => r.tier_sound_url);
 }
@@ -2367,7 +2376,8 @@ async function countPendingTransactions(username) {
 }
 
 /**
- * Hard delete transactions marked as expired for more than 7 days.
+ * Hard delete transactions marked as expired/failed for more than 7 days.
+ * WHERE ต้องตรงกับ getHardDeletableTierAudioUrls() เป๊ะ (อ่าน url ก่อน แล้วค่อยลบ row)
  * Returns number of deleted records.
  */
 async function hardDeleteExpiredTransactions() {
@@ -2376,7 +2386,7 @@ async function hardDeleteExpiredTransactions() {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const before = memoryTransactions.length;
     memoryTransactions = memoryTransactions.filter(t =>
-      !(t.status === 'expired' && t.updatedAt && t.updatedAt < cutoff)
+      !((t.status === 'expired' || t.status === 'failed') && t.updatedAt && t.updatedAt < cutoff)
     );
     const deleted = before - memoryTransactions.length;
     if (deleted > 0) {
@@ -2391,7 +2401,7 @@ async function hardDeleteExpiredTransactions() {
   if (!db) return 0;
 
   const result = await db.execute({
-    sql: `DELETE FROM transactions WHERE status = 'expired' AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
+    sql: `DELETE FROM transactions WHERE status IN ('expired','failed') AND updatedAt IS NOT NULL AND datetime(updatedAt) < datetime('now', '-7 days')`
   });
   if (result.rowsAffected > 0) {
     console.log(`🗑️ Hard deleted ${result.rowsAffected} expired transactions (older than 7 days)`);
@@ -2517,6 +2527,17 @@ async function getAllR2Refs(r2PublicUrl) {
       } catch { /* malformed blob → skip */ }
     }
   }
+
+  // donor-temp audio ผูกกับ transaction ไม่ใช่ streamer — ต้องกัน sweeper ลบไฟล์ที่ยังใช้อยู่
+  // ป้องกันเฉพาะสถานะที่ "ยังมีสิทธิ์ใช้ไฟล์": pending (รอจ่าย) และ failed (BANK_UNAVAILABLE ยัง retry ได้)
+  // จงใจไม่ป้องกัน successful/expired — สองสถานะนั้นมี deterministic delete อยู่แล้ว
+  // ถ้า delete พลาด (R2 error) ต้องปล่อยให้ sweeper เก็บกวาดต่อ ห้ามป้องกันไว้ 6 เดือน
+  const txRefs = await db.execute(
+    `SELECT tier_sound_url FROM transactions
+     WHERE tier_sound_is_temp = 1 AND tier_sound_url IS NOT NULL AND status IN ('pending','failed')`
+  );
+  for (const row of txRefs.rows) addRef(row.tier_sound_url);
+
   return refs;
 }
 
