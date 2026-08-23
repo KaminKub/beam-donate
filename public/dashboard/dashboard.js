@@ -7702,8 +7702,8 @@ function initTimerSettingsUI() {
   const btnRefreshCap = document.getElementById('btnRefreshCapStatus');
   if (btnRefreshCap) btnRefreshCap.addEventListener('click', refreshCapStatus);
 
-  // Post-click pulse — delegate ครอบทั้ง 2 กลุ่มปุ่ม (control + test)
-  document.querySelectorAll('.timer-control-buttons .btn, .btn-test-add, .btn-test-sub')
+  // Post-click pulse — delegate ครอบปุ่ม timer (control + test) + ปุ่ม TrueMoney Webhook
+  document.querySelectorAll('.timer-control-buttons .btn, .btn-test-add, .btn-test-sub, #btnSaveWebhookMethods, #btnCheckWebhookVerified')
     .forEach(btn => btn.addEventListener('click', () => {
       btn.classList.remove('timer-btn-pulse');
       void btn.offsetWidth;                 // reflow → เล่นซ้ำได้ทุกคลิก

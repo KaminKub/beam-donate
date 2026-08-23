@@ -5172,22 +5172,36 @@ label {
 
 #btnCheckWebhookVerified {
   flex-shrink: 0;
-  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease;
 }
 
 #btnCheckWebhookVerified:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(0,0,0,.25), 0 0 12px rgba(245,158,11,.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59,130,246,.35);
 }
 
 #btnCheckWebhookVerified:focus-visible {
-  outline: 2px solid #f59e0b;
+  outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
 #btnCheckWebhookVerified:disabled {
   opacity: .55;
   cursor: not-allowed;
+}
+
+/* Gradient signature เฉพาะปุ่ม verify webhook — override .btn-secondary แบบจุดเดียว ห้ามแก้ shared class (F10) */
+.btn-webhook-verify {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(59,130,246,0.18), transparent 40%),
+    linear-gradient(135deg, rgba(30,41,59,0.92), rgba(15,23,42,0.78));
+  border: 1px solid rgba(59,130,246,0.25);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.btn-webhook-verify:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59,130,246,0.35);
+  border-color: rgba(59,130,246,0.45);
 }
 
 @media (max-width: 768px) {
