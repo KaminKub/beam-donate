@@ -9819,7 +9819,17 @@ function initTrueMoneyWebhookModal() {
       if (p2p) methods.push('P2P');
       if (promptpay) methods.push('PROMPTPAY_IN');
 
-      if (token.replace(/\s+/g, '').length < 32) {
+      const compactToken = token.replace(/\s+/g, '');
+      const looksLikeUrl = /^(?:https?|ftp):\/\//i.test(compactToken)
+        || /^\/\//.test(compactToken)
+        || /^www\./i.test(compactToken)
+        || /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?:[\/:?#]|$)/i.test(compactToken);
+
+      if (looksLikeUrl) {
+        showNotification('กรุณาวาง Key/รหัสลับจากแอพ TrueMoney ไม่ใช่ URL หน้าโปรไฟล์หรือ URL อื่น', 'error');
+        return;
+      }
+      if (compactToken.length < 32) {
         showNotification('Key ไม่ถูกต้อง กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney', 'error');
         return;
       }

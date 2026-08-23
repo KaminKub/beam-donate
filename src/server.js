@@ -20,6 +20,7 @@ const beam = require('./beam');
 const https = require('https');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const { parseTrueMoneyToken } = require('./truemoney-token');
 const promptparse = require('promptparse');
 const session = require('express-session');
 const TursoStore = require('./sessionStore');
@@ -5958,15 +5959,8 @@ app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => 
   }
 });
 
-// Minimal sanitize for TrueMoney webhook Key/รหัสลับ copied from the app.
 // Key is a raw HS256 shared secret — no URL/JWT to parse (research 2026-07-14).
-// ponytail: no parse branches — dead code per RT#3; sanitize+length only.
-function parseTrueMoneyToken(raw) {
-  const s = String(raw || '').trim().replace(/\s+/g, '');
-  if (s.length < 32) return { secret: null };
-  return { secret: s };
-}
-
+// Shared validation also rejects accidental profile/other URLs before persistence.
 // POST /api/truemoney/setup-webhook - Enable/disable TrueMoney webhook (authenticated)
 app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticated, csrfProtection, requirePaymentEligibility, async (req, res) => {
   try {
@@ -6029,8 +6023,12 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       return res.status(400).json({ error: 'กรุณายอมรับเงื่อนไข' });
     }
 
-    const { secret } = parseTrueMoneyToken(token);
+    const parsedToken = parseTrueMoneyToken(token);
+    const { secret } = parsedToken;
     if (!secret) {
+      if (parsedToken.reason === 'url') {
+        return res.status(400).json({ error: 'กรุณาวาง Key/รหัสลับจากแอพ TrueMoney ไม่ใช่ URL หน้าโปรไฟล์หรือ URL อื่น' });
+      }
       return res.status(400).json({ error: 'Key ไม่ถูกต้อง กรุณาคัดลอก Key/รหัสลับใหม่จากหน้าตั้งค่า Webhook ในแอพ TrueMoney' });
     }
 
