@@ -4265,6 +4265,21 @@ async function resyncTrueMoneyStatus(refId) {
   connectTrueMoneyStatusStream(refId);
 }
 
+// createTrueMoneyQR() ถูกเรียกได้จาก 2 ที่: ปุ่ม "ดำเนินการต่อ" (ยังอยู่ step เลือกวิธีจ่าย) และ
+// ปุ่ม toggle/ลองใหม่ (อยู่ step QR แล้ว) — #proceedError อยู่บน step แรกเท่านั้น ถ้าพังตอนอยู่ step QR
+// จะไม่เห็นข้อความอะไรเลยและ spinner ค้าง (Audit R5-A3) จึงต้องเลือกที่แสดง error ตาม step ที่ active
+function showTrueMoneyQrError(message) {
+  if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'none';
+  if (!trueMoneyQrStatus || !stepTrueMoneyQr?.classList.contains('active')) {
+    showProceedError(message);
+    return;
+  }
+  trueMoneyQrStatus.className = 'status expired';
+  trueMoneyQrStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i><span></span>';
+  trueMoneyQrStatus.querySelector('span').textContent = message;
+  trueMoneyQrStatus.style.display = 'flex';
+}
+
 async function createTrueMoneyQR() {
   const requestId = ++trueMoneyQrRequestSeq;
   const requestedMethod = trueMoneyQrMethod;
@@ -4329,7 +4344,9 @@ async function createTrueMoneyQR() {
       return;
     }
     if (!response.ok) {
-      showProceedError('ไม่สามารถสร้าง QR ได้ โปรดลองใหม่อีกครั้ง');
+      showTrueMoneyQrError(response.status === 409
+        ? (data.error || 'ยอดนี้มีรายการรอชำระอยู่แล้ว กรุณาเลือกยอดอื่น')
+        : 'ไม่สามารถสร้าง QR ได้ โปรดลองใหม่อีกครั้ง');
       if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
       return;
     }
@@ -4338,7 +4355,7 @@ async function createTrueMoneyQR() {
     showTrueMoneyQrStep(data);
   } catch (error) {
     if (!isCurrentTrueMoneyQrRequest(requestId, requestedMethod)) return;
-    showProceedError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+    showTrueMoneyQrError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   } finally {
     if (trueMoneyQrInFlight.get(requestKey) === requestPromise) trueMoneyQrInFlight.delete(requestKey);
@@ -4350,6 +4367,8 @@ function showTrueMoneyQrStep(data) {
   setTrueMoneyQrActiveMethod(trueMoneyQrMethod);
   showOnlyPaymentStep(stepTrueMoneyQr);
   trueMoneyQrRefId = data.referenceId;
+  // มี QR ขึ้นแล้ว = error เก่าหมดความหมาย (สลับกลับมาเจอ cache ก็ผ่านทางนี้)
+  if (trueMoneyQrStatus) trueMoneyQrStatus.style.display = 'none';
 
   generateTrueMoneyQRImage(data.qrData);
   if (trueMoneyQrAmount) {

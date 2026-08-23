@@ -2,6 +2,10 @@
 const fs = require('fs');
 const { encrypt, decrypt } = require('./encryption');
 const { SCOPE_COLUMNS, classifySlipOkEndDate, resolveSlipOkLaneFromState } = require('./slipok-connection');
+const {
+  normalizeCandidateAmounts,
+  reservePendingTransactionWithClient
+} = require('./payment-reservation');
 
 let db = null;
 let isFallback = false;
@@ -413,6 +417,18 @@ async function migrateDB() {
         await db.execute(`ALTER TABLE transactions ADD COLUMN ${safeName} ${col.type}`);
       }
     }
+
+    // Supports the atomic payable-amount reservation predicate. This is an
+    // ordinary (non-unique) partial index so migration remains safe even if
+    // legacy pending rows already share an amount.
+    await db.execute(`
+      CREATE INDEX IF NOT EXISTS idx_transactions_pending_payable_amount
+      ON transactions(
+        LOWER(streamer_username),
+        CAST(ROUND(amount * 100) AS INTEGER)
+      )
+      WHERE status = 'pending'
+    `);
 
     // C. Ensure new overlay settings columns exist
     const streamerColumnsRes = await db.execute('PRAGMA table_info(streamers)');
@@ -922,6 +938,42 @@ async function saveTransaction(data) {
   });
   
   return data;
+}
+
+// Atomically reserve a payable amount and create its pending transaction.
+// The pending row itself is the durable reservation: all payment flows share
+// the same streamer + amount namespace until that row leaves pending status.
+async function reservePendingTransaction(data, candidateAmounts) {
+  await ensureConnected();
+  const candidates = normalizeCandidateAmounts(candidateAmounts);
+  if (!data?.id || !data?.streamer_username || candidates.length === 0) return null;
+
+  if (isFallback) {
+    const streamerKey = String(data.streamer_username).toLowerCase();
+    const occupied = new Set(memoryTransactions
+      .filter(t => t.status === 'pending' && String(t.streamer_username || '').toLowerCase() === streamerKey)
+      .map(t => Math.round(Number(t.amount) * 100)));
+    const candidate = candidates.find(item => !occupied.has(item.satang));
+    if (!candidate) return null;
+
+    const now = new Date().toISOString();
+    const saved = {
+      ...data,
+      amount: candidate.amount,
+      status: 'pending',
+      createdAt: data.createdAt || now,
+      updatedAt: now
+    };
+    memoryTransactions.push(saved);
+    try {
+      const DB_DIR = path.join(__dirname, '../data');
+      fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
+    } catch (e) {}
+    return saved;
+  }
+
+  if (!db) return null;
+  return reservePendingTransactionWithClient(db, data, candidates.map(item => item.amount));
 }
 
 // Atomically confirm a transaction (pending -> successful) exactly once.
@@ -2930,48 +2982,30 @@ async function insertProcessedWebhook(data) {
 
 // amountSatang: integer satang from the webhook (decoded.amount). Matching on integer satang avoids
 // IEEE-754 float-equality misses between stored baht (e.g. 100.37) and decoded.amount/100 (QA Q2 2026-07-13).
-async function getPendingWebhookTxByAmount(username, amountSatang) {
+//
+// คืน pending ยอดนี้ของ **ทุก flow** โดยตั้งใจ — PROMPTPAY_IN จับคู่ด้วยยอดอย่างเดียว และเงิน
+// พร้อมเพย์ SlipOK เข้าบัญชีเดียวกันได้ ถ้ากรองเฉพาะ truemoney_webhook จะเห็นแค่รายการเดียวแล้ว
+// เข้าใจผิดว่าไม่กำกวม (Audit R5-A2) — caller ต้องเช็ค payment_method เองและ fail-closed เมื่อ >1
+async function getPendingTxByPayableAmount(username, amountSatang) {
   await ensureConnected();
   const satang = Math.round(amountSatang);
+  const key = String(username).toLowerCase();
   if (isFallback) {
     return memoryTransactions.filter(t =>
-      t.streamer_username === username &&
-      t.payment_method === 'truemoney_webhook' &&
+      String(t.streamer_username || '').toLowerCase() === key &&
       t.status === 'pending' &&
       Math.round(t.amount * 100) === satang
     );
   }
   if (!db) return [];
+  // LOWER() ต้องตรงกับ predicate ของ reservePendingTransaction() — ไม่งั้น "ยอดที่จองไว้" กับ
+  // "ยอดที่ matcher มองเห็น" เป็นคนละ namespace · streamerId มาจาก ?streamerId= ใน webhook URL
+  // ซึ่ง getStreamer() หาแบบ case-insensitive อยู่แล้ว ถ้าตรงนี้เทียบตรง ๆ = หาไม่เจอเงียบ ๆ
   const result = await db.execute({
-    sql: 'SELECT * FROM transactions WHERE streamer_username = ? ' +
-        "AND payment_method = 'truemoney_webhook' " +
+    sql: 'SELECT * FROM transactions WHERE LOWER(streamer_username) = LOWER(?) ' +
         "AND status = 'pending' " +
         'AND CAST(ROUND(amount * 100) AS INTEGER) = ?',
     args: [username, satang]
-  });
-  return result.rows || [];
-}
-
-// PROMPTPAY_IN satang collision-avoidance (F8 follow-up 2026-08-23): หา pending tx ที่ intended_amount
-// (ยอดตั้งใจ ก่อนหักเศษสตางค์) เท่ากัน ของ streamer เดียวกัน เพื่อเลือก extraSatang ที่ยังไม่ถูกใช้
-async function getPendingTxByIntendedAmount(username, intendedAmount) {
-  await ensureConnected();
-  const baseSatang = Math.round(intendedAmount * 100);
-  if (isFallback) {
-    return memoryTransactions.filter(t =>
-      t.streamer_username === username &&
-      t.payment_method === 'truemoney_webhook' &&
-      t.status === 'pending' &&
-      Math.round((t.intended_amount ?? t.amount) * 100) === baseSatang
-    ).map(t => ({ amount: t.amount }));
-  }
-  if (!db) return [];
-  const result = await db.execute({
-    sql: 'SELECT amount FROM transactions WHERE streamer_username = ? ' +
-        "AND payment_method = 'truemoney_webhook' " +
-        "AND status = 'pending' " +
-        'AND CAST(ROUND(intended_amount * 100) AS INTEGER) = ?',
-    args: [username, baseSatang]
   });
   return result.rows || [];
 }
@@ -3204,8 +3238,8 @@ module.exports = {
   getAdminIpEvents,
   maskMobile,
   insertProcessedWebhook,
-  getPendingWebhookTxByAmount,
-  getPendingTxByIntendedAmount,
+  getPendingTxByPayableAmount,
+  reservePendingTransaction,
   getStreamersWithWebhookEnabled,
   countMonthlyWebhookTx,
   cleanupProcessedWebhooks,

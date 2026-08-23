@@ -1836,23 +1836,6 @@ async function initializeDashboard() {
         // FFP disabled - ไม่ทำอะไร
         if (method === 'ffp') return;
 
-        const turningOn = !card.classList.contains('active');
-        const s = window._lastPaymentSettings || {};
-        const webhookPpin = s.truemoney_webhook_enabled == 1 &&
-                            (s.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
-
-        // สลับโหมด: พร้อมเพย์ SlipOK กับ พร้อมเพย์ทรูมันนี่ ใช้ QR พร้อมเพย์ช่องเดียวกัน เปิดพร้อมกันไม่ได้
-        if (method === 'promptpay' && turningOn && webhookPpin) {
-          showConfirmModal(
-            'สลับไปใช้พร้อมเพย์ SlipOK',
-            'ตอนนี้คุณเปิด "พร้อมเพย์ทรูมันนี่" อยู่ — เปิดพร้อมเพย์ SlipOK จะปิดพร้อมเพย์ทรูมันนี่อัตโนมัติ (เปิดพร้อมกันไม่ได้) ต้องการสลับหรือไม่?',
-            '<i class="fa-solid fa-right-left" style="color:#f59e0b;"></i>',
-            () => { card.classList.add('active'); showSelectionBubble(card, 'เลือกแล้ว'); updateSaveButton(); },
-            'สลับโหมด', 'btn-primary'
-          );
-          return;   // ห้าม toggle ก่อนได้รับการยืนยัน
-        }
-
         // Toggle active state (checkbox behavior)
         card.classList.toggle('active');
 
@@ -9519,7 +9502,6 @@ function fillWebhookUrl() {
 function renderTrueMoneyWebhookState(data) {
   const badge = document.getElementById('webhookStatusBadge');
   const quota = document.getElementById('webhookQuotaMini');
-  const conflictBanner = document.getElementById('webhookConflictBanner');
   const urlInput = document.getElementById('webhookUrlInput');
   const connectBtn = document.getElementById('btnConnectWebhook');
   const connectedActions = document.getElementById('webhookConnectedActions');
@@ -9616,12 +9598,6 @@ function renderTrueMoneyWebhookState(data) {
       : 'PromptPay e-Wallet ID 15 หลัก จากแอป TrueMoney';
   }
 
-  if (conflictBanner) {
-    const hasPromptpayIn = methods.includes('PROMPTPAY_IN');
-    const slipokPromptpayEnabled = data.promptpay_enabled === 1 || data.promptpay_enabled === true || data.promptpay_enabled === '1';
-    conflictBanner.style.display = (enabled && hasPromptpayIn && !slipokPromptpayEnabled) ? 'flex' : 'none';
-  }
-
   const verifyCard = document.getElementById('webhookVerifyCard');
   if (verifyCard) verifyCard.classList.toggle('is-visible', enabled && !verified);
 }
@@ -9709,9 +9685,6 @@ function initTrueMoneyWebhookModal() {
           const data = await res.json();
           if (res.ok && data.success) {
             showNotification('บันทึกวิธีรับเงินแล้ว', 'success');
-            if (data.promptpaySlipokDisabled) {
-              showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
-            }
             await loadPaymentSettings();
           } else {
             showNotification(data.error || 'บันทึกวิธีรับเงินไม่สำเร็จ', 'error');
@@ -9721,17 +9694,7 @@ function initTrueMoneyWebhookModal() {
         }
       };
 
-      const slipokOn = (window._lastPaymentSettings || {}).promptpay_enabled == 1;
-      if (ppin && slipokOn) {
-        showConfirmModal(
-          'เปิดพร้อมเพย์ทรูมันนี่',
-          'เปิดพร้อมเพย์ทรูมันนี่ → ระบบจะปิดพร้อมเพย์ SlipOK อัตโนมัติ (เงินเข้า wallet เดียวกัน) เปิดกลับได้ที่ตั้งค่าพร้อมเพย์',
-          '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
-          submit, 'ตกลง', 'btn-primary'
-        );
-      } else {
-        await submit();
-      }
+      await submit();
     });
   }
 
@@ -9871,7 +9834,6 @@ function initTrueMoneyWebhookModal() {
 
       const currentSettings = window._lastPaymentSettings || {};
       const kycConfirmed = Number(currentSettings.truemoney_webhook_kyc_confirmed) === 1;
-      const slipokPromptpayEnabled = currentSettings.promptpay_enabled === 1 || currentSettings.promptpay_enabled === true || currentSettings.promptpay_enabled === '1';
 
       const submit = async () => {
         try {
@@ -9883,9 +9845,6 @@ function initTrueMoneyWebhookModal() {
           const data = await res.json();
           if (res.ok && data.success) {
             showNotification('บันทึก Key แล้ว — เหลืออีกขั้น: รับเงินเข้า wallet 1 ครั้งเพื่อยืนยันการเชื่อมต่อ', 'success');
-            if (data.promptpaySlipokDisabled) {
-              showNotification('พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ — เปิดกลับได้ที่การตั้งค่าพร้อมเพย์');
-            }
             closeModal(guideModal);
             await loadPaymentSettings();
           } else {
@@ -9893,22 +9852,6 @@ function initTrueMoneyWebhookModal() {
           }
         } catch (err) {
           showNotification(err.message || 'ไม่สามารถบันทึก Webhook ได้', 'error');
-        }
-      };
-
-      // PROMPTPAY switch ON + SlipOK enabled → confirm disable SlipOK (§5.7)
-      const runWithConflictConfirm = async () => {
-        if (promptpay && slipokPromptpayEnabled) {
-          showConfirmModal(
-            'เปิดพร้อมเพย์ทรูมันนี่',
-            'เปิดพร้อมเพย์ทรูมันนี่ → ระบบจะปิดพร้อมเพย์ SlipOK อัตโนมัติ (เงินเข้า wallet เดียวกัน) เปิดกลับได้ที่ตั้งค่าพร้อมเพย์',
-            '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>',
-            submit,
-            'ตกลง',
-            'btn-primary'
-          );
-        } else {
-          await submit();
         }
       };
 
@@ -9926,11 +9869,11 @@ function initTrueMoneyWebhookModal() {
           acceptBtn?.removeEventListener('click', onAccept);
           closeModal(consentModal);
           payload.consented = true; // set เฉพาะหลัง user ยอมรับจริง (F-01)
-          await runWithConflictConfirm();
+          await submit();
         };
         acceptBtn?.addEventListener('click', onAccept);
       } else {
-        await runWithConflictConfirm();
+        await submit();
       }
     });
   }

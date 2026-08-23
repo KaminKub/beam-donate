@@ -41,6 +41,10 @@ const TwitchStrategy = require('passport-twitch-new').Strategy;
 const OAuth2Strategy = require('passport-oauth2').Strategy;
 const { determinePrimaryAuth, isSafeReturnTo, loginDest } = require('./auth-helpers');
 const { isSlipUploadWindowClosed } = require('./payment-helpers');
+const {
+  acquirePaymentReservationLock,
+  buildDescendingSatangAmounts
+} = require('./payment-reservation');
 const { generatePromptPayPayload, generatePromptPayIdCardPayload, generatePromptPayEWalletPayload } = require('./promptpay-payload');
 const {
   validateSlipOkUrl,
@@ -5278,16 +5282,6 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
     if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
     if (changedTo('truemoney_phone', tmPhone)) resetFlags.truemoney_account_verified = 0;
 
-    // Reverse of setup-webhook's conflict guard (~5254): เปิด SlipOK พร้อมเพย์กลับ ต้องปิด
-    // PROMPTPAY_IN ของ TrueMoney webhook ด้วย (ชิงพื้นที่ QR พร้อมเพย์เดียวกัน — เปิดพร้อมกันไม่ได้)
-    if (req.body.promptpay_enabled) {
-      const webhookMethods = (streamer.truemoney_webhook_methods || '').split(',').filter(Boolean);
-      if (streamer.truemoney_webhook_enabled === 1 && webhookMethods.includes('PROMPTPAY_IN')) {
-        const remaining = webhookMethods.filter(m => m !== 'PROMPTPAY_IN');
-        resetFlags.truemoney_webhook_methods = remaining.length ? remaining.join(',') : 'P2P';
-      }
-    }
-
     const updatedStreamer = await db.saveStreamer({
       twitch_id: req.user.twitch_id || null,
       streamlabs_id: req.user.streamlabs_id || null,
@@ -5827,6 +5821,9 @@ app.post('/api/create-promptpay-qr', loadShedGuard(1), sameOriginCheck, promptPa
       timer_action: sanitizeTimerAction(timerAction),
       ...tierAssignment
     };
+    // ห้าม reserve/409 ที่ route นี้ — SlipOK ยืนยันด้วย referenceId (`/api/verify-slip`) และบังคับ
+    // ยอดสลิป == tx.amount เป๊ะ หักสตางค์ไม่ได้ ⇒ ชนยอดแล้วไม่มี slot สำรอง = ไล่ donor กลับ
+    // เคสเงินก้อนเดียว confirm 2 รายการถูกกันที่ webhook matcher แทน (Audit R5-A1/A2)
     await db.saveTransaction(txData);
     db.logIpEvent('donate_submit', req.ip, username, { amount, ref: referenceId }).catch(() => {});
 
@@ -5923,7 +5920,9 @@ app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => 
         if (candidate &&
             candidate.status === 'pending' &&
             candidate.payment_method === 'truemoney_webhook' &&
-            candidate.streamer_username === streamerId) {
+            // streamerId มาจาก query string ที่ streamer วางเองในแอป TrueMoney — เทียบตรง ๆ
+            // แล้ว case ไม่ตรงกับที่เก็บไว้ = ไม่ confirm เงียบ ๆ (getStreamer() case-insensitive อยู่แล้ว)
+            String(candidate.streamer_username || '').toLowerCase() === String(streamerId).toLowerCase()) {
           if (Math.abs((decoded.amount / 100) - candidate.amount) <= 1) {
             tx = candidate;
             matched = true;
@@ -5931,8 +5930,11 @@ app.post('/api/truemoney/webhook', truemoneyWebhookLimiter, async (req, res) => 
         }
       }
     } else if (decoded.event_type === 'PROMPTPAY_IN') {
-      const candidates = await db.getPendingWebhookTxByAmount(streamerId, decoded.amount);
-      if (candidates.length === 1) {
+      // PROMPTPAY_IN จับคู่ด้วย "ยอด" อย่างเดียว และเงินพร้อมเพย์ SlipOK เข้าบัญชีเดียวกันได้
+      // ⇒ ถ้ามี pending ยอดเดียวกันจาก flow อื่นด้วย แปลว่าไม่รู้ว่าเป็นเงินของใคร ห้ามเดา
+      // (เดาผิด = donor ที่ยังไม่จ่ายถูก confirm + เงินก้อนเดียวยิง side-effect 2 ครั้ง)
+      const candidates = await db.getPendingTxByPayableAmount(streamerId, decoded.amount);
+      if (candidates.length === 1 && candidates[0].payment_method === 'truemoney_webhook') {
         tx = candidates[0];
         matched = true;
       }
@@ -5986,7 +5988,6 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       if (clean.length === 0) return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
 
       const patch = { ...ids, truemoney_webhook_methods: clean.join(',') };
-
       if (clean.includes('PROMPTPAY_IN')) {
         const existing = decryptPaymentFields(streamer).truemoney_promptpay_id;
         const incoming = String(promptpayId || '').replace(/\D/g, '');
@@ -5998,14 +5999,8 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
         }
       }
 
-      let conflictUM = false;
-      if (clean.includes('PROMPTPAY_IN') && streamer.promptpay_enabled === 1) {
-        patch.promptpay_enabled = 0;
-        conflictUM = true;
-      }
-
       await db.saveStreamer(patch);
-      return res.json({ success: true, methods: clean, promptpaySlipokDisabled: conflictUM });
+      return res.json({ success: true, methods: clean });
     }
 
     if (action !== 'enable') return res.status(400).json({ error: 'Invalid action' });
@@ -6052,12 +6047,6 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       return res.status(400).json({ error: 'Key ใช้ไม่ได้ — ตรวจว่าคัดลอก "Key/รหัสลับ" จากหน้าตั้งค่า Webhook (ไม่ใช่ Token จากบริการอื่นเช่น EasyDonate)' });
     }
 
-    let conflict = false;
-    if (cleanMethods.includes('PROMPTPAY_IN') && streamer.promptpay_enabled === 1) {
-      await db.saveStreamer({ ...ids, promptpay_enabled: 0 });
-      conflict = true;
-    }
-
     // key ใหม่ = ยังไม่พิสูจน์ ต้องเริ่มนับใหม่ (ส่ง '' ไม่ใช่ null เพราะ COALESCE ถือ null = ไม่เปลี่ยน)
     const prevSecret = streamer.truemoney_webhook_secret_encrypted
       ? (() => { try { return decrypt(streamer.truemoney_webhook_secret_encrypted); } catch { return null; } })()
@@ -6074,7 +6063,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
       ...(secretChanged ? { truemoney_webhook_verified_at: '' } : {})
     });
 
-    res.json({ success: true, enabled: true, methods: cleanMethods, connected: true, promptpaySlipokDisabled: conflict });
+    res.json({ success: true, enabled: true, methods: cleanMethods, connected: true });
   } catch (err) {
     console.error('TrueMoney setup-webhook error:', err);
     res.status(500).json({ error: 'Failed to save webhook settings' });
@@ -6083,6 +6072,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
 
 // POST /api/truemoney/create-qr - Create TrueMoney P2P or PromptPay QR (public)
 app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemoneyQrLimiter, async (req, res) => {
+  let releasePaymentReservation = null;
   try {
     if (!checkAntiBot(req, res)) return blockBot(req, res);
 
@@ -6112,6 +6102,12 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
       return res.status(400).json({ error: 'Method not enabled for this streamer' });
     }
 
+    if (method === 'PROMPTPAY_IN') {
+      // Fast-path serialization for the in-memory fallback. The shared DB
+      // reservation below is atomic across processes and database clients.
+      releasePaymentReservation = await acquirePaymentReservationLock(username);
+    }
+
     // TrueMoney P2P QR ฝัง refId ลง EMVCo tag 81 (UTF-16 hex = 4 ตัวอักษร/char) และ TLV
     // length field มีแค่ 2 หลัก → message ห้ามเกิน 24 ตัวอักษร ไม่งั้น QR พัง (BPAY-2010)
     const refId = `donate-${crypto.randomBytes(7).toString('hex')}`;   // 21 chars = 84 hex
@@ -6120,6 +6116,20 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
 
     let qrData;
     let displayAmount = parseFloat(amount);
+    const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
+    const pendingTransaction = {
+      id: refId,
+      amount: displayAmount,
+      intended_amount: parseFloat(amount),
+      donor: name || 'Anonymous',
+      message: message || '',
+      status: 'pending',
+      streamer_username: username,
+      payment_method: 'truemoney_webhook',
+      createdAt,
+      timer_action: sanitizeTimerAction(timerAction),
+      ...tierAssignment
+    };
 
     if (method === 'P2P') {
       const decrypted = decryptPaymentFields(streamer);
@@ -6133,42 +6143,34 @@ app.post('/api/truemoney/create-qr', loadShedGuard(1), sameOriginCheck, truemone
         return res.status(500).json({ error: 'ไม่สามารถสร้าง QR Code ได้ กรุณาลองใหม่' });
       }
       qrData = promptparse.generate.trueMoney({ mobileNo: phone, amount: parseFloat(amount), message: refId });
+      await db.saveTransaction(pendingTransaction);
     } else {
       const decrypted = decryptPaymentFields(streamer);
       const promptpayId = decrypted.truemoney_promptpay_id;
       if (!promptpayId) return res.status(400).json({ error: 'PromptPay e-Wallet ID not configured' });
       const baseAmount = parseFloat(amount);
-      // เลือกเศษสตางค์ตัวเล็กสุดที่ยังไม่ถูก pending tx ยอดตั้งใจเดียวกันของ streamer นี้ใช้ไปแล้ว
-      // (เก็บให้น้อยที่สุดเท่าที่ทำได้ ปกติ = 1 สตางค์, ขยับเกิน 10 เฉพาะกรณีชนจริงเท่านั้น — หายาก)
-      const existingPending = await db.getPendingTxByIntendedAmount(username, baseAmount);
-      const usedSatang = new Set(existingPending.map(r => Math.round((baseAmount - r.amount) * 100)));
-      let extraSatang = 1;
-      while (usedSatang.has(extraSatang) && extraSatang < 99) extraSatang++;
-      displayAmount = baseAmount - extraSatang / 100;
-      qrData = generatePromptPayEWalletPayload(promptpayId, displayAmount);
+      const candidates = buildDescendingSatangAmounts(baseAmount);
+      const reserved = await db.reservePendingTransaction(pendingTransaction, candidates);
+      if (!reserved) {
+        return res.status(409).json({ error: 'ยอดนี้มีรายการรอชำระเต็มจำนวนแล้ว กรุณาเลือกยอดอื่น' });
+      }
+      displayAmount = reserved.amount;
+      try {
+        qrData = generatePromptPayEWalletPayload(promptpayId, displayAmount);
+      } catch (error) {
+        await db.saveTransaction({ ...reserved, status: 'failed' });
+        throw error;
+      }
     }
 
-    const tierAssignment = computeTierAssignment(streamer, parseFloat(amount), { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
-
-    await db.saveTransaction({
-      id: refId,
-      amount: displayAmount,
-      intended_amount: parseFloat(amount),
-      donor: name || 'Anonymous',
-      message: message || '',
-      status: 'pending',
-      streamer_username: username,
-      payment_method: 'truemoney_webhook',
-      createdAt,
-      timer_action: sanitizeTimerAction(timerAction),
-      ...tierAssignment
-    });
     db.logIpEvent('donate_submit', req.ip, username, { amount: displayAmount, method, ref: refId }).catch(() => {});
 
     res.json({ success: true, qrData, referenceId: refId, expiresAt, method, displayAmount });
   } catch (err) {
     console.error('TrueMoney create-qr error:', err);
     res.status(500).json({ error: 'Failed to create QR' });
+  } finally {
+    releasePaymentReservation?.();
   }
 });
 

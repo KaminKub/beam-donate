@@ -5124,8 +5124,8 @@ label {
 /* รอยืนยันการเชื่อมต่อ webhook — แสดงเฉพาะ enabled && !verified (F3/E3.7) */
 .webhook-verify-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   background: radial-gradient(circle at 0% 0%, rgba(245,158,11,0.18), transparent 60%), linear-gradient(135deg, rgba(245,158,11,0.10), rgba(245,158,11,0.03));
   border: 1px solid rgba(245,158,11,0.28);
   border-radius: 12px;
@@ -5137,6 +5137,13 @@ label {
   transition: opacity .2s ease, max-height .2s ease, padding .2s ease, margin-bottom .2s ease;
 }
 
+/* แถว icon + ข้อความ + ปุ่ม (title อยู่เหนือแถวนี้กันตัวหนังสือโดนปุ่มบีบ) */
+.webhook-verify-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .webhook-verify-card.is-visible {
   opacity: 1;
   max-height: 480px;
@@ -5144,23 +5151,25 @@ label {
   margin-bottom: 12px;
 }
 
-.webhook-verify-card > i.fa-shield-halved {
-  color: #f59e0b;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
-
 .webhook-verify-body {
   flex: 1;
   min-width: 0;
 }
 
-.webhook-verify-body strong {
-  display: block;
+.webhook-verify-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #e2e8f0;
   font-size: 0.95rem;
   font-weight: 600;
-  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.webhook-verify-title .fa-shield-halved {
+  color: #f59e0b;
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .webhook-verify-body p {
@@ -5204,11 +5213,23 @@ label {
   border-color: rgba(59,130,246,0.45);
 }
 
+/* ปุ่มบันทึกวิธีรับเงิน — violet signature แยกจาก btn-primary (indigo) ที่ใช้ทั่ว Dashboard (F10 follow-up) */
+.btn-webhook-save {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(221,214,254,0.28), transparent 45%),
+    linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
+  border: 1px solid rgba(196,181,253,0.35);
+  color: #fff;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.btn-webhook-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(139,92,246,0.45);
+  border-color: rgba(196,181,253,0.60);
+}
+
 @media (max-width: 768px) {
   .webhook-verify-card.is-visible {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
     max-height: 640px;
   }
   #btnCheckWebhookVerified {
@@ -5233,23 +5254,6 @@ label {
   color: #c7d2fe;
   background: rgba(102, 126, 234, 0.12);
   border: 1px solid rgba(102, 126, 234, 0.25);
-}
-
-.webhook-conflict-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-  color: #fbbf24;
-}
-
-.webhook-conflict-banner i {
-  flex-shrink: 0;
 }
 
 .webhook-steps {

@@ -75,7 +75,8 @@ test('btnDonate ใช้ตัวตรวจเดียวกันและ�
     appSource.indexOf("btnDonate.addEventListener('click'"),
     appSource.indexOf("document.querySelectorAll('.payment-method-option')")
   );
-  assert.match(handler, /if \(!getUsablePaymentMethods\(methods\)\.any\) \{[\s\S]{0,160}showDonateBlockedMessage\('เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน'\)/);
+  // ช่วงกว้างพอให้แทรก branch อื่นใน gate เดียวกันได้ (เช่น truemoney_webhook_maintenance) โดยไม่ false-fail
+  assert.match(handler, /if \(!getUsablePaymentMethods\(methods\)\.any\) \{[\s\S]{0,400}showDonateBlockedMessage\('เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน'\)/);
   assert.equal(handler.match(/fetch\(/g).length, 1, 'donor click ต้องมี request เดียวคือ payment-methods เดิม');
   assert.match(handler, /fetch\(`\/api\/page\/\$\{username\}\/payment-methods`\)/);
   assert.doesNotMatch(handler, /\/api\/[a-z/-]*(slipok|quota)/i, 'ห้ามเรียก SlipOK/quota endpoint จาก donor click');

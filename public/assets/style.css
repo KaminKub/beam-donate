@@ -1086,11 +1086,33 @@ input[type=number] {
 }
 
 .truemoney-promptpay-badge {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
   flex-shrink: 0;
   color: #fbbf24;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* Feature chip จาก Dashboard (.method-feature-ribbon) — ปรับเป็น pill ตรงใต้ p */
+.payment-method-option .method-feature-ribbon {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a2e;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  cursor: help;
+}
+
+.payment-method-option .method-feature-ribbon i {
+  font-size: 9px;
 }
 
 .payment-method-info {

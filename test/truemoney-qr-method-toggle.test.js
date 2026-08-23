@@ -34,14 +34,13 @@ test('TrueMoney badges separate P2P from PromptPay availability', () => {
   assert.doesNotMatch(hydrate, /trueMoneyP2PBadge\.textContent[^\n]*พร้อมเพย์/);
 });
 
-test('TrueMoney card puts the optional PromptPay label after payment-method-info and removes Wallet from the title', () => {
+test('TrueMoney card keeps the optional PromptPay label inline with the title and removes Wallet from it', () => {
   const card = htmlSource.slice(
     htmlSource.indexOf('id="optionTrueMoney"'),
     htmlSource.indexOf('id="optionBank"')
   );
 
-  assert.match(card, /<h3>TrueMoney<\/h3>/);
-  assert.match(card, /<div class="payment-method-info">[\s\S]*<\/div>\s*<span class="truemoney-promptpay-badge" id="trueMoneyPromptPayBadge" style="display: none;">\+ พร้อมเพย์<\/span>/);
+  assert.match(card, /<h3>TrueMoney <span class="truemoney-promptpay-badge" id="trueMoneyPromptPayBadge" style="display: none;">\+ พร้อมเพย์<\/span><\/h3>/);
   assert.doesNotMatch(card, /<h3>TrueMoney Wallet<\/h3>/);
 });
 
@@ -51,14 +50,14 @@ test('TrueMoney QR method buttons identify their brands with decorative icons', 
     htmlSource.indexOf('<div id="trueMoneyQrDisplayBox"')
   );
 
-  assert.match(toggle, /data-method="P2P"[\s\S]*class="qr-method-icon" src="\/assets\/payment\/TrueWallate\.png" alt="" width="28" height="28"/);
-  assert.match(toggle, /data-method="PROMPTPAY_IN"[\s\S]*class="qr-method-icon" src="\/assets\/payment\/icon-thaiqr\.png" alt="" width="28" height="28"/);
+  assert.match(toggle, /data-method="P2P"[\s\S]*class="qr-method-icon" src="\/assets\/payment\/TrueWallate\.png" alt="" width="48" height="48"/);
+  assert.match(toggle, /data-method="PROMPTPAY_IN"[\s\S]*class="qr-method-icon" src="\/assets\/payment\/icon-thaiqr\.png" alt="" width="48" height="48"/);
   assert.doesNotMatch(toggle, /<small[\s\S]*ผ่าน TrueMoney Wallet[\s\S]*<\/small>/);
   assert.match(toggle, /class="qr-method-icon"/);
 });
 
 test('donate template cache-busts the updated app.js', () => {
-  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260823_6/);
+  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260823_8/);
 });
 
 test('TrueMoney QR requests capture the method and ignore stale responses', () => {
@@ -123,6 +122,7 @@ test('TrueMoney method toggle keeps a distinct cached QR for each method and res
 
 test('TrueMoney toggle buttons use the donate pulse interaction and balanced larger icons', () => {
   assert.match(appSource, /#trueMoneyQrMethodToggle \.qr-method-btn/);
-  assert.match(htmlSource, /\.qr-method-icon[\s\S]*width: 28px;[\s\S]*height: 28px;/);
+  // tile design ตาม .payment-method-icon (48px + radius + object-fit:cover) — commit ed70970
+  assert.match(htmlSource, /\.qr-method-icon[\s\S]*width: 48px;[\s\S]*height: 48px;[\s\S]*object-fit: cover;/);
   assert.match(appSource, /\.amount-btn, \.tier-image-choice, \.tier-subtab-btn, \.tier-eq-btn, #tierRecordBtn, #trueMoneyQrMethodToggle \.qr-method-btn/);
 });

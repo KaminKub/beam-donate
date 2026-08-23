@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260823_3">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260823_6">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -906,19 +906,15 @@
                             </div>
 
                             <div class="webhook-verify-card" id="webhookVerifyCard">
-                              <i class="fa-solid fa-shield-halved"></i>
-                              <div class="webhook-verify-body">
-                                <strong>รอยืนยันการเชื่อมต่อ (แนะนำให้ทดสอบ)</strong>
-                                <p>หน้าโดเนทเปิดใช้งาน TrueMoney แล้ว แต่สถานะ Webhook ยังรอตรวจสอบ เพื่อความชัวร์ ลองให้เพื่อนโอนเข้า wallet 1 บาท หรือเติมเงินเข้า wallet ของคุณ 1 ครั้ง แล้วกดตรวจสอบสถานะ</p>
+                              <strong class="webhook-verify-title"><i class="fa-solid fa-shield-halved"></i>รอยืนยันการเชื่อมต่อ (แนะนำให้ทดสอบ)</strong>
+                              <div class="webhook-verify-row">
+                                <div class="webhook-verify-body">
+                                  <p>หน้าโดเนทเปิดใช้งาน TrueMoney แล้ว แต่สถานะ Webhook ยังรอตรวจสอบ เพื่อความชัวร์ ลองให้เพื่อนโอนเข้า wallet 1 บาท หรือเติมเงินเข้า wallet ของคุณ 1 ครั้ง แล้วกดตรวจสอบสถานะ</p>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-webhook-verify" id="btnCheckWebhookVerified" style="--pulse-color: rgba(59,130,246,.55);">
+                                  <i class="fa-solid fa-rotate" style="color:#3b82f6;"></i> <span>ตรวจสอบสถานะ</span>
+                                </button>
                               </div>
-                              <button type="button" class="btn btn-secondary btn-webhook-verify" id="btnCheckWebhookVerified" style="--pulse-color: rgba(59,130,246,.55);">
-                                <i class="fa-solid fa-rotate" style="color:#3b82f6;"></i> <span>ตรวจสอบสถานะ</span>
-                              </button>
-                            </div>
-
-                            <div class="webhook-conflict-banner" id="webhookConflictBanner" style="display: none;">
-                              <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
-                              <span>พร้อมเพย์ SlipOK ถูกปิดอัตโนมัติ เพราะเปิดพร้อมเพย์ทรูมันนี่ผ่าน Webhook เปิดกลับได้ที่การตั้งค่าพร้อมเพย์</span>
                             </div>
 
                             <button type="button" id="btnConnectWebhook" class="btn btn-primary">
@@ -958,7 +954,7 @@
                                 <label for="webhookPromptpayId">PromptPay e-Wallet ID 15 หลัก</label>
                                 <input type="text" id="webhookPromptpayId" class="form-control" maxlength="15" inputmode="numeric" placeholder="PromptPay e-Wallet ID 15 หลัก จากแอป TrueMoney">
                               </div>
-                              <button type="button" class="btn btn-primary" id="btnSaveWebhookMethods" style="width:100%;margin-top:12px;--pulse-color:rgba(99,102,241,.55);">
+                              <button type="button" class="btn btn-webhook-save" id="btnSaveWebhookMethods" style="width:100%;margin-top:12px;--pulse-color:rgba(139,92,246,.55);">
                                 <i class="fa-solid fa-floppy-disk" style="color:#ffffff;"></i>
                                 <span>บันทึกวิธีรับเงิน</span>
                               </button>
@@ -4057,7 +4053,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260823_5"></script>
+  <script src="/dashboard/dashboard.js?v=20260823_8"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->

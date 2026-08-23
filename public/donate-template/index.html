@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=20260823_1">
+  <link rel="stylesheet" href="/assets/style.css?v=20260823_5">
   <link rel="stylesheet" href="/assets/tipkub-loading.css">
   <style>
     /* ===== TrueMoney Webhook QR step ===== */
@@ -35,7 +35,7 @@
     #step-truemoney-qr .qr-method-btn {
       flex: 1;
       min-height: 64px;
-      padding: 10px 8px;
+      padding: 10px 12px;
       border: 2px solid rgba(255,255,255,0.15);
       border-radius: 12px;
       background: rgba(255,255,255,0.05);
@@ -45,7 +45,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 8px;
       --pulse-color: rgba(102,126,234,.6);
       transition: transform .2s ease, background .2s, border-color .2s, color .2s, box-shadow .2s;
@@ -603,11 +603,11 @@
               <span class="truemoney-p2p-badge" id="trueMoneyP2PBadge" style="display: none;">P2P</span>
             </div>
             <div class="payment-method-info">
-              <h3>TrueMoney</h3>
-              <p>สแกน QR ยืนยันอัตโนมัติ ไม่ต้องอัพสลิป</p>
+              <h3>TrueMoney <span class="truemoney-promptpay-badge" id="trueMoneyPromptPayBadge" style="display: none;">+ พร้อมเพย์</span></h3>
+              <p>สแกน QR ยืนยันอัตโนมัติ</p>
+              <div class="method-feature-ribbon" title="เข้าเกณฑ์: บัญชีที่รับเงินหรือเติมเงิน ≥50 ครั้ง/เดือน"><i class="fa-solid fa-bolt"></i> ไม่อัพสลิป</div>
               <span class="payment-method-badge" id="trueMoneyMaintenanceBadge" style="display: none; background: rgba(239,68,68,0.15); color: #f87171;">ปิดปรับปรุง</span>
             </div>
-            <span class="truemoney-promptpay-badge" id="trueMoneyPromptPayBadge" style="display: none;">+ พร้อมเพย์</span>
             <div class="payment-method-check">
               <i class="fas fa-check-circle"></i>
             </div>
@@ -1125,6 +1125,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260823_6"></script>
+  <script src="/donate-template/app.js?v=20260823_8"></script>
 </body>
 </html>
