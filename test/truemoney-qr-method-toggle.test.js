@@ -9,16 +9,17 @@ const root = path.resolve(__dirname, '..');
 const appSource = fs.readFileSync(path.join(root, 'public', 'donate-template', 'app.js'), 'utf8');
 const htmlSource = fs.readFileSync(path.join(root, 'public', 'donate-template', 'index.html'), 'utf8');
 
-test('TrueMoney QR method toggle regenerates the selected method QR', () => {
+test('TrueMoney QR method toggle requests only a changed method', () => {
   const toggle = appSource.slice(
     appSource.indexOf('// TrueMoney webhook QR method toggle'),
     appSource.indexOf('function getTrueMoneyPendingKey(')
   );
 
-  assert.match(toggle, /trueMoneyQrMethod = btn\.dataset\.method \|\| 'P2P';\s*createTrueMoneyQR\(\);/);
+  assert.match(toggle, /const nextMethod = btn\.dataset\.method \|\| 'P2P';[\s\S]*if \(nextMethod === trueMoneyQrMethod\) return;/);
+  assert.match(toggle, /trueMoneyQrMethod = nextMethod;\s*void createTrueMoneyQR\(\);/);
 });
 
-test('TrueMoney P2P badge stays visible for P2P and explains PromptPay availability when both methods are enabled', () => {
+test('TrueMoney badges separate P2P from PromptPay availability', () => {
   const hydrate = appSource.slice(
     appSource.indexOf('const trueMoneyP2PBadge ='),
     appSource.indexOf('if (usable.promptpay)')
@@ -28,7 +29,20 @@ test('TrueMoney P2P badge stays visible for P2P and explains PromptPay availabil
   assert.match(hydrate, /const hasP2P = methodList\.includes\('P2P'\);/);
   assert.match(hydrate, /const hasPromptPayIn = methodList\.includes\('PROMPTPAY_IN'\);/);
   assert.match(hydrate, /trueMoneyP2PBadge\.style\.display = hasP2P \? '' : 'none';/);
-  assert.match(hydrate, /trueMoneyP2PBadge\.textContent = hasPromptPayIn \? 'P2P \+ พร้อมเพย์' : 'P2P';/);
+  assert.match(hydrate, /trueMoneyP2PBadge\.textContent = 'P2P';/);
+  assert.match(hydrate, /trueMoneyPromptPayBadge\.style\.display = hasPromptPayIn \? '' : 'none';/);
+  assert.doesNotMatch(hydrate, /trueMoneyP2PBadge\.textContent[^\n]*พร้อมเพย์/);
+});
+
+test('TrueMoney card puts the optional PromptPay label after payment-method-info and removes Wallet from the title', () => {
+  const card = htmlSource.slice(
+    htmlSource.indexOf('id="optionTrueMoney"'),
+    htmlSource.indexOf('id="optionBank"')
+  );
+
+  assert.match(card, /<h3>TrueMoney<\/h3>/);
+  assert.match(card, /<div class="payment-method-info">[\s\S]*<\/div>\s*<span class="truemoney-promptpay-badge" id="trueMoneyPromptPayBadge" style="display: none;">\+ พร้อมเพย์<\/span>/);
+  assert.doesNotMatch(card, /<h3>TrueMoney Wallet<\/h3>/);
 });
 
 test('TrueMoney QR method buttons identify their brands with decorative icons', () => {
@@ -44,7 +58,7 @@ test('TrueMoney QR method buttons identify their brands with decorative icons', 
 });
 
 test('donate template cache-busts the updated app.js', () => {
-  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260823_4/);
+  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260823_6/);
 });
 
 test('TrueMoney QR requests capture the method and ignore stale responses', () => {
@@ -58,6 +72,29 @@ test('TrueMoney QR requests capture the method and ignore stale responses', () =
   assert.match(create, /if \(!isCurrentTrueMoneyQrRequest\(requestId, requestedMethod\)\) return;/);
   assert.match(create, /if \(!isCurrentTrueMoneyQrRequest\(requestId, requestedMethod\)\) return;[\s\S]*saveTrueMoneyPendingQR\(data\);/);
   assert.match(create, /catch \(error\) \{\s*if \(!isCurrentTrueMoneyQrRequest\(requestId, requestedMethod\)\) return;/);
+  assert.match(create, /const currentTimerAction = getTimerActionForSubmit\(\) \?\? null;/);
+  assert.match(create, /\(pending\.timerAction \?\? null\) === currentTimerAction/);
+});
+
+test('TrueMoney method switching deduplicates same-method in-flight QR requests', () => {
+  const toggle = appSource.slice(
+    appSource.indexOf('// TrueMoney webhook QR method toggle'),
+    appSource.indexOf('function normalizeTrueMoneyQrMethod(')
+  );
+  const create = appSource.slice(
+    appSource.indexOf('async function createTrueMoneyQR()'),
+    appSource.indexOf('function showTrueMoneyQrStep(')
+  );
+
+  assert.match(toggle, /const nextMethod = btn\.dataset\.method \|\| 'P2P';/);
+  assert.match(toggle, /if \(nextMethod === trueMoneyQrMethod\) return;/);
+  assert.match(appSource, /const trueMoneyQrInFlight = new Map\(\);/);
+  assert.match(create, /const requestKey = getTrueMoneyQrRequestKey\(requestedMethod\);/);
+  assert.match(create, /const inFlight = trueMoneyQrInFlight\.get\(requestKey\);/);
+  assert.match(create, /let requestPromise = inFlight;/);
+  assert.match(create, /await requestPromise/);
+  assert.match(create, /trueMoneyQrInFlight\.set\(requestKey, requestPromise\);/);
+  assert.match(create, /trueMoneyQrInFlight\.delete\(requestKey\);/);
 });
 
 test('TrueMoney method toggle keeps a distinct cached QR for each method and restores the active method after refresh', () => {

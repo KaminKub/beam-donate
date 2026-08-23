@@ -30,6 +30,7 @@ document.addEventListener('visibilitychange', () => {
 let trueMoneyQrMethod = 'P2P';
 const TRUEMONEY_QR_METHODS = Object.freeze(['P2P', 'PROMPTPAY_IN']);
 let trueMoneyQrRequestSeq = 0;
+const trueMoneyQrInFlight = new Map();
 let trueMoneyQrRefId = null;
 let trueMoneyQrSource = null;
 let trueMoneyStatusRetryDelay = 3000; // manual reconnect backoff (EventSource gives up after a 503)
@@ -2621,12 +2622,18 @@ function hydratePaymentMethodStep(methods) {
   if (!usable.any) return false;
 
   const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
-  if (trueMoneyP2PBadge) {
+  const trueMoneyPromptPayBadge = document.getElementById('trueMoneyPromptPayBadge');
+  if (trueMoneyP2PBadge || trueMoneyPromptPayBadge) {
     const methodList = (methods.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
     const hasP2P = methodList.includes('P2P');
     const hasPromptPayIn = methodList.includes('PROMPTPAY_IN');
-    trueMoneyP2PBadge.style.display = hasP2P ? '' : 'none';
-    trueMoneyP2PBadge.textContent = hasPromptPayIn ? 'P2P + พร้อมเพย์' : 'P2P';
+    if (trueMoneyP2PBadge) {
+      trueMoneyP2PBadge.style.display = hasP2P ? '' : 'none';
+      trueMoneyP2PBadge.textContent = 'P2P';
+    }
+    if (trueMoneyPromptPayBadge) {
+      trueMoneyPromptPayBadge.style.display = hasPromptPayIn ? '' : 'none';
+    }
   }
 
   if (usable.promptpay) {
@@ -3992,15 +3999,34 @@ if (trueMoneyQrMethodToggle) {
   trueMoneyQrMethodToggle.addEventListener('click', (e) => {
     const btn = e.target.closest('.qr-method-btn');
     if (!btn) return;
+    const nextMethod = btn.dataset.method || 'P2P';
+    if (nextMethod === trueMoneyQrMethod) return;
     trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    trueMoneyQrMethod = btn.dataset.method || 'P2P';
-    createTrueMoneyQR();
+    trueMoneyQrMethod = nextMethod;
+    void createTrueMoneyQR();
   });
 }
 
 function normalizeTrueMoneyQrMethod(method) {
   return TRUEMONEY_QR_METHODS.includes(method) ? method : 'P2P';
+}
+
+function getTrueMoneyQrRequestKey(method = trueMoneyQrMethod) {
+  return JSON.stringify({
+    method: normalizeTrueMoneyQrMethod(method),
+    amount: selectedAmount,
+    donorName: donorNameInput?.value?.trim() || '',
+    message: donorMessageInput?.value?.trim() || '',
+    timerAction: getTimerActionForSubmit() ?? null,
+    tierImageUrl: selectedTierImageUrl || null,
+    tierSoundUrl: selectedTierSoundUrl || null,
+    tierSoundIsTemp: !!selectedTierSoundIsTemp,
+    tierSoundMode: selectedTierSoundIsTemp ? (currentSoundSource === 'record' ? 'record' : 'upload') : null,
+    tierYoutubeId: selectedTierYoutube?.videoId || null,
+    tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
+    tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
+  });
 }
 
 function getTrueMoneyPendingKey(method = trueMoneyQrMethod) {
@@ -4249,19 +4275,23 @@ async function createTrueMoneyQR() {
   const pending = getTrueMoneyPendingQR(false, requestedMethod);
   const currentDonorName = donorNameInput?.value?.trim() || '';
   const currentMessage = donorMessageInput?.value?.trim() || '';
-  const currentTimerAction = getTimerActionForSubmit() || '';
-  if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && pending.timerAction === currentTimerAction && pending.method === requestedMethod) {
+  const currentTimerAction = getTimerActionForSubmit() ?? null;
+  if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && (pending.timerAction ?? null) === currentTimerAction && pending.method === requestedMethod) {
     showTrueMoneyQrStep(pending);
     return;
   }
-  clearTrueMoneyPendingQR(requestedMethod);
 
-  if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'block';
-  if (trueMoneyQrImage) trueMoneyQrImage.style.display = 'none';
-  if (trueMoneyQrStatus) trueMoneyQrStatus.style.display = 'none';
+  const requestKey = getTrueMoneyQrRequestKey(requestedMethod);
+  const inFlight = trueMoneyQrInFlight.get(requestKey);
+  let requestPromise = inFlight;
+  if (!requestPromise) {
+    clearTrueMoneyPendingQR(requestedMethod);
 
-  try {
-    const response = await fetch('/api/truemoney/create-qr', {
+    if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'block';
+    if (trueMoneyQrImage) trueMoneyQrImage.style.display = 'none';
+    if (trueMoneyQrStatus) trueMoneyQrStatus.style.display = 'none';
+
+    requestPromise = fetch('/api/truemoney/create-qr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4280,9 +4310,12 @@ async function createTrueMoneyQR() {
         tierYoutubeStart: selectedTierYoutube?.startSec ?? null,
         tierYoutubeEnd: selectedTierYoutube?.endSec ?? null
       })
-    });
+    }).then(async response => ({ response, data: await response.json() }));
+    trueMoneyQrInFlight.set(requestKey, requestPromise);
+  }
 
-    const data = await response.json();
+  try {
+    const { response, data } = await requestPromise;
     if (!isCurrentTrueMoneyQrRequest(requestId, requestedMethod)) return;
     if (isOverloadResponse(response, data)) {
       showOverloadNotice('qr');
@@ -4307,6 +4340,8 @@ async function createTrueMoneyQR() {
     if (!isCurrentTrueMoneyQrRequest(requestId, requestedMethod)) return;
     showProceedError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
+  } finally {
+    if (trueMoneyQrInFlight.get(requestKey) === requestPromise) trueMoneyQrInFlight.delete(requestKey);
   }
 }
 
