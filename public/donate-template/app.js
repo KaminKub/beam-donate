@@ -2729,7 +2729,11 @@ btnDonate.addEventListener('click', async () => {
 
   // วิธีที่ต้องใช้ SlipOK แต่ SlipOK ใช้ไม่ได้ = ไม่นับว่าเป็นช่องทางที่พร้อม (การ์ดจะถูกซ่อนใน hydrate)
   if (!getUsablePaymentMethods(methods).any) {
-    showDonateBlockedMessage('เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน');
+    if (methods.truemoney_webhook_maintenance) {
+      showDonateBlockedMessage('ระบบ TrueMoney ปิดปรับปรุงชั่วคราว กรุณาลองใหม่ภายหลัง');
+    } else {
+      showDonateBlockedMessage('เจ้าของหน้าโดเนทยังไม่ตั้งวิธีชำระเงิน');
+    }
     return; // หยุด — ไม่ไปหน้าถัดไป
   }
 

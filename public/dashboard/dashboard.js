@@ -9726,8 +9726,13 @@ function initTrueMoneyWebhookModal() {
   if (btnCheckVerified) {
     btnCheckVerified.addEventListener('click', async () => {
       btnCheckVerified.disabled = true;
-      await loadPaymentSettings();
-      btnCheckVerified.disabled = false;
+      try {
+        await loadPaymentSettings();
+      } catch (e) {
+        showNotification('ตรวจสอบสถานะไม่สำเร็จ กรุณาลองใหม่', 'error');
+      } finally {
+        btnCheckVerified.disabled = false;
+      }
     });
   }
 

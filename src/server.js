@@ -1479,7 +1479,7 @@ function applyDemoMask(row) {
     'leaderboard_settings', 'recentdonate_settings', 'goal_text_settings',
     // TrueMoney Webhook status indicators (no credentials)
     'truemoney_webhook_enabled', 'truemoney_webhook_methods',
-    'truemoney_webhook_kyc_confirmed', 'truemoney_webhook_expiry',
+    'truemoney_webhook_kyc_confirmed', 'truemoney_webhook_expiry', 'truemoney_webhook_verified_at',
     // Account profile (public info, no secrets)
     'tos_accepted_at',
   ]);
@@ -5261,21 +5261,6 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
     const decrypted = decryptPaymentFields(streamer);
     const changedTo = (field, incoming) => !!incoming && !String(incoming).includes('*') && incoming !== (decrypted[field] || '');
 
-    const resetFlags = {};
-    if (changedTo('promptpay_value', req.body.promptpay_value)) resetFlags.promptpay_account_verified = 0;
-    if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
-    if (changedTo('truemoney_phone', req.body.truemoney_phone)) resetFlags.truemoney_account_verified = 0;
-
-    // Reverse of setup-webhook's conflict guard (~5254): เปิด SlipOK พร้อมเพย์กลับ ต้องปิด
-    // PROMPTPAY_IN ของ TrueMoney webhook ด้วย (ชิงพื้นที่ QR พร้อมเพย์เดียวกัน — เปิดพร้อมกันไม่ได้)
-    if (req.body.promptpay_enabled) {
-      const webhookMethods = (streamer.truemoney_webhook_methods || '').split(',').filter(Boolean);
-      if (streamer.truemoney_webhook_enabled === 1 && webhookMethods.includes('PROMPTPAY_IN')) {
-        const remaining = webhookMethods.filter(m => m !== 'PROMPTPAY_IN');
-        resetFlags.truemoney_webhook_methods = remaining.length ? remaining.join(',') : 'P2P';
-      }
-    }
-
     // TrueMoney P2P QR ต้องการเบอร์ 10 หลักขึ้นต้น 0 เป๊ะ ๆ (promptparse ต่อ "14000"+เบอร์ = 15 หลัก)
     // ค่าที่มี '*' = placeholder จาก dashboard (ไม่ได้แก้) — ปล่อยผ่านให้ database.js กรองทิ้งตามเดิม
     let tmPhone = req.body.truemoney_phone || '';
@@ -5284,6 +5269,21 @@ app.post('/api/payment/settings', ensureAuthenticated, csrfProtection, requirePa
       if (tmPhone.startsWith('66') && tmPhone.length === 11) tmPhone = '0' + tmPhone.slice(2);
       if (req.body.truemoney_enabled && !/^0\d{9}$/.test(tmPhone)) {
         return res.status(400).json({ error: 'เบอร์ TrueMoney ต้องเป็นเบอร์มือถือ 10 หลัก (ขึ้นต้นด้วย 0)' });
+      }
+    }
+
+    const resetFlags = {};
+    if (changedTo('promptpay_value', req.body.promptpay_value)) resetFlags.promptpay_account_verified = 0;
+    if (changedTo('bank_account_number', req.body.bank_account_number)) resetFlags.bank_account_verified = 0;
+    if (changedTo('truemoney_phone', tmPhone)) resetFlags.truemoney_account_verified = 0;
+
+    // Reverse of setup-webhook's conflict guard (~5254): เปิด SlipOK พร้อมเพย์กลับ ต้องปิด
+    // PROMPTPAY_IN ของ TrueMoney webhook ด้วย (ชิงพื้นที่ QR พร้อมเพย์เดียวกัน — เปิดพร้อมกันไม่ได้)
+    if (req.body.promptpay_enabled) {
+      const webhookMethods = (streamer.truemoney_webhook_methods || '').split(',').filter(Boolean);
+      if (streamer.truemoney_webhook_enabled === 1 && webhookMethods.includes('PROMPTPAY_IN')) {
+        const remaining = webhookMethods.filter(m => m !== 'PROMPTPAY_IN');
+        resetFlags.truemoney_webhook_methods = remaining.length ? remaining.join(',') : 'P2P';
       }
     }
 
@@ -5763,7 +5763,7 @@ const promptPayQrLimiter = rateLimit({
 // POST /api/truemoney/setup-webhook - Webhook connect/disconnect (authenticated) — F-02: throttle spam (each hit = 2 DB writes + JWT sign/verify)
 const setupWebhookLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 20,
   message: { error: 'คำขอมากเกินไป กรุณารอสักครู่' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -5988,7 +5988,7 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
         return res.status(400).json({ error: 'กรุณาเชื่อมต่อ TrueMoney Webhook ก่อน' });
       }
       const ALLOWED = ['P2P', 'PROMPTPAY_IN'];
-      const clean = (Array.isArray(methods) ? methods : [methods]).filter(Boolean).filter(m => ALLOWED.includes(m));
+      const clean = [...new Set((Array.isArray(methods) ? methods : [methods]).filter(Boolean).filter(m => ALLOWED.includes(m)))];
       if (clean.length === 0) return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
 
       const patch = { ...ids, truemoney_webhook_methods: clean.join(',') };
@@ -6017,9 +6017,9 @@ app.post('/api/truemoney/setup-webhook', setupWebhookLimiter, ensureAuthenticate
     if (action !== 'enable') return res.status(400).json({ error: 'Invalid action' });
 
     const ALLOWED_METHODS = ['P2P', 'PROMPTPAY_IN'];
-    const cleanMethods = (Array.isArray(methods) ? methods : [methods])
+    const cleanMethods = [...new Set((Array.isArray(methods) ? methods : [methods])
       .filter(Boolean)
-      .filter(m => ALLOWED_METHODS.includes(m));
+      .filter(m => ALLOWED_METHODS.includes(m)))];
     if (cleanMethods.length === 0) {
       return res.status(400).json({ error: 'กรุณาเลือกวิธีรับเงินอย่างน้อย 1 วิธี' });
     }
