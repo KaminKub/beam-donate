@@ -5229,6 +5229,24 @@ label {
 }
 
 @media (max-width: 768px) {
+  .webhook-verify-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .webhook-verify-card.is-visible {
+    max-height: 640px;
+  }
+  #btnCheckWebhookVerified {
+    width: 100%;
+  }
+}
+
+/* Keep the verification action reachable on portrait desktop panels. */
+@media (orientation: portrait) and (min-width: 769px) {
+  .webhook-verify-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
   .webhook-verify-card.is-visible {
     max-height: 640px;
   }

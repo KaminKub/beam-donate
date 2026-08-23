@@ -1126,6 +1126,12 @@ input[type=number] {
   color: #fff;
 }
 
+@media (max-width: 768px) {
+  .payment-method-option[data-method="truemoney"] .payment-method-info h3 {
+    white-space: nowrap;
+  }
+}
+
 .payment-method-info p {
   margin: 0;
   font-size: 13px;
