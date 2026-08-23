@@ -2416,15 +2416,18 @@ async function hardDeleteExpiredTransactions() {
  */
 async function hardDeleteOldTransactions(months = 6) {
   await ensureConnected();
+  // fallback ต้องตรงกับ default ของ signature (6) — เดิมเป็น 3 ทำให้ค่าเพี้ยน (NaN/0) ลบที่ 3 เดือนเงียบ ๆ
+  // clamp ก่อนแยก branch: memory path เดิมใช้ months ดิบ ⇒ NaN ทำให้ toISOString() throw
+  const safeMonths = Math.max(1, Math.min(12, parseInt(months, 10) || 6));
   if (isFallback) {
-    const cutoff = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - safeMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
     const before = memoryTransactions.length;
     memoryTransactions = memoryTransactions.filter(t =>
       !(t.createdAt && t.createdAt < cutoff)
     );
     const deleted = before - memoryTransactions.length;
     if (deleted > 0) {
-      console.log(`🗑️ Fallback: hard deleted ${deleted} transactions older than ${months} months`);
+      console.log(`🗑️ Fallback: hard deleted ${deleted} transactions older than ${safeMonths} months`);
       try {
         const DB_DIR = path.join(__dirname, '../data');
         fs.writeFileSync(path.join(DB_DIR, 'transactions.json'), JSON.stringify(memoryTransactions, null, 2));
@@ -2434,7 +2437,6 @@ async function hardDeleteOldTransactions(months = 6) {
   }
   if (!db) return 0;
 
-  const safeMonths = Math.max(1, Math.min(12, parseInt(months, 10) || 3));
   const modifier = `-${safeMonths} months`;
   const result = await db.execute({
     sql: `DELETE FROM transactions WHERE datetime(createdAt) < datetime('now', ?)`,
