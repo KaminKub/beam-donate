@@ -68,7 +68,7 @@ test('expired QR records use the bounded restore grace window', () => {
 
   const startupRestore = sourceBetween('function restorePendingPaymentStep(', '// Report modal');
   assert.match(startupRestore, /getPendingQR\(true\)/);
-  assert.match(startupRestore, /getTrueMoneyPendingQR\(true\)/);
+  assert.match(startupRestore, /getTrueMoneyPendingRestoreCandidate\(\)/);
   assert.match(startupRestore, /isPendingRestorable/);
   assert.match(appSource, /const EXPIRED_QR_GRACE_MS = 10 \* 60 \* 1000/);
 

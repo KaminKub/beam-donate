@@ -28,6 +28,8 @@ document.addEventListener('visibilitychange', () => {
 
 // TrueMoney webhook QR state
 let trueMoneyQrMethod = 'P2P';
+const TRUEMONEY_QR_METHODS = Object.freeze(['P2P', 'PROMPTPAY_IN']);
+let trueMoneyQrRequestSeq = 0;
 let trueMoneyQrRefId = null;
 let trueMoneyQrSource = null;
 let trueMoneyStatusRetryDelay = 3000; // manual reconnect backoff (EventSource gives up after a 503)
@@ -36,6 +38,14 @@ let trueMoneyStatusStopped = false;
 let trueMoneyQrFallbackTimer = null;
 let trueMoneyQrCountdownInterval = null;
 let trueMoneyQrExpiresAt = null;
+
+// A method switch makes older responses UI-stale, but it does not cancel the
+// server transaction: a donor may already have scanned that QR. Keep it
+// payable until the normal 30-minute expiry/cleanup path, while never storing
+// or rendering its stale response in this page.
+function isCurrentTrueMoneyQrRequest(requestId, requestedMethod) {
+  return requestId === trueMoneyQrRequestSeq && requestedMethod === trueMoneyQrMethod;
+}
 
 // Tier Donate (TIER_DONATE_BLUEPRINT.md § 4)
 let pageSettings = null;
@@ -2612,8 +2622,11 @@ function hydratePaymentMethodStep(methods) {
 
   const trueMoneyP2PBadge = document.getElementById('trueMoneyP2PBadge');
   if (trueMoneyP2PBadge) {
-    const usesPromptPayIn = (methods.truemoney_webhook_methods || '').includes('PROMPTPAY_IN');
-    trueMoneyP2PBadge.style.display = usesPromptPayIn ? '' : 'none';
+    const methodList = (methods.truemoney_webhook_methods || 'P2P').split(',').filter(Boolean);
+    const hasP2P = methodList.includes('P2P');
+    const hasPromptPayIn = methodList.includes('PROMPTPAY_IN');
+    trueMoneyP2PBadge.style.display = hasP2P ? '' : 'none';
+    trueMoneyP2PBadge.textContent = hasPromptPayIn ? 'P2P + พร้อมเพย์' : 'P2P';
   }
 
   if (usable.promptpay) {
@@ -3982,17 +3995,38 @@ if (trueMoneyQrMethodToggle) {
     trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     trueMoneyQrMethod = btn.dataset.method || 'P2P';
+    createTrueMoneyQR();
   });
 }
 
-function getTrueMoneyPendingKey() {
+function normalizeTrueMoneyQrMethod(method) {
+  return TRUEMONEY_QR_METHODS.includes(method) ? method : 'P2P';
+}
+
+function getTrueMoneyPendingKey(method = trueMoneyQrMethod) {
   const username = window.location.pathname.split('/')[1];
-  return username ? `truemoney_webhook_pending_${username}` : 'truemoney_webhook_pending';
+  const normalizedMethod = normalizeTrueMoneyQrMethod(method);
+  return username ? `truemoney_webhook_pending_${username}_${normalizedMethod}` : `truemoney_webhook_pending_${normalizedMethod}`;
+}
+
+function getTrueMoneyQrActiveKey() {
+  const username = window.location.pathname.split('/')[1];
+  return username ? `truemoney_webhook_pending_active_${username}` : 'truemoney_webhook_pending_active';
+}
+
+function setTrueMoneyQrActiveMethod(method) {
+  writePendingState(getTrueMoneyQrActiveKey(), { method: normalizeTrueMoneyQrMethod(method) });
+}
+
+function getTrueMoneyQrActiveMethod() {
+  const method = readPendingState(getTrueMoneyQrActiveKey())?.method;
+  return TRUEMONEY_QR_METHODS.includes(method) ? method : null;
 }
 
 function saveTrueMoneyPendingQR(data) {
   clearManualPaymentStep();
   clearPendingQR();
+  const method = normalizeTrueMoneyQrMethod(data.method);
   const pending = {
     referenceId: data.referenceId,
     qrData: data.qrData,
@@ -4000,15 +4034,16 @@ function saveTrueMoneyPendingQR(data) {
     donorName: donorNameInput?.value?.trim() || '',
     message: donorMessageInput?.value?.trim() || '',
     expiresAt: data.expiresAt,
-    method: data.method || 'P2P',
+    method,
     displayAmount: data.displayAmount ?? selectedAmount,
     timerAction: getTimerActionForSubmit()
   };
-  writePendingState(getTrueMoneyPendingKey(), pending);
+  writePendingState(getTrueMoneyPendingKey(method), pending);
+  setTrueMoneyQrActiveMethod(method);
 }
 
-function getTrueMoneyPendingQR(includeExpired = false) {
-  const pending = readPendingState(getTrueMoneyPendingKey());
+function getTrueMoneyPendingQR(includeExpired = false, method = trueMoneyQrMethod) {
+  const pending = readPendingState(getTrueMoneyPendingKey(method));
   if (!pending || !pending.referenceId || !pending.qrData || !pending.expiresAt) return null;
   const expiresAt = new Date(pending.expiresAt).getTime();
   if (!Number.isFinite(expiresAt)) return null;
@@ -4016,8 +4051,28 @@ function getTrueMoneyPendingQR(includeExpired = false) {
   return pending;
 }
 
-function clearTrueMoneyPendingQR() {
-  clearPendingState(getTrueMoneyPendingKey());
+function clearTrueMoneyPendingQR(method) {
+  const methods = method ? [normalizeTrueMoneyQrMethod(method)] : TRUEMONEY_QR_METHODS;
+  methods.forEach(currentMethod => clearPendingState(getTrueMoneyPendingKey(currentMethod)));
+
+  const activeMethod = getTrueMoneyQrActiveMethod();
+  if (!method || activeMethod === normalizeTrueMoneyQrMethod(method)) {
+    clearPendingState(getTrueMoneyQrActiveKey());
+  }
+}
+
+function getTrueMoneyPendingRestoreCandidate() {
+  const activeMethod = getTrueMoneyQrActiveMethod();
+  const methods = activeMethod
+    ? [activeMethod, ...TRUEMONEY_QR_METHODS.filter(method => method !== activeMethod)]
+    : TRUEMONEY_QR_METHODS;
+
+  for (const method of methods) {
+    const pending = getTrueMoneyPendingQR(true, method);
+    if (pending && isPendingRestorable(pending)) return pending;
+    if (pending && !pending.backedOutAt) clearTrueMoneyPendingQR(method);
+  }
+  return null;
 }
 
 function generateTrueMoneyQRImage(qrData) {
@@ -4185,19 +4240,21 @@ async function resyncTrueMoneyStatus(refId) {
 }
 
 async function createTrueMoneyQR() {
+  const requestId = ++trueMoneyQrRequestSeq;
+  const requestedMethod = trueMoneyQrMethod;
   const username = window.location.pathname.split('/')[1];
   if (!username) return;
 
   // Check cached pending first
-  const pending = getTrueMoneyPendingQR();
+  const pending = getTrueMoneyPendingQR(false, requestedMethod);
   const currentDonorName = donorNameInput?.value?.trim() || '';
   const currentMessage = donorMessageInput?.value?.trim() || '';
   const currentTimerAction = getTimerActionForSubmit() || '';
-  if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && pending.timerAction === currentTimerAction && pending.method === trueMoneyQrMethod) {
+  if (pending && pending.amount === selectedAmount && pending.donorName === currentDonorName && pending.message === currentMessage && pending.timerAction === currentTimerAction && pending.method === requestedMethod) {
     showTrueMoneyQrStep(pending);
     return;
   }
-  clearTrueMoneyPendingQR();
+  clearTrueMoneyPendingQR(requestedMethod);
 
   if (trueMoneyQrLoading) trueMoneyQrLoading.style.display = 'block';
   if (trueMoneyQrImage) trueMoneyQrImage.style.display = 'none';
@@ -4214,7 +4271,7 @@ async function createTrueMoneyQR() {
         name: donorNameInput.value,
         message: donorMessageInput.value,
         timerAction: getTimerActionForSubmit(),
-        method: trueMoneyQrMethod,
+        method: requestedMethod,
         tierImageUrl: selectedTierImageUrl || null,
         tierSoundUrl: selectedTierSoundUrl || null,
         tierSoundIsTemp: selectedTierSoundIsTemp || false,
@@ -4226,6 +4283,7 @@ async function createTrueMoneyQR() {
     });
 
     const data = await response.json();
+    if (!isCurrentTrueMoneyQrRequest(requestId, requestedMethod)) return;
     if (isOverloadResponse(response, data)) {
       showOverloadNotice('qr');
       // Two callers: the proceed button (still on the payment-method step) and
@@ -4246,12 +4304,15 @@ async function createTrueMoneyQR() {
     saveTrueMoneyPendingQR(data);
     showTrueMoneyQrStep(data);
   } catch (error) {
+    if (!isCurrentTrueMoneyQrRequest(requestId, requestedMethod)) return;
     showProceedError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     if (btnRetryTrueMoneyQr) btnRetryTrueMoneyQr.style.display = 'block';
   }
 }
 
 function showTrueMoneyQrStep(data) {
+  trueMoneyQrMethod = normalizeTrueMoneyQrMethod(data.method);
+  setTrueMoneyQrActiveMethod(trueMoneyQrMethod);
   showOnlyPaymentStep(stepTrueMoneyQr);
   trueMoneyQrRefId = data.referenceId;
 
@@ -4287,7 +4348,7 @@ function showTrueMoneyQrStep(data) {
 // Post-click pulse ring — ปุ่มที่กดแล้วไม่เปลี่ยนหน้า (select/control) เท่านั้น
 // ref: .timer-control-buttons pulse ใน dashboard.js — delegate เพราะ .tier-image-choice ถูกสร้างด้วย JS
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.amount-btn, .tier-image-choice, .tier-subtab-btn, .tier-eq-btn, #tierRecordBtn');
+  const btn = e.target.closest('.amount-btn, .tier-image-choice, .tier-subtab-btn, .tier-eq-btn, #tierRecordBtn, #trueMoneyQrMethodToggle .qr-method-btn');
   if (!btn) return;
   btn.classList.remove('tk-btn-pulse');
   void btn.offsetWidth;
@@ -4297,7 +4358,8 @@ document.addEventListener('click', (e) => {
 function restoreTrueMoneyQrStep(pending) {
   trueMoneyQrRefId = pending.referenceId;
   selectedAmount = pending.amount;
-  trueMoneyQrMethod = pending.method || 'P2P';
+  trueMoneyQrMethod = normalizeTrueMoneyQrMethod(pending.method);
+  setTrueMoneyQrActiveMethod(trueMoneyQrMethod);
   if (trueMoneyQrMethodToggle) {
     trueMoneyQrMethodToggle.querySelectorAll('.qr-method-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.method === trueMoneyQrMethod);
@@ -4601,7 +4663,7 @@ async function restorePendingPaymentStep() {
   }
   if (pendingPromptPay && !pendingPromptPay.backedOutAt) clearPendingQR();
 
-  const pendingTrueMoney = getTrueMoneyPendingQR(true);
+  const pendingTrueMoney = getTrueMoneyPendingRestoreCandidate();
   if (pendingTrueMoney && isPendingRestorable(pendingTrueMoney)) {
     selectedAmount = pendingTrueMoney.amount;
     selectedPaymentMethod = 'truemoney';
@@ -4612,7 +4674,6 @@ async function restorePendingPaymentStep() {
     selectPaymentMethod('truemoney');
     return;
   }
-  if (pendingTrueMoney && !pendingTrueMoney.backedOutAt) clearTrueMoneyPendingQR();
 
   const pendingManualPayment = getManualPaymentStep();
   // TrueMoney manual step ไม่มี SSE รอ webhook — restore เข้าไปแล้วยืนยันไม่ได้ ปล่อยให้เริ่มใหม่จากหน้าแรกแทน

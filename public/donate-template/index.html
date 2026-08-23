@@ -34,6 +34,7 @@
     }
     #step-truemoney-qr .qr-method-btn {
       flex: 1;
+      min-height: 64px;
       padding: 10px 8px;
       border: 2px solid rgba(255,255,255,0.15);
       border-radius: 12px;
@@ -42,15 +43,35 @@
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
-      transition: background .2s, border-color .2s, color .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      --pulse-color: rgba(102,126,234,.6);
+      transition: transform .2s ease, background .2s, border-color .2s, color .2s, box-shadow .2s;
+    }
+    #step-truemoney-qr .qr-method-icon {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      object-fit: contain;
     }
     #step-truemoney-qr .qr-method-btn:hover {
       background: rgba(102,126,234,.15);
+      transform: translateY(-1px);
+      box-shadow: 0 7px 16px rgba(15,23,42,.28);
+    }
+    #step-truemoney-qr .qr-method-btn:active {
+      transform: scale(.97);
     }
     #step-truemoney-qr .qr-method-btn.active {
       border-color: var(--primary, #667eea);
       background: rgba(102,126,234,.18);
       color: #c7d2fe;
+      box-shadow: 0 0 0 1px rgba(102,126,234,.18), 0 8px 18px rgba(15,23,42,.24);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #step-truemoney-qr .qr-method-btn { transition: none; }
     }
     #step-truemoney-qr .qr-display-box {
       background: rgba(255,255,255,0.05);
@@ -830,10 +851,12 @@
 
         <div class="qr-method-toggle" id="trueMoneyQrMethodToggle" style="display: none;">
           <button type="button" class="qr-method-btn active" data-method="P2P">
-            โอนในแอป TrueMoney
+            <img class="qr-method-icon" src="/assets/payment/TrueWallate.png" alt="" width="28" height="28">
+            <span>โอนในแอป TrueMoney</span>
           </button>
           <button type="button" class="qr-method-btn" data-method="PROMPTPAY_IN">
-            สแกนพร้อมเพย์ <small style="display:block;font-size:11px;color:#9ca3af;font-weight:400;">ผ่าน TrueMoney Wallet</small>
+            <img class="qr-method-icon" src="/assets/payment/icon-thaiqr.png" alt="" width="28" height="28">
+            <span>สแกนพร้อมเพย์</span>
           </button>
         </div>
 
@@ -1099,6 +1122,6 @@
   <script src="/assets/tipkub-loading.js"></script>
   <script>TipKubLoading.init({ mode: 'api-gated' });</script>
   <script src="/assets/qrcode-generator.min.js?v=20260727_1"></script>
-  <script src="/donate-template/app.js?v=20260823_2"></script>
+  <script src="/donate-template/app.js?v=20260823_4"></script>
 </body>
 </html>
