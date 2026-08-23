@@ -163,7 +163,7 @@ const upload = multer({
 });
 db.initDB().catch(err => console.error('❌ Database connection failed:', err));
 
-// อ้างอิงระยะเวลาที่ hardDeleteOldTransactions() เก็บข้อมูลไว้จริง (default 3 เดือน ~90 วัน)
+// อ้างอิงระยะเวลาที่ hardDeleteOldTransactions() เก็บข้อมูลไว้จริง (default 6 เดือน ~180 วัน)
 // cron /api/cron/cleanup-quarterly อาจถูกเรียกด้วย months ต่างจากนี้ในอนาคต (ไม่ใช่ hard guarantee)
 // ถ้านโยบายเก็บข้อมูลเปลี่ยน แก้เลขนี้ที่เดียว — sync กับ max="" ใน index.html ด้วย
 const LEADERBOARD_MAX_LOOKBACK_DAYS = 180; // 6 months, matches transaction retention
