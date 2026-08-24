@@ -10,9 +10,15 @@ const GIFT_ENDPOINT = '/api/tiktok/gift';
 
 let ws = null;
 let reconnectDelay = 2000;
+let reconnectTimer = null;
+let failStreak = 0;            // นับความล้มเหลวติดกัน — ใช้ยุบ log ไม่ให้ท่วม
+let stalledHandshake = false;  // รอบนี้ตายเพราะ handshake ค้าง ไม่ใช่ connection refused
 let giftCount = 0;
 let totalCoins = 0;
 let csrfToken = null;
+
+const HANDSHAKE_TIMEOUT_MS = 8000;
+const RECONNECT_CAP_MS = 10000;
 
 // ── UI helpers ──────────────────────────────────────────────────
 function setDot(id, cls) {
@@ -124,38 +130,78 @@ async function relayGift(coins) {
 
 // ── WebSocket connection ─────────────────────────────────────────
 function connect() {
+  clearTimeout(reconnectTimer);
   setDot('dotDapi', 'amber');
   setText('lblDapi', 'กำลังเชื่อมต่อ TikFinity…');
 
   ws = new WebSocket(DAPI_URL);
+  const sock = ws;
 
-  ws.addEventListener('open', () => {
+  // WebSocket ไม่มี timeout ในตัว — ถ้าปลายทางถูก throttle (เช่น TikFinity
+  // ถูกย่อหน้าต่าง) TCP ติดแต่ handshake ไม่จบ → ค้าง CONNECTING ถาวร
+  // ไม่มี event ใดยิงเลย ต้องปิดเองเพื่อให้ close handler พา reconnect ต่อ
+  const handshakeTimer = setTimeout(() => {
+    if (sock.readyState === WebSocket.CONNECTING) {
+      stalledHandshake = true;   // ให้ close handler เป็นคน log ที่เดียว
+      try { sock.close(); } catch { /* ปิดไม่ได้ = ปิดไปแล้ว */ }
+    }
+  }, HANDSHAKE_TIMEOUT_MS);
+
+  sock.addEventListener('open', () => {
+    clearTimeout(handshakeTimer);
     setDot('dotDapi', 'green');
     setText('lblDapi', 'เชื่อมต่อ TikFinity แล้ว');
     addLog('DAPI connected', 'ok');
     reconnectDelay = 2000;
+    failStreak = 0;
+    stalledHandshake = false;
   });
 
-  ws.addEventListener('message', (ev) => {
+  sock.addEventListener('message', (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     const coins = extractCoins(msg);
     if (coins !== null && coins > 0) relayGift(coins);
   });
 
-  ws.addEventListener('close', (ev) => {
+  sock.addEventListener('close', (ev) => {
+    clearTimeout(handshakeTimer);
+    if (sock !== ws) return;     // socket เก่าปิดช้า — อย่านัด reconnect ซ้อน
     setDot('dotDapi', 'red');
+    // label = สถานะสด อัปเดตทุกครั้งเสมอ
     setText('lblDapi', `ขาดการเชื่อมต่อ (${ev.code}) — reconnect ใน ${reconnectDelay / 1000}s`);
-    addLog(`DAPI closed code ${ev.code}`, 'warn');
-    setTimeout(connect, reconnectDelay);
-    reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+
+    // log = ประวัติ ยุบไม่ให้ท่วม (log เก็บแค่ 50 บรรทัด): ครั้งแรก + ทุกครั้งที่ 6
+    failStreak++;
+    if (failStreak === 1 || failStreak % 6 === 0) {
+      const why = stalledHandshake
+        ? 'handshake ค้าง (TikFinity ถูกย่อหน้าต่างอยู่หรือเปล่า?)'
+        : `code ${ev.code}`;
+      addLog(failStreak === 1
+        ? `DAPI หลุด — ${why}`
+        : `ยังเชื่อมต่อไม่ได้ — ${why} (ลองแล้ว ${failStreak} ครั้ง)`, 'warn');
+    }
+    stalledHandshake = false;
+
+    reconnectTimer = setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_CAP_MS);
   });
 
-  ws.addEventListener('error', () => {
+  sock.addEventListener('error', () => {
     // error fires before close — log once in close handler
     setText('lblDapi', 'เชื่อมต่อไม่ได้ — TikFinity เปิดอยู่หรือไม่?');
   });
 }
+
+// Chrome throttle timer ในแท็บพื้นหลัง (และ freeze แท็บทิ้งหลัง ~5 นาที)
+// พอผู้ใช้กลับมาดูหน้านี้ ให้ล้าง backoff แล้วต่อทันที ไม่ต้องรอคิวเก่า
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  clearTimeout(reconnectTimer);
+  reconnectDelay = 2000;
+  connect();
+});
 
 // ── Heartbeat → dashboard badge ──────────────────────────────────
 // ping ทุก 10s บอก server ว่า bridge เปิดอยู่ + DAPI เชื่อมหรือยัง (in-memory, ไม่เก็บ)

@@ -69,6 +69,17 @@
       line-height: 1.6;
     }
     .disclaimer strong { color: #ddd6fe; }
+    .warn-note {
+      background: #241c0f;
+      border: 1px solid #b45309;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.8rem;
+      color: #fcd34d;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .warn-note strong { color: #fde68a; display: inline; }
     .log {
       background: #0d0d18;
       border-radius: 6px;
@@ -114,7 +125,7 @@
 
 <div class="card">
   <div class="logo">TipKub × TikFinity Bridge</div>
-  <div class="subtitle">เปิดหน้าต่างนี้ทิ้งไว้ระหว่าง Live เพื่อแปลง Gift → Timer</div>
+  <div class="subtitle">เปิดหน้าต่างนี้ทิ้งไว้ระหว่าง Live เพื่อแปลง Gift → Timer (ห้ามย่อหน้าต่าง TikFinity)</div>
 
   <div class="status-row">
     <div class="dot" id="dotDapi"></div>
@@ -127,6 +138,13 @@
   <div class="counter" id="counter">ส่ง gift: 0 ครั้ง | coins รวม: 0</div>
 
   <div class="log" id="log"></div>
+</div>
+
+<div class="card warn-note">
+  <strong>⚠️ อย่าย่อ (Minimize) หน้าต่าง TikFinity ระหว่างไลฟ์</strong>
+  Windows จะพักการทำงานของโปรแกรมที่ถูกย่อลงแถบงาน ทำให้ TikFinity หยุดรับ Gift ชั่วคราว และเวลาบน Timer จะขาดช่วง
+  <br>
+  หน้าต่างถูกโปรแกรมอื่น <strong>บังอยู่ข้างหน้าได้ตามปกติ</strong> ไม่จำเป็นต้องเปิดค้างไว้บนสุด
 </div>
 
 <div class="card disclaimer">
@@ -142,12 +160,13 @@
       ให้กดปุ่ม <span class="allow-chip">Allow</span> (อนุญาต) ที่เด้งขึ้นมา
     </p>
     <p>ถ้าไม่กดอนุญาต จะรับ Gift อัตโนมัติจาก TikTok Live <strong>ไม่ได้</strong></p>
+    <p>ระหว่างไลฟ์ <span class="hl">ห้ามย่อหน้าต่าง TikFinity</span> ลงแถบงาน — จะทำให้ Gift ขาดช่วง</p>
     <button id="btnFirstRunOk">เข้าใจแล้ว เริ่มเชื่อมต่อ</button>
   </div>
 </div>
 
 <footer style="text-align:center;color:#94a3b8;font-size:0.75rem;margin:1.5rem 0;opacity:0.8;">© 2026 TipKub สงวนลิขสิทธิ์</footer>
 
-<script src="bridge.js?v=20260824_1"></script>
+<script src="bridge.js?v=20260824_2"></script>
 </body>
 </html>
