@@ -1549,6 +1549,11 @@ label {
   color: var(--text-main);
 }
 
+/* Keep the cap toggle at the standard switch size when its helper copy wraps. */
+#timerShowCapRow .switch {
+  flex: 0 0 44px;
+}
+
 /* [UI Fix] เปิด/ปิดวิดเจ็ต (หลอดโดเนท/Timer/กระดานผู้นำ/โดเนทล่าสุด) — ปุ่มเด่นชัดที่สุดในการ์ด */
 .switch-group--enable .switch {
   width: 56px;

@@ -138,7 +138,7 @@ body {
   text-align: center;
   white-space: pre-line;
   margin-top: 8px;
-  animation: timer-cap-pulse 2s ease-in-out infinite;
+  animation: timer-cap-pulse 2s ease-in-out 4;
 }
 
 @keyframes timer-cap-pulse {
@@ -169,5 +169,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   #timerCapLine.cap-bump .timer-cap-remain-value { animation: none; }
+  .timer-cap-full { animation: none; }
 }
 
