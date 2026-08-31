@@ -7347,6 +7347,9 @@ async function loadTimerSettings() {
   }
 }
 
+// เพดานค่าลิมิต Timer ในหน่วยที่ผู้ใช้กรอก — ต้องตรงกับ CAP_INPUT_MAX ใน timer-dock.html
+const TIMER_CAP_INPUT_MAX = 1000000;
+
 async function saveTimerSettings() {
   const mode = document.getElementById('timerModeSelect')?.value || 'multiplier';
   const hh = parseInt(document.getElementById('timerInitHH')?.value) || 0;
@@ -7370,6 +7373,14 @@ async function saveTimerSettings() {
   const capType = document.getElementById('timerCapTypeSelect')?.value || null;
   const rawCapVal = parseFloat(document.getElementById('inputTimerCapValue')?.value) || 0;
   const capUnitForSave = document.getElementById('timerTimeUnit')?.value || 'seconds';
+  const capValueSec = capType === 'time' && capUnitForSave === 'minutes' ? rawCapVal * 60 : rawCapVal;
+  // ช่องเดียวกับ Dock (Audit R3 #5): `1e309` → Infinity → JSON.stringify กลายเป็น {"cap_value":null}
+  // และค่ามหาศาลที่ finite ก็ทำให้ widget เรนเดอร์ตัวเลขยาวหลายร้อยหลัก
+  // ปล่อย 0/ว่าง ผ่านเหมือนเดิม — เป็น state ที่ใช้งานอยู่จริง และที่นี่การ abort ทิ้งทั้งฟอร์ม ไม่ใช่แค่ค่า cap
+  if (capType && (!Number.isFinite(capValueSec) || rawCapVal > TIMER_CAP_INPUT_MAX)) {
+    showNotification(`ค่าลิมิตต้องเป็นตัวเลขไม่เกิน ${TIMER_CAP_INPUT_MAX.toLocaleString('th-TH')}`, 'error');
+    return;
+  }
   const t = {
     enabled: document.getElementById('chkTimerEnabled')?.checked ? 1 : 0,
     mode,
@@ -7382,7 +7393,7 @@ async function saveTimerSettings() {
     rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
     rules_template_coin: document.getElementById('inputTimerRulesTemplateCoin')?.value || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}',
     cap_type: capType || null,
-    cap_value: capType === 'time' && capUnitForSave === 'minutes' ? rawCapVal * 60 : rawCapVal,
+    cap_value: capValueSec,
     color_main: document.getElementById('inputTimerColorMain')?.value || '#fbbf24',
     font_size: parseInt(document.getElementById('sliderTimerFontSize')?.value) || 64,
     border_radius: parseInt(document.getElementById('sliderTimerBorderRadius')?.value) ?? 2,
