@@ -110,17 +110,72 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+      overflow: hidden;
+      transition: transform 0.15s ease, background-image 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     }
     .dock-btn:active { transform: translateY(0) scale(0.96); }
     .dock-btn.busy { opacity: 0.55; pointer-events: none; }
-    .dock-btn-start:hover, .dock-btn-start.confirm { background: #10b981; border-color: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
-    .dock-btn-stop:hover { background: #f59e0b; border-color: #f59e0b; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
-    .dock-btn-reset:hover { background: #3b82f6; border-color: #3b82f6; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-    .dock-btn-reset.confirm { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .dock-btn-start {
+      --dock-accent: 16, 185, 129;
+      --dock-glow: rgba(var(--dock-accent), 0.40);
+      --pulse-color: rgba(var(--dock-accent), 0.55);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.16), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+      border-color: rgba(var(--dock-accent), 0.22);
+    }
+    .dock-btn-start:hover, .dock-btn-start.confirm {
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff; transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
+    .dock-btn-stop {
+      --dock-accent: 245, 158, 11;
+      --dock-glow: rgba(var(--dock-accent), 0.40);
+      --pulse-color: rgba(var(--dock-accent), 0.55);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.16), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+      border-color: rgba(var(--dock-accent), 0.22);
+    }
+    .dock-btn-stop:hover {
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff; transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
+    .dock-btn-reset {
+      --dock-accent: 59, 130, 246;
+      --dock-glow: rgba(var(--dock-accent), 0.40);
+      --pulse-color: rgba(var(--dock-accent), 0.55);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.16), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+      border-color: rgba(var(--dock-accent), 0.22);
+    }
+    .dock-btn-reset:hover {
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff; transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
+    .dock-btn-reset.confirm {
+      --dock-accent: 239, 68, 68;
+      --dock-glow: rgba(var(--dock-accent), 0.40);
+      --pulse-color: rgba(var(--dock-accent), 0.55);
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff;
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
     .dock-btn:hover i { color: #fff; }
     .dock-btn-reset.confirm i { color: #fff; }
     .dock-btn-gear {
+      --dock-accent: 129, 140, 248;
+      --dock-glow: rgba(var(--dock-accent), 0.40);
+      --pulse-color: rgba(var(--dock-accent), 0.55);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -128,22 +183,26 @@
       height: 32px;
       flex-shrink: 0;
       border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+      border: 1px solid rgba(var(--dock-accent), 0.22);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.16), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
       color: #94a3b8;
       cursor: pointer;
       font-size: 14px;
-      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+      transition: transform 0.15s ease, background-image 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     }
     .dock-btn-gear:hover {
-      background: rgba(129, 140, 248, 0.2);
-      border-color: #818cf8;
-      color: #a5b4fc;
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
     }
     .dock-btn-gear:active { transform: translateY(0) scale(0.96); }
     .dock-btn-tiktok {
+      --dock-accent: 105, 201, 208;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -151,20 +210,23 @@
       width: 100%;
       padding: 10px 8px;
       border-radius: 10px;
-      border: 1px solid rgba(105, 201, 208, 0.25);
-      background: rgba(105, 201, 208, 0.08);
+      overflow: hidden;
+      border: 1px solid rgba(var(--dock-accent), 0.25);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.18), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
       color: #69c9d0;
       font-family: inherit;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease, background-image 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .dock-btn-tiktok:hover {
-      background: rgba(105, 201, 208, 0.18);
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.14), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 0.32), rgba(var(--dock-accent), 0.20));
       border-color: #69c9d0;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(105, 201, 208, 0.3);
+      box-shadow: 0 4px 12px rgba(var(--dock-accent), 0.3);
     }
     .dock-btn-tiktok:active { transform: translateY(0) scale(0.96); }
     .dock-delta {
@@ -181,16 +243,24 @@
       height: 36px;
       flex-shrink: 0;
       border-radius: 50%;
+      overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(255, 255, 255, 0.04);
       color: #e2e8f0;
       cursor: pointer;
-      transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+      transition: transform 0.15s ease, background-image 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     }
     .dock-delta-btn:active { transform: translateY(0) scale(0.96); }
     .dock-delta-btn.busy { opacity: 0.55; pointer-events: none; }
-    #dockBtnSub:hover { background: #ef4444; border-color: #ef4444; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
-    #dockBtnAdd:hover { background: #10b981; border-color: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+    #dockBtnSub { --dock-accent: 239, 68, 68; --dock-glow: rgba(var(--dock-accent), 0.40); --pulse-color: rgba(var(--dock-accent), 0.55); }
+    #dockBtnAdd { --dock-accent: 16, 185, 129; --dock-glow: rgba(var(--dock-accent), 0.40); --pulse-color: rgba(var(--dock-accent), 0.55); }
+    #dockBtnSub:hover, #dockBtnAdd:hover {
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85);
+      color: #fff; transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
     #dockDelta {
       width: 64px;
       text-align: center;
@@ -249,25 +319,54 @@
     /* ── แถวสวิตช์ ── */
     .dock-switches { display: flex; gap: 8px; flex-wrap: wrap; }
     .dock-pill { display: flex; align-items: center; justify-content: center; gap: 6px;
+      --dock-accent: 96, 165, 250; --pulse-color: rgba(var(--dock-accent), 0.55);
       flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 8px 10px; border-radius: 999px;
+      overflow: hidden;
       border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
       color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-      transition: transform .15s ease, background-color .15s ease, border-color .15s ease,
+      transition: transform .15s ease, background-image .15s ease, background-color .15s ease, border-color .15s ease,
                   box-shadow .15s ease, color .15s ease; }
     .dock-pill:active { transform: scale(0.96); }
     .dock-pill.busy, .dock-chip.busy { opacity: .55; pointer-events: none; }
-    .dock-pill.on { color: #e2e8f0; border-color: rgba(96,165,250,0.5); background: rgba(96,165,250,0.14); }
+    .dock-pill.on {
+      --dock-accent: 96, 165, 250; --pulse-color: rgba(var(--dock-accent), 0.55);
+      color: #e2e8f0; border-color: rgba(var(--dock-accent), 0.5);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 0.20), rgba(var(--dock-accent), 0.10));
+    }
     .dock-pill.on i { color: #60a5fa; }
-    .dock-pill-power.on { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.14); }
+    .dock-pill-power {
+      --dock-accent: 16, 185, 129; --pulse-color: rgba(var(--dock-accent), 0.55);
+    }
+    .dock-pill-power.on {
+      border-color: rgba(var(--dock-accent), 0.5);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 0.20), rgba(var(--dock-accent), 0.10));
+    }
     .dock-pill-power.on i { color: #10b981; }
-    .dock-pill-power.confirm { border-color: #f59e0b; background: #f59e0b; color: #fff; }
+    .dock-pill-power.confirm {
+      --dock-accent: 245, 158, 11; --pulse-color: rgba(var(--dock-accent), 0.55);
+      border-color: rgba(var(--dock-accent), 0.85);
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      color: #fff;
+    }
     .dock-pill-power.confirm i { color: #fff; }
 
     /* ── Section พับได้ ── */
     .dock-section { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
-    .dock-section-head { display: flex; align-items: center; justify-content: space-between; width: 100%;
-      padding: 10px 12px; border: 0; background: rgba(255,255,255,0.04); color: #e2e8f0;
-      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .dock-section-head {
+      --dock-accent: 148, 163, 184; --pulse-color: rgba(var(--dock-accent), 0.45);
+      display: flex; align-items: center; justify-content: space-between; width: 100%;
+      padding: 10px 12px; border: 0; color: #e2e8f0;
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.10), transparent 38%),
+                  linear-gradient(140deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background-image .15s ease; }
+    .dock-section-head:hover {
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.18), transparent 40%),
+                  linear-gradient(140deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    }
     .dock-chevron { color: #94a3b8; font-size: 11px; transition: transform .25s ease; }
     .dock-section-head[aria-expanded="true"] .dock-chevron { transform: rotate(180deg); }
     /* Show/Hide transition บังคับ — ห้าม display:none ↔ block ดิบ */
@@ -276,12 +375,18 @@
     .dock-section-body.open { max-height: 260px; opacity: 1; padding: 12px; }
 
     .dock-chips { display: flex; gap: 6px; }
-    .dock-chip { flex: 1 1 0; min-width: 0; padding: 8px 6px; border-radius: 8px;
+    .dock-chip {
+      --dock-accent: 245, 158, 11; --pulse-color: rgba(var(--dock-accent), 0.55);
+      flex: 1 1 0; min-width: 0; padding: 8px 6px; border-radius: 8px; overflow: hidden;
       border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
       color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-      transition: transform .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+      transition: transform .15s ease, background-image .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
     .dock-chip:active { transform: scale(0.96); }
-    .dock-chip.on { background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.5); color: #fbbf24; }
+    .dock-chip.on {
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.24), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 0.20), rgba(var(--dock-accent), 0.10));
+      border-color: rgba(var(--dock-accent), 0.5); color: #fbbf24;
+    }
 
     /* Show/Hide transition บังคับ — ห้าม display:none ↔ block ดิบ */
     .dock-cap-value { display: flex; align-items: center; gap: 8px; max-height: 0; opacity: 0; overflow: hidden;
@@ -293,9 +398,20 @@
     .dock-cap-value input:focus { border-color: #818cf8; }
     .dock-cap-unit { font-size: 11px; color: #94a3b8; min-width: 40px; }
     .dock-btn-resetcap { width: 100%; margin-top: 10px; }
-    .dock-btn-resetcap:hover { background: #f59e0b; border-color: #f59e0b; color: #fff;
-      transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245,158,11,.4); }
-    .dock-btn-resetcap.confirm { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .dock-btn-resetcap { --dock-accent: 245, 158, 11; --dock-glow: rgba(var(--dock-accent), 0.40); --pulse-color: rgba(var(--dock-accent), 0.55); }
+    .dock-btn-resetcap:hover {
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85); color: #fff;
+      transform: translateY(-2px); box-shadow: 0 4px 12px var(--dock-glow), 0 0 14px var(--dock-glow);
+    }
+    .dock-btn-resetcap.confirm {
+      --dock-accent: 239, 68, 68;
+      background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.22), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 1), rgba(var(--dock-accent), 0.82));
+      border-color: rgba(var(--dock-accent), 0.85); color: #fff;
+      box-shadow: 0 4px 12px rgba(var(--dock-accent), 0.40), 0 0 14px rgba(var(--dock-accent), 0.40);
+    }
     .dock-btn-resetcap.confirm i { color: #fff; }
 
     @media (max-width: 400px) {
@@ -308,6 +424,16 @@
       .dock-controls { grid-template-columns: 1fr 1fr; }
       .dock-controls .dock-btn-reset { grid-column: 1 / -1; }
       #dockTime { font-size: 32px; }
+    }
+
+    /* ── Post-click pulse ring (ref: assets/style.css .tk-btn-pulse ~505) ── */
+    @keyframes tkBtnPulse {
+      0%   { box-shadow: 0 0 0 0 var(--pulse-color, rgba(148,163,184,.5)); }
+      100% { box-shadow: 0 0 0 14px rgba(0,0,0,0); }
+    }
+    .tk-btn-pulse { animation: tkBtnPulse .45s ease-out; }
+    @media (prefers-reduced-motion: reduce) {
+      .tk-btn-pulse { animation: none; }
     }
   </style>
 </head>
@@ -920,6 +1046,15 @@
           }
         };
         es.onerror = function () { setBadge('offline'); };
+      });
+
+      // Click pulse — delegated (dock-chip สร้างด้วย JS) · dock-btn-tiktok เปิดแท็บใหม่ ⇒ ห้ามใส่
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.dock-btn-start, .dock-btn-stop, .dock-btn-reset, .dock-btn-gear, .dock-btn-resetcap, #dockBtnSub, #dockBtnAdd, .dock-pill, .dock-chip, .dock-section-head');
+        if (!btn) return;
+        btn.classList.remove('tk-btn-pulse');
+        void btn.offsetWidth;
+        btn.classList.add('tk-btn-pulse');
       });
     })();
   </script>
