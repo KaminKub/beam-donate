@@ -234,6 +234,73 @@
     .dock-toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
     .dock-toast.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
     .dock-toast.error { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    /* ── Cap readout (ใน .dock-readout) ── */
+    /* Show/Hide transition บังคับ — ห้าม display:none ↔ block ดิบ */
+    .dock-cap { max-height: 0; opacity: 0; overflow: hidden; padding: 0 12px;
+      transition: max-height .28s ease, opacity .2s ease, margin-top .28s ease; }
+    .dock-cap.open { max-height: 40px; opacity: 1; margin-top: 8px; }
+    .dock-cap-bar { height: 3px; border-radius: 2px; background: rgba(148,163,184,0.18); overflow: hidden; }
+    .dock-cap-fill { height: 100%; width: 0%; border-radius: 2px; background: #10b981;
+                     transition: width 0.4s ease, background-color 0.4s ease; }
+    .dock-cap-text { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .dock-cap-text b { color: #fbbf24; font-weight: 700; }
+    .dock-cap-text.full b { color: #f59e0b; }
+
+    /* ── แถวสวิตช์ ── */
+    .dock-switches { display: flex; gap: 8px; flex-wrap: wrap; }
+    .dock-pill { display: flex; align-items: center; justify-content: center; gap: 6px;
+      flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 8px 10px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: transform .15s ease, background-color .15s ease, border-color .15s ease,
+                  box-shadow .15s ease, color .15s ease; }
+    .dock-pill:active { transform: scale(0.96); }
+    .dock-pill.busy, .dock-chip.busy { opacity: .55; pointer-events: none; }
+    .dock-pill.on { color: #e2e8f0; border-color: rgba(96,165,250,0.5); background: rgba(96,165,250,0.14); }
+    .dock-pill.on i { color: #60a5fa; }
+    .dock-pill-power.on { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.14); }
+    .dock-pill-power.on i { color: #10b981; }
+    .dock-pill-power.confirm { border-color: #f59e0b; background: #f59e0b; color: #fff; }
+    .dock-pill-power.confirm i { color: #fff; }
+
+    /* ── Section พับได้ ── */
+    .dock-section { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
+    .dock-section-head { display: flex; align-items: center; justify-content: space-between; width: 100%;
+      padding: 10px 12px; border: 0; background: rgba(255,255,255,0.04); color: #e2e8f0;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .dock-chevron { color: #94a3b8; font-size: 11px; transition: transform .25s ease; }
+    .dock-section-head[aria-expanded="true"] .dock-chevron { transform: rotate(180deg); }
+    /* Show/Hide transition บังคับ — ห้าม display:none ↔ block ดิบ */
+    .dock-section-body { max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height .28s ease, opacity .2s ease, padding .28s ease; padding: 0 12px; }
+    .dock-section-body.open { max-height: 260px; opacity: 1; padding: 12px; }
+
+    .dock-chips { display: flex; gap: 6px; }
+    .dock-chip { flex: 1 1 0; min-width: 0; padding: 8px 6px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: transform .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+    .dock-chip:active { transform: scale(0.96); }
+    .dock-chip.on { background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.5); color: #fbbf24; }
+
+    /* Show/Hide transition บังคับ — ห้าม display:none ↔ block ดิบ */
+    .dock-cap-value { display: flex; align-items: center; gap: 8px; max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height .28s ease, opacity .2s ease, margin-top .28s ease; }
+    .dock-cap-value.open { max-height: 60px; opacity: 1; margin-top: 10px; }
+    .dock-cap-value input { flex: 1 1 auto; min-width: 0; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: #e2e8f0; font-family: inherit; font-size: 13px; outline: none; }
+    .dock-cap-value input:focus { border-color: #818cf8; }
+    .dock-cap-unit { font-size: 11px; color: #94a3b8; min-width: 40px; }
+    .dock-btn-resetcap { width: 100%; margin-top: 10px; }
+    .dock-btn-resetcap:hover { background: #f59e0b; border-color: #f59e0b; color: #fff;
+      transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245,158,11,.4); }
+    .dock-btn-resetcap.confirm { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .dock-btn-resetcap.confirm i { color: #fff; }
+
+    @media (max-width: 400px) {
+      .dock-pill { flex: 1 1 100%; }     /* ปุ่มเรียงเป็นแถวเดียวต่อบรรทัด */
+    }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; }
@@ -258,6 +325,11 @@
     <div class="dock-readout">
       <div id="dockTime">--:--</div>
       <div id="dockRunState">-</div>
+      <div class="dock-cap" id="dockCapRow"
+           title="โควตานี้นับเฉพาะเวลาที่มาจากโดเนท/Gift — สตรีมเมอร์กด +/- เองไม่กินโควตา">
+        <div class="dock-cap-bar"><div class="dock-cap-fill" id="dockCapFill"></div></div>
+        <div class="dock-cap-text" id="dockCapText"></div>
+      </div>
     </div>
 
     <div class="dock-controls">
@@ -271,6 +343,39 @@
       <input type="number" id="dockDelta" value="30" min="1" step="1">
       <span class="dock-delta-unit" id="dockDeltaUnit">วินาที</span>
       <button type="button" class="dock-delta-btn" id="dockBtnAdd" title="เพิ่มเวลา"><i class="fa-solid fa-plus"></i></button>
+    </div>
+
+    <div class="dock-switches">
+      <button type="button" class="dock-pill dock-pill-power" id="dockBtnEnabled" aria-pressed="false" title="เปิด/ปิด Timer (ต้องกดยืนยัน 2 ครั้ง)">
+        <i class="fa-solid fa-power-off"></i> <span id="dockBtnEnabledLabel">Timer: ปิด</span>
+      </button>
+      <button type="button" class="dock-pill" id="dockTglRules" aria-pressed="false" title="แสดงกฏใน Widget">
+        <i class="fa-solid fa-list-check"></i> กฏ
+      </button>
+      <button type="button" class="dock-pill" id="dockTglCap" aria-pressed="false" title="แสดงข้อจำกัดใน Widget">
+        <i class="fa-solid fa-gauge-high"></i> ข้อจำกัด
+      </button>
+    </div>
+
+    <div class="dock-section">
+      <button type="button" class="dock-section-head" id="dockCapHead" aria-expanded="false" aria-controls="dockCapPanel">
+        <span><i class="fa-solid fa-gauge-high" style="color:#f59e0b"></i> ข้อจำกัด (Cap)</span>
+        <i class="fa-solid fa-chevron-down dock-chevron"></i>
+      </button>
+      <div class="dock-section-body" id="dockCapPanel">
+        <div class="dock-chips" role="group" aria-label="รูปแบบข้อจำกัด">
+          <button type="button" class="dock-chip" data-cap="">ไม่จำกัด</button>
+          <button type="button" class="dock-chip" data-cap="money">ยอดเงิน</button>
+          <button type="button" class="dock-chip" data-cap="time">เวลา</button>
+        </div>
+        <div class="dock-cap-value" id="dockCapValueRow">
+          <input type="number" id="dockCapValue" min="1" step="1" inputmode="numeric">
+          <span class="dock-cap-unit" id="dockCapUnit">บาท</span>
+        </div>
+        <button type="button" class="dock-btn dock-btn-resetcap" id="dockBtnResetCap" title="ล้างยอดสะสมของข้อจำกัด (ต้องกดยืนยัน 2 ครั้ง)">
+          <i class="fa-solid fa-rotate-left"></i> รีเซทข้อจำกัด
+        </button>
+      </div>
     </div>
 
     <button type="button" class="dock-btn-tiktok" id="dockBtnTiktok" title="เปิด TikTok Bridge"><i class="fa-brands fa-tiktok"></i> เชื่อม TikTok Live</button>
@@ -289,9 +394,10 @@
       var running = false;
       var timeUnit = 'seconds';
       var tickInterval = null;
-      var resetArmed = false;
-      var resetTimer = null;
       var toastTimer = null;
+      var timerCfg = null;      // object จาก JSON.parse(timer_settings) ครั้งล่าสุด
+      var capCurrent = 0;
+      var amountSuffix = 'บาท';
 
       async function ensureCsrfToken() {
         if (_csrfToken) return _csrfToken;
@@ -395,8 +501,124 @@
         if (rem !== undefined && rem !== null) remaining = Math.round(Number(rem));
         if (run !== undefined && run !== null) running = !!run;
         syncTime = Date.now();
+        if (data.capCurrent !== undefined)        capCurrent = Number(data.capCurrent) || 0;
+        if (data.timer_cap_current !== undefined) capCurrent = Number(data.timer_cap_current) || 0;
+        if (data.capType !== undefined && timerCfg) {          // SSE ส่ง config มาด้วย — sync ให้ตรง
+          timerCfg.cap_type = data.capType || null;
+          timerCfg.cap_value = Number(data.capValue) || 0;
+          syncSwitches();
+        }
+        renderCap();
         render();
         if (running) startTick(); else stopTick();
+      }
+
+      function syncSwitches() {
+        if (!timerCfg) return;
+        var btnEnabled = document.getElementById('dockBtnEnabled');
+        var lblEnabled = document.getElementById('dockBtnEnabledLabel');
+        var tglRules = document.getElementById('dockTglRules');
+        var tglCap = document.getElementById('dockTglCap');
+        var capValueRow = document.getElementById('dockCapValueRow');
+        var capUnitEl = document.getElementById('dockCapUnit');
+        var capValueEl = document.getElementById('dockCapValue');
+
+        var isEnabled = timerCfg.enabled === 1 || timerCfg.enabled === true;
+        if (btnEnabled) {
+          btnEnabled.classList.toggle('on', isEnabled);
+          btnEnabled.setAttribute('aria-pressed', String(isEnabled));
+        }
+        if (lblEnabled) lblEnabled.textContent = isEnabled ? 'Timer: เปิด' : 'Timer: ปิด';
+
+        var showRules = timerCfg.show_rules !== 0 && timerCfg.show_rules !== false;
+        if (tglRules) {
+          tglRules.classList.toggle('on', showRules);
+          tglRules.setAttribute('aria-pressed', String(showRules));
+        }
+
+        var showCap = timerCfg.show_cap === 1 || timerCfg.show_cap === true;
+        if (tglCap) {
+          tglCap.classList.toggle('on', showCap);
+          tglCap.setAttribute('aria-pressed', String(showCap));
+        }
+
+        var capType = timerCfg.cap_type || '';
+        document.querySelectorAll('.dock-chip').forEach(function (chip) {
+          chip.classList.toggle('on', (chip.getAttribute('data-cap') || '') === capType);
+        });
+
+        if (capValueRow) capValueRow.classList.toggle('open', !!capType);
+        if (capUnitEl) {
+          capUnitEl.textContent = capType === 'money' ? amountSuffix
+            : (timerCfg.time_unit === 'minutes' ? 'นาที' : 'วินาที');
+        }
+        if (capValueEl && document.activeElement !== capValueEl) {
+          var capVal = Number(timerCfg.cap_value) || 0;
+          if (capType === 'time' && timerCfg.time_unit === 'minutes') {
+            capValueEl.value = Math.round(capVal / 60);
+          } else {
+            capValueEl.value = capVal || '';
+          }
+        }
+      }
+
+      // ลอกกติกาเดียวกับ timer.js formatTimeDelta()
+      function formatCapTime(sec) {
+        var s = Math.abs(Math.floor(sec));
+        var h = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var rem = s % 60;
+        if (h > 0 && m > 0) return h + ' ชม. ' + m + ' นาที';
+        if (h > 0) return h + ' ชม.';
+        if (m > 0 && rem > 0) return m + ' นาที ' + rem + ' วินาที';
+        if (m > 0) return m + ' นาที';
+        return rem + ' วินาที';
+      }
+
+      // ต้องตรงกับ dashboard.js:7376 เป๊ะ — จุดพลาดอันดับ 1 ของงานนี้
+      function toSeconds(v) {
+        v = Math.max(1, Number(v) || 0);
+        var capType = timerCfg ? (timerCfg.cap_type || '') : '';
+        var unit = timerCfg ? timerCfg.time_unit : 'seconds';
+        return (capType === 'time' && unit === 'minutes') ? v * 60 : v;
+      }
+
+      function renderCap() {
+        var row = document.getElementById('dockCapRow');
+        var fill = document.getElementById('dockCapFill');
+        var text = document.getElementById('dockCapText');
+        if (!row || !timerCfg) return;
+        var capType = timerCfg.cap_type || '';
+        var capValue = Number(timerCfg.cap_value) || 0;
+        if (!capType || capValue <= 0) { row.classList.remove('open'); return; }
+        row.classList.add('open');
+
+        var pct = Math.min(100, Math.round((capCurrent / capValue) * 100));
+        if (fill) {
+          fill.style.width = pct + '%';
+          fill.style.backgroundColor = pct >= 100 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981';
+        }
+        if (!text) return;
+        text.classList.remove('full');
+        if (capCurrent >= capValue) {
+          text.classList.add('full');
+          var b = document.createElement('b');
+          b.textContent = 'ครบข้อจำกัดแล้ว — ปิดปรับเวลาอัตโนมัติ';
+          text.replaceChildren(b);
+          return;
+        }
+        var room = Math.max(0, capValue - capCurrent);
+        var prefix, valueText;
+        if (capType === 'money') {
+          prefix = 'โดเนทปรับเวลาได้อีก ';
+          valueText = Number(room).toLocaleString('th-TH') + ' ' + amountSuffix;
+        } else {
+          prefix = 'ปรับเวลาได้อีก ';
+          valueText = formatCapTime(room);
+        }
+        var b2 = document.createElement('b');
+        b2.textContent = valueText;
+        text.replaceChildren(document.createTextNode(prefix), b2);
       }
 
       async function loadState() {
@@ -416,6 +638,12 @@
           timeUnit = t.time_unit === 'minutes' ? 'minutes' : 'seconds';
           var unitEl = document.getElementById('dockDeltaUnit');
           if (unitEl) unitEl.textContent = timeUnit === 'minutes' ? 'นาที' : 'วินาที';
+
+          timerCfg = t;
+          amountSuffix = s.amountSuffix || 'บาท';
+          capCurrent = Number(s.timer_cap_current) || 0;
+          syncSwitches();
+          renderCap();
 
           var rem = Number(s.timer_remaining_seconds !== undefined && s.timer_remaining_seconds !== null ? s.timer_remaining_seconds : (t.initial_seconds || 600));
           if (s.timer_last_update && Number(s.timer_running)) {
@@ -453,6 +681,68 @@
         return false;
       }
 
+      // timer_settings ถูกเขียนทับทั้งก้อนฝั่ง server (ไม่มี merge) ⇒ ต้อง GET สดก่อนทุกครั้ง
+      // แล้วแก้เฉพาะ key ที่เปลี่ยน กันกฏ/สี/เสียงของ Timer หายทั้งชุด
+      async function saveTimerPatch(patch, btn) {
+        if (btn) btn.classList.add('busy');
+        try {
+          var url = DEMO ? '/api/demo/overlay/settings' : '/api/overlay/settings';
+          var res;
+          try {
+            res = await fetch(url);
+          } catch (e) {
+            toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจอินเทอร์เน็ตแล้วลองใหม่', 'error');
+            syncSwitches();
+            return false;
+          }
+          if (res.status === 401) {
+            toast('เซสชันหมดอายุ — กำลังพาไปหน้าล็อกอิน', 'error');
+            setTimeout(function () { location.reload(); }, 1500);
+            return false;
+          }
+          if (!res.ok) {
+            toast('อ่านการตั้งค่าเดิมไม่ได้ ยังไม่บันทึก — ลองใหม่อีกครั้ง', 'error');
+            syncSwitches();
+            return false;
+          }
+          var s = await res.json();
+          var fresh;
+          try {
+            fresh = JSON.parse(s.timer_settings || '{}');
+          } catch (e) {
+            fresh = null;
+          }
+          if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) {
+            toast('อ่านการตั้งค่าเดิมไม่ได้ ยังไม่บันทึก — ลองใหม่อีกครั้ง', 'error');
+            syncSwitches();
+            return false;
+          }
+          var merged = Object.assign({}, fresh, patch);
+          var saveRes = await fetchWithCsrf('/api/overlay/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timer_settings: JSON.stringify(merged) })
+          });
+          if (saveRes._demoBlocked) { syncSwitches(); return false; }
+          if (saveRes.status === 401) {
+            toast('เซสชันหมดอายุ — กำลังพาไปหน้าล็อกอิน', 'error');
+            setTimeout(function () { location.reload(); }, 1500);
+            return false;
+          }
+          var data = await saveRes.json().catch(function () { return {}; });
+          if (data.success) {
+            timerCfg = merged;
+            await loadState();
+            return true;
+          }
+          toast(data.error || 'บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
+          syncSwitches();
+          return false;
+        } finally {
+          if (btn) btn.classList.remove('busy');
+        }
+      }
+
       async function withBusy(btn, fn) {
         if (!btn) return fn();
         btn.classList.add('busy');
@@ -480,19 +770,26 @@
         toast(sign + shown, 'success');
       }
 
-      function armReset(btn) {
-        resetArmed = true;
+      // กดครั้งแรก = arm (เปลี่ยนหน้าปุ่ม + auto-disarm ใน 3 วิ) · กดครั้งที่สอง = คืน true
+      // ห้ามใช้ window.confirm() — dialog ใน OBS CEF ไม่การันตีว่าจะเด้ง (กติกาเดิมของ Dock)
+      var _armed = new Map();   // btn -> { timer, idleHTML }
+      function armOrConfirm(btn, armedHTML) {
+        if (_armed.has(btn)) { disarm(btn); return true; }
+        var idleHTML = btn.innerHTML;
+        btn.innerHTML = armedHTML;
         btn.classList.add('confirm');
-        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> กดอีกครั้งเพื่อยืนยัน';
-        clearTimeout(resetTimer);
-        resetTimer = setTimeout(function () { disarmReset(btn); }, 3000);
+        var timer = setTimeout(function () { disarm(btn); }, 3000);
+        _armed.set(btn, { timer: timer, idleHTML: idleHTML });
+        return false;
       }
 
-      function disarmReset(btn) {
-        resetArmed = false;
-        clearTimeout(resetTimer);
+      function disarm(btn) {
+        var st = _armed.get(btn);
+        if (!st) return;
+        clearTimeout(st.timer);
+        btn.innerHTML = st.idleHTML;
         btn.classList.remove('confirm');
-        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> รีเซท';
+        _armed.delete(btn);
       }
 
       document.addEventListener('DOMContentLoaded', function () {
@@ -519,8 +816,7 @@
           });
         });
         btnReset.addEventListener('click', function () {
-          if (!resetArmed) { armReset(btnReset); return; }
-          disarmReset(btnReset);
+          if (!armOrConfirm(btnReset, '<i class="fa-solid fa-triangle-exclamation"></i> กดอีกครั้งเพื่อยืนยัน')) return;
           withBusy(btnReset, async function () {
             if (await ctl('reset')) toast('รีเซทเวลาแล้ว', 'success');
           });
@@ -538,6 +834,63 @@
             var data = await ctl('sub', reqSec);
             if (data) reportDelta('-', reqSec, reqLabel, data, 'เวลาเหลือ 0 แล้ว ลดต่อไม่ได้');
           });
+        });
+
+        var btnEnabled = document.getElementById('dockBtnEnabled');
+        if (btnEnabled) btnEnabled.addEventListener('click', function () {
+          var next = !(timerCfg && (timerCfg.enabled === 1 || timerCfg.enabled === true));
+          if (!armOrConfirm(btnEnabled, '<i class="fa-solid fa-triangle-exclamation"></i> กดอีกครั้งเพื่อยืนยัน')) return;
+          saveTimerPatch({ enabled: next ? 1 : 0 }, btnEnabled).then(function (ok) {
+            if (ok) toast(next ? 'เปิด Timer แล้ว' : 'ปิด Timer แล้ว', 'success');
+          });
+        });
+
+        var tglRules = document.getElementById('dockTglRules');
+        if (tglRules) tglRules.addEventListener('click', function () {
+          var next = !(timerCfg && timerCfg.show_rules !== 0 && timerCfg.show_rules !== false);
+          saveTimerPatch({ show_rules: next ? 1 : 0 }, tglRules).then(function (ok) {
+            if (ok) toast(next ? 'แสดงกฏใน Widget แล้ว' : 'ซ่อนกฏใน Widget แล้ว', 'success');
+          });
+        });
+
+        var tglCap = document.getElementById('dockTglCap');
+        if (tglCap) tglCap.addEventListener('click', function () {
+          var next = !(timerCfg && (timerCfg.show_cap === 1 || timerCfg.show_cap === true));
+          saveTimerPatch({ show_cap: next ? 1 : 0 }, tglCap).then(function (ok) {
+            if (ok) toast(next ? 'แสดงข้อจำกัดใน Widget แล้ว' : 'ซ่อนข้อจำกัดใน Widget แล้ว', 'success');
+          });
+        });
+
+        document.querySelectorAll('.dock-chip').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            var v = chip.getAttribute('data-cap') || '';
+            saveTimerPatch({ cap_type: v || null }, chip).then(function (ok) {
+              if (ok) toast('เปลี่ยนรูปแบบข้อจำกัดแล้ว (ยอดสะสมถูกรีเซท)', 'success');
+            });
+          });
+        });
+
+        var capValueEl = document.getElementById('dockCapValue');
+        if (capValueEl) capValueEl.addEventListener('change', function () {
+          saveTimerPatch({ cap_value: toSeconds(capValueEl.value) }).then(function (ok) {
+            if (ok) toast('บันทึกค่าลิมิตแล้ว', 'success');
+          });
+        });
+
+        var btnResetCap = document.getElementById('dockBtnResetCap');
+        if (btnResetCap) btnResetCap.addEventListener('click', function () {
+          if (!armOrConfirm(btnResetCap, '<i class="fa-solid fa-triangle-exclamation"></i> กดอีกครั้งเพื่อยืนยัน')) return;
+          withBusy(btnResetCap, async function () {
+            if (await ctl('reset-cap')) toast('รีเซทข้อจำกัดแล้ว', 'success');
+          });
+        });
+
+        var capHead = document.getElementById('dockCapHead');
+        var capPanel = document.getElementById('dockCapPanel');
+        if (capHead && capPanel) capHead.addEventListener('click', function () {
+          var open = !capPanel.classList.contains('open');
+          capPanel.classList.toggle('open', open);
+          capHead.setAttribute('aria-expanded', String(open));
         });
 
         var btnGear = document.getElementById('dockBtnGear');
@@ -562,6 +915,8 @@
             loadState();
           } else if (data.type === 'timer_update') {
             applyState(data);
+          } else if (data.type === 'settings_update') {
+            loadState();   // สตรีมเมอร์แก้ค่าในแดชบอร์ด → Dock ต้องตามทัน ไม่ให้ RMW ทับของใหม่
           }
         };
         es.onerror = function () { setBadge('offline'); };

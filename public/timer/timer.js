@@ -17,6 +17,8 @@
   let hadFirstOpen = false;
 
   let capState = { capType: null, capValue: 0, capCurrent: 0 };
+  let amountSuffix = 'บาท';
+  let pendingCap = null;   // cap ใหม่ที่รอ animation จบก่อนค่อยแสดง (D4)
 
   let alertDurationMs = 8000;
   let goalBarAnimEnabled = true;
@@ -25,6 +27,7 @@
   const wrapper = document.getElementById('timerWrapper');
   const digitsEl = document.getElementById('timerDigits');
   const rulesEl = document.getElementById('timerRules');
+  const capLineEl = document.getElementById('timerCapLine');
 
   function pad(n) { return String(Math.max(0, n)).padStart(2, '0'); }
 
@@ -176,6 +179,7 @@
       const filterVal = radius > 0 ? 'url(#timer-outline)' : 'none';
       digitsEl.style.filter = filterVal;
       if (rulesEl) rulesEl.style.filter = filterVal;
+      if (capLineEl) capLineEl.style.filter = filterVal;
       const morphEl = document.querySelector('#timer-outline feMorphology');
       if (morphEl) morphEl.setAttribute('radius', radius);
       const floodEl = document.querySelector('#timer-outline feFlood');
@@ -201,6 +205,7 @@
       div.textContent = 'ปิดปรับเวลา\n(ครบเป้าหมายแล้ว)';
       rulesEl.appendChild(div);
       rulesEl.style.display = '';
+      if (capLineEl) capLineEl.style.display = 'none';
       return;
     }
 
@@ -221,6 +226,42 @@
       rulesEl.style.display = '';
     } else {
       rulesEl.style.display = 'none';
+    }
+    updateCapLine();
+  }
+
+  let lastCapText = '';
+
+  // B1: บรรทัดบอกโควตาที่เหลือระหว่างทาง (D3/D4) — แยกจาก updateCapDisplay ที่จัดการเฉพาะกรณีเต็ม
+  function updateCapLine() {
+    if (!capLineEl) return;
+    const showCap = settings.show_cap === 1 || settings.show_cap === true;
+    const { capType, capValue, capCurrent } = capState;
+    if (!showCap || !capType || capValue <= 0 || capCurrent >= capValue) {
+      capLineEl.style.display = 'none';
+      return;
+    }
+    const room = Math.max(0, capValue - capCurrent);
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'timer-cap-remain-value';
+    let prefixText;
+    if (capType === 'money') {
+      prefixText = 'โดเนทปรับเวลาได้อีก ';
+      valueSpan.textContent = Number(room).toLocaleString('th-TH') + ' ' + amountSuffix;
+    } else {
+      prefixText = 'ปรับเวลาได้อีก ';
+      valueSpan.textContent = formatTimeDelta(room);
+    }
+    if (room / capValue <= 0.2) valueSpan.classList.add('low');
+    capLineEl.classList.remove('cap-bump');
+    capLineEl.replaceChildren(document.createTextNode(prefixText), valueSpan);
+    capLineEl.style.display = '';
+
+    const newText = prefixText + valueSpan.textContent;
+    if (newText !== lastCapText) {
+      lastCapText = newText;
+      void capLineEl.offsetWidth;
+      capLineEl.classList.add('cap-bump');
     }
   }
 
@@ -274,6 +315,7 @@
       try {
         const t = JSON.parse(data.settings.timer_settings || '{}');
         if (data.settings.timer_cap_current !== undefined) capState.capCurrent = data.settings.timer_cap_current || 0;
+        if (data.settings.amountSuffix !== undefined) amountSuffix = data.settings.amountSuffix || 'บาท';
         applySettings(t);
       } catch (e) {}
     }
@@ -283,8 +325,10 @@
       if (data.capType !== undefined) {
         const nc = { capType: data.capType || null, capValue: data.capValue || 0, capCurrent: data.capCurrent || 0 };
         if (nc.capType !== capState.capType || nc.capValue !== capState.capValue || nc.capCurrent !== capState.capCurrent) {
-          capState = nc;
-          updateCapDisplay();
+          const willAnimate = (settings.timer_anim_enabled !== false && settings.timer_anim_enabled !== 0)
+                              && (data.delta || 0) !== 0;
+          if (willAnimate) { pendingCap = nc; }
+          else { capState = nc; updateCapDisplay(); }
         }
       }
       const delta = data.delta || 0;
@@ -332,6 +376,7 @@
         return;
       }
       pendingUpdate = null;
+      pendingCap = null;
       clearTimeout(animDelayTimer);
       remainingSeconds = newRemaining;
       lastUpdateTs = data.lastUpdate ? new Date(data.lastUpdate).getTime() : Date.now();
@@ -367,6 +412,7 @@
 
       wrapper.style.display = '';
       capState.capCurrent = data.timer_cap_current || 0; // seed ก่อน applySettings — cap อาจเต็มตั้งแต่โหลดหน้า
+      amountSuffix = data.amountSuffix || 'บาท';
       applySettings(t);
 
       remainingSeconds = data.timer_remaining_seconds ?? (t.initial_seconds || 600);
@@ -415,7 +461,7 @@
       if (!res.ok) return;
       const data = await res.json();
       // มี anim/queue ค้างอยู่ = มี event ใหม่กว่ากำลังจัดการ — ข้าม (event ถัดไป sync เอง)
-      if (animInProgress || pendingUpdate) return;
+      if (animInProgress || pendingUpdate || pendingCap) return;
       capState.capCurrent = data.timer_cap_current || 0;
       updateCapDisplay();
       remainingSeconds = data.timer_remaining_seconds ?? remainingSeconds;
@@ -581,6 +627,12 @@
         isRunning = p.running;
         lastUpdateTs = p.lastUpdate ? new Date(p.lastUpdate).getTime() : Date.now();
       }
+    }
+    // D4: cap ที่ค้างไว้ apply หลัง animation จบจริง — ถ้ามี anim ต่อเนื่อง (chain) ให้รอรอบถัดไป
+    if (pendingCap && !animInProgress) {
+      capState = pendingCap;
+      pendingCap = null;
+      updateCapDisplay();
     }
   }
 

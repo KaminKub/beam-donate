@@ -2275,6 +2275,10 @@ function loadDemoTimerSettings(data) {
     }
   }
 
+  const showCapEl = document.getElementById('chkTimerShowCap');
+  if (showCapEl) showCapEl.checked = (t.show_cap === 1 || t.show_cap === true);
+  setSwitchVisibility(document.getElementById('timerShowCapRow'), !!t.cap_type, { animate: false });
+
   if (typeof renderTimerCapStatus === 'function') renderTimerCapStatus(t, data.timer_cap_current || 0);
 
   const colorMainEl = document.getElementById('inputTimerColorMain');
@@ -7236,6 +7240,10 @@ async function loadTimerSettings() {
       }
     }
 
+    const showCapEl = document.getElementById('chkTimerShowCap');
+    if (showCapEl) showCapEl.checked = (t.show_cap === 1 || t.show_cap === true);
+    setSwitchVisibility(document.getElementById('timerShowCapRow'), !!t.cap_type, { animate: false });
+
     renderTimerCapStatus(t, data.timer_cap_current || 0);
 
     const colorMainEl = document.getElementById('inputTimerColorMain');
@@ -7370,6 +7378,7 @@ async function saveTimerSettings() {
     time_unit: document.getElementById('timerTimeUnit')?.value || 'seconds',
     allow_passthrough: document.getElementById('chkTimerAllowPassthrough')?.checked ? 1 : 0,
     show_rules: document.getElementById('chkTimerShowRules')?.checked ? 1 : 0,
+    show_cap: document.getElementById('chkTimerShowCap')?.checked ? 1 : 0,
     rules_template: document.getElementById('inputTimerRulesTemplate')?.value || 'โดเนท {จำนวนเงิน}฿ {เครื่องหมาย}{เวลา}',
     rules_template_coin: document.getElementById('inputTimerRulesTemplateCoin')?.value || 'Gift {จำนวนเงิน} เหรียญ {เครื่องหมาย}{เวลา}',
     cap_type: capType || null,
@@ -7522,6 +7531,7 @@ function initTimerSettingsUI() {
       const capStatusRow = document.getElementById('timerCapStatusRow');
       setSwitchVisibility(capValGroup, hasCap);
       setSwitchVisibility(capStatusRow, hasCap);
+      setSwitchVisibility(document.getElementById('timerShowCapRow'), hasCap);
       syncCapUnit();
     });
   }

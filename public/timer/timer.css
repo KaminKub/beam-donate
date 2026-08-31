@@ -146,3 +146,28 @@ body {
   50% { opacity: 0.7; }
 }
 
+/* Cap remaining line — ข้อมูลรอง อยู่ใต้ #timerRules */
+#timerCapLine {
+  font-family: 'Kanit', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+  margin-top: 6px;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+}
+.timer-cap-remain-value { color: #fbbf24; font-weight: 700; }
+.timer-cap-remain-value.low { color: #ef4444; }        /* เหลือ ≤20% */
+
+@keyframes timerCapBump {
+  0%   { transform: scale(1);    opacity: 1; }
+  35%  { transform: scale(1.14); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+#timerCapLine.cap-bump .timer-cap-remain-value {
+  animation: timerCapBump 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  #timerCapLine.cap-bump .timer-cap-remain-value { animation: none; }
+}
+
