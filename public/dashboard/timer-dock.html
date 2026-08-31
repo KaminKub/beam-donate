@@ -495,7 +495,7 @@
           <button type="button" class="dock-chip" data-cap="time">เวลา</button>
         </div>
         <div class="dock-cap-value" id="dockCapValueRow">
-          <input type="number" id="dockCapValue" min="1" step="1" inputmode="numeric">
+          <input type="number" id="dockCapValue" min="1" max="1000000" step="1" inputmode="numeric">
           <span class="dock-cap-unit" id="dockCapUnit">บาท</span>
         </div>
         <button type="button" class="dock-btn dock-btn-resetcap" id="dockBtnResetCap" title="ล้างยอดสะสมของข้อจำกัด (ต้องกดยืนยัน 2 ครั้ง)">
@@ -701,12 +701,25 @@
         return rem + ' วินาที';
       }
 
+      // R3-F5: เพดานค่าที่ผู้ใช้พิมพ์ได้ (หน่วยตามที่กรอก) — กัน 1e309/ค่าเวอร์เกินจริง
+      var CAP_INPUT_MAX = 1000000;
+
       // ต้องตรงกับ dashboard.js:7376 เป๊ะ — จุดพลาดอันดับ 1 ของงานนี้
       function toSeconds(v) {
         v = Math.max(1, Number(v) || 0);
         var capType = timerCfg ? (timerCfg.cap_type || '') : '';
         var unit = timerCfg ? timerCfg.time_unit : 'seconds';
         return (capType === 'time' && unit === 'minutes') ? v * 60 : v;
+      }
+
+      // R3-F5: `1e309` → Infinity → JSON.stringify กลายเป็น {"cap_value":null} → server เก็บ config เสีย
+      // ตรวจ finite/range ทั้งก่อน (ค่าที่พิมพ์) และหลังแปลงนาที→วินาที · คืน null = ห้าม POST
+      function capValueToSave(input) {
+        var raw = Number(input);
+        var sec = Math.round(toSeconds(raw));
+        if (!Number.isFinite(raw) || raw < 1 || raw > CAP_INPUT_MAX) return null;
+        if (!Number.isFinite(sec) || sec < 1) return null;
+        return sec;
       }
 
       function renderCap() {
@@ -864,6 +877,12 @@
           toast(data.error || 'บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
           syncSwitches();
           return false;
+        } catch (e) {
+          // R3-F4: res.json() / fetchWithCsrf / response parse โยนได้ทุกจุด — caller ใช้ .then()
+          // ไม่มี .catch() ⇒ ถ้าไม่รับตรงนี้จะได้ unhandled rejection + UI ค้างค่าที่ยังไม่ถูกบันทึก
+          toast('บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
+          await loadState();   // ดึงค่า authoritative กลับมา — ห้ามปล่อย UI ค้างค่าที่ผู้ใช้เพิ่งกด
+          return false;
         } finally {
           if (btn) btn.classList.remove('busy');
         }
@@ -998,7 +1017,14 @@
 
         var capValueEl = document.getElementById('dockCapValue');
         if (capValueEl) capValueEl.addEventListener('change', function () {
-          saveTimerPatch({ cap_value: toSeconds(capValueEl.value) }).then(function (ok) {
+          var sec = capValueToSave(capValueEl.value);
+          if (sec === null) {
+            toast('ค่าลิมิตต้องเป็นตัวเลข 1–' + CAP_INPUT_MAX.toLocaleString('th-TH'), 'error');
+            capValueEl.blur();     // syncSwitches() ข้าม input ที่ยัง focus อยู่
+            syncSwitches();
+            return;
+          }
+          saveTimerPatch({ cap_value: sec }).then(function (ok) {
             if (ok) toast('บันทึกค่าลิมิตแล้ว', 'success');
           });
         });

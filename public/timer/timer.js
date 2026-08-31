@@ -19,6 +19,8 @@
   let capState = { capType: null, capValue: 0, capCurrent: 0 };
   let amountSuffix = 'บาท';
   let pendingCap = null;   // cap ใหม่ที่รอ animation จบก่อนค่อยแสดง (D4)
+  let resyncRequested = false;  // R3-F2: resync ที่โดนเลื่อนเพราะ queue busy
+  let resyncInFlight = false;
 
   let alertDurationMs = 8000;
   let goalBarAnimEnabled = true;
@@ -158,7 +160,7 @@
 
   setInterval(tick, 100);
 
-  function applySettings(s) {
+  function applySettings(s, capCurrent) {
     if (!s) return;
     settings = s;
     // R5 migration: derive timeout_effect_type from legacy key
@@ -187,8 +189,12 @@
     }
 
     // B1: sync cap config จาก settings (capCurrent มาจาก init/SSE เท่านั้น)
-    capState.capType = s.cap_type || null;
-    capState.capValue = s.cap_value || 0;
+    // R3-F1: ผ่าน pushCapSnapshot เพื่อไม่ให้ pendingCap เก่าย้อนทับ config ใหม่หลัง animation จบ
+    pushCapSnapshot({
+      capType: s.cap_type || null,
+      capValue: s.cap_value || 0,
+      capCurrent: capCurrent !== undefined ? capCurrent : (pendingCap || capState).capCurrent
+    }, false);
     updateCapDisplay();
   }
 
@@ -265,6 +271,18 @@
     }
   }
 
+  // R3-F1: cap snapshot ล่าสุดต้องชนะเสมอ — ถ้า animation กำลังเล่นหรือค้างคิว ให้เก็บเป็น pendingCap
+  // แม้ค่าจะ "เท่ากับ" capState ปัจจุบัน มิฉะนั้น pendingCap เก่า (เช่นยอดก่อน reset-cap)
+  // จะถูก finishAnimation() เอากลับมาทับหลัง animation จบ
+  // return true = capState เปลี่ยนจริง ผู้เรียกต้องสั่ง updateCapDisplay() เอง
+  function pushCapSnapshot(nc, willAnimate) {
+    if (willAnimate || animInProgress || pendingUpdate) { pendingCap = nc; return false; }
+    pendingCap = null;
+    if (nc.capType === capState.capType && nc.capValue === capState.capValue && nc.capCurrent === capState.capCurrent) return false;
+    capState = nc;
+    return true;
+  }
+
   function interpolateRule(template, amount, timeSec, action) {
     const sign = action === 'add' ? '+' : action === 'sub' ? '-' : '±';
     const actionWord = action === 'add' ? 'เพิ่ม' : action === 'sub' ? 'ลด' : 'เพิ่มหรือลด';
@@ -314,9 +332,13 @@
       goalBarAnimEnabled = data.settings.goal_anim_enabled !== 0 && data.settings.goal_anim_enabled !== false;
       try {
         const t = JSON.parse(data.settings.timer_settings || '{}');
-        if (data.settings.timer_cap_current !== undefined) capState.capCurrent = data.settings.timer_cap_current || 0;
         if (data.settings.amountSuffix !== undefined) amountSuffix = data.settings.amountSuffix || 'บาท';
-        applySettings(t);
+        // R3-F1: capCurrent ส่งเข้า applySettings แทนการเขียนทับ capState ตรงๆ
+        // — ถ้ามี animation ค้าง snapshot นี้ต้องไปนั่งใน pendingCap ทั้งก้อน ไม่ใช่ครึ่งเดียว
+        const capCur = data.settings.timer_cap_current !== undefined
+          ? (data.settings.timer_cap_current || 0)
+          : (pendingCap || capState).capCurrent;
+        applySettings(t, capCur);
       } catch (e) {}
     }
 
@@ -324,12 +346,11 @@
       // B1: อัปเดต cap ก่อน branch อื่นทั้งหมด — animation path มี return กลางทาง
       if (data.capType !== undefined) {
         const nc = { capType: data.capType || null, capValue: data.capValue || 0, capCurrent: data.capCurrent || 0 };
-        if (nc.capType !== capState.capType || nc.capValue !== capState.capValue || nc.capCurrent !== capState.capCurrent) {
-          const willAnimate = (settings.timer_anim_enabled !== false && settings.timer_anim_enabled !== 0)
-                              && (data.delta || 0) !== 0;
-          if (willAnimate) { pendingCap = nc; }
-          else { capState = nc; updateCapDisplay(); }
-        }
+        const willAnimate = (settings.timer_anim_enabled !== false && settings.timer_anim_enabled !== 0)
+                            && (data.delta || 0) !== 0;
+        // R3-F1: ห้าม early-return เมื่อ nc เท่ากับ capState — reset/reset-cap ที่คืนค่าเดิม
+        // ต้อง supersede pendingCap เก่าให้ได้ ไม่งั้นค่าเก่ากลับมาทับหลัง animation
+        if (pushCapSnapshot(nc, willAnimate)) updateCapDisplay();
       }
       const delta = data.delta || 0;
       const newRemaining = data.remaining !== undefined ? data.remaining : remainingSeconds;
@@ -376,8 +397,14 @@
         return;
       }
       pendingUpdate = null;
-      pendingCap = null;
       clearTimeout(animDelayTimer);
+      // R3-F1: animation ที่ค้างคิวถูกยกเลิกตรงนี้ — cap snapshot ที่รออยู่ต้อง "apply" ไม่ใช่ทิ้ง
+      // (ทิ้งแล้ว widget ค้างยอดเก่า; ไม่เคลียร์แล้ว resyncState() ตายถาวร — C10)
+      if (pendingCap) {
+        capState = pendingCap;
+        pendingCap = null;
+        updateCapDisplay();
+      }
       remainingSeconds = newRemaining;
       lastUpdateTs = data.lastUpdate ? new Date(data.lastUpdate).getTime() : Date.now();
       isRunning = !!data.running;
@@ -385,6 +412,7 @@
         timeoutFired = false;
         wrapper.classList.remove('timer-expired');
       }
+      drainResync();
     }
   }
 
@@ -454,14 +482,25 @@
     };
   }
 
+  // R3-F2: resync ที่ถูกเลื่อนเพราะ queue busy — ยิงใหม่เมื่อ animation + queue ระบายหมด
+  function drainResync() {
+    if (resyncRequested && !animInProgress && !pendingUpdate && !pendingCap) resyncState();
+  }
+
   // Re-sync timer state หลัง SSE reconnect — โดเนทช่วงหลุด (server restart/network blip) จะไม่หายอีก
   async function resyncState() {
+    // in-flight guard = sequence guard ไปในตัว (มี fetch ได้ทีละ 1 ⇒ response เก่าทับใหม่ไม่ได้)
+    if (resyncInFlight) { resyncRequested = true; return; }
+    // มี anim/queue ค้างอยู่ = มี event ใหม่กว่ากำลังจัดการ — เลื่อนไว้ แล้วยิงใหม่หลัง drain
+    if (animInProgress || pendingUpdate || pendingCap) { resyncRequested = true; return; }
+    resyncInFlight = true;
     try {
       const res = await fetch(settingsUrl());
-      if (!res.ok) return;
+      if (!res.ok) { resyncRequested = true; return; }
       const data = await res.json();
-      // มี anim/queue ค้างอยู่ = มี event ใหม่กว่ากำลังจัดการ — ข้าม (event ถัดไป sync เอง)
-      if (animInProgress || pendingUpdate || pendingCap) return;
+      // queue อาจ busy ระหว่างรอ response → ทิ้งผลนี้ทิ้ง แล้วขอใหม่หลัง drain (ห้ามเอา snapshot เก่ามาทับ)
+      if (animInProgress || pendingUpdate || pendingCap) { resyncRequested = true; return; }
+      resyncRequested = false;
       capState.capCurrent = data.timer_cap_current || 0;
       updateCapDisplay();
       remainingSeconds = data.timer_remaining_seconds ?? remainingSeconds;
@@ -471,7 +510,11 @@
         ? remainingSeconds - (Date.now() - lastUpdateTs) / 1000
         : remainingSeconds;
       if (cur > 0) { timeoutFired = false; wrapper.classList.remove('timer-expired'); }
-    } catch (e) {}
+    } catch (e) {
+      resyncRequested = true;   // network/JSON พัง → ขอใหม่รอบ drain ถัดไป
+    } finally {
+      resyncInFlight = false;
+    }
   }
 
   function animSoundOn() {
@@ -634,6 +677,7 @@
       pendingCap = null;
       updateCapDisplay();
     }
+    drainResync();
   }
 
   function animVol() {
