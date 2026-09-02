@@ -2089,7 +2089,10 @@ function computeGoalStageSize() {
   const belowH = ptrOn ? 16 + fPtr * 2.5 : 0; // ระยะจากก้นหลอดถึงบรรทัดล่างสุดของ pointer
   const barOuterH = Math.max(thick, fBar * 1.3); // %text ทับกลางหลอด อาจสูงกว่าตัวหลอด
   const h = 8 + labelH + barOuterH + Math.max(footerH + padBottom, belowH);
-  return { w: autoW ? 1200 : barW, h: Math.ceil(h / 10) * 10 };
+  // เปิด pointer = wrapper มี padding-inline 50px สองข้างไว้ให้ชื่อผู้โดเนท
+  // ผืนผ้าใบต้องกว้าง barW + 100 หลอดถึงจะยาวเท่าค่าที่ตั้งจริง (ดู .pointer-active-h)
+  const w = (autoW ? 1200 : barW) + (ptrOn ? 100 : 0);
+  return { w, h: Math.ceil(h / 10) * 10 };
 }
 
 function applyGoalPreviewStage() {

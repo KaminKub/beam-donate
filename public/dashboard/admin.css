@@ -2701,15 +2701,6 @@ label {
   }
 }
 
-/* จอกว้าง: แบ่งพื้นที่ให้คอลัมน์พรีวิวมากขึ้น — พรีวิวหลอดแนวนอน (canvas กว้าง 600-1080px)
-   ถูกจำกัดด้วยความกว้างคอลัมน์เป็นหลัก ยิ่งกว้างยิ่งได้ scale ใกล้ 100% */
-@media (min-width: 1400px) {
-  .settings-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (min-width: 1800px) {
-  .settings-grid { grid-template-columns: 0.85fr 1fr; }
-}
-
 /* ========== Error Styling ========== */
 .input-error {
   border-color: var(--failed) !important;
