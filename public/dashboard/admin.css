@@ -2183,6 +2183,37 @@ label {
   transform: none;
 }
 
+/* Goal Bar preview — จำลองผืนผ้าใบจริงที่จะไปตั้งใน OBS (ขนาด px ตามการตั้งค่า)
+   แล้วย่อ (scale) ลงให้เห็นทั้งหลอดเสมอ ต่อให้ผู้ใช้ขยายหลอด/ตัวอักษรใหญ่แค่ไหน
+   ขนาดจริง + สเกลคำนวณใน dashboard.js → applyGoalPreviewStage() */
+.goal-preview-stage {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.goal-preview-scaler {
+  position: relative;
+  /* content-box: เส้นประ = ขอบผืนผ้าใบพอดี ไม่กินพื้นที่ iframe ที่ scale แล้ว */
+  box-sizing: content-box;
+  max-width: 100%;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  transition: width 0.25s ease, height 0.25s ease;
+}
+
+.goal-preview-scaler > iframe {
+  display: block;
+  border: none;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
 .preview-controls {
   display: flex;
   justify-content: space-between;

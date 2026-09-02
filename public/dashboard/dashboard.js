@@ -1597,6 +1597,7 @@ async function initializeDashboard() {
     const goalLayoutSelectEl = document.getElementById('selectGoalBarLayout');
     if (goalLayoutSelectEl) { goalLayoutSelectEl.addEventListener('change', syncGoalWidthLabel); }
 
+
     // Goal adjust button
     async function applyGoalDelta(delta) {
       if (isNaN(delta) || delta === 0) return;
@@ -2028,11 +2029,143 @@ function syncGoalWidthLabel() {
   const layout = document.getElementById('selectGoalBarLayout');
   const isVertical = layout && layout.value === 'vertical';
   if (lbl && layout) lbl.textContent = isVertical ? 'ความสูงหลอด (px)' : 'ความยาวหลอดสูงสุด (px)';
+  // ขนาดแนะนำไม่ใช่ค่าคงที่อีกแล้ว — คำนวณจากการตั้งค่าจริง (ดู computeGoalStageSize)
+  scheduleGoalPreviewStage(true);
+}
+
+/* ===== Goal Bar Preview — ผืนผ้าใบจริง (OBS canvas) + zoom-out ให้เห็นทั้งหลอด =====
+   คำนวณ "ขนาดที่ต้องใช้จริง" จากการตั้งค่าปัจจุบัน แล้วย่อ iframe ลงพอดีกรอบพรีวิว
+   ค่าคงที่ทุกตัวอ้างอิงจาก public/goal-bar/goal-bar.css โดยตรง —
+   แก้ padding/margin/line-height ในไฟล์นั้นเมื่อไหร่ ต้องแก้ตัวเลขชุดนี้ตามด้วย */
+const GOAL_STAGE_MAX_H = 420;         // ความสูงกรอบพรีวิวสูงสุด (desktop)
+const GOAL_STAGE_MAX_H_MOBILE = 300;  // มือถือ: เตี้ยลง ไม่ให้ดันปุ่มควบคุมตกจอ
+const GOAL_STAGE_H_CAP = 2000;        // เพดานความสูงผืนผ้าใบ (กันลูปตอน fit ตามเนื้อหา)
+
+let goalStageContentObs = null; // ResizeObserver ของ #goalBarWrapper ใน iframe
+let goalStageFitH = 0;          // ความสูงที่วัดจากเนื้อหาจริง (0 = ใช้ค่าจากสูตร)
+let goalStageRaf = 0;
+let goalStageLastW = 0;
+
+function computeGoalStageSize() {
+  const num = (id, def) => {
+    const v = parseInt(document.getElementById(id)?.value, 10);
+    return Number.isFinite(v) ? v : def;
+  };
+  const isVertical = document.getElementById('selectGoalBarLayout')?.value === 'vertical';
+  const autoW  = !!document.getElementById('chkGoalBarWidthAuto')?.checked;
+  const barW   = num('inputGoalBarWidth', 600);
+  const thick  = num('inputGoalBarThickness', 45);
+  const fLabel = num('selectGoalFontSizeLabel', 30);
+  const fBar   = num('selectGoalFontSizeBar', 25);
+  const fSub1  = num('selectGoalFontSizeSub1', 20);
+  const fSub2  = num('selectGoalFontSizeSub2', 20);
+  const fPtr   = num('selectGoalPointerFontSize', 16);
+  const ptrOn  = !!document.getElementById('chkGoalPointerEnabled')?.checked;
+
+  const labelH = fLabel * 1.2 + 6; // #goalLabel line-height 1.2 + margin-bottom 6
+
+  if (isVertical) {
+    // แนวตั้ง: %text ย้ายไปอยู่เหนือหลอด (order:-1) + gap 10 + หลอดสูงเท่า barW
+    // auto = min(92vh,1600) → ใช้ 640 เป็นค่าอ้างอิงกลางๆ (หลอดจะยืดตามผืนผ้าใบจริงเอง)
+    const trackH = autoW ? 640 : barW;
+    const footerH = 6 + fSub1 * 1.35 + 2 + fSub2 * 1.35; // column + gap 2
+    const h = 8 + labelH + fBar * 1.3 + 10 + trackH + footerH + 8;
+    // pointer label อยู่ข้างหลอด (max-width 320 + margin 20 + ลูกศร 14) — wrapper cap 740px
+    const w = ptrOn ? 740 : Math.min(740, Math.max(360, thick + 160));
+    return { w, h: Math.ceil(h / 10) * 10 };
+  }
+
+  // แนวนอน: ใต้หลอดมีทั้ง footer (flow) และ pointer label (absolute ไม่กิน flow) — ใช้ค่าที่มากกว่า
+  const footerH = 6 + Math.max(20, Math.max(fSub1, fSub2) * 1.35);
+  // padding-bottom ตาม .pointer-active-h ใน goal-bar.css (ต้องตรงกัน)
+  const padBottom = ptrOn ? Math.max(25, fPtr * 2.5 - 12) : 6;
+  const belowH = ptrOn ? 16 + fPtr * 2.5 : 0; // ระยะจากก้นหลอดถึงบรรทัดล่างสุดของ pointer
+  const barOuterH = Math.max(thick, fBar * 1.3); // %text ทับกลางหลอด อาจสูงกว่าตัวหลอด
+  const h = 8 + labelH + barOuterH + Math.max(footerH + padBottom, belowH);
+  return { w: autoW ? 1200 : barW, h: Math.ceil(h / 10) * 10 };
+}
+
+function applyGoalPreviewStage() {
+  const stage  = document.getElementById('goalPreviewStage');
+  const scaler = document.getElementById('goalPreviewScaler');
+  const iframe = document.getElementById('goalBarPreviewIframe');
+  if (!stage || !scaler || !iframe) return;
+  const availW = stage.clientWidth - 24; // padding 12 สองข้าง
+  if (availW <= 0) return;               // การ์ดยัง display:none — รอ ResizeObserver ตอนเปิด
+
+  const size = computeGoalStageSize();
+  const w = size.w;
+  const h = goalStageFitH || size.h;
+  iframe.style.width = w + 'px';
+  iframe.style.height = h + 'px';
+
+  const maxH = window.innerWidth <= 768 ? GOAL_STAGE_MAX_H_MOBILE : GOAL_STAGE_MAX_H;
+  const k = Math.min(1, availW / w, maxH / h);
+  iframe.style.transform = `scale(${k})`;
+  scaler.style.width = Math.round(w * k) + 'px';
+  scaler.style.height = Math.round(h * k) + 'px';
 
   const rec = document.getElementById('goalPreviewRecommendationText');
-  if (rec) rec.textContent = isVertical
-    ? 'แนะนำ: ขนาด 740×800px, background transparent'
-    : 'แนะนำ: ขนาด 600×350px, background transparent';
+  if (rec) {
+    rec.textContent = `แนะนำ: ขนาด ${w}×${h}px`
+      + (k < 0.995 ? ` (พรีวิวย่อ ${Math.round(k * 100)}%)` : '');
+  }
+}
+
+// reset=true เมื่อการตั้งค่าเปลี่ยน (ทิ้งค่าที่วัดไว้ ไม่ให้ผืนผ้าใบค้างขนาดเดิม)
+function scheduleGoalPreviewStage(reset) {
+  if (reset) goalStageFitH = 0;
+  if (goalStageRaf) return;
+  goalStageRaf = requestAnimationFrame(() => {
+    goalStageRaf = 0;
+    applyGoalPreviewStage();
+  });
+}
+
+// สูตรคำนวณเป็นค่าเริ่มต้นแบบเผื่อไว้ก่อน — ของจริงอาจต่าง (ข้อความยาวจนขึ้นบรรทัดใหม่,
+// ฟอนต์โหลดช้า) จึงวัด wrapper ใน iframe (same-origin) แล้วปรับผืนผ้าใบให้พอดี
+function observeGoalStageContent() {
+  const iframe = document.getElementById('goalBarPreviewIframe');
+  const wrap = iframe?.contentDocument?.getElementById('goalBarWrapper');
+  if (!wrap || !window.ResizeObserver) return;
+  if (goalStageContentObs) goalStageContentObs.disconnect();
+  goalStageContentObs = new ResizeObserver(() => {
+    const curH = parseInt(iframe.style.height, 10) || 0;
+    if (!curH || !wrap.scrollHeight) return; // ยังไม่ได้ตั้งขนาด / widget ปิดอยู่ (display:none)
+    const need = Math.min(GOAL_STAGE_H_CAP, Math.ceil(wrap.scrollHeight / 10) * 10);
+    // need > curH = เนื้อหาล้นผืนผ้าใบ → ต้องขยาย
+    // need < curH - 8 = วัดตอนเนื้อหาไม่ถูกบีบ (ผืนผ้าใบใหญ่กว่าของจริง) → หดลงให้พอดี
+    // เท่ากัน = พอดีแล้ว หยุด (ไม่มีลูป เพราะรอบถัดไป need === curH เสมอ)
+    if (need > curH || need < curH - 8) {
+      goalStageFitH = need;
+      scheduleGoalPreviewStage(false);
+    }
+  });
+  goalStageContentObs.observe(wrap);
+}
+
+function initGoalPreviewStage() {
+  // ทุกการตั้งค่าใน panel นี้มีผลกับขนาดผืนผ้าใบ → คำนวณใหม่ (delegated listener ตัวเดียวจบ)
+  const panel = document.getElementById('goalSettingsPanel');
+  if (panel) {
+    ['input', 'change'].forEach(ev =>
+      panel.addEventListener(ev, () => scheduleGoalPreviewStage(true)));
+  }
+  // กรอบพรีวิวเปลี่ยนความกว้าง (ย่อ/ขยายหน้าต่าง, เปิดการ์ดครั้งแรกจาก display:none)
+  const stage = document.getElementById('goalPreviewStage');
+  if (stage && window.ResizeObserver) {
+    new ResizeObserver(() => {
+      if (stage.clientWidth === goalStageLastW) return; // ความสูงเปลี่ยนเอง — ข้าม
+      goalStageLastW = stage.clientWidth;
+      scheduleGoalPreviewStage(false);
+    }).observe(stage);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initGoalPreviewStage);
+} else {
+  initGoalPreviewStage();
 }
 
 // Widget enable-collapse: hide all related settings when toggle is off
@@ -3218,13 +3351,16 @@ function activateGoalBarPreview() {
   const iframe = document.getElementById('goalBarPreviewIframe');
   if (!iframe) return;
   if (!iframe.src || iframe.src.includes('about:blank')) {
+    iframe.onload = () => { observeGoalStageContent(); scheduleGoalPreviewStage(true); };
     iframe.src = DEMO_MODE ? '/demo/goal-bar' : `${location.origin}/goal-bar`;
   }
+  scheduleGoalPreviewStage(false);
 }
 
 function deactivateGoalBarPreview() {
   const iframe = document.getElementById('goalBarPreviewIframe');
   if (!iframe) return;
+  if (goalStageContentObs) { goalStageContentObs.disconnect(); goalStageContentObs = null; }
   iframe.src = 'about:blank';
 }
 

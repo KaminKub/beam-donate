@@ -75,7 +75,9 @@ body.position-bottom #animStage {
 /* pointer label (แนวนอน) เป็น absolute ไม่กิน flow height — wrapper overflow:hidden
    จะตัดข้อความชื่อ/ยอดที่โผล่ใต้หลอด ถ้าไม่จองพื้นที่ไว้ จองอัตโนมัติเฉพาะตอนเปิดใช้ */
 #goalBarWrapper.pointer-active-h {
-  padding-bottom: 25px;
+  /* พื้นที่ที่ต้องจอง = ระยะจากหลอด 16px + ชื่อ/ยอด 2 บรรทัด (line-height 1.25)
+     ค่าคงที่ 25px เดิมพอเฉพาะฟอนต์เล็ก — ฟอนต์ใหญ่ชื่อผู้โดเนทจะโดน overflow:hidden ตัด */
+  padding-bottom: max(25px, calc(var(--goal-font-pointer, 16) * 2.5px - 12px));
   padding-inline: 50px;
 }
 
