@@ -2039,6 +2039,9 @@ function syncGoalWidthLabel() {
    แก้ padding/margin/line-height ในไฟล์นั้นเมื่อไหร่ ต้องแก้ตัวเลขชุดนี้ตามด้วย */
 const GOAL_STAGE_H_CAP = 2000;        // เพดานความสูงผืนผ้าใบ (กันลูปตอน fit ตามเนื้อหา)
 const GOAL_STAGE_PAD = 24;            // padding 12px สองด้านของ .goal-preview-stage
+// กรอบพรีวิว = ซีนสตรีมกว้างประมาณนี้ — ใช้เป็นเพดานการซูม เพื่อให้ขนาดที่เห็นใกล้เคียง
+// ของจริงบนสตรีม (ผู้ใช้มักย่อ widget ลงอยู่แล้ว) และหลอดทุกแบบเทียบขนาดกันได้ที่สเกลเดียว
+const GOAL_STAGE_SCENE_W = 1280;
 
 let goalStageContentObs = null; // ResizeObserver ของ #goalBarWrapper ใน iframe
 let goalStageFitH = 0;          // ความสูงที่วัดจากเนื้อหาจริง (0 = ใช้ค่าจากสูตร)
@@ -2103,7 +2106,9 @@ function applyGoalPreviewStage() {
   iframe.style.width = w + 'px';
   iframe.style.height = h + 'px';
 
-  const k = Math.min(1, availW / w, availH / h);
+  // มือถือกรอบเล็กอยู่แล้ว ไม่ต้องหักสเกลซีนซ้ำ
+  const sceneK = window.innerWidth <= 768 ? 1 : availW / GOAL_STAGE_SCENE_W;
+  const k = Math.min(1, availW / w, availH / h, sceneK);
   iframe.style.transform = `scale(${k})`;
   scaler.style.width = Math.round(w * k) + 'px';
   scaler.style.height = Math.round(h * k) + 'px';
