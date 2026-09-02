@@ -2191,6 +2191,8 @@ label {
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
+  /* หลอดแนวนอนได้ผืนผ้าใบเตี้ย (~160px) — ไม่มีขั้นต่ำแล้วกล่องจะเป็นแถบบางๆ */
+  min-height: 200px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -2697,6 +2699,15 @@ label {
   .settings-card-header {
     top: calc(var(--settings-header-offset, 0px) + 8px);
   }
+}
+
+/* จอกว้าง: แบ่งพื้นที่ให้คอลัมน์พรีวิวมากขึ้น — พรีวิวหลอดแนวนอน (canvas กว้าง 600-1080px)
+   ถูกจำกัดด้วยความกว้างคอลัมน์เป็นหลัก ยิ่งกว้างยิ่งได้ scale ใกล้ 100% */
+@media (min-width: 1400px) {
+  .settings-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1800px) {
+  .settings-grid { grid-template-columns: 0.85fr 1fr; }
 }
 
 /* ========== Error Styling ========== */

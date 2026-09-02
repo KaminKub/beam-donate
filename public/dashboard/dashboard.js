@@ -2037,9 +2037,16 @@ function syncGoalWidthLabel() {
    คำนวณ "ขนาดที่ต้องใช้จริง" จากการตั้งค่าปัจจุบัน แล้วย่อ iframe ลงพอดีกรอบพรีวิว
    ค่าคงที่ทุกตัวอ้างอิงจาก public/goal-bar/goal-bar.css โดยตรง —
    แก้ padding/margin/line-height ในไฟล์นั้นเมื่อไหร่ ต้องแก้ตัวเลขชุดนี้ตามด้วย */
-const GOAL_STAGE_MAX_H = 420;         // ความสูงกรอบพรีวิวสูงสุด (desktop)
-const GOAL_STAGE_MAX_H_MOBILE = 300;  // มือถือ: เตี้ยลง ไม่ให้ดันปุ่มควบคุมตกจอ
 const GOAL_STAGE_H_CAP = 2000;        // เพดานความสูงผืนผ้าใบ (กันลูปตอน fit ตามเนื้อหา)
+
+// งบความสูงของกรอบพรีวิว — คิดจากพื้นที่ที่เหลือจริงในการ์ด (ส่วนหัว+URL+ปุ่ม ≈ 320px)
+// จอสูงได้กรอบใหญ่ขึ้นเอง แทนค่าคงที่ตัวเดียวที่เตี้ยเกินบนจอ 1440p และล้นบนโน้ตบุ๊กเตี้ย
+function goalStageMaxHeight() {
+  const h = window.innerHeight;
+  return window.innerWidth <= 768
+    ? Math.min(340, Math.max(200, h * 0.42))
+    : Math.min(760, Math.max(220, h - 320));
+}
 
 let goalStageContentObs = null; // ResizeObserver ของ #goalBarWrapper ใน iframe
 let goalStageFitH = 0;          // ความสูงที่วัดจากเนื้อหาจริง (0 = ใช้ค่าจากสูตร)
@@ -2099,8 +2106,7 @@ function applyGoalPreviewStage() {
   iframe.style.width = w + 'px';
   iframe.style.height = h + 'px';
 
-  const maxH = window.innerWidth <= 768 ? GOAL_STAGE_MAX_H_MOBILE : GOAL_STAGE_MAX_H;
-  const k = Math.min(1, availW / w, maxH / h);
+  const k = Math.min(1, availW / w, goalStageMaxHeight() / h);
   iframe.style.transform = `scale(${k})`;
   scaler.style.width = Math.round(w * k) + 'px';
   scaler.style.height = Math.round(h * k) + 'px';
@@ -2160,6 +2166,8 @@ function initGoalPreviewStage() {
       scheduleGoalPreviewStage(false);
     }).observe(stage);
   }
+  // ย่อ/ขยายหน้าต่างแนวตั้ง: ความกว้างเท่าเดิม RO ไม่ยิง แต่งบความสูงเปลี่ยน
+  window.addEventListener('resize', () => scheduleGoalPreviewStage(false));
 }
 
 if (document.readyState === 'loading') {
