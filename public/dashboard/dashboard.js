@@ -6751,12 +6751,14 @@ function syncReplicaLayout() {
   const amt = parseFloat((document.getElementById('spanGoalAmount')?.textContent || '0').replace(/,/g, '')) || 0;
   const pct = amt > 0 ? Math.min(100, Math.max(0, (cur / amt) * 100)) : 55;
 
+  // ความยาวหลอดจริงตามที่ตั้งไว้ — แนวตั้ง = ความสูงหลอด, แนวนอน = ความยาวหลอด
+  const lengthRaw = parseInt(document.getElementById('inputGoalBarWidth')?.value, 10);
+  const barLength = (lengthRaw >= 300 && lengthRaw <= 1080) ? lengthRaw : 600;
+
   if (isVertical) {
     // เลียน goal-bar.css layout-vertical: track แคบ-สูง, fill โต flex column-reverse จากล่างขึ้นบน — ตำแหน่งจริงเหมือน widget
     track.style.width = thickness + 'px';
-    track.style.maxWidth = 'none';
-    track.style.height = '320px';
-    track.style.margin = '0 auto';
+    track.style.height = barLength + 'px';
     track.style.borderRadius = (thickness / 2) + 'px';
     track.style.display = 'flex';
     track.style.flexDirection = 'column-reverse';
@@ -6767,10 +6769,8 @@ function syncReplicaLayout() {
     fill.style.height = pct + '%';
     fill.style.borderRadius = (thickness / 2 - 2) + 'px';
   } else {
-    track.style.width = '100%';
-    track.style.maxWidth = '340px';
+    track.style.width = barLength + 'px';
     track.style.height = thickness + 'px';
-    track.style.margin = '';
     track.style.borderRadius = (thickness / 2) + 'px';
     track.style.display = 'block';
     track.style.flexDirection = '';
@@ -6781,11 +6781,24 @@ function syncReplicaLayout() {
     fill.style.width = pct + '%';
     fill.style.borderRadius = (thickness / 2 - 2) + 'px';
   }
+
+  // ย่อให้พอดีกรอบ (กรอบขนาดคงที่) — สัดส่วนหลอดตรงกับของจริงเหมือนพรีวิว
+  // scale ไม่กระทบการลากปรับตำแหน่ง: getBoundingClientRect() คืนกล่องหลัง transform อยู่แล้ว
+  const frame = document.getElementById('goalBgReplicaFrame');
+  if (frame) {
+    const fw = frame.clientWidth || 340;
+    const fh = frame.clientHeight || 320;
+    const tw = isVertical ? thickness : barLength;
+    const th = isVertical ? barLength : thickness;
+    const k = Math.min(1, fw / tw, fh / th);
+    track.style.transform = `translate(-50%, -50%) scale(${k})`;
+  }
 }
 
 function openGoalBgPositionModal() {
   const modal = document.getElementById('goalBgPositionModal');
   if (!modal) return;
+  modal.classList.add('active'); // ต้องแสดงก่อน syncReplicaLayout() ไม่งั้นกรอบยัง clientWidth = 0
   syncReplicaLayout();
   const modeSelectEl = document.getElementById('goalBgModeSelect');
   modeSelectEl.value = document.getElementById('goalBgMode').value || 'track';
@@ -6795,7 +6808,6 @@ function openGoalBgPositionModal() {
   document.getElementById('goalBgZoomDisplay').textContent = document.getElementById('goalBgZoomSlider').value;
   document.getElementById('goalBgOpacityDisplay').textContent = document.getElementById('goalBgOpacitySlider').value;
   applyGoalBgReplica();
-  modal.classList.add('active');
 }
 function closeGoalBgPositionModal() {
   document.getElementById('goalBgPositionModal')?.classList.remove('active');

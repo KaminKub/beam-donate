@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="/dashboard/admin.css?v=20260902_4">
+  <link rel="stylesheet" href="/dashboard/admin.css?v=20260902_5">
   <script defer src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js" integrity="sha384-dHP9fwqd9BAiDh9uJ0p10khgbbcFMh34bVEiCnJ1Ah/AT2T2k4t572VEo3WXzxXp" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -3699,8 +3699,10 @@
         <button type="button" class="btn-close" id="btnCloseGoalBgModal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
-        <div style="width:100%;padding:24px 12px;display:flex;justify-content:center;">
-          <div id="goalBgReplicaTrack" style="position:relative;width:100%;max-width:340px;height:45px;border-radius:22.5px;background:rgba(255,255,255,0.15);border:2px solid #000;overflow:hidden;cursor:grab;user-select:none;">
+        <!-- กรอบขนาดคงที่ — หลอดจำลองใช้ขนาดจริง (ความยาว×ความหนา) แล้วย่อ (scale) ให้พอดีกรอบ
+             เหมือนพรีวิว Goal Bar สัดส่วนภาพพื้นหลังจะได้ตรงกับของจริง (ดู syncReplicaLayout) -->
+        <div id="goalBgReplicaFrame" style="position:relative;width:100%;max-width:340px;height:320px;margin:0 auto;">
+          <div id="goalBgReplicaTrack" style="position:absolute;left:50%;top:50%;width:340px;height:45px;border-radius:22.5px;background:rgba(255,255,255,0.15);border:2px solid #000;overflow:hidden;cursor:grab;user-select:none;">
             <div id="goalBgReplicaTrackImg" style="position:absolute;inset:0;border-radius:inherit;background-repeat:no-repeat;pointer-events:none;"></div>
             <div id="goalBgReplicaFillClip" style="position:absolute;inset:0;border-radius:20.5px;overflow:hidden;z-index:1;">
               <div id="goalBgReplicaFill" style="height:100%;width:55%;border-radius:20.5px;background:#4ade80;position:relative;z-index:1;overflow:hidden;transform:translateZ(0);">
@@ -4069,7 +4071,7 @@
   </div>
 
   <script src="/dashboard/sound-cache.js"></script>
-  <script src="/dashboard/dashboard.js?v=20260902_4"></script>
+  <script src="/dashboard/dashboard.js?v=20260902_5"></script>
   <script src="/dashboard/slipok-guide.js?v=20260720_6"></script>
 
   <!-- SlipOK Guide injected by /dashboard/slipok-guide.js -->
