@@ -2038,15 +2038,7 @@ function syncGoalWidthLabel() {
    ค่าคงที่ทุกตัวอ้างอิงจาก public/goal-bar/goal-bar.css โดยตรง —
    แก้ padding/margin/line-height ในไฟล์นั้นเมื่อไหร่ ต้องแก้ตัวเลขชุดนี้ตามด้วย */
 const GOAL_STAGE_H_CAP = 2000;        // เพดานความสูงผืนผ้าใบ (กันลูปตอน fit ตามเนื้อหา)
-
-// งบความสูงของกรอบพรีวิว — คิดจากพื้นที่ที่เหลือจริงในการ์ด (ส่วนหัว+URL+ปุ่ม ≈ 320px)
-// จอสูงได้กรอบใหญ่ขึ้นเอง แทนค่าคงที่ตัวเดียวที่เตี้ยเกินบนจอ 1440p และล้นบนโน้ตบุ๊กเตี้ย
-function goalStageMaxHeight() {
-  const h = window.innerHeight;
-  return window.innerWidth <= 768
-    ? Math.min(340, Math.max(200, h * 0.42))
-    : Math.min(760, Math.max(220, h - 320));
-}
+const GOAL_STAGE_PAD = 24;            // padding 12px สองด้านของ .goal-preview-stage
 
 let goalStageContentObs = null; // ResizeObserver ของ #goalBarWrapper ใน iframe
 let goalStageFitH = 0;          // ความสูงที่วัดจากเนื้อหาจริง (0 = ใช้ค่าจากสูตร)
@@ -2100,8 +2092,10 @@ function applyGoalPreviewStage() {
   const scaler = document.getElementById('goalPreviewScaler');
   const iframe = document.getElementById('goalBarPreviewIframe');
   if (!stage || !scaler || !iframe) return;
-  const availW = stage.clientWidth - 24; // padding 12 สองข้าง
-  if (availW <= 0) return;               // การ์ดยัง display:none — รอ ResizeObserver ตอนเปิด
+  // กรอบสูงคงที่จาก CSS — ย่อผืนผ้าใบให้พอดีกรอบ ไม่ใช่ยืดกรอบตามผืนผ้าใบ
+  const availW = stage.clientWidth - GOAL_STAGE_PAD;
+  const availH = stage.clientHeight - GOAL_STAGE_PAD;
+  if (availW <= 0 || availH <= 0) return; // การ์ดยัง display:none — รอ ResizeObserver ตอนเปิด
 
   const size = computeGoalStageSize();
   const w = size.w;
@@ -2109,7 +2103,7 @@ function applyGoalPreviewStage() {
   iframe.style.width = w + 'px';
   iframe.style.height = h + 'px';
 
-  const k = Math.min(1, availW / w, goalStageMaxHeight() / h);
+  const k = Math.min(1, availW / w, availH / h);
   iframe.style.transform = `scale(${k})`;
   scaler.style.width = Math.round(w * k) + 'px';
   scaler.style.height = Math.round(h * k) + 'px';

@@ -2191,8 +2191,8 @@ label {
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
-  /* หลอดแนวนอนได้ผืนผ้าใบเตี้ย (~160px) — ไม่มีขั้นต่ำแล้วกล่องจะเป็นแถบบางๆ */
-  min-height: 200px;
+  /* กรอบสูงคงที่ — สลับแนวตั้ง/แนวนอนแล้วการ์ดไม่กระโดด ผืนผ้าใบย่อ (zoom out) ให้พอดีกรอบเอง */
+  height: 420px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -5023,6 +5023,7 @@ label {
 @media (max-width: 768px) {
   .timer-dock-actions { align-items: flex-start; }
   .timer-dock-label { gap: 6px; }
+  .goal-preview-stage { height: 300px; }
 }
 
 /* D1-D4 Dashboard Final Round */
