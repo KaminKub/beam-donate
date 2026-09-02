@@ -142,7 +142,25 @@
     arrowEl.style.right = '';
     arrowEl.style.top = '';
     arrowEl.style.transform = isVertical ? '' : 'translateX(-50%)';
-    pointerLabelEl.style.left = isVertical ? '' : pct + '%';
+    if (isVertical) {
+      pointerLabelEl.style.left = '';
+    } else {
+      // หนีบตำแหน่ง label ไม่ให้ล้นโซนที่ #goalBarWrapper.pointer-active-h เว้นไว้
+      // (ลูกศรยังคงชี้ปลาย fill ตรงเป๊ะที่ pct% ด้านบน — clamp เฉพาะ label)
+      // ค่าต้องตรงกับ CSS เสมอ: #goalPointerLabel max-width (goal-bar.css) และ
+      // #goalBarWrapper.pointer-active-h padding-inline (goal-bar.css)
+      const PTR_LABEL_HALF_WIDTH = 90; // 180px / 2
+      const PTR_WRAPPER_PADDING = 50;  // padding-inline ปัจจุบัน
+      const trackWidth = trackEl.getBoundingClientRect().width;
+      const clampMin = PTR_LABEL_HALF_WIDTH - PTR_WRAPPER_PADDING;
+      if (trackWidth > clampMin * 2) {
+        const rawPx = (pct / 100) * trackWidth;
+        const clampedPx = Math.min(Math.max(rawPx, clampMin), trackWidth - clampMin);
+        pointerLabelEl.style.left = clampedPx + 'px';
+      } else {
+        pointerLabelEl.style.left = pct + '%';
+      }
+    }
     pointerLabelEl.style.bottom = isVertical ? pct + '%' : '';
     pointerLabelEl.style.right = '';
     pointerLabelEl.style.top = '';

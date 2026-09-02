@@ -75,14 +75,17 @@ body.position-bottom #animStage {
 /* pointer label (แนวนอน) เป็น absolute ไม่กิน flow height — wrapper overflow:hidden
    จะตัดข้อความชื่อ/ยอดที่โผล่ใต้หลอด ถ้าไม่จองพื้นที่ไว้ จองอัตโนมัติเฉพาะตอนเปิดใช้ */
 #goalBarWrapper.pointer-active-h {
-  /* พื้นที่ที่ต้องจอง = ระยะจากหลอด 16px + ชื่อ/ยอด 2 บรรทัด (line-height 1.25)
-     ค่าคงที่ 25px เดิมพอเฉพาะฟอนต์เล็ก — ฟอนต์ใหญ่ชื่อผู้โดเนทจะโดน overflow:hidden ตัด */
-  padding-bottom: max(25px, calc(var(--goal-font-pointer, 16) * 2.5px - 12px));
   padding-inline: 50px;
   /* padding กินเข้าไปในกล่อง (border-box) → หลอดเคยสั้นกว่าค่าที่ตั้ง 100px
      บวกคืนที่ max-width เพื่อให้ "ความยาวหลอด" ที่ตั้งไว้ = ความยาวจริง
      (ผืนผ้าใบต้องกว้าง barW+100 ตามขนาดแนะนำ ไม่งั้น width:100% คุมไว้เท่าเดิม = พฤติกรรมเดิม) */
   max-width: calc(var(--bar-max-width, 600px) + 100px);
+}
+
+/* ดัน footer ลงพ้นระยะที่ #goalPointerLabel ยื่นลงมา (top: calc(100% + 16px), สูง ~2 บรรทัด
+   line-height 1.25 → ~2.5 เท่าฟอนต์) กัน pointer label ทับ text footer ตอนฟอนต์ใหญ่ */
+#goalBarWrapper.pointer-active-h #goalFooter {
+  margin-top: calc(16px + var(--goal-font-pointer, 16) * 2.5px);
 }
 
 #goalTrack {
