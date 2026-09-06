@@ -9057,8 +9057,10 @@ let _soundBrowserQuery = '';
 let _soundBrowserPageId = 'th';
 let _soundBrowserPages = ['th', 'global', 'us', 'jp', 'de', 'br', 'fr', 'uk'];
 let _soundBrowserPageIndex = 0;
+let _soundBrowserRequestSeq = 0;
 
 function openSoundBrowser(targetInputId) {
+  _soundBrowserRequestSeq++;
   _soundBrowserTarget = targetInputId || 'customSoundUrl';
   const modal = document.getElementById('soundBrowserModal');
   const input = document.getElementById('soundSearchInput');
@@ -9080,6 +9082,9 @@ function openSoundBrowser(targetInputId) {
 }
 
 function closeSoundBrowser() {
+  _soundBrowserRequestSeq++;
+  _soundBrowserLoading = false;
+  _soundBrowserHasMore = false;
   const modal = document.getElementById('soundBrowserModal');
   if (modal) modal.style.display = 'none';
   
@@ -9131,7 +9136,8 @@ async function loadMoreSounds() {
   _soundBrowserLoading = true;
 
   const resultsDiv = document.getElementById('soundResults');
-  if (!resultsDiv) return;
+  if (!resultsDiv) { _soundBrowserLoading = false; return; }
+  const requestSeq = ++_soundBrowserRequestSeq;
 
   const loader = document.createElement('div');
   loader.id = 'soundLoader';
@@ -9144,8 +9150,17 @@ async function loadMoreSounds() {
       ? `/api/myinstants/search?q=${encodeURIComponent(_soundBrowserQuery)}&page=${_soundBrowserPageId}&offset=${_soundBrowserOffset}&limit=10`
       : `/api/myinstants/search?page=${_soundBrowserPageId}&offset=${_soundBrowserOffset}&limit=10`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Search failed');
     const data = await res.json();
+    if (requestSeq !== _soundBrowserRequestSeq) return;
+    if (!res.ok) {
+      const loaderEl = document.getElementById('soundLoader');
+      if (loaderEl) loaderEl.remove();
+      // ผลที่โหลดมาแล้วต้องไม่หายเมื่อหน้าถัดไปล้มเหลว
+      if (_soundBrowserOffset === 0) await loadSoundsViaClientParse(resultsDiv, myinstantsUnavailableMessage(data));
+      _soundBrowserHasMore = false;
+      _soundBrowserLoading = false;
+      return;
+    }
 
     const loaderEl = document.getElementById('soundLoader');
     if (loaderEl) loaderEl.remove();
@@ -9155,11 +9170,6 @@ async function loadMoreSounds() {
     }
 
     if (!data.results || data.results.length === 0) {
-      if (_soundBrowserOffset === 0 && data.fallbackDirectUrl) {
-        await loadSoundsViaClientParse(resultsDiv, data.fallbackDirectUrl);
-        _soundBrowserLoading = false;
-        return;
-      }
       if (_soundBrowserOffset === 0) {
         resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">ไม่พบเสียง</div>';
       }
@@ -9187,39 +9197,47 @@ async function loadMoreSounds() {
     _soundBrowserLoading = false;
 
     if (_soundBrowserHasMore && resultsDiv.scrollHeight <= resultsDiv.clientHeight) {
-      setTimeout(() => loadMoreSounds(), 100);
+      setTimeout(() => { if (requestSeq === _soundBrowserRequestSeq) loadMoreSounds(); }, 100);
     }
   } catch (err) {
+    if (requestSeq !== _soundBrowserRequestSeq) return;
     const loaderEl = document.getElementById('soundLoader');
     if (loaderEl) loaderEl.remove();
     if (_soundBrowserOffset === 0) {
-      resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--failed,#ef4444);">ค้นหาไม่สำเร็จ: ' + escapeHtml(err.message) + '</div>';
+      await loadSoundsViaClientParse(resultsDiv);
     }
     _soundBrowserLoading = false;
   }
 }
 
-async function loadSoundsViaClientParse(resultsDiv, directUrl) {
+// CATALOG_DISABLED = ปิดถาวรด้วย config ไม่ใช่ upstream ล่ม ต้องไม่บอกผู้ใช้ว่า "ชั่วคราว"
+function myinstantsUnavailableMessage(data) {
+  return data && data.code === 'CATALOG_DISABLED'
+    ? 'ค้นหาอัตโนมัติปิดใช้งานอยู่ กรุณาเปิด MyInstants แล้วคัดลอกลิงก์ MP3 มาวาง'
+    : 'ค้นหาอัตโนมัติของ MyInstants ไม่พร้อมชั่วคราว';
+}
+
+async function loadSoundsViaClientParse(resultsDiv, message = 'ค้นหาอัตโนมัติของ MyInstants ไม่พร้อมชั่วคราว') {
   const searchQuery = _soundBrowserQuery || '';
   const searchUrl = searchQuery
     ? `https://www.myinstants.com/search/?name=${encodeURIComponent(searchQuery)}`
-    : directUrl;
+    : 'https://www.myinstants.com/en/index/th/';
 
   resultsDiv.innerHTML = `
-    <div style="padding:20px;text-align:center;">
-      <div style="color:var(--text-muted);margin-bottom:12px;">
-        <i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถค้นหาอัตโนมัติได้กรุณาค้นหาด้วยวิธีนี้ <br>
+    <div style="padding:20px;text-align:center;overflow-wrap:anywhere;">
+      <div role="status" style="color:var(--text-muted);margin-bottom:12px;">
+        <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> ${escapeHtml(message)} <br>
         กดคลิกขวาที่ Download MP3 > Copy Link > วางลิงก์เสียง
       </div>
-      <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener"
+      <a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer"
          style="display:inline-block;padding:10px 20px;background:var(--primary,#667eea);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;margin-bottom:16px;">
          <i class="fa-solid fa-external-link-alt"></i> เปิด myinstants.com ค้นหาเสียง
       </a>
-      <div style="display:flex;gap:8px;align-items:center;max-width:400px;margin:0 auto;">
-        <input type="text" id="manualSoundUrl" class="form-control"
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:400px;margin:0 auto;">
+        <input type="url" id="manualSoundUrl" class="form-control" aria-label="ลิงก์ MP3 จาก MyInstants" maxlength="2048" onkeydown="if(event.key==='Enter'){event.preventDefault();addManualSound();}"
                placeholder="วาง URL เสียงจาก myinstants.com ที่นี่..."
-               style="flex:1;font-size:13px;">
-        <button class="btn btn-primary btn-sm" onclick="addManualSound()"
+               style="flex:1;min-width:0;font-size:13px;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="addManualSound()"
                 style="white-space:nowrap;"><i class="fa-solid fa-plus"></i> เพิ่ม</button>
       </div>
       <small style="color:var(--text-muted);display:block;margin-top:8px;">
@@ -9242,27 +9260,24 @@ function addManualSound() {
   let mp3Url = '';
   let name = '';
 
-  const urlLower = rawUrl.toLowerCase();
-
-  if (urlLower.includes('/media/sounds/')) {
-    const m = rawUrl.match(/\/media\/sounds\/([\w-]+)\.mp3/);
-    if (m) {
+  try {
+    const parsed = new URL(rawUrl);
+    const m = parsed.pathname.match(/^\/media\/sounds\/([\w.-]+)\.mp3$/);
+    if (rawUrl.length <= 2048 && parsed.origin === 'https://www.myinstants.com' && !parsed.username && !parsed.password && !parsed.search && !parsed.hash && m) {
       slug = m[1];
-      mp3Url = rawUrl;
+      mp3Url = parsed.href;
     }
-  } else if (urlLower.includes('/instant/')) {
-    const m = rawUrl.match(/\/instant\/([\w-]+)/);
-    if (m) {
-      slug = m[1].replace(/\/$/, '');
-      mp3Url = `https://www.myinstants.com/media/sounds/${slug}.mp3`;
-    }
-  }
+  } catch { /* Invalid URL: show native validation below. */ }
 
   if (!slug || !mp3Url) {
+    input.setCustomValidity('กรุณาวางลิงก์ Download MP3 จาก www.myinstants.com');
+    input.reportValidity();
+    input.oninput = () => input.setCustomValidity('');
     input.style.borderColor = '#ef4444';
     setTimeout(() => { input.style.borderColor = ''; }, 2000);
     return;
   }
+  input.setCustomValidity('');
 
   name = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
@@ -9277,18 +9292,14 @@ function addManualSound() {
             onclick="selectSound(this)">เลือก</button>
   `;
 
-  const existing = resultsDiv.querySelector('.sound-item');
-  if (existing) {
-    resultsDiv.insertBefore(item, existing);
-  } else {
-    resultsDiv.innerHTML = '';
-    resultsDiv.appendChild(item);
-  }
+  // แทรกไว้บนสุด ห้ามล้าง resultsDiv เพราะช่องวางลิงก์ manual อยู่ในนั้น
+  resultsDiv.insertBefore(item, resultsDiv.firstChild);
 
   input.value = '';
 }
 
 async function searchSounds() {
+  _soundBrowserRequestSeq++;
   const input = document.getElementById('soundSearchInput');
   const resultsDiv = document.getElementById('soundResults');
   if (!resultsDiv) return;

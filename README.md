@@ -280,9 +280,13 @@ http://localhost:3000
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | GET | `/api/myinstants/search` | ค้นหาเสียงจาก MyInstants.com (Auth required) |
-| GET | `/api/myinstants/proxy` | Proxy ดึงข้อมูลเสียงจาก MyInstants (Auth required) |
+| GET | `/api/myinstants/proxy` | ยุติ HTML proxy: คืน 410 JSON (Auth required) |
 | GET | `/api/myinstants/pages` | รายการหมวดหมู่ MyInstants (Auth required) |
 | GET | `/api/tts` | Text-to-Speech proxy |
+
+MyInstants catalog ใช้ manual fallback เป็นค่าเริ่มต้น: search ทั้ง authenticated/public คืน 503 พร้อม `code: CATALOG_DISABLED` และ `fallbackDirectUrl` โดยไม่เรียก upstream ผู้ใช้ยังเปิดเว็บ MyInstants และวาง Download MP3 URL ได้ใน Dashboard/Donate
+
+ตั้ง `MYINSTANTS_CATALOG_ENABLED=true` เฉพาะหลังบันทึก permission ของผู้ให้บริการและผ่าน Legal review แล้วเท่านั้น; ไม่ต้องตั้งค่านี้เพื่อใช้งาน manual fallback เมื่อเปิดแล้ว upstream failure คืน 503 พร้อม `UPSTREAM_*` และ `Retry-After` 30–300 วินาที (busy ขณะมีคำขออื่น: 1 วินาที) ผลค้นหาสำเร็จ/ว่างจริงคืน 200 ห้ามเปิดเพื่อทดลองหลบ Cloudflare ต้องผ่าน release gate ตามปกติเมื่อเปลี่ยน production environment
 
 ### Demo (ทดลองใช้งาน)
 

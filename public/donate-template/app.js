@@ -1055,14 +1055,18 @@ let currentPreviewAudio = null;
 let currentPreviewUrl = null;
 let currentDefaultPreviewPlaying = false;
 let defaultPreviewAudioCtx = null;
+let tierCatalogRequestSeq = 0;
 
 function openTierSoundPicker(mode) {
+  tierCatalogRequestSeq++;
   const modal = document.getElementById('tierSoundPickerModal');
   if (!modal) return;
   const title = document.getElementById('tierSoundPickerTitle');
   document.getElementById('tierSoundPickerLibrary')?.classList.toggle('active', mode !== 'catalog');
   document.getElementById('tierSoundPickerCatalog')?.classList.toggle('active', mode === 'catalog');
   if (mode === 'catalog') {
+    const searchInput = document.getElementById('tierSoundCatalogSearch');
+    if (searchInput) searchInput.value = '';
     if (title) title.innerHTML = '<i class="fa-solid fa-globe" style="color:#3b82f6;margin-right:8px;"></i>ค้นหาเสียงสำเร็จรูป';
     searchTierSoundCatalog('');
   } else {
@@ -1071,9 +1075,11 @@ function openTierSoundPicker(mode) {
   }
   modal.classList.add('active');
   modal.style.display = 'flex';
+  document.getElementById(mode === 'catalog' ? 'tierSoundCatalogSearch' : 'btnCloseTierSoundPicker')?.focus();
 }
 
 function closeTierSoundPicker() {
+  tierCatalogRequestSeq++;
   const modal = document.getElementById('tierSoundPickerModal');
   if (!modal) return;
   stopTierSoundPreview();
@@ -1625,16 +1631,25 @@ async function loadMyinstantsPages() {
 async function searchTierSoundCatalog(query) {
   const list = document.getElementById('tierSoundCatalogList');
   if (!list) return;
+  const requestSeq = ++tierCatalogRequestSeq;
+  const q = typeof query === 'string' ? query.trim().slice(0, 200) : '';
   list.innerHTML = '<div class="tier-sound-empty">กำลังค้นหา...</div>';
   try {
-    const q = (query || '').trim();
     const url = q ? `/api/public/myinstants/search?q=${encodeURIComponent(q)}` : '/api/public/myinstants/search';
     const res = await fetch(url);
     const data = await res.json();
+    if (requestSeq !== tierCatalogRequestSeq) return;
     // The tier-upload busy message points donors at this catalog, so it must not
     // read as "ไม่พบเสียง" while the search itself is being shed.
     if (isOverloadResponse(res, data)) {
-      list.innerHTML = '<div class="tier-sound-empty">ระบบกำลังมีผู้ใช้งานหนาแน่น กรุณาลองค้นหาอีกครั้งใน 1 นาที</div>';
+      renderTierCatalogFallback(list, q, 'ระบบกำลังมีผู้ใช้งานหนาแน่น กรุณาลองค้นหาอีกครั้งใน 1 นาที');
+      return;
+    }
+    if (!res.ok) {
+      // CATALOG_DISABLED = ปิดถาวรด้วย config ไม่ใช่ upstream ล่ม ต้องไม่บอกผู้ใช้ว่า "ชั่วคราว"
+      renderTierCatalogFallback(list, q, data && data.code === 'CATALOG_DISABLED'
+        ? 'ค้นหาอัตโนมัติปิดใช้งานอยู่ กรุณาเปิด MyInstants แล้วคัดลอกลิงก์ MP3 มาวาง'
+        : undefined);
       return;
     }
     list.innerHTML = '';
@@ -1665,8 +1680,37 @@ async function searchTierSoundCatalog(query) {
       list.appendChild(item);
     });
   } catch (e) {
-    list.innerHTML = '<div class="tier-sound-empty">ค้นหาไม่ได้ชั่วคราว ลองใหม่ภายหลัง</div>';
+    if (requestSeq !== tierCatalogRequestSeq) return;
+    renderTierCatalogFallback(list, q);
   }
+}
+
+function renderTierCatalogFallback(list, query, message = 'ค้นหาอัตโนมัติของ MyInstants ไม่พร้อมชั่วคราว') {
+  const directUrl = query ? `https://www.myinstants.com/search/?name=${encodeURIComponent(query)}` : 'https://www.myinstants.com/en/index/th/';
+  list.innerHTML = `<div class="tier-sound-empty" style="overflow-wrap:anywhere;">
+    <p role="status">${escapeHtml(message)}</p>
+    <p><a href="${escapeHtml(directUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary,#667eea);">เปิด MyInstants ค้นหาเสียง</a></p>
+    <p>คัดลอกลิงก์ Download MP3 แล้ววางด้านล่าง หรือปิดหน้าต่างเพื่อใช้เสียงเดิม</p>
+    <label for="tierCatalogManualUrl">ลิงก์ MP3 จาก MyInstants</label>
+    <input id="tierCatalogManualUrl" type="url" maxlength="2048" class="form-control" style="width:100%;min-width:0;box-sizing:border-box;" placeholder="https://www.myinstants.com/media/sounds/example.mp3">
+    <button id="tierCatalogManualSelect" type="button" class="btn btn-primary" style="margin-top:8px;">เลือกเสียง</button>
+    </div>`;
+  const input = document.getElementById('tierCatalogManualUrl');
+  const choose = () => {
+    try {
+      const parsed = new URL(input.value.trim());
+      const match = parsed.pathname.match(/^\/media\/sounds\/([\w.-]+)\.mp3$/);
+      if (input.value.length > 2048 || parsed.origin !== 'https://www.myinstants.com' || parsed.username || parsed.password || parsed.search || parsed.hash || !match) throw new Error('Invalid URL');
+      input.setCustomValidity('');
+      selectTierSound(parsed.href, match[1].replace(/[-_]/g, ' '), 'catalog');
+    } catch {
+      input.setCustomValidity('กรุณาวางลิงก์ Download MP3 จาก www.myinstants.com');
+      input.reportValidity();
+    }
+  };
+  input.addEventListener('input', () => input.setCustomValidity(''));
+  input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); choose(); } });
+  document.getElementById('tierCatalogManualSelect').addEventListener('click', choose);
 }
 
 function selectTierSound(url, label, source) {

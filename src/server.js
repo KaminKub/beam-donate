@@ -4848,6 +4848,15 @@ const myinstantsLimiter = rateLimit({
 
 const myinstantsCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
+let myinstantsCooldown = null;
+let myinstantsInFlight = null;
+
+function myinstantsFailure(code, retrySeconds = 60) {
+  const seconds = Math.ceil(Math.max(30, Math.min(300, Number(retrySeconds) || 60)));
+  myinstantsCooldown = { code, until: Date.now() + seconds * 1000 };
+  console.warn('[MyInstants]', code);
+  return { code, results: [], retryAfterSeconds: seconds };
+}
 
 const myinstantsPages = [
   { id: 'th', name: 'Thailand', url: 'https://www.myinstants.com/en/index/th/' },
@@ -4861,31 +4870,52 @@ const myinstantsPages = [
 ];
 
 async function scrapeMyInstants(url) {
+  // Enable only after the owner has recorded provider permission and Legal review.
+  if (process.env.MYINSTANTS_CATALOG_ENABLED !== 'true') {
+    return { code: 'CATALOG_DISABLED', results: [] };
+  }
+  if (myinstantsCooldown && Date.now() < myinstantsCooldown.until) {
+    return { code: myinstantsCooldown.code, results: [], retryAfterSeconds: Math.ceil((myinstantsCooldown.until - Date.now()) / 1000) };
+  }
   const cached = myinstantsCache.get(url);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.results;
+    return { code: 'OK', results: cached.results };
   }
+  // One upstream request per process, including different queries during recovery.
+  if (myinstantsInFlight) {
+    if (myinstantsInFlight.url === url) return myinstantsInFlight.promise;
+    return { code: 'UPSTREAM_BUSY', results: [], retryAfterSeconds: 1 };
+  }
+  const promise = fetchMyinstantsCatalog(url);
+  myinstantsInFlight = { url, promise };
+  try { return await promise; } finally { myinstantsInFlight = null; }
+}
 
+async function fetchMyinstantsCatalog(url) {
   try {
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'User-Agent': 'TipKub/1.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       },
       timeout: 7000,
-      validateStatus: (status) => status < 500,
+      maxRedirects: 0,
+      maxContentLength: 2 * 1024 * 1024,
+      responseType: 'text',
+      validateStatus: () => true,
     });
 
     if (response.status !== 200) {
-      console.error(`MyInstants returned status ${response.status} for ${url}`);
-      return [];
+      const code = response.status === 403 ? 'UPSTREAM_BLOCKED' : response.status === 429 ? 'UPSTREAM_RATE_LIMITED' : 'UPSTREAM_UNAVAILABLE';
+      const retry = response.headers?.['retry-after'];
+      const seconds = /^\d+$/.test(String(retry)) ? Number(retry) : (Date.parse(retry) - Date.now()) / 1000;
+      return myinstantsFailure(code, seconds);
     }
 
     const html = response.data;
-    if (!html || typeof html !== 'string' || html.length < 500) {
-      console.error(`MyInstants returned empty/invalid HTML (${html ? html.length : 0} bytes) for ${url}`);
-      return [];
+    if (!html || typeof html !== 'string' || html.length < 500 || /<title>\s*(?:Just a moment|Attention Required)|\/cdn-cgi\/challenge-platform/i.test(html)) {
+      return myinstantsFailure('UPSTREAM_INVALID_HTML');
     }
 
     const results = [];
@@ -4905,7 +4935,6 @@ async function scrapeMyInstants(url) {
 
     // Method 2: fallback — extract mp3 paths and names separately
     if (results.length === 0) {
-      console.log('MyInstants: primary regex failed, trying fallback extraction for', url);
 
       const mp3Matches = [...html.matchAll(/play\('(\/media\/sounds\/[^']+\.mp3)'/g)];
       const nameMatches = [...html.matchAll(/<a[^>]*class="instant-link"[^>]*>([^<]+)<\/a>/g)];
@@ -4938,69 +4967,46 @@ async function scrapeMyInstants(url) {
       }
     }
 
-    if (results.length === 0) {
-      const preview = html.substring(0, 300).replace(/\s+/g, ' ');
-      console.error('MyInstants: ALL extraction methods failed. HTML preview:', preview);
-      console.error('MyInstants: HTML contains "instant" class:', html.includes('class="instant"'));
-      console.error('MyInstants: HTML contains "play(":', html.includes("play('"));
+    // Unknown/challenge HTML must never masquerade as an empty catalog.
+    if (results.length === 0 && !/No (?:sounds|results|instants) found/i.test(html)) {
+      return myinstantsFailure('UPSTREAM_INVALID_HTML');
     }
-
-    myinstantsCache.set(url, { results, timestamp: Date.now() });
-    return results;
+    const safeResults = results.filter(sound => {
+      try {
+        const parsed = new URL(sound.mp3Url);
+        return parsed.origin === 'https://www.myinstants.com' && !parsed.username && !parsed.password && /^\/media\/sounds\/[\w.-]+\.mp3$/.test(parsed.pathname) && !parsed.search && !parsed.hash;
+      } catch { return false; }
+    }).slice(0, 500);
+    if (results.length && !safeResults.length) return myinstantsFailure('UPSTREAM_INVALID_HTML');
+    if (myinstantsCache.size >= 100) myinstantsCache.delete(myinstantsCache.keys().next().value);
+    myinstantsCache.set(url, { results: safeResults, timestamp: Date.now() });
+    myinstantsCooldown = null;
+    return { code: 'OK', results: safeResults };
   } catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.error('MyInstants request timed out (7s):', url);
-      throw new Error('MyInstants server not responding in time');
-    }
-    if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
-      console.error('MyInstants DNS resolution failed:', url);
-      throw new Error('Cannot reach MyInstants server');
-    }
-    console.error('MyInstants fetch error:', err.message, err.code);
-    throw err;
+    return myinstantsFailure(['ECONNABORTED', 'ETIMEDOUT'].includes(err.code) ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_NETWORK_ERROR');
   }
 }
 
 app.get('/api/myinstants/proxy', ensureAuthenticated, myinstantsLimiter, async (req, res) => {
-  try {
-    const rawUrl = req.query.url;
-    if (!rawUrl) return res.status(400).json({ error: 'Missing url parameter' });
-
-    let targetUrl;
-    try {
-      targetUrl = decodeURIComponent(rawUrl);
-    } catch {
-      return res.status(400).json({ error: 'Invalid url' });
-    }
-
-    if (!targetUrl.startsWith('https://www.myinstants.com/')) {
-      return res.status(400).json({ error: 'Only myinstants.com URLs allowed' });
-    }
-
-    const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'th-TH,en-US;q=0.9,en;q=0.8',
-      },
-      timeout: 7000,
-      responseType: 'text',
-    });
-
-    res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(response.data);
-  } catch (err) {
-    console.error('MyInstants proxy error:', err.message);
-    res.status(502).json({ error: 'Cannot fetch page from myinstants.com' });
-  }
+  // No application caller remains. Do not serve third-party HTML on our origin.
+  res.set('Cache-Control', 'no-store');
+  res.status(410).json({ success: false, provider: 'myinstants', code: 'PROXY_RETIRED',
+    fallbackDirectUrl: 'https://www.myinstants.com/', error: 'เปิด MyInstants โดยตรงเพื่อค้นหาเสียง' });
 });
 
 async function handleMyinstantsSearch(req, res) {
   try {
+    res.set('Cache-Control', 'no-store');
+    if ((req.query.q !== undefined && (typeof req.query.q !== 'string' || req.query.q.length > 200)) ||
+        (req.query.page !== undefined && typeof req.query.page !== 'string') ||
+        (req.query.offset !== undefined && (typeof req.query.offset !== 'string' || !/^\d{1,5}$/.test(req.query.offset))) ||
+        (req.query.limit !== undefined && (typeof req.query.limit !== 'string' || !/^\d{1,2}$/.test(req.query.limit)))) {
+      return res.status(400).json({ error: 'Invalid search parameters' });
+    }
     const query = (req.query.q || '').trim();
     const pageId = req.query.page || 'th';
     const offset = parseInt(req.query.offset) || 0;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
 
     let targetUrl;
     let pageName;
@@ -5017,10 +5023,18 @@ async function handleMyinstantsSearch(req, res) {
       pageName = page.name;
     }
 
-    const allResults = await scrapeMyInstants(targetUrl);
+    const outcome = await scrapeMyInstants(targetUrl);
+    if (outcome.code !== 'OK') {
+      if (outcome.retryAfterSeconds) res.set('Retry-After', String(outcome.retryAfterSeconds));
+      return res.status(503).json({ success: false, provider: 'myinstants', code: outcome.code,
+        results: [], total: 0, hasMore: false, retryAfterSeconds: outcome.retryAfterSeconds,
+        fallbackDirectUrl: targetUrl, error: 'ค้นหาอัตโนมัติของ MyInstants ไม่พร้อมชั่วคราว' });
+    }
+    const allResults = outcome.results;
     const paginatedResults = allResults.slice(offset, offset + limit);
 
     const responseData = {
+      success: true, provider: 'myinstants', code: 'OK',
       results: paginatedResults,
       total: allResults.length,
       hasMore: offset + limit < allResults.length,
@@ -5029,13 +5043,12 @@ async function handleMyinstantsSearch(req, res) {
     };
 
     if (allResults.length === 0) {
-      responseData.fallbackProxyUrl = `/api/myinstants/proxy?url=${encodeURIComponent(targetUrl)}`;
       responseData.fallbackDirectUrl = targetUrl;
     }
 
     res.json(responseData);
   } catch (err) {
-    console.error('MyInstants search error:', err.message);
+    console.error('MyInstants search error');
     res.status(500).json({ error: 'ไม่สามารถค้นหาเสียงได้' });
   }
 }

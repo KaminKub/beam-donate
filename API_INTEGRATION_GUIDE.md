@@ -287,7 +287,7 @@ app.post('/api/my-new-endpoint', ensureAuthenticated, myApiLimiter, async (req, 
 | `public/overlay/overlay.js` | Overlay: รับ SSE, แสดง Alert | `/api/alerts/stream` (SSE) |
 | `public/goal-bar/goal-bar.js` | Goal Bar widget: รับ SSE อัพเดต goal | `/api/alerts/stream` (SSE), `/api/page/:username/goal` |
 | `public/dashboard/dona-monitor.html` | Donation Monitor popup | `/api/alerts/stream` (SSE) |
-| `public/dashboard/sound-cache.js` | Cache เสียงจาก MyInstants | `/api/myinstants/search`, `/api/myinstants/proxy` |
+| `public/dashboard/sound-cache.js` | Cache ไฟล์เสียงจาก URL ที่เลือก; catalog อยู่ใน `dashboard.js` | `/api/myinstants/search` (manual fallback เป็นค่าเริ่มต้น); HTML proxy ยุติแล้ว (410) |
 | `public/dashboard/slipok-guide.js` | คู่มือตั้งค่า SlipOK แบบ step-by-step | — |
 
 ---

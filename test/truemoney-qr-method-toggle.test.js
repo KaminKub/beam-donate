@@ -57,7 +57,7 @@ test('TrueMoney QR method buttons identify their brands with decorative icons', 
 });
 
 test('donate template cache-busts the updated app.js', () => {
-  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260906_3/);
+  assert.match(htmlSource, /\/donate-template\/app\.js\?v=20260906_myinstants1/);
 });
 
 test('TrueMoney QR requests capture the method and ignore stale responses', () => {
