@@ -55,23 +55,6 @@
       .highlight-amount { animation: none; }
     }
     body.dock-hidden .highlight-amount { animation-play-state: paused; }
-    .dock-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: #94a3b8;
-      white-space: nowrap;
-    }
-    .dock-badge-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #64748b;
-      flex-shrink: 0;
-    }
-    .dock-badge-dot.online { background: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
-    .dock-badge-dot.offline { background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
     .dock-readout {
       text-align: center;
       padding: 12px 0;
@@ -442,10 +425,6 @@
     <div class="dock-head">
       <span class="dock-title"><span class="highlight-amount">TipKub</span> Timer Dock</span>
       <button type="button" class="dock-btn-gear" id="dockBtnGear" title="ตั้งค่า Timer"><i class="fa-solid fa-gear"></i></button>
-      <span class="dock-badge" id="dockConnBadge">
-        <span class="dock-badge-dot" id="dockBadgeDot"></span>
-        <span id="dockBadgeText">กำลังเชื่อมต่อ...</span>
-      </span>
     </div>
 
     <div class="dock-readout">
@@ -567,16 +546,6 @@
         toastTimer = setTimeout(function () {
           el.className = 'dock-toast ' + (type || 'success');
         }, 2000);
-      }
-
-      function setBadge(state) {
-        var dot = document.getElementById('dockBadgeDot');
-        var text = document.getElementById('dockBadgeText');
-        if (!dot || !text) return;
-        dot.className = 'dock-badge-dot' + (state === 'online' ? ' online' : state === 'offline' ? ' offline' : '');
-        text.textContent = state === 'online' ? 'เชื่อมต่อแล้ว'
-          : state === 'offline' ? 'การเชื่อมต่อหลุด — กำลังลองใหม่'
-          : 'กำลังเชื่อมต่อ...';
       }
 
       function formatTime(sec) {
@@ -765,7 +734,6 @@
           var url = DEMO ? '/api/demo/overlay/settings' : '/api/overlay/settings';
           var res = await fetch(url);
           if (res.status === 401) {
-            setBadge('offline');
             toast('เซสชันหมดอายุ — กำลังพาไปหน้าล็อกอิน', 'error');
             setTimeout(function () { location.reload(); }, 1500);
             return;
@@ -1063,7 +1031,6 @@
           var data;
           try { data = JSON.parse(e.data); } catch (err) { return; }
           if (data.type === 'connected') {
-            setBadge('online');
             loadState();
           } else if (data.type === 'timer_update') {
             applyState(data);
@@ -1071,7 +1038,6 @@
             loadState();   // สตรีมเมอร์แก้ค่าในแดชบอร์ด → Dock ต้องตามทัน ไม่ให้ RMW ทับของใหม่
           }
         };
-        es.onerror = function () { setBadge('offline'); };
       });
 
       // Click pulse — delegated (dock-chip สร้างด้วย JS) · dock-btn-tiktok เปิดแท็บใหม่ ⇒ ห้ามใส่
