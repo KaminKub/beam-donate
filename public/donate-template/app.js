@@ -2499,6 +2499,27 @@ function getChoiceEffect(amount) {
   };
 }
 
+function updateCapQuotaLine(eff) {
+  const el = document.getElementById('timerCapQuotaLine');
+  if (!el) return;
+  const t = timerPublicConfig;
+  const capOn = t && (t.capType === 'money' || t.capType === 'time') && t.capValue > 0;
+  const room = capOn ? Math.max(0, t.capValue - (t.capCurrent || 0)) : 0;
+  if (!eff || !capOn || eff.capFull || !Number.isFinite(room) || room <= 0) {
+    el.style.display = 'none';
+    return;
+  }
+  const value = document.createElement('span');
+  value.className = 'timer-cap-quota-value';
+  value.classList.toggle('low', room / t.capValue <= 0.2);
+  value.textContent = t.capType === 'money'
+    ? `${Number(room).toLocaleString('th-TH')} บาท`
+    : formatChoiceTime(room);
+  el.replaceChildren(document.createTextNode(t.capType === 'money'
+    ? 'โดเนทปรับเวลาได้อีก ' : 'ปรับเวลาได้อีก '), value);
+  el.style.display = 'block';
+}
+
 function updateTimerChoiceBox() {
   const box = document.getElementById('timerChoiceBox');
   if (!box) return;
@@ -2508,6 +2529,7 @@ function updateTimerChoiceBox() {
   const eff = getChoiceEffect(selectedAmount);
   if (!eff) { box.classList.remove('visible'); return; }
   box.classList.add('visible');
+  updateCapQuotaLine(eff);
   const effEl = document.getElementById('timerChoiceEffect');
   const optsEl = box.querySelector('.timer-choice-options');
   const titleText = document.getElementById('timerChoiceTitleText');

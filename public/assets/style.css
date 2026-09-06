@@ -1983,7 +1983,7 @@ input[type=number] {
               margin 0.28s ease, padding 0.28s ease, border-width 0.28s ease;
 }
 .timer-choice-box.visible {
-  max-height: 200px;
+  max-height: 260px;
   opacity: 1;
   margin: 14px 0 4px;
   padding: 12px 14px;
@@ -2000,6 +2000,15 @@ input[type=number] {
 .timer-choice-effect { color: #fbbf24; font-weight: 600; font-size: 18px; white-space: pre-line;}
 .timer-choice-effect--add { color: #22c55e; }
 .timer-choice-effect--sub { color: #ef4444; }
+#timerCapQuotaLine {
+  display: none;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+}
+.timer-cap-quota-value { color: #fbbf24; font-weight: 700; }
+.timer-cap-quota-value.low { color: #ef4444; }
 .timer-choice-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .timer-choice-btn {
   flex: 1 1 0;
