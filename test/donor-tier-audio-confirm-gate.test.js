@@ -70,6 +70,18 @@ test('reduced-motion override ของ gate animation ต้องอยู่�
   }
 });
 
+// Audit R2-F3: hideTierRecordReview() ถอด dim ทิ้งเสมอ ทุกจุดที่เรียกมันแล้วไม่ได้ตามด้วย
+// updateSoundSourceUI จะทิ้ง UI ไว้ในสภาพ "ไม่มีแหล่งเสียงไหนถูกเลือก" ทั้งที่ยังมีเสียงผูกอยู่
+test('ทุก caller ของ hideTierRecordReview() ต้องคืน mutual-exclusion dim ตามหลัง', () => {
+  const retry = appSource.slice(
+    appSource.indexOf("document.getElementById('tierRecordRetryBtn')?.addEventListener"),
+    appSource.indexOf("document.getElementById('tierRecordConfirmBtn')?.addEventListener")
+  );
+  const hideAt = retry.indexOf('hideTierRecordReview()');
+  const syncAt = retry.indexOf('updateSoundSourceUI(');
+  assert.ok(hideAt >= 0 && syncAt > hideAt, 'ปุ่ม "อัดใหม่" ต้องเรียก updateSoundSourceUI() หลัง hideTierRecordReview()');
+});
+
 test('isTierRecordAwaitingConfirmation truth table — pure predicate, no string match', () => {
   const src = appSource.slice(
     appSource.indexOf('function computeTierRecordAwaitingConfirmation'),

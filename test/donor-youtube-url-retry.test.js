@@ -42,6 +42,17 @@ test('ใช้คลิปนี้ ต้องไม่ทำลาย YT pla
   );
 });
 
+test('เปิดโมดัลซ้ำต้องกลับไป step 2 ตราบใดที่ player ยังมีชีวิต', () => {
+  const open = appSource.slice(
+    appSource.indexOf('function openYoutubeModal()'),
+    appSource.indexOf('function closeYoutubeModal()')
+  );
+  const cond = open.slice(open.indexOf('if ('), open.indexOf('showYtStep2()'));
+  assert.match(cond, /ytPlayer && ytPlayerReady/, 'ต้องเช็ค player จริงก่อนโชว์ step 2 (กัน Audit R1 F1)');
+  assert.doesNotMatch(cond, /selectedTierYoutube/,
+    'ห้ามผูก step 2 กับ selectedTierYoutube — donor ที่โหลดคลิปแล้วปิดโมดัลก่อนยืนยันจะเสียช่วง trim (Audit R2-F4)');
+});
+
 test('invalid or live YouTube URLs keep a retry path', () => {
   const loadHandler = appSource.slice(
     appSource.indexOf("document.getElementById('ytUrlLoadBtn')?.addEventListener"),

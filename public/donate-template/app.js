@@ -767,8 +767,14 @@ function applyRestoredTierSnapshot() {
         : 'ไฟล์เสียงที่อัปโหลด';
     }
     updateSoundSourceUI(currentSoundSource);
+    // R2-F5: ปุ่ม "เปลี่ยนเสียง" ของเสียงอัดอยู่ใน #tierRecordPane ซึ่ง default ซ่อนอยู่ที่ subtab อัพโหลด
+    // ถ้าไม่สลับ subtab ให้ donor ที่กลับมาจากหน้า payment จะเปลี่ยนเสียงที่อัดไว้ไม่ได้เลย
+    if (currentSoundSource === 'record') document.getElementById('tierRecordSubtabBtn')?.click();
   } else if (selectedTierYoutube) {
     updateSoundSourceUI('youtube');
+    // R2-F5: resetTierSelections() คืนป้ายปุ่มเป็น "YouTube" เปล่า — restore แล้วต้องติ๊กถูกกลับด้วย
+    const ytBtnLabel = document.getElementById('btnPickTierYoutube');
+    if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> Youtube <i class="fas fa-check-circle"></i>';
   }
 }
 
@@ -1169,7 +1175,9 @@ function openYoutubeModal() {
   if (!modal) return;
   modal.classList.add('active');
   modal.style.display = 'flex';
-  if (selectedTierYoutube && ytPlayer && ytPlayerReady) {
+  // R2-F4: เกณฑ์คือ "player ยังมีชีวิตไหม" ไม่ใช่ "ยืนยันคลิปแล้วหรือยัง" — donor ที่โหลดคลิปแล้ว
+  // ปิดโมดัลก่อนกด "ใช้คลิปนี้" ต้องกลับมาเจอ step 2 ตัวเดิม ไม่ใช่ต้องโหลดใหม่แล้วเสียช่วง trim ที่ตั้งไว้
+  if (ytPlayer && ytPlayerReady) {
     showYtStep2();
   } else {
     if (selectedTierYoutube) {
@@ -2020,6 +2028,9 @@ document.getElementById('tierEqRow')?.addEventListener('click', async (e) => {
 
 document.getElementById('tierRecordRetryBtn')?.addEventListener('click', () => {
   hideTierRecordReview();
+  // R2-F3: hideTierRecordReview() ถอด dim ทิ้งเสมอ — ถ้ายังมีเสียงอัดที่ยืนยันไปแล้วผูกอยู่
+  // ต้องคืน mutual-exclusion dim ตาม source ปัจจุบัน ไม่งั้น upload pane สว่างกลับมาทั้งที่ยังใช้เสียง record อยู่
+  updateSoundSourceUI(currentSoundSource);
   closeTierAudioContext();
 });
 document.getElementById('tierRecordConfirmBtn')?.addEventListener('click', () => {
@@ -2158,6 +2169,7 @@ async function startTierRecording() {
       if (blob.size === 0) {
         if (status) status.textContent = 'ไม่ได้บันทึกเสียง กรุณาอัดใหม่';
         hideTierRecordReview();
+        updateSoundSourceUI(currentSoundSource);   // R2-F3: คืน dim ตาม source ปัจจุบัน
       } else {
         showTierRecordReview(blob);
       }
