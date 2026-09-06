@@ -70,6 +70,8 @@ let tierRecordPreviewUrl = null;
 let tierRecordOriginalBlob = null;
 let tierRecordEqBusy = false;
 let tierRecordUploadInFlight = false;
+let tierRecordUploadGeneration = 0;
+let tierRecordUploadController = null;
 let currentSoundSource = null;
 
 // YouTube Tier Sound (YOUTUBE_TIER_SOUND_BLUEPRINT.md §8.1)
@@ -757,6 +759,17 @@ function applyRestoredTierSnapshot() {
         endSec: Number(restoredTierSnapshot.tierYoutubeEnd) || 0
       }
     : null;
+
+  if (currentSoundSource) {
+    if (!selectedTierSoundLabel) {
+      selectedTierSoundLabel = currentSoundSource === 'record'
+        ? 'เสียงที่อัดจากไมค์'
+        : 'ไฟล์เสียงที่อัปโหลด';
+    }
+    updateSoundSourceUI(currentSoundSource);
+  } else if (selectedTierYoutube) {
+    updateSoundSourceUI('youtube');
+  }
 }
 
 function resetTierSelections() {
@@ -778,6 +791,8 @@ function resetTierSelections() {
   if (changeBtn) changeBtn.style.display = 'none';
   hideTierRecordReview();
   hideTierUploadReview();
+  tierRecordUploadGeneration++;
+  if (tierRecordUploadController) { try { tierRecordUploadController.abort(); } catch {} }
 
   // YouTube Tier Sound reset (§8.10)
   clearInterval(ytPlayTestTimer);
@@ -905,11 +920,11 @@ function escapeHtml(s) {
 }
 
 function getTierOwnAudioStatusLabel(activeSource) {
-  if (activeSource === 'upload') return `🔊 ${selectedTierSoundLabel || 'ไฟล์เสียงที่อัปโหลด'}`;
-  if (activeSource === 'catalog') return `🎵 ${selectedTierSoundLabel || 'เสียงจาก URL'}`;
-  if (activeSource === 'youtube') return `▶️ YouTube${selectedTierYoutube?.videoId ? ` (${selectedTierYoutube.videoId})` : ''}`;
-  if (activeSource === 'record') return '🎙️ เสียงที่อัดจากไมค์';
-  return '';
+  if (activeSource === 'upload') return { icon: 'fa-solid fa-volume-high', color: '#22c55e', text: selectedTierSoundLabel || 'ไฟล์เสียงที่อัปโหลด' };
+  if (activeSource === 'catalog') return { icon: 'fa-solid fa-music', color: '#3b82f6', text: selectedTierSoundLabel || 'เสียงจาก URL' };
+  if (activeSource === 'youtube') return { icon: 'fa-brands fa-youtube', color: '#ef4444', text: `YouTube${selectedTierYoutube?.videoId ? ` (${selectedTierYoutube.videoId})` : ''}` };
+  if (activeSource === 'record') return { icon: 'fa-solid fa-microphone', color: '#22c55e', text: 'เสียงที่อัดจากไมค์' };
+  return null;
 }
 
 function renderTierOwnAudioStatus(activeSource = currentSoundSource) {
@@ -924,7 +939,15 @@ function renderTierOwnAudioStatus(activeSource = currentSoundSource) {
   if (row) row.style.display = ownAudioSource ? 'flex' : 'none';
   if (status) {
     status.classList.remove('tier-status-busy');
-    status.textContent = ownAudioSource ? getTierOwnAudioStatusLabel(activeSource) : '';
+    const label = ownAudioSource ? getTierOwnAudioStatusLabel(activeSource) : null;
+    if (label) {
+      const icon = document.createElement('i');
+      icon.className = label.icon;
+      icon.style.color = label.color;
+      status.replaceChildren(icon, ' ' + label.text);
+    } else {
+      status.textContent = '';
+    }
   }
   if (ownAudioChangeBtn) ownAudioChangeBtn.style.display = ['upload', 'catalog'].includes(activeSource) ? '' : 'none';
   if (youtubeChangeBtn) youtubeChangeBtn.style.display = activeSource === 'youtube' ? '' : 'none';
@@ -986,14 +1009,10 @@ function clearTierSoundSource() {
   clearInterval(ytPlayTestTimer);
   if (selectedTierYoutube) {
     selectedTierYoutube = null;
-    if (ytPlayer) { try { ytPlayer.destroy(); } catch {} ytPlayer = null; }
-    const ytPlayerDiv = document.getElementById('ytPlayer');
-    if (ytPlayerDiv) ytPlayerDiv.innerHTML = '';
-    ytPlayerReady = false;
     const ytBtnLabel = document.getElementById('btnPickTierYoutube');
     if (ytBtnLabel) ytBtnLabel.innerHTML = '<i class="fa-brands fa-youtube"></i> YouTube';
+    resetYoutubeModalToStep1();
   }
-  resetYoutubeModalToStep1();
   closeYoutubeModal();
 
   // Clear catalog/library state
@@ -1150,9 +1169,13 @@ function openYoutubeModal() {
   if (!modal) return;
   modal.classList.add('active');
   modal.style.display = 'flex';
-  if (selectedTierYoutube || ytPlayer) {
+  if (selectedTierYoutube && ytPlayer && ytPlayerReady) {
     showYtStep2();
   } else {
+    if (selectedTierYoutube) {
+      const urlInput = document.getElementById('ytUrlInput');
+      if (urlInput) urlInput.value = `https://youtu.be/${selectedTierYoutube.videoId}`;
+    }
     ytShowStatus('');
     showYtStep1();
   }
@@ -1718,7 +1741,7 @@ document.getElementById('tierOwnAudioFile')?.addEventListener('change', async (e
     formData.append('username', username);
     formData.append('mode', 'upload');
     const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     // 503 carries `message`, not `error` — without this branch the donor would see "อัปโหลดไม่สำเร็จ: undefined"
     if (isOverloadResponse(res, data)) {
       setTierStatusBusy(status, 'ระบบกำลังมีผู้ใช้งานหนาแน่น กรุณาลองอัปโหลดอีกครั้งใน 1 นาที — หรือเลือกเสียงจากคลังของสตรีมเมอร์ไปก่อนได้');
@@ -1781,6 +1804,9 @@ function showTierRecordReview(blob) {
   const review = document.getElementById('tierRecordReview');
   const preview = document.getElementById('tierRecordPreview');
   const eqRow = document.getElementById('tierEqRow');
+  document.getElementById('tierRecordConfirmBtn')?.classList.remove('btn-glow-red');
+  document.getElementById('tierUploadPane')?.classList.add('sound-source-dimmed');
+  document.getElementById('tierSoundChoiceBlock')?.classList.add('sound-source-dimmed');
   if (controls) controls.style.display = 'none';
   if (review) review.style.display = '';
   if (eqRow) {
@@ -1819,6 +1845,9 @@ function hideTierRecordReview() {
   const preview = document.getElementById('tierRecordPreview');
   const eqRow = document.getElementById('tierEqRow');
   const confirmHint = document.getElementById('tierRecordConfirmHint');
+  document.getElementById('tierRecordConfirmBtn')?.classList.remove('btn-glow-red');
+  document.getElementById('tierUploadPane')?.classList.remove('sound-source-dimmed');
+  document.getElementById('tierSoundChoiceBlock')?.classList.remove('sound-source-dimmed');
   if (controls) controls.style.display = '';
   if (review) review.style.display = 'none';
   if (eqRow) eqRow.style.display = 'none';
@@ -2221,13 +2250,15 @@ function stopTierRecording(cancel) {
 async function uploadTierRecordedAudio(blob) {
   if (!blob || tierRecordUploadInFlight) return;
   tierRecordUploadInFlight = true;
+  const gen = tierRecordUploadGeneration;
   const status = document.getElementById('tierRecordStatus');
   const eqStatus = document.getElementById('tierEqStatus');
   const confirmBtn = document.getElementById('tierRecordConfirmBtn');
   const setStatus = (msg) => { if (status) { status.classList.remove('tier-status-busy'); status.textContent = msg; } };
   if (confirmBtn) confirmBtn.disabled = true;
   setTierStatusBusy(eqStatus, 'กำลังอัปโหลดเสียง...');
-  let uploadCompleted = false;
+  tierRecordUploadController = new AbortController();
+  const timeoutId = setTimeout(() => tierRecordUploadController.abort(), 30000);
   try {
     const username = window.location.pathname.split('/')[1];
     const formData = new FormData();
@@ -2235,28 +2266,38 @@ async function uploadTierRecordedAudio(blob) {
     formData.append('audio', blob, 'recording.' + ext);
     formData.append('username', username);
     formData.append('mode', 'record');
-    const res = await fetch('/api/donate/upload-tier-audio', { method: 'POST', body: formData });
-    const data = await res.json();
+    const res = await fetch('/api/donate/upload-tier-audio', {
+      method: 'POST', body: formData, signal: tierRecordUploadController.signal
+    });
+    const data = await res.json().catch(() => ({}));
     if (isOverloadResponse(res, data)) {
       setTierStatusBusy(document.getElementById('tierEqStatus'), 'ระบบกำลังมีผู้ใช้งานหนาแน่น เสียงที่อัดไว้ยังอยู่ กดส่งใหม่อีกครั้งใน 1 นาทีได้เลย');
       return;
     }
+    if (res.status === 429) {
+      setTierStatusBusy(eqStatus, 'อัปโหลดถี่เกินไป เสียงที่อัดไว้ยังอยู่ — รอ 1 นาทีแล้วกดใช้เสียงนี้อีกครั้ง');
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
     if (!data.url) throw new Error('ไม่ได้รับ URL ของไฟล์เสียง');
+    if (gen !== tierRecordUploadGeneration) return;   // tier เปลี่ยนระหว่างทาง — ทิ้งผลลัพธ์
     selectedTierSoundUrl = data.url;
     selectedTierSoundIsTemp = true;
     selectedTierSoundLabel = 'เสียงที่อัดจากไมค์';
     currentSoundSource = 'record';
+    hideTierRecordReview();
     updateSoundSourceUI('record');
     renderTierOwnAudioStatus('record');
-    uploadCompleted = true;
-    hideTierRecordReview();
     const confirmHint = document.getElementById('tierRecordConfirmHint');
     if (confirmHint) confirmHint.style.display = 'none';
     setStatus('อัดเสียงสำเร็จ ✓');
   } catch (err) {
-    setTierStatusBusy(eqStatus, 'อัปโหลดไม่สำเร็จ: ' + err.message + ' — กดใช้เสียงนี้อีกครั้งได้เลย');
+    const msg = err.name === 'AbortError'
+      ? 'อัปโหลดนานเกินไป เน็ตอาจไม่เสถียร — กดใช้เสียงนี้อีกครั้งได้เลย'
+      : 'อัปโหลดไม่สำเร็จ: ' + err.message + ' — กดใช้เสียงนี้อีกครั้งได้เลย';
+    setTierStatusBusy(eqStatus, msg);
   } finally {
+    clearTimeout(timeoutId);
     tierRecordUploadInFlight = false;
     if (confirmBtn) confirmBtn.disabled = false;
     renderTierOwnAudioStatus(currentSoundSource);
@@ -2676,13 +2717,17 @@ function showDonateBlockedMessage(text) {
   }
 }
 
+function computeTierRecordAwaitingConfirmation({ pendingBlob, reviewVisible, uploadInFlight }) {
+  return !!(pendingBlob || reviewVisible || uploadInFlight);
+}
+
 function isTierRecordAwaitingConfirmation() {
   const review = document.getElementById('tierRecordReview');
-  return !!(
-    tierRecordPendingBlob
-    || (review && review.style.display !== 'none')
-    || tierRecordUploadInFlight
-  );
+  return computeTierRecordAwaitingConfirmation({
+    pendingBlob: tierRecordPendingBlob,
+    reviewVisible: !!(review && review.style.display !== 'none'),
+    uploadInFlight: tierRecordUploadInFlight
+  });
 }
 
 function showTierRecordConfirmationGate() {
@@ -2707,7 +2752,8 @@ function showTierRecordConfirmationGate() {
     confirmBtn.classList.remove('btn-glow-red');
     void confirmBtn.offsetWidth;
     confirmBtn.classList.add('btn-glow-red');
-    confirmBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    confirmBtn.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
     try { confirmBtn.focus({ preventScroll: true }); } catch { confirmBtn.focus(); }
   }
 }

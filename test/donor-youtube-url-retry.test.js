@@ -25,6 +25,16 @@ test('changing away from YouTube resets the load button before donor returns', (
   assert.match(clear, /resetYoutubeModalToStep1\(\)/);
 });
 
+test('ใช้คลิปนี้ ต้องไม่ทำลาย YT player', () => {
+  const clear = appSource.slice(
+    appSource.indexOf('function clearTierSoundSource()'),
+    appSource.indexOf('function resetTierOwnAudioSelection()')
+  );
+  const ytBlock = clear.slice(clear.indexOf('if (selectedTierYoutube)'), clear.indexOf('closeYoutubeModal()'));
+  assert.match(ytBlock, /resetYoutubeModalToStep1\(\)/,
+    'reset ต้องอยู่ใน if (selectedTierYoutube) เท่านั้น ไม่งั้น ytUseClipBtn จะทำลาย player ตัวเอง');
+});
+
 test('invalid or live YouTube URLs keep a retry path', () => {
   const loadHandler = appSource.slice(
     appSource.indexOf("document.getElementById('ytUrlLoadBtn')?.addEventListener"),

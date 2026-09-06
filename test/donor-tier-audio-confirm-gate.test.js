@@ -53,3 +53,26 @@ test('record confirm keeps the upload gate active until async upload completes',
   assert.match(uploadFn, /tierRecordUploadInFlight = true/);
   assert.match(uploadFn, /tierRecordUploadInFlight = false/);
 });
+
+test('isTierRecordAwaitingConfirmation truth table — pure predicate, no string match', () => {
+  const src = appSource.slice(
+    appSource.indexOf('function computeTierRecordAwaitingConfirmation'),
+    appSource.indexOf('function isTierRecordAwaitingConfirmation')
+  );
+  // eslint-disable-next-line no-new-func
+  const computeTierRecordAwaitingConfirmation = new Function(`return (${src.trim()});`)();
+
+  const cases = [
+    [{ pendingBlob: null, reviewVisible: false, uploadInFlight: false }, false],
+    [{ pendingBlob: {}, reviewVisible: false, uploadInFlight: false }, true],
+    [{ pendingBlob: null, reviewVisible: true, uploadInFlight: false }, true],
+    [{ pendingBlob: null, reviewVisible: false, uploadInFlight: true }, true],
+    [{ pendingBlob: {}, reviewVisible: true, uploadInFlight: false }, true],
+    [{ pendingBlob: {}, reviewVisible: false, uploadInFlight: true }, true],
+    [{ pendingBlob: null, reviewVisible: true, uploadInFlight: true }, true],
+    [{ pendingBlob: {}, reviewVisible: true, uploadInFlight: true }, true]
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(computeTierRecordAwaitingConfirmation(input), expected, JSON.stringify(input));
+  }
+});

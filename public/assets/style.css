@@ -512,6 +512,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .tk-btn-pulse { animation: none; }
+  .btn-shake { animation: none; }
+  .btn-glow-red { animation: none; }
 }
 
 /* ========== Custom Amount Area ========== */
@@ -2341,7 +2343,6 @@ input[type=number] {
   flex-basis: 100%;
 }
 #tierOwnAudioStatusRow {
-  flex-basis: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
