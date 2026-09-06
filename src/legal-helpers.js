@@ -19,10 +19,10 @@
 const LEGAL_NOTICE_DAYS = 7;
 
 const LEGAL_SCHEDULE = Object.freeze({
-  current: '2026-08-12',
+  current: '2026-08-19',
   // Set both together, or leave both null when no change is pending.
-  upcoming: '2026-08-19',
-  effectiveAt: '2026-08-19T23:59:59+07:00'
+  upcoming: '2026-09-13',
+  effectiveAt: '2026-09-13T23:59:59+07:00'
 });
 
 function isAnnounced(schedule) {
