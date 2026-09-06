@@ -4013,13 +4013,15 @@
       <div class="legal-change-summary">
         <h2 class="legal-change-summary-title"><i class="fa-solid fa-circle-info"></i> สรุปการเปลี่ยนแปลงสำคัญ</h2>
         <ul class="legal-change-summary-list">
+          <li><strong>ฉบับ 13 กันยายน 2569:</strong> เปิดเผยเพิ่มว่าเมื่อสตรีมเมอร์เลือกเสียง Alert จาก MyInstants เบราว์เซอร์ของผู้ชมจะโหลดไฟล์เสียงจากเว็บดังกล่าวโดยตรง ทำให้ MyInstants ได้รับหมายเลข IP ของผู้ชม — <strong>ไม่ผ่านเซิร์ฟเวอร์ของ TipKub</strong> และ TipKub ไม่ได้ดึงข้อมูลจากเว็บดังกล่าวโดยอัตโนมัติ</li>
+          <li><strong>ฉบับ 13 กันยายน 2569:</strong> ระบุชัดว่าไฟล์เสียงหรือสื่อจากแหล่งภายนอกที่สตรีมเมอร์เลือกเอง (เช่นลิงก์ MP3 หรือคลิป YouTube) สตรีมเมอร์เป็นผู้รับผิดชอบสิทธิ์การใช้งานแต่เพียงผู้เดียว TipKub ไม่จัดเก็บ ไม่ทำสำเนา และไม่ส่งต่อสิทธิ์ใด ๆ</li>
           <li>แยกบทบาทผู้ใช้บริการเป็น <strong>ผู้ใช้งานทั่วไป/ผู้ชำระเงิน</strong> และ <strong>ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์</strong> — ผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ต้องมีคุณสมบัติตามเกณฑ์ที่เข้มกว่าระหว่างการบรรลุนิติภาวะตามกฎหมายที่ใช้บังคับกับเกณฑ์ของผู้ให้บริการช่องทางรับเงินที่เลือก</li>
           <li>สำหรับผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์ ห้ามนำบัญชีรับเงิน บัญชีธนาคาร วอลเล็ท API Key, Branch URL, Webhook Secret หรือ Credential ของผู้ปกครองหรือบุคคลอื่นมาเชื่อมต่อ — ต้องเป็นของผู้เชื่อมต่อเองเท่านั้น</li>
           <li>เพิ่มรายละเอียดการใช้บริการ TTS ภายนอกที่สตรีมเมอร์เลือกใช้ โดยข้อความโดเนทซึ่งอาจรวมชื่อผู้บริจาคหรือข้อมูลอ่อนไหว อาจถูกส่งไปประมวลผลนอกประเทศไทย ทั้งนี้สตรีมเมอร์เป็นผู้ควบคุมข้อมูล และ TipKub เป็นผู้ประมวลผลตามการตั้งค่าของสตรีมเมอร์</li>
           <li>เพิ่มคำนิยามชัดเจนว่า TipKub เป็นระบบแจ้งเตือน/ตรวจสอบสลิปเท่านั้น <strong>ไม่รับเงิน ไม่ถือครองเงิน และไม่โอนเงินแทนฝ่ายใด</strong> — เงินโอนตรงระหว่างผู้ชำระเงินกับผู้เชื่อมต่อระบบรับเงิน/สตรีมเมอร์</li>
           <li>เพิ่มข้อมูลภาษีเงินได้ — เงินสนับสนุนที่ได้รับถือเป็นรายได้ส่วนบุคคลตามกฎหมายไทย อาจมีหน้าที่ยื่นแบบ/เสียภาษี TipKub ไม่ออกเอกสารหักภาษี ณ ที่จ่ายหรือให้คำแนะนำด้านภาษี</li>
         </ul>
-        <p class="legal-change-summary-date">มีผลตั้งแต่วันที่ 19 สิงหาคม 2569</p>
+        <p class="legal-change-summary-date">ฉบับล่าสุดมีผลตั้งแต่วันที่ 13 กันยายน 2569</p>
         <button type="button" id="legalChangeDetailsToggle" class="legal-change-details-toggle" aria-expanded="false" aria-controls="legalChangeDetails">
           <i class="fa-solid fa-chevron-down"></i> ดูรายละเอียดการเปลี่ยนแปลง
         </button>
@@ -4031,6 +4033,8 @@
             <li>ผู้ให้บริการ TTS ภายนอกและการส่งข้อมูลข้ามพรมแดนตาม PDPA มาตรา 28/29 (<a class="legal-change-details-link" href="/privacy.html#third-party-tts" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัว ข้อ 3.1</a>)</li>
             <li>นิยามขอบเขตบริการ — TipKub ไม่ใช่ payment gateway (<a class="legal-change-details-link" href="/terms-of-services.html#service-scope" target="_blank" rel="noopener">อ่านข้อ 1</a>)</li>
             <li>ข้อ 3.1 — ภาษีเงินได้จากเงินสนับสนุน (<a class="legal-change-details-link" href="/terms-of-services.html#tax-info" target="_blank" rel="noopener">อ่านข้อ 3.1</a>)</li>
+            <li>ข้อ 11 — สิทธิ์ในไฟล์เสียงและสื่อจากแหล่งภายนอกที่สตรีมเมอร์เลือกเอง (<a class="legal-change-details-link" href="/terms-of-services.html" target="_blank" rel="noopener">อ่านข้อ 11</a>)</li>
+            <li>MyInstants ในรายชื่อผู้ให้บริการภายนอกที่ได้รับ IP ของผู้ชม (<a class="legal-change-details-link" href="/privacy.html#third-party-tts" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัว ข้อ 3.1</a>)</li>
           </ul>
         </div>
       </div>
