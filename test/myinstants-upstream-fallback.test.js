@@ -128,6 +128,15 @@ test('200 challenge and short/non-string bodies are invalid, never empty success
     assert.equal((await h.search()).body.code, 'UPSTREAM_INVALID_HTML');
   }
 });
+test('Bot Fight Mode script inside a normal page is not treated as a challenge', async () => {
+  // Cloudflare แทรกสคริปต์นี้ในหน้า 200 ปกติทุกหน้า ไม่ใช่เฉพาะหน้า challenge
+  const data = validHtml.replace('<html>', "<html><script>var s=document.createElement('script');s.src='/cdn-cgi/challenge-platform/scripts/precursor/main.js';</script>");
+  const h = harness(async () => ({ status: 200, data }));
+  const res = await h.search();
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.code, 'OK');
+  assert.equal(res.body.results.length, 1);
+});
 test('provider cannot inject arbitrary audio hosts through primary parser', async () => {
   const data = '<html>' + ' '.repeat(500) + `<div class="instant"><button class="small-button" onclick="play('https://evil.example/a.mp3')" title="Play test sound"></button><a href="/x" class="instant-link">evil</a></div></html>`;
   const h = harness(async () => ({ status: 200, data }));

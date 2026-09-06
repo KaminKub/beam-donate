@@ -4914,7 +4914,9 @@ async function fetchMyinstantsCatalog(url) {
     }
 
     const html = response.data;
-    if (!html || typeof html !== 'string' || html.length < 500 || /<title>\s*(?:Just a moment|Attention Required)|\/cdn-cgi\/challenge-platform/i.test(html)) {
+    // เช็คได้แค่ <title> เท่านั้น — Bot Fight Mode แทรก /cdn-cgi/challenge-platform
+    // ลงหน้า 200 ปกติทุกหน้า ใช้เป็นสัญญาณ challenge ไม่ได้ (verify กับ HTML จริง 2026-09-06)
+    if (!html || typeof html !== 'string' || html.length < 500 || /<title>\s*(?:Just a moment|Attention Required)/i.test(html)) {
       return myinstantsFailure('UPSTREAM_INVALID_HTML');
     }
 
