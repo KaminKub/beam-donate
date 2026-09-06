@@ -8,6 +8,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const appSource = fs.readFileSync(path.join(root, 'public', 'donate-template', 'app.js'), 'utf8');
 const htmlSource = fs.readFileSync(path.join(root, 'public', 'donate-template', 'index.html'), 'utf8');
+const cssSource = fs.readFileSync(path.join(root, 'public', 'assets', 'style.css'), 'utf8');
 
 test('shared own-audio status is outside upload-only pane and record change button sits by record status', () => {
   const subtabsAt = htmlSource.indexOf('id="tierOwnAudioSubtabs"');
@@ -52,6 +53,21 @@ test('record confirm keeps the upload gate active until async upload completes',
   const uploadFn = appSource.slice(appSource.indexOf('async function uploadTierRecordedAudio('));
   assert.match(uploadFn, /tierRecordUploadInFlight = true/);
   assert.match(uploadFn, /tierRecordUploadInFlight = false/);
+});
+
+// Audit R2-F1: @media ไม่เพิ่ม specificity — override ที่อยู่ "ก่อน" บรรทัดนิยาม animation
+// จะแพ้ cascade เงียบ ๆ (rule specificity เท่ากัน ตัวที่มาทีหลังในไฟล์ชนะ)
+test('reduced-motion override ของ gate animation ต้องอยู่หลังบรรทัดที่นิยาม animation', () => {
+  for (const cls of ['btn-shake', 'btn-glow-red']) {
+    const base = cssSource.indexOf(`.${cls} {`);
+    const override = cssSource.indexOf(`.${cls} { animation: none;`);
+    assert.ok(base >= 0, `หา base rule ของ .${cls} ไม่เจอ`);
+    assert.ok(override >= 0, `หา reduced-motion override ของ .${cls} ไม่เจอ`);
+    assert.ok(
+      override > base,
+      `.${cls} reduced-motion override ต้องอยู่หลัง base rule ใน style.css ไม่งั้น animation: none ไม่มีผลเลย`
+    );
+  }
 });
 
 test('isTierRecordAwaitingConfirmation truth table — pure predicate, no string match', () => {

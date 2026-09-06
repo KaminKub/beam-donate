@@ -30,9 +30,16 @@ test('ใช้คลิปนี้ ต้องไม่ทำลาย YT pla
     appSource.indexOf('function clearTierSoundSource()'),
     appSource.indexOf('function resetTierOwnAudioSelection()')
   );
-  const ytBlock = clear.slice(clear.indexOf('if (selectedTierYoutube)'), clear.indexOf('closeYoutubeModal()'));
-  assert.match(ytBlock, /resetYoutubeModalToStep1\(\)/,
-    'reset ต้องอยู่ใน if (selectedTierYoutube) เท่านั้น ไม่งั้น ytUseClipBtn จะทำลาย player ตัวเอง');
+  // Audit R2-F2: slice ที่จบด้วย closeYoutubeModal() กินบรรทัด "หลัง" if-block ไปด้วย
+  // ทำให้ assert.match ผ่านทั้งโครงที่ถูกและโครงที่มีบั๊ก — ต้องเทียบตำแหน่งแทน
+  const idxIf = clear.indexOf('if (selectedTierYoutube)');
+  const idxBlockEnd = clear.indexOf('\n  }', idxIf);
+  const idxReset = clear.indexOf('resetYoutubeModalToStep1()', idxIf);
+  assert.ok(idxIf >= 0 && idxBlockEnd > idxIf, 'หา if (selectedTierYoutube) block ใน clearTierSoundSource() ไม่เจอ');
+  assert.ok(
+    idxReset > idxIf && idxReset < idxBlockEnd,
+    'resetYoutubeModalToStep1() ต้องอยู่ "ใน" if (selectedTierYoutube) block เท่านั้น — ถ้าหลุดออกมา ytUseClipBtn จะทำลาย player ตัวเอง (Audit R1 F1)'
+  );
 });
 
 test('invalid or live YouTube URLs keep a retry path', () => {

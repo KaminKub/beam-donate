@@ -512,8 +512,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .tk-btn-pulse { animation: none; }
-  .btn-shake { animation: none; }
-  .btn-glow-red { animation: none; }
+  /* .btn-shake / .btn-glow-red override อยู่ใน block ท้ายไฟล์ (~2587) — ต้องอยู่ "หลัง"
+     บรรทัดที่นิยาม animation (1537/1546) ไม่งั้นแพ้ cascade เพราะ @media ไม่เพิ่ม specificity */
 }
 
 /* ========== Custom Amount Area ========== */
@@ -2588,6 +2588,10 @@ input[type=number] {
   .glowing-avatar, .glowing-heart, .glowing-qr { animation: none; }
   .step.active { animation: none; }
   .tts-donor-notice { transition: none; }
+  .btn-shake { animation: none; }
+  /* QA: .btn-primary มี border: none → border-color แดงของ .btn-glow-red มองไม่เห็นเลย
+     ปิด animation เฉย ๆ = reduced-motion user ไม่เหลือ cue อะไรบนปุ่ม ต้องใส่ ring แบบ static แทน */
+  .btn-glow-red { animation: none; box-shadow: 0 0 0 2px #ef4444; }
 }
 
 @media (max-width: 768px) {
