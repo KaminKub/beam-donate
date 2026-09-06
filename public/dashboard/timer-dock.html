@@ -334,6 +334,19 @@
       background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.22), transparent 40%),
                   linear-gradient(140deg, rgba(var(--dock-accent), 0.20), rgba(var(--dock-accent), 0.10));
     }
+    .dock-switches .dock-pill:hover, .dock-chips .dock-chip:hover {
+      color: #e2e8f0; border-color: rgba(var(--dock-accent), 0.6);
+      background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.18), transparent 40%),
+                  linear-gradient(140deg, rgba(var(--dock-accent), 0.12), rgba(var(--dock-accent), 0.06));
+      transform: translateY(-1px); box-shadow: 0 3px 10px rgba(var(--dock-accent), 0.2);
+    }
+    .dock-switches .dock-pill.on:hover, .dock-chips .dock-chip.on:hover {
+      color: #fff; border-color: rgba(var(--dock-accent), 0.8);
+      box-shadow: 0 3px 10px rgba(var(--dock-accent), 0.28);
+    }
+    .dock-switches .dock-pill:focus-visible, .dock-chips .dock-chip:focus-visible {
+      outline: 2px solid rgba(var(--dock-accent), 0.85); outline-offset: 2px;
+    }
     .dock-pill.on i { color: #60a5fa; }
     .dock-pill-power {
       --dock-accent: 16, 185, 129; --pulse-color: rgba(var(--dock-accent), 0.55);
@@ -380,7 +393,7 @@
       flex: 1 1 0; min-width: 0; padding: 8px 6px; border-radius: 8px; overflow: hidden;
       border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
       color: #94a3b8; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-      transition: transform .15s ease, background-image .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+      transition: transform .15s ease, background-image .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease; }
     .dock-chip:active { transform: scale(0.96); }
     .dock-chip.on {
       background: radial-gradient(circle at 100% 0%, rgba(var(--dock-accent), 0.24), transparent 40%),
