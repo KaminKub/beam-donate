@@ -228,9 +228,15 @@ function formatLegalVersionDate(version) {
   return `${day} ${thaiMonths[month - 1]} ${year + 543}`;
 }
 
+// ยอมรับฉบับที่ประกาศแล้วแต่ยังไม่มีผลได้เลย (server รับทั้งสองฉบับระหว่างหน้าต่างแจ้งล่วงหน้า)
+// ทำให้ผู้ใช้กดยอมรับครั้งเดียว ไม่ถูกถามซ้ำอีกรอบตอนฉบับใหม่มีผล
+function legalVersionToAccept(status) {
+  return status?.upcomingVersion || status?.currentVersion || null;
+}
+
 function syncLegalAcceptanceVersionDate(status) {
   const target = document.getElementById('legalAcceptanceVersionDate');
-  const date = formatLegalVersionDate(status?.currentVersion);
+  const date = formatLegalVersionDate(legalVersionToAccept(status));
   if (target && date) target.textContent = date;
 }
 
@@ -302,7 +308,7 @@ function setupLegalAcceptanceModal() {
   });
   button.addEventListener('click', async () => {
     if (legalAcceptanceModalState.busy || !checkbox.checked) return;
-    const version = legalAcceptanceModalState.status?.currentVersion;
+    const version = legalVersionToAccept(legalAcceptanceModalState.status);
     if (!version) return;
     setLegalAcceptanceModalBusy(true);
     setLegalAcceptanceError('', false);

@@ -66,7 +66,7 @@ const PORT = process.env.PORT || 3000;
 const TRUEMONEY_WEBHOOK_MAINTENANCE = process.env.TRUEMONEY_WEBHOOK_MAINTENANCE === 'on';
 // ToS §9 promises 7 days notice before a change takes effect, so the enforced version is
 // date-driven — see src/legal-helpers.js for the release procedure.
-const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions, PAYMENT_ELIGIBILITY_VERSION } = require('./legal-helpers');
+const { enforcedLegalVersion, hasAcceptedLegal, acceptableLegalVersions, announcedLegalVersion, PAYMENT_ELIGIBILITY_VERSION } = require('./legal-helpers');
 
 // ========== Cloudflare R2 (S3-compatible) ==========
 const s3Client = new S3Client({
@@ -1152,7 +1152,8 @@ async function requireCurrentLegalAcceptance(req, res, next) {
       return res.status(428).json({
         error: 'จำเป็นต้องยอมรับข้อกำหนดฉบับล่าสุดก่อนบันทึกการเปลี่ยนแปลง',
         code: 'LEGAL_ACCEPTANCE_REQUIRED',
-        currentVersion: enforcedLegalVersion()
+        currentVersion: enforcedLegalVersion(),
+        upcomingVersion: announcedLegalVersion()
       });
     }
     return next();
@@ -3112,7 +3113,10 @@ app.get('/api/user/me', ensureAuthenticated, async (req, res) => {
       legalAcceptance: {
         accepted: hasAcceptedLegal(streamer.legal_version),
         acceptedVersion: streamer.legal_version || null,
-        currentVersion: enforcedLegalVersion()
+        currentVersion: enforcedLegalVersion(),
+        // Announced but not yet in force. Accepting it now already counts, so the modal offers
+        // this one and nobody is prompted a second time when the date arrives.
+        upcomingVersion: announcedLegalVersion()
       },
       paymentEligibility: {
         accepted: streamer.payment_eligibility_version === PAYMENT_ELIGIBILITY_VERSION,

@@ -48,6 +48,13 @@ function hasAcceptedLegal(storedVersion, now = Date.now(), schedule = LEGAL_SCHE
   return acceptableLegalVersions(now, schedule).includes(storedVersion);
 }
 
+// The announced-but-not-yet-effective version, or null. Offering this one in the acceptance
+// modal is what makes the "accept early, never get prompted twice" promise above actually work.
+function announcedLegalVersion(now = Date.now(), schedule = LEGAL_SCHEDULE) {
+  const enforced = enforcedLegalVersion(now, schedule);
+  return isAnnounced(schedule) && schedule.upcoming !== enforced ? schedule.upcoming : null;
+}
+
 // True when the declared notice window is shorter than §9 promises — a release-time guard so a
 // future bump cannot quietly ship a 2-day notice.
 function noticeWindowIsSufficient(announcedAt, schedule = LEGAL_SCHEDULE) {
@@ -66,6 +73,7 @@ module.exports = {
   PAYMENT_ELIGIBILITY_VERSION,
   enforcedLegalVersion,
   acceptableLegalVersions,
+  announcedLegalVersion,
   hasAcceptedLegal,
   noticeWindowIsSufficient
 };
