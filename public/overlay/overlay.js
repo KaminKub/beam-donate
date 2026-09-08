@@ -123,8 +123,12 @@ function applySettings(settings) {
   // Per-theme colors (fallback to legacy flat colors if new JSON missing)
   const themeColors = parseJsonField(overlaySettings.theme_colors, {});
   const colors = themeColors[theme] || {};
+  // glassmorphism ใช้ gradient ไม่ใช่เส้นขอบทึบ → ไม่ fallback ไป borderColor เดิม (ค่าเก่าเป็นขาวจางทำให้เรืองแสงซีด)
+  const borderColor = theme === 'glassmorphism'
+    ? (colors.border || '#667eea')
+    : (colors.border || overlaySettings.borderColor || 'rgba(255,255,255,0.25)');
   doc.style.setProperty('--theme-amount', colors.amount || overlaySettings.primaryColor || '#4ade80');
-  doc.style.setProperty('--theme-border', colors.border || overlaySettings.borderColor || 'rgba(255,255,255,0.25)');
+  doc.style.setProperty('--theme-border', borderColor);
   doc.style.setProperty('--theme-bg', colors.bg || overlaySettings.backgroundColor || 'rgba(15,15,25,0.88)');
   doc.style.setProperty('--theme-text', colors.text || overlaySettings.textColor || '#ffffff');
   doc.style.setProperty('--theme-suffix', colors.suffix || '#f59e0b');
@@ -137,7 +141,7 @@ function applySettings(settings) {
   doc.style.setProperty('--text-color', overlaySettings.textColor);
   doc.style.setProperty('--border-color', overlaySettings.borderColor);
   doc.style.setProperty('--font-family', `'${overlaySettings.fontFamily}', 'Segoe UI', sans-serif`);
-  doc.style.setProperty('--glow-color', hexToRgbA(overlaySettings.primaryColor, 0.25));
+  applyGlowShades(doc, borderColor);
 
   // Per-element font sizes (fallback to legacy fontSize)
   const fontSizes = parseJsonField(overlaySettings.alert_font_sizes, {});
@@ -178,18 +182,72 @@ function applyOutline(settings) {
   });
 }
 
-// Helper to convert hex color to rgba with transparency
-function hexToRgbA(hex, alpha = 1) {
-  let c;
-  if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-    c = hex.substring(1).split('');
-    if (c.length === 3) {
-      c = [c[0], c[0], c[1], c[1], c[2], c[2]];
-    }
-    c = '0x' + c.join('');
-    return `rgba(${[(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',')},${alpha})`;
+// Entrance animation ใช้ animation-fill-mode: forwards → มันค้างอยู่บนกล่องตลอดอายุ alert
+// Chrome ถือว่า element ที่มี opacity animation ค้างอยู่เป็น "backdrop root" ⇒ backdrop-filter: blur()
+// ของ .alert-content ไม่มีอะไรให้ blur → กระจกจางลงทันทีที่ animation จบ (~0.6 วิ)
+// ปลด animation ทิ้งเมื่อวิ่งจบ แล้วล็อกสถานะปลายทางด้วยคลาส .entered แทน
+function clearEntranceAnimationWhenDone(alertBox) {
+  alertBox.addEventListener('animationend', function onEntranceEnd(e) {
+    if (e.target !== alertBox || e.pseudoElement) return;   // ข้าม ::before (gradientShift) และ animation ของลูก
+    if (alertBox.classList.contains('exit')) return;        // animation ขาออก ปล่อยไว้ตามเดิม
+    alertBox.classList.add('entered');
+    alertBox.removeEventListener('animationend', onEntranceEnd);
+  });
+}
+
+// แปลงสี hex / rgb() / rgba() → {r,g,b,a} (คืน null ถ้าอ่านไม่ออก เช่นชื่อสี CSS); a เป็น undefined ถ้าไม่ระบุ
+function colorToRgb(color) {
+  if (typeof color !== 'string') return null;
+  const str = color.trim();
+  if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(str)) {
+    let c = str.substring(1);
+    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    const n = parseInt(c, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: undefined };
   }
-  return hex;
+  const m = str.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/i);
+  if (!m) return null;
+  return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? undefined : +m[4] };
+}
+
+// แปลงสี → HSL (คืน null ถ้าอ่านไม่ออก)
+function colorToHsl(color) {
+  const rgb = colorToRgb(color);
+  if (!rgb) return null;
+  let { r, g, b } = rgb;
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  const l = (max + min) / 2;
+  if (!d) return { h: 0, s: 0, l: l * 100 };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: s * 100, l: l * 100 };
+}
+
+// สร้างเฉดคู่ของสีกรอบ → gradient ขอบ + เงาเรืองแสงสลับสีแบบต้นฉบับ
+// ตัวคูณอิงสัดส่วนธีมต้นฉบับ #667eea → #764ba2 → #f093fb (base #667eea จะได้สีเดิมเป๊ะ)
+function applyGlowShades(doc, borderColor) {
+  const base = colorToHsl(borderColor);
+  if (!base) {
+    // อ่านสีไม่ออก → ปล่อยให้ค่า default ใน :root ทำงาน (สีต้นฉบับ)
+    ['--theme-border-2', '--theme-border-3', '--glow-color', '--glow-color-2'].forEach(v => doc.style.removeProperty(v));
+    return;
+  }
+  const shade = (dh, ms, ml) => ({
+    h: (base.h + dh) % 360,
+    s: Math.min(100, base.s * ms),
+    l: Math.min(96, base.l * ml)
+  });
+  const c2 = shade(39, 0.49, 0.70);
+  const c3 = shade(65, 1.22, 1.18);
+  const css = (c, a) => `hsla(${c.h.toFixed(1)}, ${c.s.toFixed(1)}%, ${c.l.toFixed(1)}%, ${a})`;
+  doc.style.setProperty('--theme-border-2', css(c2, 1));
+  doc.style.setProperty('--theme-border-3', css(c3, 1));
+  doc.style.setProperty('--glow-color', css(base, 0.25));
+  doc.style.setProperty('--glow-color-2', css(c2, 0.15));
 }
 
 // ========== Connect to SSE stream ==========
@@ -631,6 +689,7 @@ async function showAlert(data, ttsArtifact = null, alertToken = null) {
   // Apply Theme and Animation classes
   alertBox.classList.add(`theme-${overlaySettings.theme}`);
   alertBox.classList.add(`anim-${overlaySettings.animation}`);
+  clearEntranceAnimationWhenDone(alertBox);
 
   renderAlertVisual(alertBox, data);
 
@@ -812,6 +871,7 @@ function displayPinnedAlert(data) {
   alertBox.classList.add(`theme-${overlaySettings.theme}`);
   alertBox.classList.add(`anim-${overlaySettings.animation}`);
   alertBox.classList.add('pinned-alert');
+  clearEntranceAnimationWhenDone(alertBox);
   renderAlertVisual(alertBox, data);
 
   const progressBar = alertBox.querySelector('.alert-progress-bar');

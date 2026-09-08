@@ -15,9 +15,13 @@ input, textarea, [contenteditable="true"] {
   --border-color: rgba(255, 255, 255, 0.25);
   --font-family: 'Noto Sans Thai', 'Segoe UI', sans-serif;
   --glow-color: rgba(102, 126, 234, 0.25);
+  --glow-color-2: rgba(118, 75, 162, 0.15);
   /* Per-theme alert colors */
   --theme-amount: #4ade80;
   --theme-border: #667eea;
+  /* เฉดคู่ของ --theme-border (คำนวณจาก JS) ใช้ทำ gradient เรืองแสงสลับสีแบบต้นฉบับ */
+  --theme-border-2: #764ba2;
+  --theme-border-3: #f093fb;
   --theme-bg: rgba(15, 15, 25, 0.88);
   --theme-text: #ffffff;
   /* Per-element font sizes (px) */
@@ -84,13 +88,15 @@ body {
   inset: 0;
   border-radius: 25px;
   padding: 2px;
-  background: linear-gradient(135deg, var(--theme-border), var(--theme-amount), #f093fb, var(--theme-border));
+  background: linear-gradient(135deg, var(--theme-border), var(--theme-border-2), var(--theme-border-3), var(--theme-border));
   background-size: 300% 300%;
   animation: gradientShift 3s ease infinite;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  z-index: 1;
+  /* ต้องอยู่เหนือ .alert-content (z-index 2) — .alert-content ทับเต็มกล่องพอดี พอ backdrop-filter ทำงาน
+     มันจะวาดพื้นหลังเบลอทับกรอบ gradient จนกรอบหายไป (กรอบถูก mask เหลือแค่ขอบ 2px จึงไม่บังเนื้อหา) */
+  z-index: 3;
 }
 
 .alert-box.theme-glassmorphism .alert-content {
@@ -166,7 +172,7 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
   position: absolute;
   inset: -20px;
   border-radius: 30px;
-  background: radial-gradient(ellipse at center, var(--glow-color) 0%, rgba(118, 75, 162, 0.15) 40%, transparent 70%);
+  background: radial-gradient(ellipse at center, var(--glow-color) 0%, var(--glow-color-2) 40%, transparent 70%);
   filter: blur(15px);
   z-index: 0;
   animation: glowPulse 2s ease-in-out infinite;
@@ -446,6 +452,15 @@ body.custom-amount-active .alert-box.theme-cyberpunk .highlight-donor {
 }
 .alert-box.anim-zoom.exit {
   animation: zoomOutOnly 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+/* ตั้งโดย clearEntranceAnimationWhenDone() ตอน entrance animation จบ — ต้องอยู่หลังบล็อก .anim-* ทั้งหมด
+   (specificity เท่ากัน 0,2,0 จึงชนะด้วยลำดับ) และต่ำกว่า .anim-*.exit (0,3,0) เพื่อไม่บล็อก animation ขาออก
+   เหตุผล: fill-mode forwards ที่ค้างไว้ทำให้กล่องเป็น backdrop root → backdrop-filter ของกระจกไม่ทำงาน */
+.alert-box.entered {
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 
