@@ -117,6 +117,15 @@ function hasCredentialPair(source, scope) {
   return !!(columns && source && source[columns.urlField] && source[columns.keyField]);
 }
 
+// A previously-authoritative provider end date is itself a local fail-closed
+// signal. This keeps donor-facing requests safe even when the streamer has not
+// opened Dashboard yet (and therefore has not triggered another quota probe).
+function isSlipOkScopeExpired(source, scope, nowMs = Date.now()) {
+  const columns = SCOPE_COLUMNS[scope];
+  if (!columns || !source) return false;
+  return classifySlipOkEndDate(source[columns.expiry], nowMs).expired;
+}
+
 // Keep the primary-first policy usable by server paths that intentionally receive
 // only safe configuration booleans, never a credential value.
 function resolveSlipOkLaneFromState({
@@ -153,8 +162,8 @@ function resolveSlipOkLane(source) {
   return resolveSlipOkLaneFromState({
     promptpayConfigured: hasCredentialPair(source, 'promptpay'),
     truemoneyConfigured: hasCredentialPair(source, 'truemoney'),
-    promptpayConnected: !!source?.slipok_connected,
-    truemoneyConnected: !!source?.truemoney_slipok_connected
+    promptpayConnected: !!source?.slipok_connected && !isSlipOkScopeExpired(source, 'promptpay'),
+    truemoneyConnected: !!source?.truemoney_slipok_connected && !isSlipOkScopeExpired(source, 'truemoney')
   });
 }
 
@@ -369,6 +378,7 @@ module.exports = {
   validateSlipOkUrl,
   inferSlipOkBasePlan,
   classifySlipOkEndDate,
+  isSlipOkScopeExpired,
   resolveSlipOkLaneFromState,
   resolveSlipOkLane,
   getEffectiveSlipOkCredentialSet,

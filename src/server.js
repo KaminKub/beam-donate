@@ -52,6 +52,7 @@ const {
   classifySlipOkErrorCode,
   classifySlipOkQuotaResponse,
   resolveSlipOkLane,
+  isSlipOkScopeExpired,
   getEffectiveSlipOkCredentialSet,
   normalizeSlipOkScope
 } = require('./slipok-connection');
@@ -5801,6 +5802,17 @@ app.post('/api/create-promptpay-qr', loadShedGuard(1), sameOriginCheck, promptPa
     if (!streamer) return res.status(404).json({ error: 'ไม่พบผู้ใช้งาน' });
     if (!streamer.promptpay_enabled) return res.status(400).json({ error: 'ผู้ใช้ยังไม่ได้เปิด PromptPay' });
 
+    // Donor traffic is independent of streamer legal acceptance. A cached,
+    // authoritative SlipOK expiry must stop QR creation at the server too,
+    // even if the donor bypasses the public payment-methods UI.
+    const decryptedPayment = decryptPaymentFields(streamer);
+    if (isSlipOkScopeExpired(decryptedPayment, 'promptpay')) {
+      return res.status(503).json({
+        error: 'SlipOK package has expired. The streamer must renew the package before accepting donations.',
+        errorCode: 'SLIPOK_EXPIRED'
+      });
+    }
+
     const tierAssignment = computeTierAssignment(streamer, amount, { tierImageUrl, tierSoundUrl, tierSoundIsTemp, tierSoundMode, tierYoutubeId, tierYoutubeStart, tierYoutubeEnd });
 
     let phone = streamer.promptpay_value_encrypted || streamer.promptpay_phone;
@@ -6474,6 +6486,25 @@ app.get('/api/page/:username/payment-methods', paymentMethodsLimiter, async (req
     // Effective SlipOK credential สำหรับ PromptPay/Bank — นิยามเดียวกับ /api/verify-slip (fallback ชุด TrueMoney สำหรับ user เก่า)
     // ส่งเป็น boolean เท่านั้น ห้ามส่ง URL/key ออกไปหา donor
     const slipOkState = resolveSlipOkLane(decrypted);
+
+    // Public donor reads must synchronize a cached authoritative expiry without
+    // requiring legal acceptance or a Dashboard visit. The shared resolver has
+    // already failed closed, so a persistence failure cannot reopen the method.
+    if (slipOkState.effectiveScope && isSlipOkScopeExpired(decrypted, slipOkState.effectiveScope)) {
+      try {
+        const expiryField = slipOkState.effectiveScope === 'truemoney'
+          ? 'truemoney_slipok_expiry'
+          : 'slipok_expiry';
+        await persistAuthoritativeSlipOkDisconnect(
+          streamer,
+          slipOkState.effectiveScope,
+          new Date().toISOString(),
+          decrypted[expiryField]
+        );
+      } catch (_) {
+        console.error(`[SlipOK] public donor expiry sync failed scope=${slipOkState.effectiveScope}`);
+      }
+    }
 
     // slipok_ready = พร้อมใช้จริงตาม lane ที่ /api/verify-slip จะเลือก (primary มาก่อน fallback)
     // ห้ามใช้ aggregate slipok_connected ตรงนี้ — เคส primary พังแต่ TrueMoney SlipOK ต่อได้ จะพา donor
