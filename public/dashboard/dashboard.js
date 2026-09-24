@@ -4370,6 +4370,32 @@ function slipokFadeSwap(showEl, hideEl) {
   }
 }
 
+function highlightSlipokRenewalActions() {
+  const buttons = [
+    document.querySelector('.btn-slipok-line-add'),
+    document.getElementById('btnTestSlipOk')
+  ].filter(Boolean);
+
+  if (!buttons.length) return;
+
+  const applyHighlight = () => {
+    buttons.forEach(button => {
+      button.classList.remove('slipok-renewal-highlight');
+      void button.offsetWidth;
+      button.classList.add('slipok-renewal-highlight');
+    });
+    buttons[0].scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  };
+
+  // payment-setup is lazy-loaded; wait until the tab transition has painted so
+  // the glow is visible immediately after the expired card routes the user here.
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(applyHighlight));
+  } else {
+    setTimeout(applyHighlight, 0);
+  }
+}
+
 // reason: 'no-api' | 'error' | 'expired' | 'account-issue'
 function renderSlipokDashCard(connected, reason) {
   const card = document.getElementById('statCardSlipok');
@@ -4408,9 +4434,16 @@ function renderSlipokDashCard(connected, reason) {
     card.onclick = (e) => {
       e.stopPropagation();
       if (isError) fetchSlipokDashQuota(null, true);
-      else switchTab('payment-setup');
+      else {
+        switchTab('payment-setup');
+        if (isExpired) highlightSlipokRenewalActions();
+      }
     };
-    card.title = isError ? 'คลิกเพื่อลองเชื่อมต่อ SlipOK อีกครั้ง' : 'คลิกเพื่อตั้งค่า SlipOK API';
+    card.title = isError
+      ? 'คลิกเพื่อลองเชื่อมต่อ SlipOK อีกครั้ง'
+      : isExpired
+        ? 'คลิกเพื่อต่ออายุ SlipOK และทดสอบการเชื่อมต่อ'
+        : 'คลิกเพื่อตั้งค่า SlipOK API';
   }
 }
 

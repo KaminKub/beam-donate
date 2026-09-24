@@ -833,6 +833,37 @@ body {
   .slipok-dash-expiry.critical { animation: none; }
 }
 
+/* Expired-card handoff: make both renewal actions unmistakable after routing
+   the user to Payment Setup. The class is applied by JS so it can replay. */
+.slipok-renewal-highlight {
+  position: relative;
+  z-index: 2;
+  animation: slipokRenewalGlow 1.25s ease-in-out 3;
+}
+.btn-slipok-line-add.slipok-renewal-highlight {
+  --slipok-renewal-glow: rgba(6, 199, 85, 0.75);
+}
+#btnTestSlipOk.slipok-renewal-highlight {
+  --slipok-renewal-glow: rgba(245, 158, 11, 0.8);
+}
+@keyframes slipokRenewalGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--slipok-renewal-glow),
+      0 0 28px 8px var(--slipok-renewal-glow);
+    transform: translateY(-1px) scale(1.02);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slipok-renewal-highlight {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--slipok-renewal-glow),
+      0 0 18px 5px var(--slipok-renewal-glow);
+  }
+}
+
 .slipok-dash-refresh-afford {
   display: block;
   font-size: 9px;

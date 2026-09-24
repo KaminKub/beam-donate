@@ -5,6 +5,8 @@ const vm = require('node:vm');
 
 const dashboardPath = require('node:path').join(__dirname, '..', 'public', 'dashboard', 'dashboard.js');
 const dashboardSource = fs.readFileSync(dashboardPath, 'utf8');
+const adminCssPath = require('node:path').join(__dirname, '..', 'public', 'dashboard', 'admin.css');
+const adminCssSource = fs.readFileSync(adminCssPath, 'utf8');
 const quotaStart = dashboardSource.indexOf('async function fetchSlipokDashQuota');
 const quotaEnd = dashboardSource.indexOf('// ========== SlipOK Quota Mini-Card', quotaStart);
 assert.ok(quotaStart >= 0 && quotaEnd > quotaStart, 'quota function boundary must exist');
@@ -211,4 +213,19 @@ test('dashboard uses the server expired flag for the disconnected status and nev
   assert.match(expiry, /expired === true/);
   assert.doesNotMatch(expiry, /Date\.parse\(/);
   assert.doesNotMatch(expiry, /new Date\(endDate\)/);
+});
+
+test('expired dashboard card routes to payment setup and highlights both renewal actions', () => {
+  const cardStart = dashboardSource.indexOf('function renderSlipokDashCard(');
+  const cardEnd = dashboardSource.indexOf('\n\nfunction slipokBangkokDateKey', cardStart);
+  const card = dashboardSource.slice(cardStart, cardEnd);
+
+  assert.match(dashboardSource, /function highlightSlipokRenewalActions\(\)/);
+  assert.match(dashboardSource, /document\.querySelector\('\.btn-slipok-line-add'\)/);
+  assert.match(dashboardSource, /document\.getElementById\('btnTestSlipOk'\)/);
+  assert.match(card, /if \(isExpired\) highlightSlipokRenewalActions\(\);/);
+  assert.match(card, /switchTab\('payment-setup'\);/);
+  assert.match(adminCssSource, /\.slipok-renewal-highlight/);
+  assert.match(adminCssSource, /\.btn-slipok-line-add\.slipok-renewal-highlight/);
+  assert.match(adminCssSource, /#btnTestSlipOk\.slipok-renewal-highlight/);
 });
